@@ -1,10 +1,25 @@
 #include "engine/render/render.h"
 
+#include "engine/engine.h"
+
+#include <directx/d3dx12.h>
+
 #include <stdexcept>
+
+#include <wrl.h>
+
+using Microsoft::WRL::ComPtr;
 
 using namespace simcoe::render;
 
-#define HR_CHECK(expr) do { HRESULT hr = (expr); if (FAILED(hr)) { return nullptr; } } while (false)
+#define HR_CHECK(expr) \
+    do { \
+        HRESULT hr = (expr); \
+        if (FAILED(hr)) { \
+            simcoe::logError(#expr); \
+            return nullptr; \
+        } \
+    } while (false)
 
 static std::string narrow(std::wstring_view wstr) {
     std::string result(wstr.size() + 1, '\0');
@@ -28,6 +43,14 @@ static D3D12_RESOURCE_STATES getResourceState(ResourceState state) {
     case ResourceState::ePresent: return D3D12_RESOURCE_STATE_PRESENT;
     case ResourceState::eRenderTarget: return D3D12_RESOURCE_STATE_RENDER_TARGET;
     default: throw std::runtime_error("invalid resource state");
+    }
+}
+
+static DXGI_FORMAT getTypeFormat(TypeFormat fmt) {
+    switch (fmt) {
+    case TypeFormat::eFloat3: return DXGI_FORMAT_R32G32B32_FLOAT;
+    case TypeFormat::eFloat4: return DXGI_FORMAT_R32G32B32A32_FLOAT;
+    default: throw std::runtime_error("invalid type format");
     }
 }
 
@@ -63,6 +86,11 @@ void Commands::clearRenderTarget(HostHeapOffset handle, math::float4 colour) {
 
 Commands *Commands::create(ID3D12GraphicsCommandList *pList, ID3D12CommandAllocator *pAllocator) {
     return new Commands(pList, pAllocator);
+}
+
+Commands::~Commands() {
+    pList->Release();
+    pAllocator->Release();
 }
 
 // device queue
@@ -108,6 +136,10 @@ DeviceQueue *DeviceQueue::create(ID3D12CommandQueue *pQueue) {
     return new DeviceQueue(pQueue);
 }
 
+DeviceQueue::~DeviceQueue() {
+    pQueue->Release();
+}
+
 // display queue
 
 size_t DisplayQueue::getFrameIndex() {
@@ -131,6 +163,10 @@ DisplayQueue *DisplayQueue::create(IDXGISwapChain4 *pSwapChain, bool tearing) {
     return new DisplayQueue(pSwapChain, tearing);
 }
 
+DisplayQueue::~DisplayQueue() {
+    pSwapChain->Release();
+}
+
 // device
 
 DeviceQueue *Device::createQueue() {
@@ -151,6 +187,8 @@ Commands *Device::createCommands() {
     ID3D12GraphicsCommandList *pList = nullptr;
     HR_CHECK(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, pAllocator, nullptr, IID_PPV_ARGS(&pList)));
 
+    HR_CHECK(pList->Close());
+
     return Commands::create(pList, pAllocator);
 }
 
@@ -168,6 +206,55 @@ DescriptorHeap *Device::createRenderTargetHeap(UINT count) {
     return DescriptorHeap::create(pHeap, descriptorSize);
 }
 
+PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo) {
+    D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {
+        .Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
+    };
+
+    ComPtr<ID3DBlob> signature;
+    ComPtr<ID3DBlob> error;
+    HR_CHECK(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
+
+    ID3D12RootSignature *pSignature = nullptr;
+    HR_CHECK(getDevice()->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&pSignature)));
+
+    std::vector<D3D12_INPUT_ELEMENT_DESC> attributes;
+    for (const auto& attribute : createInfo.attributes) {
+        D3D12_INPUT_ELEMENT_DESC desc = {
+            .SemanticName = attribute.name.data(),
+            .SemanticIndex = 0,
+            .Format = getTypeFormat(attribute.format),
+            .InputSlot = 0,
+            .AlignedByteOffset = UINT(attribute.offset),
+            .InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+        };
+
+        attributes.push_back(desc);
+    }
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineDesc = {
+        .pRootSignature = pSignature,
+        .VS = CD3DX12_SHADER_BYTECODE(createInfo.vertexShader.data(), createInfo.vertexShader.size()),
+        .PS = CD3DX12_SHADER_BYTECODE(createInfo.vertexShader.data(), createInfo.vertexShader.size()),
+
+        .BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT),
+        .SampleMask = UINT_MAX,
+
+        .RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT),
+        .DepthStencilState = { .DepthEnable = false, .StencilEnable = false },
+        .InputLayout = {  attributes.data(), UINT(attributes.size()) },
+        .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+        .NumRenderTargets = 1,
+        .RTVFormats = { DXGI_FORMAT_R8G8B8A8_UNORM },
+        .SampleDesc = { .Count = 1 },
+    };
+
+    ID3D12PipelineState *pPipeline = nullptr;
+    HR_CHECK(pDevice->CreateGraphicsPipelineState(&pipelineDesc, IID_PPV_ARGS(&pPipeline)));
+
+    return PipelineState::create(pSignature, pPipeline);
+}
+
 Fence *Device::createFence() {
     ID3D12Fence *pFence = nullptr;
     HR_CHECK(pDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&pFence)));
@@ -178,6 +265,40 @@ Fence *Device::createFence() {
     }
 
     return Fence::create(pFence, hEvent);
+}
+
+VertexBuffer *Device::createVertexBuffer(const void *pData, size_t length, size_t stride) {
+    ID3D12Resource *pResource = nullptr;
+    D3D12_HEAP_PROPERTIES heap = {
+        .Type = D3D12_HEAP_TYPE_UPLOAD,
+    };
+
+    D3D12_RESOURCE_DESC desc = {
+        .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
+        .Width = length,
+        .Height = 1,
+        .DepthOrArraySize = 1,
+        .MipLevels = 1,
+        .Format = DXGI_FORMAT_UNKNOWN,
+        .SampleDesc = { .Count = 1 },
+        .Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+        .Flags = D3D12_RESOURCE_FLAG_NONE,
+    };
+
+    HR_CHECK(pDevice->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&pResource)));
+
+    void *pMapped = nullptr;
+    HR_CHECK(pResource->Map(0, nullptr, &pMapped));
+    memcpy(pMapped, pData, length);
+    pResource->Unmap(0, nullptr);
+
+    D3D12_VERTEX_BUFFER_VIEW view = {
+        .BufferLocation = pResource->GetGPUVirtualAddress(),
+        .SizeInBytes = UINT(length),
+        .StrideInBytes = UINT(stride),
+    };
+
+    return VertexBuffer::create(pResource, view);
 }
 
 void Device::mapRenderTarget(HostHeapOffset handle, RenderTarget *pTarget) {
@@ -193,7 +314,19 @@ Device *Device::create(IDXGIAdapter4 *pAdapter) {
     ID3D12Device *pDevice = nullptr;
     HR_CHECK(D3D12CreateDevice(pAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pDevice)));
 
-    return new Device(pDevice);
+    ID3D12InfoQueue1 *pInfoQueue = nullptr;
+    if (HRESULT hr = pDevice->QueryInterface(IID_PPV_ARGS(&pInfoQueue)); SUCCEEDED(hr)) {
+        simcoe::logInfo("enabling d3d12 debug layer");
+    } else {
+        simcoe::logWarn("failed to enable d3d12 debug layer");
+    }
+
+    return new Device(pDevice, pInfoQueue);
+}
+
+Device::~Device() {
+    if (pInfoQueue) { pInfoQueue->Release(); }
+    pDevice->Release();
 }
 
 // adapter
@@ -221,6 +354,10 @@ Adapter *Adapter::create(IDXGIAdapter1 *pAdapter) {
     return new Adapter(pAdapter4, desc);
 }
 
+Adapter::~Adapter() {
+    pAdapter->Release();
+}
+
 // context
 
 std::vector<Adapter*> Context::getAdapters() {
@@ -235,9 +372,27 @@ std::vector<Adapter*> Context::getAdapters() {
 }
 
 Context *Context::create() {
+    UINT flags = DXGI_CREATE_FACTORY_DEBUG;
     IDXGIFactory6 *pFactory = nullptr;
-    HR_CHECK(CreateDXGIFactory1(IID_PPV_ARGS(&pFactory)));
-    return new Context(pFactory);
+    HR_CHECK(CreateDXGIFactory2(flags, IID_PPV_ARGS(&pFactory)));
+
+    IDXGIDebug1 *pDebug = nullptr;
+    if (HRESULT hr = DXGIGetDebugInterface1(0, IID_PPV_ARGS(&pDebug)); SUCCEEDED(hr)) {
+        simcoe::logInfo("enabling dxgi debug layer");
+        pDebug->EnableLeakTrackingForThread();
+    } else {
+        simcoe::logWarn("failed to enable dxgi debug layer");
+    }
+
+    return new Context(pFactory, pDebug);
+}
+
+Context::~Context() {
+    pFactory->Release();
+    if (pDebug) {
+        pDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
+        pDebug->Release();
+    }
 }
 
 // descriptor heap
@@ -254,17 +409,33 @@ DescriptorHeap *DescriptorHeap::create(ID3D12DescriptorHeap *pHeap, UINT descrip
     return new DescriptorHeap(pHeap, descriptorSize);
 }
 
+DescriptorHeap::~DescriptorHeap() {
+    pHeap->Release();
+}
+
+// pipeline state
+
+PipelineState *PipelineState::create(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState) {
+    return new PipelineState(pRootSignature, pState);
+}
+
 // render target
 
 RenderTarget *RenderTarget::create(ID3D12Resource *pResource) {
     return new RenderTarget(pResource);
 }
 
-// fence
-
-Fence *Fence::create(ID3D12Fence *pFence, HANDLE hEvent) {
-    return new Fence(pFence, hEvent);
+RenderTarget::~RenderTarget() {
+    pResource->Release();
 }
+
+// vertex buffer
+
+VertexBuffer *VertexBuffer::create(ID3D12Resource *pResource, D3D12_VERTEX_BUFFER_VIEW view) {
+    return new VertexBuffer(pResource, view);
+}
+
+// fence
 
 size_t Fence::getValue() {
     return pFence->GetCompletedValue();
@@ -273,4 +444,28 @@ size_t Fence::getValue() {
 void Fence::wait(size_t value) {
     pFence->SetEventOnCompletion(value, hEvent);
     WaitForSingleObject(hEvent, INFINITE);
+}
+
+Fence *Fence::create(ID3D12Fence *pFence, HANDLE hEvent) {
+    return new Fence(pFence, hEvent);
+}
+
+Fence::~Fence() {
+    pFence->Release();
+    CloseHandle(hEvent);
+}
+
+#define DLLEXPORT __declspec(dllexport)
+
+// agility
+extern "C" {
+    // load up the agility sdk
+    DLLEXPORT extern const UINT D3D12SDKVersion = 610;
+    DLLEXPORT extern const char* D3D12SDKPath = ".\\";
+}
+
+extern "C" {
+    // ask vendors to use the high performance gpu if we have one
+    DLLEXPORT extern const DWORD NvOptimusEnablement = 0x00000001;
+    DLLEXPORT extern int AmdPowerXpressRequestHighPerformance = 1;
 }

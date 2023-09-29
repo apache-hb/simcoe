@@ -6,8 +6,9 @@
 #include <vector>
 #include <span>
 
-#include <d3d12.h>
+#include <directx/d3d12.h>
 #include <dxgi1_6.h>
+#include <dxgidebug.h>
 
 namespace simcoe::render {
     // forwards
@@ -22,7 +23,9 @@ namespace simcoe::render {
     struct Commands;
 
     struct RenderTarget;
+    struct VertexBuffer;
     struct DescriptorHeap;
+    struct PipelineState;
 
     struct Fence;
 
@@ -39,15 +42,18 @@ namespace simcoe::render {
         // module interface
 
         static Context *create();
+        ~Context();
 
         IDXGIFactory6 *getFactory() { return pFactory; }
 
     private:
-        Context(IDXGIFactory6 *pFactory)
+        Context(IDXGIFactory6 *pFactory, IDXGIDebug1 *pDebug)
             : pFactory(pFactory)
+            , pDebug(pDebug)
         { }
 
         IDXGIFactory6 *pFactory;
+        IDXGIDebug1 *pDebug = nullptr;
     };
 
     // adapter
@@ -67,6 +73,7 @@ namespace simcoe::render {
         AdapterInfo getInfo();
 
         static Adapter *create(IDXGIAdapter1 *pAdapter);
+        ~Adapter();
 
         IDXGIAdapter4 *getAdapter() { return pAdapter; }
 
@@ -82,28 +89,60 @@ namespace simcoe::render {
 
     // device
 
+    enum struct TypeFormat {
+        eFloat3,
+        eFloat4
+    };
+
+    struct VertexAttribute {
+        std::string_view name;
+        size_t offset;
+        TypeFormat format;
+    };
+
+    struct PipelineCreateInfo {
+        std::vector<std::byte> vertexShader;
+        std::vector<std::byte> pixelShader;
+
+        std::vector<VertexAttribute> attributes;
+    };
+
     struct Device {
         // public interface
 
         DeviceQueue *createQueue();
         Commands *createCommands();
         DescriptorHeap *createRenderTargetHeap(UINT count);
+        PipelineState *createPipelineState(const PipelineCreateInfo& createInfo);
         Fence *createFence();
 
+        template<typename T>
+        VertexBuffer *createVertexBuffer(std::span<const T> data) {
+            return createVertexBuffer(data.data(), data.size_bytes(), sizeof(T));
+        }
+
+        VertexBuffer *createVertexBuffer(const void *pData, size_t length, size_t stride);
+
+        // resource management
+
         void mapRenderTarget(HostHeapOffset handle, RenderTarget *pTarget);
+
 
         // module interface
 
         static Device *create(IDXGIAdapter4 *pAdapter);
+        ~Device();
 
         ID3D12Device *getDevice() { return pDevice; }
 
     private:
-        Device(ID3D12Device *pDevice)
+        Device(ID3D12Device *pDevice, ID3D12InfoQueue1 *pInfoQueue)
             : pDevice(pDevice)
+            , pInfoQueue(pInfoQueue)
         { }
 
         ID3D12Device *pDevice;
+        ID3D12InfoQueue1 *pInfoQueue;
     };
 
     // display
@@ -127,6 +166,7 @@ namespace simcoe::render {
         // module interface
 
         static DisplayQueue *create(IDXGISwapChain4 *pSwapChain, bool tearing);
+        ~DisplayQueue();
 
         IDXGISwapChain4 *getSwapChain() { return pSwapChain; }
 
@@ -153,6 +193,7 @@ namespace simcoe::render {
         // module interface
 
         static DeviceQueue *create(ID3D12CommandQueue *pQueue);
+        ~DeviceQueue();
 
         ID3D12CommandQueue *getQueue() { return pQueue; }
 
@@ -183,6 +224,7 @@ namespace simcoe::render {
         // module interface
 
         static Commands *create(ID3D12GraphicsCommandList *pList, ID3D12CommandAllocator *pAllocator);
+        ~Commands();
 
         ID3D12GraphicsCommandList *getCommandList() { return pList; }
         ID3D12CommandAllocator *getAllocator() { return pAllocator; }
@@ -197,12 +239,30 @@ namespace simcoe::render {
         ID3D12CommandAllocator *pAllocator;
     };
 
+    struct PipelineState {
+        // module interface
+        static PipelineState *create(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState);
+        ~PipelineState();
+
+        ID3D12RootSignature *getRootSignature() { return pRootSignature; }
+        ID3D12PipelineState *getState() { return pState; }
+    private:
+        PipelineState(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState)
+            : pRootSignature(pRootSignature)
+            , pState(pState)
+        { }
+
+        ID3D12RootSignature *pRootSignature;
+        ID3D12PipelineState *pState;
+    };
+
     // render target
 
     struct RenderTarget {
         static RenderTarget *create(ID3D12Resource *pResource);
 
         ID3D12Resource *getResource() { return pResource; }
+        ~RenderTarget();
 
     private:
         RenderTarget(ID3D12Resource *pResource)
@@ -212,6 +272,22 @@ namespace simcoe::render {
         ID3D12Resource *pResource;
     };
 
+    struct VertexBuffer {
+        static VertexBuffer *create(ID3D12Resource *pResource, D3D12_VERTEX_BUFFER_VIEW view);
+
+        ID3D12Resource *getResource() { return pResource; }
+        ~VertexBuffer();
+
+    private:
+        VertexBuffer(ID3D12Resource *pResource, D3D12_VERTEX_BUFFER_VIEW view)
+            : pResource(pResource)
+            , view(view)
+        { }
+
+        ID3D12Resource *pResource;
+        D3D12_VERTEX_BUFFER_VIEW view;
+    };
+
     // descriptor heap
 
     struct DescriptorHeap {
@@ -219,6 +295,7 @@ namespace simcoe::render {
         HostHeapOffset hostOffset(UINT index);
 
         static DescriptorHeap *create(ID3D12DescriptorHeap *pHeap, UINT descriptorSize);
+        ~DescriptorHeap();
 
     private:
         DescriptorHeap(ID3D12DescriptorHeap *pHeap, UINT descriptorSize)
@@ -230,6 +307,8 @@ namespace simcoe::render {
         UINT descriptorSize;
     };
 
+    // fence
+
     struct Fence {
         // public interface
 
@@ -238,6 +317,7 @@ namespace simcoe::render {
 
         // module interface
         static Fence *create(ID3D12Fence *pFence, HANDLE hEvent);
+        ~Fence();
 
         ID3D12Fence *getFence() { return pFence; }
     private:
