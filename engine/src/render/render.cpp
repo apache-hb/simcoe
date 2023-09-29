@@ -105,7 +105,9 @@ static void debugCallback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERIT
 
 // commands
 
-void Commands::begin() {
+void Commands::begin(CommandMemory *pMemory) {
+    ID3D12CommandAllocator *pAllocator = pMemory->getAllocator();
+
     pAllocator->Reset();
     pList->Reset(pAllocator, nullptr);
 }
@@ -176,12 +178,21 @@ void Commands::drawVertexBuffer(UINT count) {
     pList->DrawInstanced(count, 1, 0, 0);
 }
 
-Commands *Commands::create(ID3D12GraphicsCommandList *pList, ID3D12CommandAllocator *pAllocator) {
-    return new Commands(pList, pAllocator);
+Commands *Commands::create(ID3D12GraphicsCommandList *pList) {
+    return new Commands(pList);
 }
 
 Commands::~Commands() {
     pList->Release();
+}
+
+// command memory
+
+CommandMemory *CommandMemory::create(ID3D12CommandAllocator *pAllocator) {
+    return new CommandMemory(pAllocator);
+}
+
+CommandMemory::~CommandMemory() {
     pAllocator->Release();
 }
 
@@ -272,16 +283,22 @@ DeviceQueue *Device::createQueue() {
     return DeviceQueue::create(pQueue);
 }
 
-Commands *Device::createCommands() {
-    ID3D12CommandAllocator *pAllocator = nullptr;
-    HR_CHECK(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&pAllocator)));
+Commands *Device::createCommands(CommandMemory *pMemory) {
+    ID3D12CommandAllocator *pAllocator = pMemory->getAllocator();
 
     ID3D12GraphicsCommandList *pList = nullptr;
     HR_CHECK(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, pAllocator, nullptr, IID_PPV_ARGS(&pList)));
 
     HR_CHECK(pList->Close());
 
-    return Commands::create(pList, pAllocator);
+    return Commands::create(pList);
+}
+
+CommandMemory *Device::createCommandMemory() {
+    ID3D12CommandAllocator *pAllocator = nullptr;
+    HR_CHECK(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&pAllocator)));
+
+    return CommandMemory::create(pAllocator);
 }
 
 DescriptorHeap *Device::createRenderTargetHeap(UINT count) {

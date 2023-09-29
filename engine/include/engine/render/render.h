@@ -26,6 +26,7 @@ namespace simcoe::render {
     struct VertexBuffer;
     struct DescriptorHeap;
     struct PipelineState;
+    struct CommandMemory;
 
     struct Fence;
 
@@ -111,7 +112,8 @@ namespace simcoe::render {
         // public interface
 
         DeviceQueue *createQueue();
-        Commands *createCommands();
+        Commands *createCommands(CommandMemory *pMemory);
+        CommandMemory *createCommandMemory();
         DescriptorHeap *createRenderTargetHeap(UINT count);
         PipelineState *createPipelineState(const PipelineCreateInfo& createInfo);
         Fence *createFence();
@@ -207,6 +209,23 @@ namespace simcoe::render {
         ID3D12CommandQueue *pQueue;
     };
 
+    // allocator
+
+    struct CommandMemory {
+        // module interface
+
+        static CommandMemory *create(ID3D12CommandAllocator *pAllocator);
+        ~CommandMemory();
+
+        ID3D12CommandAllocator *getAllocator() { return pAllocator; }
+    private:
+        CommandMemory(ID3D12CommandAllocator *pAllocator)
+            : pAllocator(pAllocator)
+        { }
+
+        ID3D12CommandAllocator *pAllocator;
+    };
+
     // commands
 
     enum struct ResourceState {
@@ -239,7 +258,7 @@ namespace simcoe::render {
     struct Commands {
         // public interface
 
-        void begin();
+        void begin(CommandMemory *pMemory);
         void end();
 
         void transition(RenderTarget *pTarget, ResourceState from, ResourceState to);
@@ -254,20 +273,17 @@ namespace simcoe::render {
 
         // module interface
 
-        static Commands *create(ID3D12GraphicsCommandList *pList, ID3D12CommandAllocator *pAllocator);
+        static Commands *create(ID3D12GraphicsCommandList *pList);
         ~Commands();
 
         ID3D12GraphicsCommandList *getCommandList() { return pList; }
-        ID3D12CommandAllocator *getAllocator() { return pAllocator; }
 
     private:
-        Commands(ID3D12GraphicsCommandList *pList, ID3D12CommandAllocator *pAllocator)
+        Commands(ID3D12GraphicsCommandList *pList)
             : pList(pList)
-            , pAllocator(pAllocator)
         { }
 
         ID3D12GraphicsCommandList *pList;
-        ID3D12CommandAllocator *pAllocator;
     };
 
     struct PipelineState {

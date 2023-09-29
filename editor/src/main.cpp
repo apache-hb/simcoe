@@ -78,7 +78,6 @@ private:
     void createDeviceData(render::Adapter* pAdapter) {
         pDevice = pAdapter->createDevice();
         pQueue = pDevice->createQueue();
-        pCommands = pDevice->createCommands();
         pFence = pDevice->createFence();
     }
 
@@ -123,7 +122,11 @@ private:
             pDevice->mapRenderTarget(pRenderTargetHeap->hostOffset(i), pRenderTarget);
 
             pRenderTargetArray[i] = pRenderTarget;
+
+            pMemoryArray[i] = pDevice->createCommandMemory();
         }
+
+        pCommands = pDevice->createCommands(pMemoryArray[0]);
     }
 
     void createResources() {
@@ -167,7 +170,7 @@ private:
     void beginFrame() {
         frameIndex = pDisplayQueue->getFrameIndex();
         render::HostHeapOffset renderTarget = pRenderTargetHeap->hostOffset(frameIndex);
-        pCommands->begin();
+        pCommands->begin(pMemoryArray[frameIndex]);
 
         pCommands->setPipelineState(pPipeline);
         pCommands->setDisplay({ viewport, scissor });
@@ -186,7 +189,7 @@ private:
     }
 
     void endFrame() {
-        size_t value = fenceValue++;
+        size_t value = fenceValues[frameIndex]++;
         pQueue->signal(pFence, value);
 
         if (pFence->getValue() < value) {
@@ -203,11 +206,13 @@ private:
     render::Device *pDevice;
 
     render::DeviceQueue *pQueue;
+
+    render::CommandMemory *pMemoryArray[kBackBufferCount];
     render::Commands *pCommands;
 
     size_t frameIndex = 0;
     render::Fence *pFence;
-    size_t fenceValue = 1;
+    size_t fenceValues[kBackBufferCount];
 
     // display data
 
