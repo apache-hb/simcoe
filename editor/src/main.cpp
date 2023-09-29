@@ -130,13 +130,20 @@ private:
     }
 
     void createResources() {
-        const auto triangle = std::to_array<Vertex>({
-            Vertex{ { 0.0f, 0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
-            Vertex{ { 0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
-            Vertex{ { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
+        const auto quad = std::to_array<Vertex>({
+            Vertex{ { 0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } }, // top left
+            Vertex{ { 0.5f, 0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } }, // top right
+            Vertex{ { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }, // bottom left
+            Vertex{ { -0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f, 0.0f, 1.0f } } // bottom right
         });
 
-        pVertexBuffer = pDevice->createVertexBuffer<Vertex>(triangle);
+        const auto indices = std::to_array<uint16_t>({
+            0, 2, 1,
+            1, 2, 3
+        });
+
+        pVertexBuffer = pDevice->createVertexBuffer<Vertex>(quad);
+        pIndexBuffer = pDevice->createIndexBuffer<uint16_t>(indices, render::TypeFormat::eUint16);
 
         const render::PipelineCreateInfo psoCreateInfo = {
             .vertexShader = createInfo.depot.load("triangle.vs.cso"),
@@ -154,6 +161,7 @@ private:
     void destroyResources() {
         delete pPipeline;
         delete pVertexBuffer;
+        delete pIndexBuffer;
     }
 
     void destroyDisplayData() {
@@ -181,7 +189,8 @@ private:
         pCommands->clearRenderTarget(renderTarget, { 0.0f, 0.2f, 0.4f, 1.0f });
 
         pCommands->setVertexBuffer(pVertexBuffer);
-        pCommands->drawVertexBuffer(3);
+        pCommands->setIndexBuffer(pIndexBuffer);
+        pCommands->drawIndexBuffer(6);
 
         pCommands->transition(pRenderTargetArray[frameIndex], render::ResourceState::eRenderTarget, render::ResourceState::ePresent);
 
@@ -227,6 +236,7 @@ private:
 
     render::PipelineState *pPipeline;
     render::VertexBuffer *pVertexBuffer;
+    render::IndexBuffer *pIndexBuffer;
 };
 
 #define ASSERT(expr) \

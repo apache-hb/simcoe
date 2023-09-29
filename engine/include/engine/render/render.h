@@ -24,6 +24,10 @@ namespace simcoe::render {
 
     struct RenderTarget;
     struct VertexBuffer;
+    struct IndexBuffer;
+    struct Texture;
+    struct UploadBuffer;
+
     struct DescriptorHeap;
     struct PipelineState;
     struct CommandMemory;
@@ -91,6 +95,9 @@ namespace simcoe::render {
     // device
 
     enum struct TypeFormat {
+        eUint16,
+        eUint32,
+
         eFloat3,
         eFloat4
     };
@@ -106,6 +113,19 @@ namespace simcoe::render {
         std::vector<std::byte> pixelShader;
 
         std::vector<VertexAttribute> attributes;
+    };
+
+    enum struct PixelFormat {
+        eRGBA8
+    };
+
+    struct TextureCreateInfo {
+        size_t width;
+        size_t height;
+
+        PixelFormat format;
+
+        std::vector<std::byte> data;
     };
 
     struct Device {
@@ -125,10 +145,25 @@ namespace simcoe::render {
 
         VertexBuffer *createVertexBuffer(const void *pData, size_t length, size_t stride);
 
+
+
+        template<typename T>
+        IndexBuffer *createIndexBuffer(std::span<const T> data, TypeFormat fmt) {
+            return createIndexBuffer(data.data(), data.size_bytes(), sizeof(T), fmt);
+        }
+
+        IndexBuffer *createIndexBuffer(const void *pData, size_t length, size_t stride, TypeFormat fmt);
+
+
+
+        Texture *createTexture(const TextureCreateInfo& createInfo);
+
+        UploadBuffer *createUploadBuffer(size_t length);
+
         // resource management
 
         void mapRenderTarget(HostHeapOffset handle, RenderTarget *pTarget);
-
+        void mapTexture(HostHeapOffset handle, Texture *pTexture);
 
         // module interface
 
@@ -268,8 +303,10 @@ namespace simcoe::render {
         void setPipelineState(PipelineState *pState);
         void setRenderTarget(HostHeapOffset handle);
         void setVertexBuffer(VertexBuffer *pBuffer);
+        void setIndexBuffer(IndexBuffer *pBuffer);
 
         void drawVertexBuffer(UINT count);
+        void drawIndexBuffer(UINT count);
 
         // module interface
 
@@ -334,6 +371,23 @@ namespace simcoe::render {
 
         ID3D12Resource *pResource;
         D3D12_VERTEX_BUFFER_VIEW view;
+    };
+
+    struct IndexBuffer {
+        static IndexBuffer *create(ID3D12Resource *pResource, D3D12_INDEX_BUFFER_VIEW view);
+
+        ID3D12Resource *getResource() { return pResource; }
+        D3D12_INDEX_BUFFER_VIEW getView() { return view; }
+        ~IndexBuffer();
+
+    private:
+        IndexBuffer(ID3D12Resource *pResource, D3D12_INDEX_BUFFER_VIEW view)
+            : pResource(pResource)
+            , view(view)
+        { }
+
+        ID3D12Resource *pResource;
+        D3D12_INDEX_BUFFER_VIEW view;
     };
 
     // descriptor heap

@@ -48,6 +48,9 @@ static D3D12_RESOURCE_STATES getResourceState(ResourceState state) {
 
 static DXGI_FORMAT getTypeFormat(TypeFormat fmt) {
     switch (fmt) {
+    case TypeFormat::eUint16: return DXGI_FORMAT_R16_UINT;
+    case TypeFormat::eUint32: return DXGI_FORMAT_R32_UINT;
+
     case TypeFormat::eFloat3: return DXGI_FORMAT_R32G32B32_FLOAT;
     case TypeFormat::eFloat4: return DXGI_FORMAT_R32G32B32A32_FLOAT;
     default: throw std::runtime_error("invalid type format");
@@ -174,8 +177,17 @@ void Commands::setVertexBuffer(VertexBuffer *pBuffer) {
     pList->IASetVertexBuffers(0, 1, views);
 }
 
+void Commands::setIndexBuffer(IndexBuffer *pBuffer) {
+    D3D12_INDEX_BUFFER_VIEW view = pBuffer->getView();
+    pList->IASetIndexBuffer(&view);
+}
+
 void Commands::drawVertexBuffer(UINT count) {
     pList->DrawInstanced(count, 1, 0, 0);
+}
+
+void Commands::drawIndexBuffer(UINT count) {
+    pList->DrawIndexedInstanced(count, 1, 0, 0, 0);
 }
 
 Commands *Commands::create(ID3D12GraphicsCommandList *pList) {
@@ -378,21 +390,8 @@ Fence *Device::createFence() {
 
 VertexBuffer *Device::createVertexBuffer(const void *pData, size_t length, size_t stride) {
     ID3D12Resource *pResource = nullptr;
-    D3D12_HEAP_PROPERTIES heap = {
-        .Type = D3D12_HEAP_TYPE_UPLOAD,
-    };
-
-    D3D12_RESOURCE_DESC desc = {
-        .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
-        .Width = length,
-        .Height = 1,
-        .DepthOrArraySize = 1,
-        .MipLevels = 1,
-        .Format = DXGI_FORMAT_UNKNOWN,
-        .SampleDesc = { .Count = 1 },
-        .Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
-        .Flags = D3D12_RESOURCE_FLAG_NONE,
-    };
+    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+    D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(length);
 
     HR_CHECK(pDevice->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&pResource)));
 
@@ -408,6 +407,28 @@ VertexBuffer *Device::createVertexBuffer(const void *pData, size_t length, size_
     };
 
     return VertexBuffer::create(pResource, view);
+}
+
+IndexBuffer *Device::createIndexBuffer(const void *pData, size_t length, size_t stride, TypeFormat fmt) {
+    ID3D12Resource *pResource = nullptr;
+
+    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+    D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(length);
+
+    HR_CHECK(pDevice->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&pResource)));
+
+    void *pMapped = nullptr;
+    HR_CHECK(pResource->Map(0, nullptr, &pMapped));
+    memcpy(pMapped, pData, length);
+    pResource->Unmap(0, nullptr);
+
+    D3D12_INDEX_BUFFER_VIEW view = {
+        .BufferLocation = pResource->GetGPUVirtualAddress(),
+        .SizeInBytes = UINT(length),
+        .Format = getTypeFormat(fmt)
+    };
+
+    return IndexBuffer::create(pResource, view);
 }
 
 void Device::mapRenderTarget(HostHeapOffset handle, RenderTarget *pTarget) {
@@ -552,6 +573,12 @@ RenderTarget::~RenderTarget() {
 
 VertexBuffer *VertexBuffer::create(ID3D12Resource *pResource, D3D12_VERTEX_BUFFER_VIEW view) {
     return new VertexBuffer(pResource, view);
+}
+
+// index buffer
+
+IndexBuffer *IndexBuffer::create(ID3D12Resource *pResource, D3D12_INDEX_BUFFER_VIEW view) {
+    return new IndexBuffer(pResource, view);
 }
 
 // fence
