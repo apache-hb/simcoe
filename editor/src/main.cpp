@@ -91,6 +91,23 @@ private:
 
     // create data that depends on the present queue
     void createDisplayData() {
+        viewport = {
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = static_cast<float>(createInfo.renderWidth),
+            .height = static_cast<float>(createInfo.renderHeight),
+
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f
+        };
+
+        scissor = {
+            .left = 0,
+            .top = 0,
+            .right = static_cast<LONG>(createInfo.renderWidth),
+            .bottom = static_cast<LONG>(createInfo.renderHeight)
+        };
+
         const render::DisplayQueueCreateInfo displayCreateInfo = {
             .hWindow = createInfo.hWindow,
             .width = createInfo.displayWidth,
@@ -119,8 +136,8 @@ private:
         pVertexBuffer = pDevice->createVertexBuffer<Vertex>(triangle);
 
         const render::PipelineCreateInfo psoCreateInfo = {
-            .vertexShader = createInfo.depot.load("shaders/triangle.vs.cso"),
-            .pixelShader = createInfo.depot.load("shaders/triangle.ps.cso"),
+            .vertexShader = createInfo.depot.load("triangle.vs.cso"),
+            .pixelShader = createInfo.depot.load("triangle.ps.cso"),
 
             .attributes = {
                 { "POSITION", offsetof(Vertex, position), render::TypeFormat::eFloat3 },
@@ -149,10 +166,20 @@ private:
 
     void beginFrame() {
         frameIndex = pDisplayQueue->getFrameIndex();
+        render::HostHeapOffset renderTarget = pRenderTargetHeap->hostOffset(frameIndex);
         pCommands->begin();
 
+        pCommands->setPipelineState(pPipeline);
+        pCommands->setDisplay({ viewport, scissor });
+
         pCommands->transition(pRenderTargetArray[frameIndex], render::ResourceState::ePresent, render::ResourceState::eRenderTarget);
-        pCommands->clearRenderTarget(pRenderTargetHeap->hostOffset(frameIndex), { 0.0f, 0.2f, 0.4f, 1.0f });
+
+        pCommands->setRenderTarget(renderTarget);
+        pCommands->clearRenderTarget(renderTarget, { 0.0f, 0.2f, 0.4f, 1.0f });
+
+        pCommands->setVertexBuffer(pVertexBuffer);
+        pCommands->drawVertexBuffer(3);
+
         pCommands->transition(pRenderTargetArray[frameIndex], render::ResourceState::eRenderTarget, render::ResourceState::ePresent);
 
         pCommands->end();
@@ -184,6 +211,8 @@ private:
 
     // display data
 
+    render::Viewport viewport;
+    render::Scissor scissor;
     render::DisplayQueue *pDisplayQueue;
 
     render::DescriptorHeap *pRenderTargetHeap;
@@ -205,15 +234,6 @@ private:
 
 static void commonMain(simcoe::System& system) {
     assets::Assets depot = { std::filesystem::current_path() / "build" / "editor.exe.p" };
-
-    HMODULE mod = LoadLibraryA("D3D12Core.dll");
-    ASSERT(mod);
-
-    void *pfn = GetProcAddress(mod, "D3D12SDKVersion");
-    ASSERT(pfn);
-
-    DWORD *pVersion = reinterpret_cast<DWORD*>(pfn);
-    simcoe::logInfo(std::format("D3D12SDKVersion: {}", *pVersion));
 
     const simcoe::WindowCreateInfo windowCreateInfo = {
         .title = "simcoe",

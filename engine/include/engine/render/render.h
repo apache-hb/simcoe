@@ -136,13 +136,15 @@ namespace simcoe::render {
         ID3D12Device *getDevice() { return pDevice; }
 
     private:
-        Device(ID3D12Device *pDevice, ID3D12InfoQueue1 *pInfoQueue)
+        Device(ID3D12Device *pDevice, ID3D12InfoQueue1 *pInfoQueue, DWORD cookie)
             : pDevice(pDevice)
             , pInfoQueue(pInfoQueue)
+            , cookie(cookie)
         { }
 
         ID3D12Device *pDevice;
         ID3D12InfoQueue1 *pInfoQueue;
+        DWORD cookie;
     };
 
     // display
@@ -212,6 +214,28 @@ namespace simcoe::render {
         eRenderTarget
     };
 
+    struct Viewport {
+        float x;
+        float y;
+        float width;
+        float height;
+
+        float minDepth;
+        float maxDepth;
+    };
+
+    struct Scissor {
+        LONG left;
+        LONG top;
+        LONG right;
+        LONG bottom;
+    };
+
+    struct Display {
+        Viewport viewport;
+        Scissor scissor;
+    };
+
     struct Commands {
         // public interface
 
@@ -220,6 +244,13 @@ namespace simcoe::render {
 
         void transition(RenderTarget *pTarget, ResourceState from, ResourceState to);
         void clearRenderTarget(HostHeapOffset handle, math::float4 colour);
+
+        void setDisplay(const Display& display);
+        void setPipelineState(PipelineState *pState);
+        void setRenderTarget(HostHeapOffset handle);
+        void setVertexBuffer(VertexBuffer *pBuffer);
+
+        void drawVertexBuffer(UINT count);
 
         // module interface
 
@@ -276,6 +307,7 @@ namespace simcoe::render {
         static VertexBuffer *create(ID3D12Resource *pResource, D3D12_VERTEX_BUFFER_VIEW view);
 
         ID3D12Resource *getResource() { return pResource; }
+        D3D12_VERTEX_BUFFER_VIEW getView() { return view; }
         ~VertexBuffer();
 
     private:

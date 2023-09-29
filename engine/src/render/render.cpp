@@ -3,10 +3,10 @@
 #include "engine/engine.h"
 
 #include <directx/d3dx12.h>
+#include <wrl.h>
 
 #include <stdexcept>
-
-#include <wrl.h>
+#include <format>
 
 using Microsoft::WRL::ComPtr;
 
@@ -54,6 +54,55 @@ static DXGI_FORMAT getTypeFormat(TypeFormat fmt) {
     }
 }
 
+const char *severityToString(D3D12_MESSAGE_SEVERITY severity) {
+    switch (severity) {
+    case D3D12_MESSAGE_SEVERITY_CORRUPTION: return "CORRUPTION";
+    case D3D12_MESSAGE_SEVERITY_ERROR: return "ERROR";
+    case D3D12_MESSAGE_SEVERITY_WARNING: return "WARNING";
+    case D3D12_MESSAGE_SEVERITY_INFO: return "INFO";
+    case D3D12_MESSAGE_SEVERITY_MESSAGE: return "MESSAGE";
+    default: return "UNKNOWN";
+    }
+}
+
+const char *categoryToString(D3D12_MESSAGE_CATEGORY category) {
+    switch (category) {
+    case D3D12_MESSAGE_CATEGORY_APPLICATION_DEFINED: return "APPLICATION_DEFINED";
+    case D3D12_MESSAGE_CATEGORY_MISCELLANEOUS: return "MISCELLANEOUS";
+    case D3D12_MESSAGE_CATEGORY_INITIALIZATION: return "INITIALIZATION";
+    case D3D12_MESSAGE_CATEGORY_CLEANUP: return "CLEANUP";
+    case D3D12_MESSAGE_CATEGORY_COMPILATION: return "COMPILATION";
+    case D3D12_MESSAGE_CATEGORY_STATE_CREATION: return "STATE_CREATION";
+    case D3D12_MESSAGE_CATEGORY_STATE_SETTING: return "STATE_SETTING";
+    case D3D12_MESSAGE_CATEGORY_STATE_GETTING: return "STATE_GETTING";
+    case D3D12_MESSAGE_CATEGORY_RESOURCE_MANIPULATION: return "RESOURCE_MANIPULATION";
+    case D3D12_MESSAGE_CATEGORY_EXECUTION: return "EXECUTION";
+    case D3D12_MESSAGE_CATEGORY_SHADER: return "SHADER";
+    default: return "UNKNOWN";
+    }
+}
+
+static void debugCallback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID id, LPCSTR pDescription, void *pUser) {
+    const char *categoryStr = categoryToString(category);
+    const char *severityStr = severityToString(severity);
+
+    switch (severity) {
+    case D3D12_MESSAGE_SEVERITY_CORRUPTION:
+    case D3D12_MESSAGE_SEVERITY_ERROR:
+        simcoe::logError(std::format("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), pDescription));
+        break;
+    case D3D12_MESSAGE_SEVERITY_WARNING:
+        simcoe::logWarn(std::format("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), pDescription));
+        break;
+
+    default:
+    case D3D12_MESSAGE_SEVERITY_INFO:
+    case D3D12_MESSAGE_SEVERITY_MESSAGE:
+        simcoe::logInfo(std::format("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), pDescription));
+        return;
+    }
+}
+
 // commands
 
 void Commands::begin() {
@@ -82,6 +131,49 @@ void Commands::transition(RenderTarget *pTarget, ResourceState from, ResourceSta
 
 void Commands::clearRenderTarget(HostHeapOffset handle, math::float4 colour) {
     pList->ClearRenderTargetView(hostHandle(handle), colour.data(), 0, nullptr);
+}
+
+void Commands::setDisplay(const Display& display) {
+    const auto& [viewport, scissor] = display;
+    D3D12_VIEWPORT v = {
+        .TopLeftX = viewport.x,
+        .TopLeftY = viewport.y,
+        .Width = viewport.width,
+        .Height = viewport.height,
+        .MinDepth = viewport.minDepth,
+        .MaxDepth = viewport.maxDepth,
+    };
+
+    D3D12_RECT s = {
+        .left = scissor.left,
+        .top = scissor.top,
+        .right = scissor.right,
+        .bottom = scissor.bottom,
+    };
+
+    pList->RSSetViewports(1, &v);
+    pList->RSSetScissorRects(1, &s);
+}
+
+void Commands::setPipelineState(PipelineState *pState) {
+    pList->SetGraphicsRootSignature(pState->getRootSignature());
+    pList->SetPipelineState(pState->getState());
+}
+
+void Commands::setRenderTarget(HostHeapOffset handle) {
+    D3D12_CPU_DESCRIPTOR_HANDLE handles[] = { hostHandle(handle) };
+    pList->OMSetRenderTargets(1, handles, FALSE, nullptr);
+}
+
+void Commands::setVertexBuffer(VertexBuffer *pBuffer) {
+    pList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    D3D12_VERTEX_BUFFER_VIEW views[] = { pBuffer->getView() };
+    pList->IASetVertexBuffers(0, 1, views);
+}
+
+void Commands::drawVertexBuffer(UINT count) {
+    pList->DrawInstanced(count, 1, 0, 0);
 }
 
 Commands *Commands::create(ID3D12GraphicsCommandList *pList, ID3D12CommandAllocator *pAllocator) {
@@ -235,7 +327,7 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineDesc = {
         .pRootSignature = pSignature,
         .VS = CD3DX12_SHADER_BYTECODE(createInfo.vertexShader.data(), createInfo.vertexShader.size()),
-        .PS = CD3DX12_SHADER_BYTECODE(createInfo.vertexShader.data(), createInfo.vertexShader.size()),
+        .PS = CD3DX12_SHADER_BYTECODE(createInfo.pixelShader.data(), createInfo.pixelShader.size()),
 
         .BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT),
         .SampleMask = UINT_MAX,
@@ -311,17 +403,27 @@ void Device::mapRenderTarget(HostHeapOffset handle, RenderTarget *pTarget) {
 }
 
 Device *Device::create(IDXGIAdapter4 *pAdapter) {
-    ID3D12Device *pDevice = nullptr;
-    HR_CHECK(D3D12CreateDevice(pAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pDevice)));
-
-    ID3D12InfoQueue1 *pInfoQueue = nullptr;
-    if (HRESULT hr = pDevice->QueryInterface(IID_PPV_ARGS(&pInfoQueue)); SUCCEEDED(hr)) {
+    ID3D12Debug *pDebug = nullptr;
+    if (HRESULT hr = D3D12GetDebugInterface(IID_PPV_ARGS(&pDebug)); SUCCEEDED(hr)) {
         simcoe::logInfo("enabling d3d12 debug layer");
+        pDebug->EnableDebugLayer();
     } else {
         simcoe::logWarn("failed to enable d3d12 debug layer");
     }
 
-    return new Device(pDevice, pInfoQueue);
+    ID3D12Device *pDevice = nullptr;
+    HR_CHECK(D3D12CreateDevice(pAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pDevice)));
+
+    DWORD cookie = DWORD_MAX;
+    ID3D12InfoQueue1 *pInfoQueue = nullptr;
+    if (HRESULT hr = pDevice->QueryInterface(IID_PPV_ARGS(&pInfoQueue)); SUCCEEDED(hr)) {
+        simcoe::logInfo("enabling d3d12 info queue");
+        HR_CHECK(pInfoQueue->RegisterMessageCallback(debugCallback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, &cookie));
+    } else {
+        simcoe::logWarn("failed to enable d3d12 info queue");
+    }
+
+    return new Device(pDevice, pInfoQueue, cookie);
 }
 
 Device::~Device() {
@@ -460,7 +562,7 @@ Fence::~Fence() {
 // agility
 extern "C" {
     // load up the agility sdk
-    DLLEXPORT extern const UINT D3D12SDKVersion = 610;
+    DLLEXPORT extern const UINT D3D12SDKVersion = 602;
     DLLEXPORT extern const char* D3D12SDKPath = ".\\";
 }
 
