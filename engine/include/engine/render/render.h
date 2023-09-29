@@ -138,27 +138,14 @@ namespace simcoe::render {
         PipelineState *createPipelineState(const PipelineCreateInfo& createInfo);
         Fence *createFence();
 
-        template<typename T>
-        VertexBuffer *createVertexBuffer(std::span<const T> data) {
-            return createVertexBuffer(data.data(), data.size_bytes(), sizeof(T));
-        }
-
-        VertexBuffer *createVertexBuffer(const void *pData, size_t length, size_t stride);
-
-
-
-        template<typename T>
-        IndexBuffer *createIndexBuffer(std::span<const T> data, TypeFormat fmt) {
-            return createIndexBuffer(data.data(), data.size_bytes(), sizeof(T), fmt);
-        }
-
-        IndexBuffer *createIndexBuffer(const void *pData, size_t length, size_t stride, TypeFormat fmt);
+        VertexBuffer *createVertexBuffer(size_t length, size_t stride);
+        IndexBuffer *createIndexBuffer(size_t length, TypeFormat fmt);
 
 
 
         Texture *createTexture(const TextureCreateInfo& createInfo);
 
-        UploadBuffer *createUploadBuffer(size_t length);
+        UploadBuffer *createUploadBuffer(const void *pData, size_t length);
 
         // resource management
 
@@ -308,6 +295,9 @@ namespace simcoe::render {
         void drawVertexBuffer(UINT count);
         void drawIndexBuffer(UINT count);
 
+        void copyBuffer(VertexBuffer *pDestination, UploadBuffer *pSource);
+        void copyBuffer(IndexBuffer *pDestination, UploadBuffer *pSource);
+
         // module interface
 
         static Commands *create(ID3D12GraphicsCommandList *pList);
@@ -388,6 +378,20 @@ namespace simcoe::render {
 
         ID3D12Resource *pResource;
         D3D12_INDEX_BUFFER_VIEW view;
+    };
+
+    struct UploadBuffer {
+        static UploadBuffer *create(ID3D12Resource *pResource);
+
+        ID3D12Resource *getResource() { return pResource; }
+        ~UploadBuffer();
+
+    private:
+        UploadBuffer(ID3D12Resource *pResource)
+            : pResource(pResource)
+        { }
+
+        ID3D12Resource *pResource;
     };
 
     // descriptor heap

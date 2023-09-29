@@ -116,6 +116,7 @@ private:
 
         pDisplayQueue = pQueue->createDisplayQueue(pContext, displayCreateInfo);
         pRenderTargetHeap = pDevice->createRenderTargetHeap(kBackBufferCount);
+        frameIndex = pDisplayQueue->getFrameIndex();
 
         for (UINT i = 0; i < kBackBufferCount; ++i) {
             render::RenderTarget *pRenderTarget = pDisplayQueue->getRenderTarget(i);
@@ -126,7 +127,7 @@ private:
             pMemoryArray[i] = pDevice->createCommandMemory();
         }
 
-        pCommands = pDevice->createCommands(pMemoryArray[0]);
+        pCommands = pDevice->createCommands(pMemoryArray[frameIndex]);
     }
 
     void createResources() {
@@ -142,8 +143,8 @@ private:
             1, 2, 3
         });
 
-        pVertexBuffer = pDevice->createVertexBuffer<Vertex>(quad);
-        pIndexBuffer = pDevice->createIndexBuffer<uint16_t>(indices, render::TypeFormat::eUint16);
+        std::unique_ptr<render::UploadBuffer> pVertexStaging{pDevice->createUploadBuffer(quad.data(), quad.size() * sizeof(Vertex))};
+        std::unique_ptr<render::UploadBuffer> pIndexStaging{pDevice->createUploadBuffer(indices.data(), indices.size() * sizeof(uint16_t))};
 
         const render::PipelineCreateInfo psoCreateInfo = {
             .vertexShader = createInfo.depot.load("triangle.vs.cso"),
@@ -156,6 +157,19 @@ private:
         };
 
         pPipeline = pDevice->createPipelineState(psoCreateInfo);
+
+        pVertexBuffer = pDevice->createVertexBuffer(quad.size(), sizeof(Vertex));
+        pIndexBuffer = pDevice->createIndexBuffer(indices.size(), render::TypeFormat::eUint16);
+
+        pCommands->begin(pMemoryArray[frameIndex]);
+
+        pCommands->copyBuffer(pVertexBuffer, pVertexStaging.get());
+        pCommands->copyBuffer(pIndexBuffer, pIndexStaging.get());
+
+        pCommands->end();
+
+        pQueue->execute(pCommands);
+        endFrame();
     }
 
     void destroyResources() {

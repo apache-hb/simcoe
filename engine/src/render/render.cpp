@@ -10,6 +10,7 @@
 
 using Microsoft::WRL::ComPtr;
 
+namespace math = simcoe::math;
 using namespace simcoe::render;
 
 #define HR_CHECK(expr) \
@@ -53,6 +54,17 @@ static DXGI_FORMAT getTypeFormat(TypeFormat fmt) {
 
     case TypeFormat::eFloat3: return DXGI_FORMAT_R32G32B32_FLOAT;
     case TypeFormat::eFloat4: return DXGI_FORMAT_R32G32B32A32_FLOAT;
+    default: throw std::runtime_error("invalid type format");
+    }
+}
+
+static size_t getByteSize(TypeFormat fmt) {
+    switch (fmt) {
+    case TypeFormat::eUint16: return sizeof(uint16_t);
+    case TypeFormat::eUint32: return sizeof(uint32_t);
+
+    case TypeFormat::eFloat3: return sizeof(math::float3);
+    case TypeFormat::eFloat4: return sizeof(math::float4);
     default: throw std::runtime_error("invalid type format");
     }
 }
@@ -188,6 +200,14 @@ void Commands::drawVertexBuffer(UINT count) {
 
 void Commands::drawIndexBuffer(UINT count) {
     pList->DrawIndexedInstanced(count, 1, 0, 0, 0);
+}
+
+void Commands::copyBuffer(VertexBuffer *pDestination, UploadBuffer *pSource) {
+    pList->CopyResource(pDestination->getResource(), pSource->getResource());
+}
+
+void Commands::copyBuffer(IndexBuffer *pDestination, UploadBuffer *pSource) {
+    pList->CopyResource(pDestination->getResource(), pSource->getResource());
 }
 
 Commands *Commands::create(ID3D12GraphicsCommandList *pList) {
@@ -388,47 +408,68 @@ Fence *Device::createFence() {
     return Fence::create(pFence, hEvent);
 }
 
-VertexBuffer *Device::createVertexBuffer(const void *pData, size_t length, size_t stride) {
+VertexBuffer *Device::createVertexBuffer(size_t length, size_t stride) {
+    size_t size = length * stride;
     ID3D12Resource *pResource = nullptr;
-    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-    D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(length);
 
-    HR_CHECK(pDevice->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&pResource)));
+    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size);
 
-    void *pMapped = nullptr;
-    HR_CHECK(pResource->Map(0, nullptr, &pMapped));
-    memcpy(pMapped, pData, length);
-    pResource->Unmap(0, nullptr);
+    HR_CHECK(pDevice->CreateCommittedResource(
+        &heap, D3D12_HEAP_FLAG_NONE, &desc,
+        D3D12_RESOURCE_STATE_COMMON,
+        nullptr, IID_PPV_ARGS(&pResource)
+    ));
 
     D3D12_VERTEX_BUFFER_VIEW view = {
         .BufferLocation = pResource->GetGPUVirtualAddress(),
-        .SizeInBytes = UINT(length),
+        .SizeInBytes = UINT(size),
         .StrideInBytes = UINT(stride),
     };
 
     return VertexBuffer::create(pResource, view);
 }
 
-IndexBuffer *Device::createIndexBuffer(const void *pData, size_t length, size_t stride, TypeFormat fmt) {
+IndexBuffer *Device::createIndexBuffer(size_t length, TypeFormat fmt) {
     ID3D12Resource *pResource = nullptr;
 
+    size_t size = length * getByteSize(fmt);
+
+    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size);
+
+    HR_CHECK(pDevice->CreateCommittedResource(
+        &heap, D3D12_HEAP_FLAG_NONE, &desc,
+        D3D12_RESOURCE_STATE_COMMON,
+        nullptr, IID_PPV_ARGS(&pResource)
+    ));
+
+    D3D12_INDEX_BUFFER_VIEW view = {
+        .BufferLocation = pResource->GetGPUVirtualAddress(),
+        .SizeInBytes = UINT(size),
+        .Format = getTypeFormat(fmt)
+    };
+
+    return IndexBuffer::create(pResource, view);
+}
+
+UploadBuffer *Device::createUploadBuffer(const void *pData, size_t length) {
+    ID3D12Resource *pResource = nullptr;
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
     D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(length);
 
-    HR_CHECK(pDevice->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&pResource)));
+    HR_CHECK(pDevice->CreateCommittedResource(
+        &heap, D3D12_HEAP_FLAG_NONE,
+        &desc, D3D12_RESOURCE_STATE_COMMON,
+        nullptr, IID_PPV_ARGS(&pResource)
+    ));
 
     void *pMapped = nullptr;
     HR_CHECK(pResource->Map(0, nullptr, &pMapped));
     memcpy(pMapped, pData, length);
     pResource->Unmap(0, nullptr);
 
-    D3D12_INDEX_BUFFER_VIEW view = {
-        .BufferLocation = pResource->GetGPUVirtualAddress(),
-        .SizeInBytes = UINT(length),
-        .Format = getTypeFormat(fmt)
-    };
-
-    return IndexBuffer::create(pResource, view);
+    return UploadBuffer::create(pResource);
 }
 
 void Device::mapRenderTarget(HostHeapOffset handle, RenderTarget *pTarget) {
@@ -579,6 +620,16 @@ VertexBuffer *VertexBuffer::create(ID3D12Resource *pResource, D3D12_VERTEX_BUFFE
 
 IndexBuffer *IndexBuffer::create(ID3D12Resource *pResource, D3D12_INDEX_BUFFER_VIEW view) {
     return new IndexBuffer(pResource, view);
+}
+
+// upload buffer
+
+UploadBuffer *UploadBuffer::create(ID3D12Resource *pResource) {
+    return new UploadBuffer(pResource);
+}
+
+UploadBuffer::~UploadBuffer() {
+    pResource->Release();
 }
 
 // fence
