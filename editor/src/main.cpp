@@ -24,8 +24,45 @@ struct Vertex {
     math::float4 colour;
 };
 
+template<typename T>
+struct DescriptorAlloc {
+    enum struct Index : size_t { };
+
+    DescriptorAlloc(render::DescriptorHeap *pHeap)
+        : pHeap(pHeap)
+        , offset(0)
+    { }
+
+    ~DescriptorAlloc() {
+        delete pHeap;
+    }
+
+    Index alloc() {
+        return Index(offset++);
+    }
+
+    render::HostHeapOffset hostOffset(Index index) const {
+        return pHeap->hostOffset(size_t(index));
+    }
+
+    render::DeviceHeapOffset deviceOffset(Index index) const {
+        return pHeap->deviceOffset(size_t(index));
+    }
+
+    render::DescriptorHeap *pHeap;
+    size_t offset;
+};
+
+struct RenderTargetHeap;
+struct TextureHeap;
+
+using RenderTargetAlloc = DescriptorAlloc<RenderTargetHeap>;
+using TextureAlloc = DescriptorAlloc<TextureHeap>;
+
 struct FrameData {
     render::RenderTarget *pRenderTarget;
+    RenderTargetAlloc::Index renderTargetHeapIndex;
+
     render::CommandMemory *pMemory;
     size_t fenceValue = 1;
 };
@@ -39,6 +76,7 @@ struct RenderContext {
 
     ~RenderContext() {
         destroyResources();
+        destroySceneData();
         destroyDisplayData();
         destroyDeviceData();
         destroyContextData();
@@ -61,6 +99,7 @@ private:
         createContextData();
         createDeviceData(selectAdapter());
         createDisplayData();
+        createSceneData();
         createResources();
     }
 
@@ -118,15 +157,19 @@ private:
         };
 
         pDisplayQueue = pQueue->createDisplayQueue(pContext, displayCreateInfo);
-        pRenderTargetHeap = pDevice->createRenderTargetHeap(kBackBufferCount);
+        render::DescriptorHeap *pHeap = pDevice->createRenderTargetHeap(kBackBufferCount + 1);
+        pRenderTargetAlloc = new RenderTargetAlloc(pHeap);
+
         frameIndex = pDisplayQueue->getFrameIndex();
 
         for (UINT i = 0; i < kBackBufferCount; ++i) {
             render::CommandMemory *pMemory = pDevice->createCommandMemory();
             render::RenderTarget *pRenderTarget = pDisplayQueue->getRenderTarget(i);
-            pDevice->mapRenderTarget(pRenderTargetHeap->hostOffset(i), pRenderTarget);
+            RenderTargetAlloc::Index rtvIndex = pRenderTargetAlloc->alloc();
 
-            frameData[i] = { pRenderTarget, pMemory };
+            pDevice->mapRenderTarget(pRenderTargetAlloc->hostOffset(rtvIndex), pRenderTarget);
+
+            frameData[i] = { pRenderTarget, rtvIndex, pMemory };
         }
 
         pCommands = pDevice->createCommands(frameData[frameIndex].pMemory);
@@ -138,11 +181,18 @@ private:
             delete frameData[i].pRenderTarget;
         }
 
-        delete pRenderTargetHeap;
+        delete pRenderTargetAlloc;
         delete pDisplayQueue;
     }
 
     void createSceneData() {
+        // create texture heap
+
+        render::DescriptorHeap *pHeap = pDevice->createTextureHeap(2);
+        pTextureAlloc = new TextureAlloc(pHeap);
+
+        // create scene target
+
         sceneViewport = {
             .width = static_cast<float>(createInfo.renderWidth),
             .height = static_cast<float>(createInfo.renderHeight),
@@ -163,12 +213,16 @@ private:
             .format = render::PixelFormat::eRGBA8
         };
 
-        pSceneTarget = pDevice->createTexture(textureInfo, render::ResourceState::eRenderTarget);
-        pDevice->mapRenderTarget(pRenderTargetHeap->hostOffset(kBackBufferCount), pSceneTarget);
+        pSceneTarget = pDevice->createTextureRenderTarget(textureInfo);
+        sceneRenderTargetIndex = pRenderTargetAlloc->alloc();
+        sceneTextureIndex = pTextureAlloc->alloc();
+
+        pDevice->mapRenderTarget(pRenderTargetAlloc->hostOffset(sceneRenderTargetIndex), pSceneTarget);
+        pDevice->mapTexture(pTextureAlloc->hostOffset(sceneTextureIndex), pSceneTarget);
     }
 
     void destroySceneData() {
-
+        delete pSceneTarget;
     }
 
     void createResources() {
@@ -224,12 +278,12 @@ private:
 
         pVertexBuffer = pDevice->createVertexBuffer(quad.size(), sizeof(Vertex));
         pIndexBuffer = pDevice->createIndexBuffer(indices.size(), render::TypeFormat::eUint16);
-        pTextureBuffer = pDevice->createTexture(textureInfo, render::ResourceState::eCopyDest);
+        pTextureBuffer = pDevice->createTexture(textureInfo);
 
         // create texture heap and map texture into it
 
-        pTextureHeap = pDevice->createTextureHeap(1);
-        pDevice->mapTexture(pTextureHeap->hostOffset(0), pTextureBuffer);
+        quadTextureIndex = pTextureAlloc->alloc();
+        pDevice->mapTexture(pTextureAlloc->hostOffset(quadTextureIndex), pTextureBuffer);
 
         // upload data
 
@@ -255,24 +309,27 @@ private:
 
     void beginFrame() {
         frameIndex = pDisplayQueue->getFrameIndex();
-        render::HostHeapOffset renderTarget = pRenderTargetHeap->hostOffset(frameIndex);
+        auto rtvIndex = frameData[frameIndex].renderTargetHeapIndex;
+        render::HostHeapOffset renderTarget = pRenderTargetAlloc->hostOffset(rtvIndex);
+        render::RenderTarget *pRenderTarget = frameData[frameIndex].pRenderTarget;
+
         pCommands->begin(frameData[frameIndex].pMemory);
 
         pCommands->setPipelineState(pPipeline);
-        pCommands->setHeap(pTextureHeap);
+        pCommands->setHeap(pTextureAlloc->pHeap);
         pCommands->setDisplay({ postViewport, postScissor });
 
-        pCommands->transition(frameData[frameIndex].pRenderTarget, render::ResourceState::ePresent, render::ResourceState::eRenderTarget);
+        pCommands->transition(pRenderTarget, render::ResourceState::ePresent, render::ResourceState::eRenderTarget);
 
         pCommands->setRenderTarget(renderTarget);
         pCommands->clearRenderTarget(renderTarget, { 0.0f, 0.2f, 0.4f, 1.0f });
 
-        pCommands->setShaderInput(pTextureHeap->deviceOffset(0), 0);
+        pCommands->setShaderInput(pTextureAlloc->deviceOffset(quadTextureIndex), 0);
         pCommands->setVertexBuffer(pVertexBuffer);
         pCommands->setIndexBuffer(pIndexBuffer);
         pCommands->drawIndexBuffer(6);
 
-        pCommands->transition(frameData[frameIndex].pRenderTarget, render::ResourceState::eRenderTarget, render::ResourceState::ePresent);
+        pCommands->transition(pRenderTarget, render::ResourceState::eRenderTarget, render::ResourceState::ePresent);
 
         pCommands->end();
     }
@@ -310,7 +367,7 @@ private:
 
     render::DisplayQueue *pDisplayQueue;
 
-    render::DescriptorHeap *pRenderTargetHeap;
+    RenderTargetAlloc *pRenderTargetAlloc;
 
     // scene resolution dependant data
 
@@ -318,10 +375,12 @@ private:
     render::Scissor sceneScissor;
 
     render::TextureBuffer *pSceneTarget;
+    RenderTargetAlloc::Index sceneRenderTargetIndex;
+    TextureAlloc::Index sceneTextureIndex;
 
     // scene data
 
-    render::DescriptorHeap *pTextureHeap;
+    TextureAlloc *pTextureAlloc;
 
     render::PipelineState *pPostPipeline;
 
@@ -333,7 +392,9 @@ private:
     render::PipelineState *pPipeline;
     render::VertexBuffer *pVertexBuffer;
     render::IndexBuffer *pIndexBuffer;
+
     render::TextureBuffer *pTextureBuffer;
+    TextureAlloc::Index quadTextureIndex;
 };
 
 #define ASSERT(expr) \

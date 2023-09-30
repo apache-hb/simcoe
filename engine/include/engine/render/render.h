@@ -169,7 +169,9 @@ namespace simcoe::render {
 
         VertexBuffer *createVertexBuffer(size_t length, size_t stride);
         IndexBuffer *createIndexBuffer(size_t length, TypeFormat fmt);
-        TextureBuffer *createTexture(const TextureInfo& createInfo, ResourceState initial);
+
+        TextureBuffer *createTextureRenderTarget(const TextureInfo& createInfo);
+        TextureBuffer *createTexture(const TextureInfo& createInfo);
 
         UploadBuffer *createUploadBuffer(const void *pData, size_t length);
         UploadBuffer *createTextureUploadBuffer(const TextureInfo& createInfo);

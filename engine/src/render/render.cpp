@@ -576,7 +576,31 @@ IndexBuffer *Device::createIndexBuffer(size_t length, TypeFormat fmt) {
     return IndexBuffer::create(pResource, view);
 }
 
-TextureBuffer *Device::createTexture(const TextureInfo& createInfo, ResourceState initial) {
+TextureBuffer *Device::createTextureRenderTarget(const TextureInfo& createInfo) {
+    ID3D12Resource *pResource = nullptr;
+
+    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    D3D12_RESOURCE_DESC desc = {
+        .Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+        .Width = UINT(createInfo.width),
+        .Height = UINT(createInfo.height),
+        .DepthOrArraySize = 1,
+        .MipLevels = 1,
+        .Format = getPixelTypeFormat(createInfo.format),
+        .SampleDesc = { .Count = 1 },
+        .Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
+    };
+
+    HR_CHECK(pDevice->CreateCommittedResource(
+        &heap, D3D12_HEAP_FLAG_NONE, &desc,
+        D3D12_RESOURCE_STATE_RENDER_TARGET,
+        nullptr, IID_PPV_ARGS(&pResource)
+    ));
+
+    return TextureBuffer::create(pResource);
+}
+
+TextureBuffer *Device::createTexture(const TextureInfo& createInfo) {
     ID3D12Resource *pResource = nullptr;
 
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
@@ -587,7 +611,7 @@ TextureBuffer *Device::createTexture(const TextureInfo& createInfo, ResourceStat
 
     HR_CHECK(pDevice->CreateCommittedResource(
         &heap, D3D12_HEAP_FLAG_NONE, &desc,
-        getResourceState(initial),
+        D3D12_RESOURCE_STATE_COPY_DEST,
         nullptr, IID_PPV_ARGS(&pResource)
     ));
 
