@@ -70,6 +70,7 @@ struct FrameData {
 struct RenderContext {
     static constexpr UINT kBackBufferCount = 2;
     static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
+    static constexpr math::float4 kBlackClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
 
     static RenderContext *create(const RenderCreateInfo& createInfo) {
         return new RenderContext(createInfo);
@@ -77,7 +78,7 @@ struct RenderContext {
 
     ~RenderContext() {
         destroyResources();
-        destroySceneData();
+        destroyPostData();
         destroyDisplayData();
         destroyDeviceData();
         destroyContextData();
@@ -100,7 +101,7 @@ private:
         createContextData();
         createDeviceData(selectAdapter());
         createDisplayData();
-        createSceneData();
+        createPostData();
         createResources();
     }
 
@@ -137,19 +138,6 @@ private:
 
     // create data that depends on the present queue
     void createDisplayData() {
-        postViewport = {
-            .width = static_cast<float>(createInfo.displayWidth),
-            .height = static_cast<float>(createInfo.displayHeight),
-
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f
-        };
-
-        postScissor = {
-            .right = static_cast<LONG>(createInfo.displayWidth),
-            .bottom = static_cast<LONG>(createInfo.displayHeight)
-        };
-
         const render::DisplayQueueCreateInfo displayCreateInfo = {
             .hWindow = createInfo.hWindow,
             .width = createInfo.displayWidth,
@@ -186,27 +174,17 @@ private:
         delete pDisplayQueue;
     }
 
-    void createSceneData() {
+    void createPostData() {
         // create texture heap
 
         render::DescriptorHeap *pHeap = pDevice->createTextureHeap(2);
         pTextureAlloc = new TextureAlloc(pHeap);
 
+        // create scissors and viewports
+        sceneDisplay = createDisplay(createInfo.renderWidth, createInfo.renderHeight);
+        postDisplay = createLetterBoxDisplay();
+
         // create scene target
-
-        sceneViewport = {
-            .width = static_cast<float>(createInfo.renderWidth),
-            .height = static_cast<float>(createInfo.renderHeight),
-
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f
-        };
-
-        sceneScissor = {
-            .right = static_cast<LONG>(createInfo.renderWidth),
-            .bottom = static_cast<LONG>(createInfo.renderHeight)
-        };
-
         const render::TextureInfo textureInfo = {
             .width = createInfo.renderWidth,
             .height = createInfo.renderHeight,
@@ -270,7 +248,7 @@ private:
         endFrame();
     }
 
-    void destroySceneData() {
+    void destroyPostData() {
         delete pTextureAlloc;
         delete pPostPipeline;
         delete pScreenQuadVerts;
@@ -301,11 +279,13 @@ private:
         pScenePipeline = pDevice->createPipelineState(psoCreateInfo);
 
         // data to upload
+        float aspect = float(createInfo.renderHeight) / float(createInfo.renderWidth);
+
         const auto quad = std::to_array<Vertex>({
-            Vertex{ { 0.5f, -0.5f, 0.0f }, { 0.f, 0.f } }, // top left
-            Vertex{ { 0.5f, 0.5f, 0.0f }, { 1.f, 0.f } }, // top right
-            Vertex{ { -0.5f, -0.5f, 0.0f }, { 0.f, 1.f } }, // bottom left
-            Vertex{ { -0.5f, 0.5f, 0.0f }, { 1.f, 1.f } } // bottom right
+            Vertex{ { 0.5f, -0.5f * aspect, 0.0f }, { 0.f, 0.f } }, // top left
+            Vertex{ { 0.5f, 0.5f * aspect, 0.0f }, { 1.f, 0.f } }, // top right
+            Vertex{ { -0.5f, -0.5f * aspect, 0.0f }, { 0.f, 1.f } }, // bottom left
+            Vertex{ { -0.5f, 0.5f * aspect, 0.0f }, { 1.f, 1.f } } // bottom right
         });
 
         const auto indices = std::to_array<uint16_t>({
@@ -368,7 +348,7 @@ private:
         // bind state for scene
         pCommands->setPipelineState(pScenePipeline);
         pCommands->setHeap(pTextureAlloc->pHeap);
-        pCommands->setDisplay({ sceneViewport, sceneScissor });
+        pCommands->setDisplay(sceneDisplay);
 
         pCommands->setRenderTarget(renderTargetIndex);
         pCommands->clearRenderTarget(renderTargetIndex, kClearColour);
@@ -391,10 +371,11 @@ private:
         // bind state for post
         pCommands->setPipelineState(pPostPipeline);
         pCommands->setHeap(pTextureAlloc->pHeap);
-        pCommands->setDisplay({ postViewport, postScissor });
+        pCommands->setDisplay(postDisplay);
 
-        // dont clear because we dont have to
+        // set the actual back buffer as the render target
         pCommands->setRenderTarget(pRenderTargetAlloc->hostOffset(renderTargetHeapIndex));
+        pCommands->clearRenderTarget(pRenderTargetAlloc->hostOffset(renderTargetHeapIndex), kBlackClearColour);
 
         // blit scene to backbuffer
         pCommands->setShaderInput(pTextureAlloc->deviceOffset(screenTextureIndex), 0);
@@ -425,6 +406,60 @@ private:
 
     RenderCreateInfo createInfo;
 
+    render::Display createLetterBoxDisplay() {
+        UINT displayWidth = createInfo.displayWidth;
+        UINT displayHeight = createInfo.displayHeight;
+
+        UINT renderHeight = createInfo.renderHeight;
+        UINT renderWidth = createInfo.renderWidth;
+
+        auto widthRatio = float(renderWidth) / displayWidth;
+        auto heightRatio = float(renderHeight) / displayHeight;
+
+        float x = 1.f;
+        float y = 1.f;
+
+        if (widthRatio < heightRatio) {
+            x = widthRatio / heightRatio;
+        } else {
+            y = heightRatio / widthRatio;
+        }
+
+        render::Viewport viewport = {
+            .x = displayWidth * (1.f - x) / 2.f,
+            .y = displayHeight * (1.f - y) / 2.f,
+            .width = x * displayWidth,
+            .height = y * displayHeight,
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f
+        };
+
+        render::Scissor scissor = {
+            LONG(viewport.x),
+            LONG(viewport.y),
+            LONG(viewport.x + viewport.width),
+            LONG(viewport.y + viewport.height)
+        };
+
+        return { viewport, scissor };
+    }
+
+    render::Display createDisplay(UINT width, UINT height) {
+        render::Viewport viewport = {
+            .width = float(width),
+            .height = float(height),
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f
+        };
+
+        render::Scissor scissor = {
+            .right = LONG(width),
+            .bottom = LONG(height)
+        };
+
+        return { viewport, scissor };
+    }
+
     // device data
 
     render::Context *pContext;
@@ -442,25 +477,22 @@ private:
 
     // swapchain resolution dependant data
 
-    render::Viewport postViewport;
-    render::Scissor postScissor;
+    render::Display postDisplay;
 
     render::DisplayQueue *pDisplayQueue;
 
     RenderTargetAlloc *pRenderTargetAlloc;
+    TextureAlloc *pTextureAlloc;
 
-    // scene resolution dependant data
+    // render resolution dependant data
 
-    render::Viewport sceneViewport;
-    render::Scissor sceneScissor;
+    render::Display sceneDisplay;
 
     render::TextureBuffer *pSceneTarget;
     RenderTargetAlloc::Index sceneRenderTargetIndex;
     TextureAlloc::Index screenTextureIndex;
 
-    // scene data
-
-    TextureAlloc *pTextureAlloc;
+    // present resolution dependant data
 
     render::PipelineState *pPostPipeline;
 
@@ -491,8 +523,8 @@ static void commonMain(simcoe::System& system) {
     const simcoe::WindowCreateInfo windowCreateInfo = {
         .title = "simcoe",
         .style = simcoe::WindowStyle::eWindowed,
-        .width = 800,
-        .height = 600
+        .width = 1920,
+        .height = 1080
     };
 
     simcoe::Window window = system.createWindow(windowCreateInfo);
@@ -501,8 +533,8 @@ static void commonMain(simcoe::System& system) {
         .hWindow = window.getHandle(),
         .depot = depot,
 
-        .displayWidth = 800,
-        .displayHeight = 600,
+        .displayWidth = 1920,
+        .displayHeight = 1080,
 
         .renderWidth = 800,
         .renderHeight = 600
