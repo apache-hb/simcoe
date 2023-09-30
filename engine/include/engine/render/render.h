@@ -107,6 +107,14 @@ namespace simcoe::render {
         ePixel
     };
 
+    enum struct ResourceState {
+        eDefault,
+
+        ePresent,
+        eRenderTarget,
+        eCopyDest
+    };
+
     struct VertexAttribute {
         std::string_view name;
         size_t offset;
@@ -161,7 +169,7 @@ namespace simcoe::render {
 
         VertexBuffer *createVertexBuffer(size_t length, size_t stride);
         IndexBuffer *createIndexBuffer(size_t length, TypeFormat fmt);
-        TextureBuffer *createTexture(const TextureInfo& createInfo);
+        TextureBuffer *createTexture(const TextureInfo& createInfo, ResourceState initial);
 
         UploadBuffer *createUploadBuffer(const void *pData, size_t length);
         UploadBuffer *createTextureUploadBuffer(const TextureInfo& createInfo);
@@ -169,6 +177,7 @@ namespace simcoe::render {
         // resource management
 
         void mapRenderTarget(HostHeapOffset handle, RenderTarget *pTarget);
+        void mapRenderTarget(HostHeapOffset handle, TextureBuffer *pTexture);
         void mapTexture(HostHeapOffset handle, TextureBuffer *pTexture);
 
         // module interface
@@ -270,11 +279,6 @@ namespace simcoe::render {
     };
 
     // commands
-
-    enum struct ResourceState {
-        ePresent,
-        eRenderTarget,
-    };
 
     struct Viewport {
         float x;

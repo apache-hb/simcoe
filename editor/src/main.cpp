@@ -24,6 +24,12 @@ struct Vertex {
     math::float4 colour;
 };
 
+struct FrameData {
+    render::RenderTarget *pRenderTarget;
+    render::CommandMemory *pMemory;
+    size_t fenceValue = 1;
+};
+
 struct RenderContext {
     static constexpr UINT kBackBufferCount = 2;
 
@@ -91,21 +97,17 @@ private:
 
     // create data that depends on the present queue
     void createDisplayData() {
-        viewport = {
-            .x = 0.0f,
-            .y = 0.0f,
-            .width = static_cast<float>(createInfo.renderWidth),
-            .height = static_cast<float>(createInfo.renderHeight),
+        postViewport = {
+            .width = static_cast<float>(createInfo.displayWidth),
+            .height = static_cast<float>(createInfo.displayHeight),
 
             .minDepth = 0.0f,
             .maxDepth = 1.0f
         };
 
-        scissor = {
-            .left = 0,
-            .top = 0,
-            .right = static_cast<LONG>(createInfo.renderWidth),
-            .bottom = static_cast<LONG>(createInfo.renderHeight)
+        postScissor = {
+            .right = static_cast<LONG>(createInfo.displayWidth),
+            .bottom = static_cast<LONG>(createInfo.displayHeight)
         };
 
         const render::DisplayQueueCreateInfo displayCreateInfo = {
@@ -120,15 +122,53 @@ private:
         frameIndex = pDisplayQueue->getFrameIndex();
 
         for (UINT i = 0; i < kBackBufferCount; ++i) {
+            render::CommandMemory *pMemory = pDevice->createCommandMemory();
             render::RenderTarget *pRenderTarget = pDisplayQueue->getRenderTarget(i);
             pDevice->mapRenderTarget(pRenderTargetHeap->hostOffset(i), pRenderTarget);
 
-            pRenderTargetArray[i] = pRenderTarget;
-
-            pMemoryArray[i] = pDevice->createCommandMemory();
+            frameData[i] = { pRenderTarget, pMemory };
         }
 
-        pCommands = pDevice->createCommands(pMemoryArray[frameIndex]);
+        pCommands = pDevice->createCommands(frameData[frameIndex].pMemory);
+    }
+
+    void destroyDisplayData() {
+        for (UINT i = 0; i < kBackBufferCount; ++i) {
+            delete frameData[i].pMemory;
+            delete frameData[i].pRenderTarget;
+        }
+
+        delete pRenderTargetHeap;
+        delete pDisplayQueue;
+    }
+
+    void createSceneData() {
+        sceneViewport = {
+            .width = static_cast<float>(createInfo.renderWidth),
+            .height = static_cast<float>(createInfo.renderHeight),
+
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f
+        };
+
+        sceneScissor = {
+            .right = static_cast<LONG>(createInfo.renderWidth),
+            .bottom = static_cast<LONG>(createInfo.renderHeight)
+        };
+
+        const render::TextureInfo textureInfo = {
+            .width = createInfo.renderWidth,
+            .height = createInfo.renderHeight,
+
+            .format = render::PixelFormat::eRGBA8
+        };
+
+        pSceneTarget = pDevice->createTexture(textureInfo, render::ResourceState::eRenderTarget);
+        pDevice->mapRenderTarget(pRenderTargetHeap->hostOffset(kBackBufferCount), pSceneTarget);
+    }
+
+    void destroySceneData() {
+
     }
 
     void createResources() {
@@ -184,7 +224,7 @@ private:
 
         pVertexBuffer = pDevice->createVertexBuffer(quad.size(), sizeof(Vertex));
         pIndexBuffer = pDevice->createIndexBuffer(indices.size(), render::TypeFormat::eUint16);
-        pTextureBuffer = pDevice->createTexture(textureInfo);
+        pTextureBuffer = pDevice->createTexture(textureInfo, render::ResourceState::eCopyDest);
 
         // create texture heap and map texture into it
 
@@ -193,7 +233,7 @@ private:
 
         // upload data
 
-        pCommands->begin(pMemoryArray[frameIndex]);
+        pCommands->begin(frameData[frameIndex].pMemory);
 
         pCommands->copyBuffer(pVertexBuffer, pVertexStaging.get());
         pCommands->copyBuffer(pIndexBuffer, pIndexStaging.get());
@@ -211,27 +251,18 @@ private:
         delete pIndexBuffer;
     }
 
-    void destroyDisplayData() {
-        for (UINT i = 0; i < kBackBufferCount; ++i) {
-            delete pRenderTargetArray[i];
-        }
-
-        delete pRenderTargetHeap;
-        delete pDisplayQueue;
-    }
-
     // rendering
 
     void beginFrame() {
         frameIndex = pDisplayQueue->getFrameIndex();
         render::HostHeapOffset renderTarget = pRenderTargetHeap->hostOffset(frameIndex);
-        pCommands->begin(pMemoryArray[frameIndex]);
+        pCommands->begin(frameData[frameIndex].pMemory);
 
         pCommands->setPipelineState(pPipeline);
         pCommands->setHeap(pTextureHeap);
-        pCommands->setDisplay({ viewport, scissor });
+        pCommands->setDisplay({ postViewport, postScissor });
 
-        pCommands->transition(pRenderTargetArray[frameIndex], render::ResourceState::ePresent, render::ResourceState::eRenderTarget);
+        pCommands->transition(frameData[frameIndex].pRenderTarget, render::ResourceState::ePresent, render::ResourceState::eRenderTarget);
 
         pCommands->setRenderTarget(renderTarget);
         pCommands->clearRenderTarget(renderTarget, { 0.0f, 0.2f, 0.4f, 1.0f });
@@ -241,13 +272,13 @@ private:
         pCommands->setIndexBuffer(pIndexBuffer);
         pCommands->drawIndexBuffer(6);
 
-        pCommands->transition(pRenderTargetArray[frameIndex], render::ResourceState::eRenderTarget, render::ResourceState::ePresent);
+        pCommands->transition(frameData[frameIndex].pRenderTarget, render::ResourceState::eRenderTarget, render::ResourceState::ePresent);
 
         pCommands->end();
     }
 
     void endFrame() {
-        size_t value = fenceValues[frameIndex]++;
+        size_t value = frameData[frameIndex].fenceValue++;
         pQueue->signal(pFence, value);
 
         if (pFence->getValue() < value) {
@@ -265,23 +296,37 @@ private:
 
     render::DeviceQueue *pQueue;
 
-    render::CommandMemory *pMemoryArray[kBackBufferCount];
     render::Commands *pCommands;
 
     size_t frameIndex = 0;
     render::Fence *pFence;
-    size_t fenceValues[kBackBufferCount];
 
-    // display data
+    FrameData frameData[kBackBufferCount];
 
-    render::Viewport viewport;
-    render::Scissor scissor;
+    // swapchain resolution dependant data
+
+    render::Viewport postViewport;
+    render::Scissor postScissor;
+
     render::DisplayQueue *pDisplayQueue;
+
+    render::DescriptorHeap *pRenderTargetHeap;
+
+    // scene resolution dependant data
+
+    render::Viewport sceneViewport;
+    render::Scissor sceneScissor;
+
+    render::TextureBuffer *pSceneTarget;
+
+    // scene data
 
     render::DescriptorHeap *pTextureHeap;
 
-    render::DescriptorHeap *pRenderTargetHeap;
-    render::RenderTarget *pRenderTargetArray[kBackBufferCount];
+    render::PipelineState *pPostPipeline;
+
+    render::VertexBuffer *pScreenQuadVerts;
+    render::IndexBuffer *pScreenQuadIndices;
 
     // resources
 

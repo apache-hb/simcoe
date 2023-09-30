@@ -56,6 +56,7 @@ static D3D12_RESOURCE_STATES getResourceState(ResourceState state) {
     switch (state) {
     case ResourceState::ePresent: return D3D12_RESOURCE_STATE_PRESENT;
     case ResourceState::eRenderTarget: return D3D12_RESOURCE_STATE_RENDER_TARGET;
+    case ResourceState::eCopyDest: return D3D12_RESOURCE_STATE_COPY_DEST;
     default: throw std::runtime_error("invalid resource state");
     }
 }
@@ -575,7 +576,7 @@ IndexBuffer *Device::createIndexBuffer(size_t length, TypeFormat fmt) {
     return IndexBuffer::create(pResource, view);
 }
 
-TextureBuffer *Device::createTexture(const TextureInfo& createInfo) {
+TextureBuffer *Device::createTexture(const TextureInfo& createInfo, ResourceState initial) {
     ID3D12Resource *pResource = nullptr;
 
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
@@ -586,7 +587,7 @@ TextureBuffer *Device::createTexture(const TextureInfo& createInfo) {
 
     HR_CHECK(pDevice->CreateCommittedResource(
         &heap, D3D12_HEAP_FLAG_NONE, &desc,
-        D3D12_RESOURCE_STATE_COPY_DEST,
+        getResourceState(initial),
         nullptr, IID_PPV_ARGS(&pResource)
     ));
 
@@ -635,6 +636,15 @@ void Device::mapRenderTarget(HostHeapOffset handle, RenderTarget *pTarget) {
     };
 
     pDevice->CreateRenderTargetView(pTarget->getResource(), &desc, hostHandle(handle));
+}
+
+void Device::mapRenderTarget(HostHeapOffset handle, TextureBuffer *pTexture) {
+    D3D12_RENDER_TARGET_VIEW_DESC desc = {
+        .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+        .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
+    };
+
+    pDevice->CreateRenderTargetView(pTexture->getResource(), &desc, hostHandle(handle));
 }
 
 void Device::mapTexture(HostHeapOffset handle, TextureBuffer *pTexture) {
