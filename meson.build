@@ -65,6 +65,7 @@ hlsl = generator(python3,
 
 src = [
     'editor/src/main.cpp',
+    'editor/src/editor/render.cpp',
 
     # shaders
     hlsl.process('data/shaders/quad.hlsl'),

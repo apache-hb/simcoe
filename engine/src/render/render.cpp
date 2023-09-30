@@ -802,6 +802,11 @@ PipelineState *PipelineState::create(ID3D12RootSignature *pRootSignature, ID3D12
     return new PipelineState(pRootSignature, pState);
 }
 
+PipelineState::~PipelineState() {
+    pRootSignature->Release();
+    pState->Release();
+}
+
 // resource
 
 DeviceResource::~DeviceResource() {
