@@ -455,7 +455,7 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
     std::vector<D3D12_STATIC_SAMPLER_DESC> samplerDescs;
     for (const auto& sampler : createInfo.samplers) {
         D3D12_STATIC_SAMPLER_DESC desc = {
-            .Filter = D3D12_FILTER_MIN_MAG_MIP_POINT,
+            .Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR,
             .AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER,
             .AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER,
             .AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER,
@@ -482,7 +482,14 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
 
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> error;
-    HR_CHECK(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, rootSignatureVersion, &signature, &error));
+    if (HRESULT hr = D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, rootSignatureVersion, &signature, &error); FAILED(hr)) {
+        simcoe::logError(std::format("Failed to serialize root signature: {:X}", unsigned(hr)));
+
+        std::string_view msg{static_cast<LPCSTR>(error->GetBufferPointer()), error->GetBufferSize() / sizeof(char)};
+        simcoe::logError(std::format("{}", msg));
+
+        return nullptr;
+    }
 
     ID3D12RootSignature *pSignature = nullptr;
     HR_CHECK(getDevice()->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&pSignature)));
