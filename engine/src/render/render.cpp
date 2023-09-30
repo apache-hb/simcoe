@@ -56,7 +56,7 @@ static D3D12_RESOURCE_STATES getResourceState(ResourceState state) {
     switch (state) {
     case ResourceState::ePresent: return D3D12_RESOURCE_STATE_PRESENT;
     case ResourceState::eRenderTarget: return D3D12_RESOURCE_STATE_RENDER_TARGET;
-    case ResourceState::eCopyDest: return D3D12_RESOURCE_STATE_COPY_DEST;
+    case ResourceState::eShaderResource: return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
     default: throw std::runtime_error("invalid resource state");
     }
 }
@@ -174,6 +174,21 @@ void Commands::transition(RenderTarget *pTarget, ResourceState from, ResourceSta
         .Transition = {
             .pResource = pTarget->getResource(),
             .Subresource = 0,
+            .StateBefore = getResourceState(from),
+            .StateAfter = getResourceState(to),
+        },
+    };
+
+    pList->ResourceBarrier(1, &barrier);
+}
+
+void Commands::transition(TextureBuffer *pTarget, ResourceState from, ResourceState to) {
+    D3D12_RESOURCE_BARRIER barrier = {
+        .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+        .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+        .Transition = {
+            .pResource = pTarget->getResource(),
+            .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
             .StateBefore = getResourceState(from),
             .StateAfter = getResourceState(to),
         },
@@ -435,13 +450,16 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
         range.Init(
             D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
             1, input.reg, 0,
-            D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC
+            input.isStatic ? D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC : D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE
         );
 
         pRanges[i] = range;
 
         CD3DX12_ROOT_PARAMETER1 parameter;
-        parameter.InitAsDescriptorTable(1, &pRanges[i], getVisibility(input.visibility));
+        parameter.InitAsDescriptorTable(
+            1, &pRanges[i],
+            getVisibility(input.visibility)
+        );
         parameters.push_back(parameter);
     }
 
@@ -576,8 +594,13 @@ IndexBuffer *Device::createIndexBuffer(size_t length, TypeFormat fmt) {
     return IndexBuffer::create(pResource, view);
 }
 
-TextureBuffer *Device::createTextureRenderTarget(const TextureInfo& createInfo) {
+TextureBuffer *Device::createTextureRenderTarget(const TextureInfo& createInfo, const math::float4& clearColour) {
     ID3D12Resource *pResource = nullptr;
+
+    D3D12_CLEAR_VALUE clear = {
+        .Format = getPixelTypeFormat(createInfo.format),
+        .Color = { clearColour.x, clearColour.y, clearColour.z, clearColour.w },
+    };
 
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     D3D12_RESOURCE_DESC desc = {
@@ -593,8 +616,8 @@ TextureBuffer *Device::createTextureRenderTarget(const TextureInfo& createInfo) 
 
     HR_CHECK(pDevice->CreateCommittedResource(
         &heap, D3D12_HEAP_FLAG_NONE, &desc,
-        D3D12_RESOURCE_STATE_RENDER_TARGET,
-        nullptr, IID_PPV_ARGS(&pResource)
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        &clear, IID_PPV_ARGS(&pResource)
     ));
 
     return TextureBuffer::create(pResource);

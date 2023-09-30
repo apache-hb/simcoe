@@ -112,7 +112,7 @@ namespace simcoe::render {
 
         ePresent,
         eRenderTarget,
-        eCopyDest
+        eShaderResource
     };
 
     struct VertexAttribute {
@@ -124,6 +124,7 @@ namespace simcoe::render {
     struct InputSlot {
         InputVisibility visibility;
         size_t reg;
+        bool isStatic;
     };
 
     struct SamplerSlot {
@@ -170,7 +171,7 @@ namespace simcoe::render {
         VertexBuffer *createVertexBuffer(size_t length, size_t stride);
         IndexBuffer *createIndexBuffer(size_t length, TypeFormat fmt);
 
-        TextureBuffer *createTextureRenderTarget(const TextureInfo& createInfo);
+        TextureBuffer *createTextureRenderTarget(const TextureInfo& createInfo, const math::float4& clearColour);
         TextureBuffer *createTexture(const TextureInfo& createInfo);
 
         UploadBuffer *createUploadBuffer(const void *pData, size_t length);
@@ -311,6 +312,7 @@ namespace simcoe::render {
         void end();
 
         void transition(RenderTarget *pTarget, ResourceState from, ResourceState to);
+        void transition(TextureBuffer *pTarget, ResourceState from, ResourceState to);
         void clearRenderTarget(HostHeapOffset handle, math::float4 colour);
 
         void setDisplay(const Display& display);

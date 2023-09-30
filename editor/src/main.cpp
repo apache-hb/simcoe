@@ -69,6 +69,7 @@ struct FrameData {
 
 struct RenderContext {
     static constexpr UINT kBackBufferCount = 2;
+    static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
 
     static RenderContext *create(const RenderCreateInfo& createInfo) {
         return new RenderContext(createInfo);
@@ -213,15 +214,67 @@ private:
             .format = render::PixelFormat::eRGBA8
         };
 
-        pSceneTarget = pDevice->createTextureRenderTarget(textureInfo);
+        pSceneTarget = pDevice->createTextureRenderTarget(textureInfo, kClearColour);
         sceneRenderTargetIndex = pRenderTargetAlloc->alloc();
-        sceneTextureIndex = pTextureAlloc->alloc();
+        screenTextureIndex = pTextureAlloc->alloc();
 
         pDevice->mapRenderTarget(pRenderTargetAlloc->hostOffset(sceneRenderTargetIndex), pSceneTarget);
-        pDevice->mapTexture(pTextureAlloc->hostOffset(sceneTextureIndex), pSceneTarget);
+        pDevice->mapTexture(pTextureAlloc->hostOffset(screenTextureIndex), pSceneTarget);
+
+        const render::PipelineCreateInfo psoCreateInfo = {
+            .vertexShader = createInfo.depot.loadBlob("blit.vs.cso"),
+            .pixelShader = createInfo.depot.loadBlob("blit.ps.cso"),
+
+            .attributes = {
+                { "POSITION", offsetof(Vertex, position), render::TypeFormat::eFloat3 },
+                { "TEXCOORD", offsetof(Vertex, uv), render::TypeFormat::eFloat2 }
+            },
+
+            .inputs = {
+                { render::InputVisibility::ePixel, 0, false }
+            },
+
+            .samplers = {
+                { render::InputVisibility::ePixel, 0 }
+            }
+        };
+
+        pPostPipeline = pDevice->createPipelineState(psoCreateInfo);
+
+        const auto quad = std::to_array<Vertex>({
+            Vertex{ { 1.f, -1.f, 0.0f }, { 0.f, 0.f } }, // top left
+            Vertex{ { 1.f, 1.f, 0.0f }, { 1.f, 0.f } }, // top right
+            Vertex{ { -1.f, -1.f, 0.0f }, { 0.f, 1.f } }, // bottom left
+            Vertex{ { -1.f, 1.f, 0.0f }, { 1.f, 1.f } } // bottom right
+        });
+
+        const auto indices = std::to_array<uint16_t>({
+            0, 2, 1,
+            1, 2, 3
+        });
+
+        std::unique_ptr<render::UploadBuffer> pVertexStaging{pDevice->createUploadBuffer(quad.data(), quad.size() * sizeof(Vertex))};
+        std::unique_ptr<render::UploadBuffer> pIndexStaging{pDevice->createUploadBuffer(indices.data(), indices.size() * sizeof(uint16_t))};
+
+        pScreenQuadVerts = pDevice->createVertexBuffer(quad.size(), sizeof(Vertex));
+        pScreenQuadIndices = pDevice->createIndexBuffer(indices.size(), render::TypeFormat::eUint16);
+
+        pCommands->begin(frameData[frameIndex].pMemory);
+
+        pCommands->copyBuffer(pScreenQuadVerts, pVertexStaging.get());
+        pCommands->copyBuffer(pScreenQuadIndices, pIndexStaging.get());
+
+        pCommands->end();
+
+        pQueue->execute(pCommands);
+        endFrame();
     }
 
     void destroySceneData() {
+        delete pTextureAlloc;
+        delete pPostPipeline;
+        delete pScreenQuadVerts;
+        delete pScreenQuadIndices;
         delete pSceneTarget;
     }
 
@@ -237,7 +290,7 @@ private:
             },
 
             .inputs = {
-                { render::InputVisibility::ePixel, 0 }
+                { render::InputVisibility::ePixel, 0, true }
             },
 
             .samplers = {
@@ -245,7 +298,7 @@ private:
             }
         };
 
-        pPipeline = pDevice->createPipelineState(psoCreateInfo);
+        pScenePipeline = pDevice->createPipelineState(psoCreateInfo);
 
         // data to upload
         const auto quad = std::to_array<Vertex>({
@@ -276,8 +329,8 @@ private:
 
         // create destination buffers
 
-        pVertexBuffer = pDevice->createVertexBuffer(quad.size(), sizeof(Vertex));
-        pIndexBuffer = pDevice->createIndexBuffer(indices.size(), render::TypeFormat::eUint16);
+        pQuadVertexBuffer = pDevice->createVertexBuffer(quad.size(), sizeof(Vertex));
+        pQuadIndexBuffer = pDevice->createIndexBuffer(indices.size(), render::TypeFormat::eUint16);
         pTextureBuffer = pDevice->createTexture(textureInfo);
 
         // create texture heap and map texture into it
@@ -289,8 +342,8 @@ private:
 
         pCommands->begin(frameData[frameIndex].pMemory);
 
-        pCommands->copyBuffer(pVertexBuffer, pVertexStaging.get());
-        pCommands->copyBuffer(pIndexBuffer, pIndexStaging.get());
+        pCommands->copyBuffer(pQuadVertexBuffer, pVertexStaging.get());
+        pCommands->copyBuffer(pQuadIndexBuffer, pIndexStaging.get());
         pCommands->copyTexture(pTextureBuffer, pTextureStaging.get(), textureInfo, image.data);
 
         pCommands->end();
@@ -300,37 +353,64 @@ private:
     }
 
     void destroyResources() {
-        delete pPipeline;
-        delete pVertexBuffer;
-        delete pIndexBuffer;
+        delete pScenePipeline;
+        delete pQuadVertexBuffer;
+        delete pQuadIndexBuffer;
     }
 
     // rendering
 
-    void beginFrame() {
-        frameIndex = pDisplayQueue->getFrameIndex();
-        auto rtvIndex = frameData[frameIndex].renderTargetHeapIndex;
-        render::HostHeapOffset renderTarget = pRenderTargetAlloc->hostOffset(rtvIndex);
-        render::RenderTarget *pRenderTarget = frameData[frameIndex].pRenderTarget;
+    void executeScene() {
+        auto renderTargetIndex = pRenderTargetAlloc->hostOffset(sceneRenderTargetIndex);
 
-        pCommands->begin(frameData[frameIndex].pMemory);
+        pCommands->transition(pSceneTarget, render::ResourceState::eShaderResource, render::ResourceState::eRenderTarget);
 
-        pCommands->setPipelineState(pPipeline);
+        // bind state for scene
+        pCommands->setPipelineState(pScenePipeline);
         pCommands->setHeap(pTextureAlloc->pHeap);
-        pCommands->setDisplay({ postViewport, postScissor });
+        pCommands->setDisplay({ sceneViewport, sceneScissor });
+
+        pCommands->setRenderTarget(renderTargetIndex);
+        pCommands->clearRenderTarget(renderTargetIndex, kClearColour);
+
+        // draw scene content
+        pCommands->setShaderInput(pTextureAlloc->deviceOffset(quadTextureIndex), 0);
+        pCommands->setVertexBuffer(pQuadVertexBuffer);
+        pCommands->setIndexBuffer(pQuadIndexBuffer);
+        pCommands->drawIndexBuffer(6);
+
+        pCommands->transition(pSceneTarget, render::ResourceState::eRenderTarget, render::ResourceState::eShaderResource);
+    }
+
+    void executePost() {
+        auto renderTargetHeapIndex = frameData[frameIndex].renderTargetHeapIndex;
+        render::RenderTarget *pRenderTarget = frameData[frameIndex].pRenderTarget;
 
         pCommands->transition(pRenderTarget, render::ResourceState::ePresent, render::ResourceState::eRenderTarget);
 
-        pCommands->setRenderTarget(renderTarget);
-        pCommands->clearRenderTarget(renderTarget, { 0.0f, 0.2f, 0.4f, 1.0f });
+        // bind state for post
+        pCommands->setPipelineState(pPostPipeline);
+        pCommands->setHeap(pTextureAlloc->pHeap);
+        pCommands->setDisplay({ postViewport, postScissor });
 
-        pCommands->setShaderInput(pTextureAlloc->deviceOffset(quadTextureIndex), 0);
-        pCommands->setVertexBuffer(pVertexBuffer);
-        pCommands->setIndexBuffer(pIndexBuffer);
+        // dont clear because we dont have to
+        pCommands->setRenderTarget(pRenderTargetAlloc->hostOffset(renderTargetHeapIndex));
+
+        // blit scene to backbuffer
+        pCommands->setShaderInput(pTextureAlloc->deviceOffset(screenTextureIndex), 0);
+        pCommands->setVertexBuffer(pScreenQuadVerts);
+        pCommands->setIndexBuffer(pScreenQuadIndices);
         pCommands->drawIndexBuffer(6);
 
         pCommands->transition(pRenderTarget, render::ResourceState::eRenderTarget, render::ResourceState::ePresent);
+    }
 
+    void beginFrame() {
+        frameIndex = pDisplayQueue->getFrameIndex();
+        pCommands->begin(frameData[frameIndex].pMemory);
+
+        executeScene();
+        executePost();
         pCommands->end();
     }
 
@@ -376,7 +456,7 @@ private:
 
     render::TextureBuffer *pSceneTarget;
     RenderTargetAlloc::Index sceneRenderTargetIndex;
-    TextureAlloc::Index sceneTextureIndex;
+    TextureAlloc::Index screenTextureIndex;
 
     // scene data
 
@@ -389,9 +469,9 @@ private:
 
     // resources
 
-    render::PipelineState *pPipeline;
-    render::VertexBuffer *pVertexBuffer;
-    render::IndexBuffer *pIndexBuffer;
+    render::PipelineState *pScenePipeline;
+    render::VertexBuffer *pQuadVertexBuffer;
+    render::IndexBuffer *pQuadIndexBuffer;
 
     render::TextureBuffer *pTextureBuffer;
     TextureAlloc::Index quadTextureIndex;

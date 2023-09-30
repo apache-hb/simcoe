@@ -62,11 +62,15 @@ hlsl = generator(python3,
     arguments : [ script, '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'vs,ps', '6_0' ]
 )
 
-shaders = [ hlsl.process('data/shaders/quad.hlsl') ]
+src = [
+    'editor/src/main.cpp',
 
-src = [ 'editor/src/main.cpp' ]
+    # shaders
+    hlsl.process('data/shaders/quad.hlsl'),
+    hlsl.process('data/shaders/blit.hlsl')
+]
 
-executable('editor', src + shaders,
+executable('editor', src,
     dependencies : engine,
     include_directories : [ 'editor/include' ]
 )
