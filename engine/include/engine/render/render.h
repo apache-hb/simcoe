@@ -25,7 +25,7 @@ namespace simcoe::render {
     struct RenderTarget;
     struct VertexBuffer;
     struct IndexBuffer;
-    struct Texture;
+    struct TextureBuffer;
     struct UploadBuffer;
 
     struct DescriptorHeap;
@@ -98,8 +98,13 @@ namespace simcoe::render {
         eUint16,
         eUint32,
 
+        eFloat2,
         eFloat3,
         eFloat4
+    };
+
+    enum struct InputVisibility {
+        ePixel
     };
 
     struct VertexAttribute {
@@ -108,24 +113,35 @@ namespace simcoe::render {
         TypeFormat format;
     };
 
+    struct InputSlot {
+        InputVisibility visibility;
+        size_t reg;
+    };
+
+    struct SamplerSlot {
+        InputVisibility visibility;
+        size_t reg;
+    };
+
     struct PipelineCreateInfo {
         std::vector<std::byte> vertexShader;
         std::vector<std::byte> pixelShader;
 
         std::vector<VertexAttribute> attributes;
+
+        std::vector<InputSlot> inputs;
+        std::vector<SamplerSlot> samplers;
     };
 
     enum struct PixelFormat {
         eRGBA8
     };
 
-    struct TextureCreateInfo {
+    struct TextureInfo {
         size_t width;
         size_t height;
 
         PixelFormat format;
-
-        std::vector<std::byte> data;
     };
 
     struct Device {
@@ -134,41 +150,46 @@ namespace simcoe::render {
         DeviceQueue *createQueue();
         Commands *createCommands(CommandMemory *pMemory);
         CommandMemory *createCommandMemory();
+
         DescriptorHeap *createRenderTargetHeap(UINT count);
+        DescriptorHeap *createTextureHeap(UINT count);
+
         PipelineState *createPipelineState(const PipelineCreateInfo& createInfo);
         Fence *createFence();
 
+        // buffer creation
+
         VertexBuffer *createVertexBuffer(size_t length, size_t stride);
         IndexBuffer *createIndexBuffer(size_t length, TypeFormat fmt);
-
-
-
-        Texture *createTexture(const TextureCreateInfo& createInfo);
+        TextureBuffer *createTexture(const TextureInfo& createInfo);
 
         UploadBuffer *createUploadBuffer(const void *pData, size_t length);
+        UploadBuffer *createTextureUploadBuffer(const TextureInfo& createInfo);
 
         // resource management
 
         void mapRenderTarget(HostHeapOffset handle, RenderTarget *pTarget);
-        void mapTexture(HostHeapOffset handle, Texture *pTexture);
+        void mapTexture(HostHeapOffset handle, TextureBuffer *pTexture);
 
         // module interface
 
         static Device *create(IDXGIAdapter4 *pAdapter);
         ~Device();
 
-        ID3D12Device *getDevice() { return pDevice; }
+        ID3D12Device4 *getDevice() { return pDevice; }
 
     private:
-        Device(ID3D12Device *pDevice, ID3D12InfoQueue1 *pInfoQueue, DWORD cookie)
+        Device(ID3D12Device4 *pDevice, ID3D12InfoQueue1 *pInfoQueue, DWORD cookie, D3D_ROOT_SIGNATURE_VERSION version)
             : pDevice(pDevice)
             , pInfoQueue(pInfoQueue)
             , cookie(cookie)
+            , rootSignatureVersion(version)
         { }
 
-        ID3D12Device *pDevice;
+        ID3D12Device4 *pDevice;
         ID3D12InfoQueue1 *pInfoQueue;
         DWORD cookie;
+        D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion;
     };
 
     // display
@@ -252,7 +273,7 @@ namespace simcoe::render {
 
     enum struct ResourceState {
         ePresent,
-        eRenderTarget
+        eRenderTarget,
     };
 
     struct Viewport {
@@ -288,6 +309,8 @@ namespace simcoe::render {
 
         void setDisplay(const Display& display);
         void setPipelineState(PipelineState *pState);
+        void setHeap(DescriptorHeap *pHeap);
+        void setShaderInput(DeviceHeapOffset handle, UINT reg);
         void setRenderTarget(HostHeapOffset handle);
         void setVertexBuffer(VertexBuffer *pBuffer);
         void setIndexBuffer(IndexBuffer *pBuffer);
@@ -297,6 +320,7 @@ namespace simcoe::render {
 
         void copyBuffer(VertexBuffer *pDestination, UploadBuffer *pSource);
         void copyBuffer(IndexBuffer *pDestination, UploadBuffer *pSource);
+        void copyTexture(TextureBuffer *pDestination, UploadBuffer *pSource, const TextureInfo& info, std::span<const std::byte> data);
 
         // module interface
 
@@ -380,6 +404,20 @@ namespace simcoe::render {
         D3D12_INDEX_BUFFER_VIEW view;
     };
 
+    struct TextureBuffer {
+        static TextureBuffer *create(ID3D12Resource *pResource);
+
+        ID3D12Resource *getResource() { return pResource; }
+        ~TextureBuffer();
+
+    private:
+        TextureBuffer(ID3D12Resource *pResource)
+            : pResource(pResource)
+        { }
+
+        ID3D12Resource *pResource;
+    };
+
     struct UploadBuffer {
         static UploadBuffer *create(ID3D12Resource *pResource);
 
@@ -402,6 +440,8 @@ namespace simcoe::render {
 
         static DescriptorHeap *create(ID3D12DescriptorHeap *pHeap, UINT descriptorSize);
         ~DescriptorHeap();
+
+        ID3D12DescriptorHeap *getHeap() { return pHeap; }
 
     private:
         DescriptorHeap(ID3D12DescriptorHeap *pHeap, UINT descriptorSize)

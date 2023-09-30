@@ -35,7 +35,20 @@ static std::string narrow(std::wstring_view wstr) {
     return result;
 }
 
+static D3D_ROOT_SIGNATURE_VERSION getRootSigVersion(ID3D12Device4 *pDevice) {
+    D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = { .HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1 };
+    if (FAILED(pDevice->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData)))) {
+        return D3D_ROOT_SIGNATURE_VERSION_1_0;
+    }
+
+    return featureData.HighestVersion;
+}
+
 static D3D12_CPU_DESCRIPTOR_HANDLE hostHandle(HostHeapOffset handle) {
+    return { .ptr = size_t(handle) };
+}
+
+static D3D12_GPU_DESCRIPTOR_HANDLE deviceHandle(DeviceHeapOffset handle) {
     return { .ptr = size_t(handle) };
 }
 
@@ -52,9 +65,17 @@ static DXGI_FORMAT getTypeFormat(TypeFormat fmt) {
     case TypeFormat::eUint16: return DXGI_FORMAT_R16_UINT;
     case TypeFormat::eUint32: return DXGI_FORMAT_R32_UINT;
 
+    case TypeFormat::eFloat2: return DXGI_FORMAT_R32G32_FLOAT;
     case TypeFormat::eFloat3: return DXGI_FORMAT_R32G32B32_FLOAT;
     case TypeFormat::eFloat4: return DXGI_FORMAT_R32G32B32A32_FLOAT;
     default: throw std::runtime_error("invalid type format");
+    }
+}
+
+static DXGI_FORMAT getPixelTypeFormat(PixelFormat fmt) {
+    switch (fmt) {
+    case PixelFormat::eRGBA8: return DXGI_FORMAT_R8G8B8A8_UNORM;
+    default: throw std::runtime_error("invalid pixel format");
     }
 }
 
@@ -66,6 +87,20 @@ static size_t getByteSize(TypeFormat fmt) {
     case TypeFormat::eFloat3: return sizeof(math::float3);
     case TypeFormat::eFloat4: return sizeof(math::float4);
     default: throw std::runtime_error("invalid type format");
+    }
+}
+
+static size_t getPixelByteSize(PixelFormat fmt) {
+    switch (fmt) {
+    case PixelFormat::eRGBA8: return 4;
+    default: throw std::runtime_error("invalid pixel format");
+    }
+}
+
+static D3D12_SHADER_VISIBILITY getVisibility(InputVisibility visibility) {
+    switch (visibility) {
+    case InputVisibility::ePixel: return D3D12_SHADER_VISIBILITY_PIXEL;
+    default: throw std::runtime_error("invalid shader visibility");
     }
 }
 
@@ -177,6 +212,15 @@ void Commands::setPipelineState(PipelineState *pState) {
     pList->SetPipelineState(pState->getState());
 }
 
+void Commands::setHeap(DescriptorHeap *pHeap) {
+    ID3D12DescriptorHeap *pDescriptorHeap = pHeap->getHeap();
+    pList->SetDescriptorHeaps(1, &pDescriptorHeap);
+}
+
+void Commands::setShaderInput(DeviceHeapOffset handle, UINT reg) {
+    pList->SetGraphicsRootDescriptorTable(reg, deviceHandle(handle));
+}
+
 void Commands::setRenderTarget(HostHeapOffset handle) {
     D3D12_CPU_DESCRIPTOR_HANDLE handles[] = { hostHandle(handle) };
     pList->OMSetRenderTargets(1, handles, FALSE, nullptr);
@@ -208,6 +252,22 @@ void Commands::copyBuffer(VertexBuffer *pDestination, UploadBuffer *pSource) {
 
 void Commands::copyBuffer(IndexBuffer *pDestination, UploadBuffer *pSource) {
     pList->CopyResource(pDestination->getResource(), pSource->getResource());
+}
+
+void Commands::copyTexture(TextureBuffer *pDestination, UploadBuffer *pSource, const TextureInfo& info, std::span<const std::byte> data) {
+    LONG_PTR rowPitch = info.width * getPixelByteSize(info.format);
+    LONG_PTR slicePitch = rowPitch * info.height;
+
+    D3D12_SUBRESOURCE_DATA update = {
+        .pData = data.data(),
+        .RowPitch = rowPitch,
+        .SlicePitch = slicePitch
+    };
+
+    UpdateSubresources(pList, pDestination->getResource(), pSource->getResource(), 0, 0, 1, &update);
+
+    D3D12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(pDestination->getResource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    pList->ResourceBarrier(1, &transition);
 }
 
 Commands *Commands::create(ID3D12GraphicsCommandList *pList) {
@@ -347,14 +407,76 @@ DescriptorHeap *Device::createRenderTargetHeap(UINT count) {
     return DescriptorHeap::create(pHeap, descriptorSize);
 }
 
-PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo) {
-    D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {
-        .Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
+DescriptorHeap *Device::createTextureHeap(UINT count) {
+    D3D12_DESCRIPTOR_HEAP_DESC desc = {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+        .NumDescriptors = count,
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
     };
+
+    ID3D12DescriptorHeap *pHeap = nullptr;
+    HR_CHECK(pDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&pHeap)));
+
+    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    return DescriptorHeap::create(pHeap, descriptorSize);
+}
+
+PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo) {
+    // create root parameters
+    size_t inputs = createInfo.inputs.size();
+    auto *pRanges = new D3D12_DESCRIPTOR_RANGE1[inputs];
+    std::vector<D3D12_ROOT_PARAMETER1> parameters;
+    for (size_t i = 0; i < inputs; i++) {
+        const auto& input = createInfo.inputs[i];
+
+        CD3DX12_DESCRIPTOR_RANGE1 range;
+        range.Init(
+            D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+            1, input.reg, 0,
+            D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC
+        );
+
+        pRanges[i] = range;
+
+        CD3DX12_ROOT_PARAMETER1 parameter;
+        parameter.InitAsDescriptorTable(1, &pRanges[i], getVisibility(input.visibility));
+        parameters.push_back(parameter);
+    }
+
+    // create samplers
+
+    std::vector<D3D12_STATIC_SAMPLER_DESC> samplerDescs;
+    for (const auto& sampler : createInfo.samplers) {
+        D3D12_STATIC_SAMPLER_DESC desc = {
+            .Filter = D3D12_FILTER_MIN_MAG_MIP_POINT,
+            .AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER,
+            .AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER,
+            .AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER,
+            .MipLODBias = 0,
+            .MaxAnisotropy = 0,
+            .ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER,
+            .BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
+            .MinLOD = 0,
+            .MaxLOD = D3D12_FLOAT32_MAX,
+            .ShaderRegister = UINT(sampler.reg),
+            .RegisterSpace = 0,
+            .ShaderVisibility = getVisibility(sampler.visibility),
+        };
+
+        samplerDescs.push_back(desc);
+    }
+
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
+    rootSignatureDesc.Init_1_1(
+        UINT(parameters.size()), parameters.data(),
+        UINT(samplerDescs.size()), samplerDescs.data(),
+        D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
+    );
 
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> error;
-    HR_CHECK(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
+    HR_CHECK(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, rootSignatureVersion, &signature, &error));
 
     ID3D12RootSignature *pSignature = nullptr;
     HR_CHECK(getDevice()->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&pSignature)));
@@ -383,7 +505,7 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
 
         .RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT),
         .DepthStencilState = { .DepthEnable = false, .StencilEnable = false },
-        .InputLayout = {  attributes.data(), UINT(attributes.size()) },
+        .InputLayout = { attributes.data(), UINT(attributes.size()) },
         .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
         .NumRenderTargets = 1,
         .RTVFormats = { DXGI_FORMAT_R8G8B8A8_UNORM },
@@ -453,6 +575,24 @@ IndexBuffer *Device::createIndexBuffer(size_t length, TypeFormat fmt) {
     return IndexBuffer::create(pResource, view);
 }
 
+TextureBuffer *Device::createTexture(const TextureInfo& createInfo) {
+    ID3D12Resource *pResource = nullptr;
+
+    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Tex2D(
+        getPixelTypeFormat(createInfo.format),
+        UINT(createInfo.width), UINT(createInfo.height)
+    );
+
+    HR_CHECK(pDevice->CreateCommittedResource(
+        &heap, D3D12_HEAP_FLAG_NONE, &desc,
+        D3D12_RESOURCE_STATE_COPY_DEST,
+        nullptr, IID_PPV_ARGS(&pResource)
+    ));
+
+    return TextureBuffer::create(pResource);
+}
+
 UploadBuffer *Device::createUploadBuffer(const void *pData, size_t length) {
     ID3D12Resource *pResource = nullptr;
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
@@ -472,6 +612,22 @@ UploadBuffer *Device::createUploadBuffer(const void *pData, size_t length) {
     return UploadBuffer::create(pResource);
 }
 
+UploadBuffer *Device::createTextureUploadBuffer(const TextureInfo& createInfo) {
+    size_t size = createInfo.width * createInfo.height * getPixelByteSize(createInfo.format);
+    ID3D12Resource *pResource = nullptr;
+
+    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+    D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size);
+
+    HR_CHECK(pDevice->CreateCommittedResource(
+        &heap, D3D12_HEAP_FLAG_NONE,
+        &desc, D3D12_RESOURCE_STATE_GENERIC_READ,
+        nullptr, IID_PPV_ARGS(&pResource)
+    ));
+
+    return UploadBuffer::create(pResource);
+}
+
 void Device::mapRenderTarget(HostHeapOffset handle, RenderTarget *pTarget) {
     D3D12_RENDER_TARGET_VIEW_DESC desc = {
         .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
@@ -479,6 +635,17 @@ void Device::mapRenderTarget(HostHeapOffset handle, RenderTarget *pTarget) {
     };
 
     pDevice->CreateRenderTargetView(pTarget->getResource(), &desc, hostHandle(handle));
+}
+
+void Device::mapTexture(HostHeapOffset handle, TextureBuffer *pTexture) {
+    D3D12_SHADER_RESOURCE_VIEW_DESC desc = {
+        .Format = DXGI_FORMAT_R8G8B8A8_UNORM, // TODO: this doesnt account for pixel format
+        .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
+        .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+        .Texture2D = { .MostDetailedMip = 0, .MipLevels = 1 },
+    };
+
+    pDevice->CreateShaderResourceView(pTexture->getResource(), &desc, hostHandle(handle));
 }
 
 Device *Device::create(IDXGIAdapter4 *pAdapter) {
@@ -490,7 +657,7 @@ Device *Device::create(IDXGIAdapter4 *pAdapter) {
         simcoe::logWarn("failed to enable d3d12 debug layer");
     }
 
-    ID3D12Device *pDevice = nullptr;
+    ID3D12Device4 *pDevice = nullptr;
     HR_CHECK(D3D12CreateDevice(pAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pDevice)));
 
     DWORD cookie = DWORD_MAX;
@@ -502,7 +669,7 @@ Device *Device::create(IDXGIAdapter4 *pAdapter) {
         simcoe::logWarn("failed to enable d3d12 info queue");
     }
 
-    return new Device(pDevice, pInfoQueue, cookie);
+    return new Device(pDevice, pInfoQueue, cookie, getRootSigVersion(pDevice));
 }
 
 Device::~Device() {
@@ -616,10 +783,27 @@ VertexBuffer *VertexBuffer::create(ID3D12Resource *pResource, D3D12_VERTEX_BUFFE
     return new VertexBuffer(pResource, view);
 }
 
+VertexBuffer::~VertexBuffer() {
+    pResource->Release();
+}
+
 // index buffer
 
 IndexBuffer *IndexBuffer::create(ID3D12Resource *pResource, D3D12_INDEX_BUFFER_VIEW view) {
     return new IndexBuffer(pResource, view);
+}
+
+IndexBuffer::~IndexBuffer() {
+    pResource->Release();
+}
+
+// texture buffer
+TextureBuffer *TextureBuffer::create(ID3D12Resource *pResource) {
+    return new TextureBuffer(pResource);
+}
+
+TextureBuffer::~TextureBuffer() {
+    pResource->Release();
 }
 
 // upload buffer
@@ -654,11 +838,10 @@ Fence::~Fence() {
 
 #define DLLEXPORT __declspec(dllexport)
 
-// agility
 extern "C" {
-    // load up the agility sdk
+    // load the agility sdk
     DLLEXPORT extern const UINT D3D12SDKVersion = 602;
-    DLLEXPORT extern const char* D3D12SDKPath = ".\\";
+    DLLEXPORT extern const char* D3D12SDKPath = ".\\data\\libs\\agility\\";
 }
 
 extern "C" {

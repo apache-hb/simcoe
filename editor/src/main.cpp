@@ -20,6 +20,7 @@ struct RenderCreateInfo {
 
 struct Vertex {
     math::float3 position;
+    math::float2 uv;
     math::float4 colour;
 };
 
@@ -131,11 +132,33 @@ private:
     }
 
     void createResources() {
+        // create pso
+        const render::PipelineCreateInfo psoCreateInfo = {
+            .vertexShader = createInfo.depot.loadBlob("quad.vs.cso"),
+            .pixelShader = createInfo.depot.loadBlob("quad.ps.cso"),
+
+            .attributes = {
+                { "POSITION", offsetof(Vertex, position), render::TypeFormat::eFloat3 },
+                { "TEXCOORD", offsetof(Vertex, uv), render::TypeFormat::eFloat2 }
+            },
+
+            .inputs = {
+                { render::InputVisibility::ePixel, 0 }
+            },
+
+            .samplers = {
+                { render::InputVisibility::ePixel, 0 }
+            }
+        };
+
+        pPipeline = pDevice->createPipelineState(psoCreateInfo);
+
+        // data to upload
         const auto quad = std::to_array<Vertex>({
-            Vertex{ { 0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } }, // top left
-            Vertex{ { 0.5f, 0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } }, // top right
-            Vertex{ { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }, // bottom left
-            Vertex{ { -0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f, 0.0f, 1.0f } } // bottom right
+            Vertex{ { 0.5f, -0.5f, 0.0f }, { 0.f, 0.f } }, // top left
+            Vertex{ { 0.5f, 0.5f, 0.0f }, { 1.f, 0.f } }, // top right
+            Vertex{ { -0.5f, -0.5f, 0.0f }, { 0.f, 1.f } }, // bottom left
+            Vertex{ { -0.5f, 0.5f, 0.0f }, { 1.f, 1.f } } // bottom right
         });
 
         const auto indices = std::to_array<uint16_t>({
@@ -143,28 +166,38 @@ private:
             1, 2, 3
         });
 
-        std::unique_ptr<render::UploadBuffer> pVertexStaging{pDevice->createUploadBuffer(quad.data(), quad.size() * sizeof(Vertex))};
-        std::unique_ptr<render::UploadBuffer> pIndexStaging{pDevice->createUploadBuffer(indices.data(), indices.size() * sizeof(uint16_t))};
+        assets::Image image = createInfo.depot.loadImage("uv-coords.png");
+        const render::TextureInfo textureInfo = {
+            .width = image.width,
+            .height = image.height,
 
-        const render::PipelineCreateInfo psoCreateInfo = {
-            .vertexShader = createInfo.depot.load("triangle.vs.cso"),
-            .pixelShader = createInfo.depot.load("triangle.ps.cso"),
-
-            .attributes = {
-                { "POSITION", offsetof(Vertex, position), render::TypeFormat::eFloat3 },
-                { "COLOUR", offsetof(Vertex, colour), render::TypeFormat::eFloat4 }
-            }
+            .format = render::PixelFormat::eRGBA8
         };
 
-        pPipeline = pDevice->createPipelineState(psoCreateInfo);
+        // create staging buffers
+
+        std::unique_ptr<render::UploadBuffer> pVertexStaging{pDevice->createUploadBuffer(quad.data(), quad.size() * sizeof(Vertex))};
+        std::unique_ptr<render::UploadBuffer> pIndexStaging{pDevice->createUploadBuffer(indices.data(), indices.size() * sizeof(uint16_t))};
+        std::unique_ptr<render::UploadBuffer> pTextureStaging{pDevice->createTextureUploadBuffer(textureInfo)};
+
+        // create destination buffers
 
         pVertexBuffer = pDevice->createVertexBuffer(quad.size(), sizeof(Vertex));
         pIndexBuffer = pDevice->createIndexBuffer(indices.size(), render::TypeFormat::eUint16);
+        pTextureBuffer = pDevice->createTexture(textureInfo);
+
+        // create texture heap and map texture into it
+
+        pTextureHeap = pDevice->createTextureHeap(1);
+        pDevice->mapTexture(pTextureHeap->hostOffset(0), pTextureBuffer);
+
+        // upload data
 
         pCommands->begin(pMemoryArray[frameIndex]);
 
         pCommands->copyBuffer(pVertexBuffer, pVertexStaging.get());
         pCommands->copyBuffer(pIndexBuffer, pIndexStaging.get());
+        pCommands->copyTexture(pTextureBuffer, pTextureStaging.get(), textureInfo, image.data);
 
         pCommands->end();
 
@@ -195,6 +228,7 @@ private:
         pCommands->begin(pMemoryArray[frameIndex]);
 
         pCommands->setPipelineState(pPipeline);
+        pCommands->setHeap(pTextureHeap);
         pCommands->setDisplay({ viewport, scissor });
 
         pCommands->transition(pRenderTargetArray[frameIndex], render::ResourceState::ePresent, render::ResourceState::eRenderTarget);
@@ -202,6 +236,7 @@ private:
         pCommands->setRenderTarget(renderTarget);
         pCommands->clearRenderTarget(renderTarget, { 0.0f, 0.2f, 0.4f, 1.0f });
 
+        pCommands->setShaderInput(pTextureHeap->deviceOffset(0), 0);
         pCommands->setVertexBuffer(pVertexBuffer);
         pCommands->setIndexBuffer(pIndexBuffer);
         pCommands->drawIndexBuffer(6);
@@ -243,6 +278,8 @@ private:
     render::Scissor scissor;
     render::DisplayQueue *pDisplayQueue;
 
+    render::DescriptorHeap *pTextureHeap;
+
     render::DescriptorHeap *pRenderTargetHeap;
     render::RenderTarget *pRenderTargetArray[kBackBufferCount];
 
@@ -251,6 +288,7 @@ private:
     render::PipelineState *pPipeline;
     render::VertexBuffer *pVertexBuffer;
     render::IndexBuffer *pIndexBuffer;
+    render::TextureBuffer *pTextureBuffer;
 };
 
 #define ASSERT(expr) \
@@ -286,20 +324,28 @@ static void commonMain(simcoe::System& system) {
 
     RenderContext *pContext = RenderContext::create(renderCreateInfo);
 
+    std::jthread renderThread([&](std::stop_token token) {
+        simcoe::Region region("render thread started", "render thread stopped");
+
+        while (!token.stop_requested()) {
+            pContext->render();
+        }
+    });
+
     while (system.getEvent()) {
         system.dispatchEvent();
-        pContext->render();
     }
 }
 
 static int innerMain(simcoe::System& system) try {
+    // dont use a Region here because we want to know if commonMain throws an exception
     simcoe::logInfo("startup");
     commonMain(system);
     simcoe::logInfo("shutdown");
 
     return 0;
-} catch (...) {
-    simcoe::logError("unhandled exception");
+} catch (const std::exception& err) {
+    simcoe::logError(std::format("unhandled exception: {}", err.what()));
     return 99;
 }
 

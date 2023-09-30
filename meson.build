@@ -10,7 +10,7 @@ project('simcoe', 'cpp',
 ###
 
 directx = subproject('directx').get_variable('directx')
-
+stb = subproject('stb').get_variable('stb')
 
 ###
 ### engine
@@ -29,15 +29,23 @@ src = [
     'engine/src/render/render.cpp'
 ]
 
+deps = [
+    # assets
+    stb,
+
+    # render
+    directx
+]
+
 libengine = library('engine', src,
     include_directories : [ 'engine/include' ],
-    dependencies : [ directx ]
+    dependencies : deps
 )
 
 engine = declare_dependency(
     link_with : libengine,
     include_directories : [ 'engine/include' ],
-    dependencies : [ directx ]
+    dependencies : deps
 )
 
 ###
@@ -54,7 +62,7 @@ hlsl = generator(python3,
     arguments : [ script, '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'vs,ps', '6_0' ]
 )
 
-shaders = [ hlsl.process('data/shaders/triangle.hlsl') ]
+shaders = [ hlsl.process('data/shaders/quad.hlsl') ]
 
 src = [ 'editor/src/main.cpp' ]
 
