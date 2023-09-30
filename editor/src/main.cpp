@@ -89,7 +89,7 @@ struct RenderContext {
     void render() {
         beginFrame();
 
-        pQueue->execute(pCommands);
+        pDirectQueue->execute(pDirectCommands);
         pDisplayQueue->present();
 
         endFrame();
@@ -125,19 +125,28 @@ private:
     // create data that depends on the device
     void createDeviceData(render::Adapter* pAdapter) {
         pDevice = pAdapter->createDevice();
-        pQueue = pDevice->createQueue();
+        pDirectQueue = pDevice->createQueue(render::CommandType::eDirect);
+        pCopyQueue = pDevice->createQueue(render::CommandType::eCopy);
+
+        pCopyAllocator = pDevice->createCommandMemory(render::CommandType::eCopy);
+        pCopyCommands = pDevice->createCommands(render::CommandType::eCopy, pCopyAllocator);
         pFence = pDevice->createFence();
     }
 
     void destroyDeviceData() {
         delete pFence;
-        delete pCommands;
-        delete pQueue;
+
+        delete pCopyCommands;
+        delete pCopyAllocator;
+
+        delete pCopyQueue;
+        delete pDirectQueue;
         delete pDevice;
     }
 
     // create data that depends on the present queue
     void createDisplayData() {
+        // create swapchain
         const render::DisplayQueueCreateInfo displayCreateInfo = {
             .hWindow = createInfo.hWindow,
             .width = createInfo.displayWidth,
@@ -145,14 +154,16 @@ private:
             .bufferCount = kBackBufferCount
         };
 
-        pDisplayQueue = pQueue->createDisplayQueue(pContext, displayCreateInfo);
+        pDisplayQueue = pDirectQueue->createDisplayQueue(pContext, displayCreateInfo);
+
+        // create render targets
         render::DescriptorHeap *pHeap = pDevice->createRenderTargetHeap(kBackBufferCount + 1);
         pRenderTargetAlloc = new RenderTargetAlloc(pHeap);
 
         frameIndex = pDisplayQueue->getFrameIndex();
 
         for (UINT i = 0; i < kBackBufferCount; ++i) {
-            render::CommandMemory *pMemory = pDevice->createCommandMemory();
+            render::CommandMemory *pMemory = pDevice->createCommandMemory(render::CommandType::eDirect);
             render::RenderTarget *pRenderTarget = pDisplayQueue->getRenderTarget(i);
             RenderTargetAlloc::Index rtvIndex = pRenderTargetAlloc->alloc();
 
@@ -161,7 +172,7 @@ private:
             frameData[i] = { pRenderTarget, rtvIndex, pMemory };
         }
 
-        pCommands = pDevice->createCommands(frameData[frameIndex].pMemory);
+        pDirectCommands = pDevice->createCommands(render::CommandType::eDirect, frameData[frameIndex].pMemory);
     }
 
     void destroyDisplayData() {
@@ -171,6 +182,7 @@ private:
         }
 
         delete pRenderTargetAlloc;
+        delete pDirectCommands;
         delete pDisplayQueue;
     }
 
@@ -196,8 +208,12 @@ private:
         sceneRenderTargetIndex = pRenderTargetAlloc->alloc();
         screenTextureIndex = pTextureAlloc->alloc();
 
+        // map scene target into texture and render target heaps
+
         pDevice->mapRenderTarget(pRenderTargetAlloc->hostOffset(sceneRenderTargetIndex), pSceneTarget);
         pDevice->mapTexture(pTextureAlloc->hostOffset(screenTextureIndex), pSceneTarget);
+
+        // create post pso
 
         const render::PipelineCreateInfo psoCreateInfo = {
             .vertexShader = createInfo.depot.loadBlob("blit.vs.cso"),
@@ -231,21 +247,23 @@ private:
             1, 2, 3
         });
 
+        // upload data
+
         std::unique_ptr<render::UploadBuffer> pVertexStaging{pDevice->createUploadBuffer(quad.data(), quad.size() * sizeof(Vertex))};
         std::unique_ptr<render::UploadBuffer> pIndexStaging{pDevice->createUploadBuffer(indices.data(), indices.size() * sizeof(uint16_t))};
 
         pScreenQuadVerts = pDevice->createVertexBuffer(quad.size(), sizeof(Vertex));
         pScreenQuadIndices = pDevice->createIndexBuffer(indices.size(), render::TypeFormat::eUint16);
 
-        pCommands->begin(frameData[frameIndex].pMemory);
+        pCopyCommands->begin(pCopyAllocator);
 
-        pCommands->copyBuffer(pScreenQuadVerts, pVertexStaging.get());
-        pCommands->copyBuffer(pScreenQuadIndices, pIndexStaging.get());
+        pCopyCommands->copyBuffer(pScreenQuadVerts, pVertexStaging.get());
+        pCopyCommands->copyBuffer(pScreenQuadIndices, pIndexStaging.get());
 
-        pCommands->end();
+        pCopyCommands->end();
 
-        pQueue->execute(pCommands);
-        endFrame();
+        pCopyQueue->execute(pCopyCommands);
+        waitForCopy();
     }
 
     void destroyPostData() {
@@ -320,15 +338,22 @@ private:
 
         // upload data
 
-        pCommands->begin(frameData[frameIndex].pMemory);
+        pDirectCommands->begin(frameData[frameIndex].pMemory);
+        pCopyCommands->begin(pCopyAllocator);
 
-        pCommands->copyBuffer(pQuadVertexBuffer, pVertexStaging.get());
-        pCommands->copyBuffer(pQuadIndexBuffer, pIndexStaging.get());
-        pCommands->copyTexture(pTextureBuffer, pTextureStaging.get(), textureInfo, image.data);
+        pCopyCommands->copyBuffer(pQuadVertexBuffer, pVertexStaging.get());
+        pCopyCommands->copyBuffer(pQuadIndexBuffer, pIndexStaging.get());
+        pCopyCommands->copyTexture(pTextureBuffer, pTextureStaging.get(), textureInfo, image.data);
 
-        pCommands->end();
+        pDirectCommands->transition(pTextureBuffer, render::ResourceState::eCopyDest, render::ResourceState::eShaderResource);
 
-        pQueue->execute(pCommands);
+        pCopyCommands->end();
+        pDirectCommands->end();
+
+        pCopyQueue->execute(pCopyCommands);
+        waitForCopy();
+
+        pDirectQueue->execute(pDirectCommands);
         endFrame();
     }
 
@@ -343,61 +368,70 @@ private:
     void executeScene() {
         auto renderTargetIndex = pRenderTargetAlloc->hostOffset(sceneRenderTargetIndex);
 
-        pCommands->transition(pSceneTarget, render::ResourceState::eShaderResource, render::ResourceState::eRenderTarget);
+        pDirectCommands->transition(pSceneTarget, render::ResourceState::eShaderResource, render::ResourceState::eRenderTarget);
 
         // bind state for scene
-        pCommands->setPipelineState(pScenePipeline);
-        pCommands->setHeap(pTextureAlloc->pHeap);
-        pCommands->setDisplay(sceneDisplay);
+        pDirectCommands->setPipelineState(pScenePipeline);
+        pDirectCommands->setHeap(pTextureAlloc->pHeap);
+        pDirectCommands->setDisplay(sceneDisplay);
 
-        pCommands->setRenderTarget(renderTargetIndex);
-        pCommands->clearRenderTarget(renderTargetIndex, kClearColour);
+        pDirectCommands->setRenderTarget(renderTargetIndex);
+        pDirectCommands->clearRenderTarget(renderTargetIndex, kClearColour);
 
         // draw scene content
-        pCommands->setShaderInput(pTextureAlloc->deviceOffset(quadTextureIndex), 0);
-        pCommands->setVertexBuffer(pQuadVertexBuffer);
-        pCommands->setIndexBuffer(pQuadIndexBuffer);
-        pCommands->drawIndexBuffer(6);
+        pDirectCommands->setShaderInput(pTextureAlloc->deviceOffset(quadTextureIndex), 0);
+        pDirectCommands->setVertexBuffer(pQuadVertexBuffer);
+        pDirectCommands->setIndexBuffer(pQuadIndexBuffer);
+        pDirectCommands->drawIndexBuffer(6);
 
-        pCommands->transition(pSceneTarget, render::ResourceState::eRenderTarget, render::ResourceState::eShaderResource);
+        pDirectCommands->transition(pSceneTarget, render::ResourceState::eRenderTarget, render::ResourceState::eShaderResource);
     }
 
     void executePost() {
         auto renderTargetHeapIndex = frameData[frameIndex].renderTargetHeapIndex;
         render::RenderTarget *pRenderTarget = frameData[frameIndex].pRenderTarget;
 
-        pCommands->transition(pRenderTarget, render::ResourceState::ePresent, render::ResourceState::eRenderTarget);
+        pDirectCommands->transition(pRenderTarget, render::ResourceState::ePresent, render::ResourceState::eRenderTarget);
 
         // bind state for post
-        pCommands->setPipelineState(pPostPipeline);
-        pCommands->setHeap(pTextureAlloc->pHeap);
-        pCommands->setDisplay(postDisplay);
+        pDirectCommands->setPipelineState(pPostPipeline);
+        pDirectCommands->setHeap(pTextureAlloc->pHeap);
+        pDirectCommands->setDisplay(postDisplay);
 
         // set the actual back buffer as the render target
-        pCommands->setRenderTarget(pRenderTargetAlloc->hostOffset(renderTargetHeapIndex));
-        pCommands->clearRenderTarget(pRenderTargetAlloc->hostOffset(renderTargetHeapIndex), kBlackClearColour);
+        pDirectCommands->setRenderTarget(pRenderTargetAlloc->hostOffset(renderTargetHeapIndex));
+        pDirectCommands->clearRenderTarget(pRenderTargetAlloc->hostOffset(renderTargetHeapIndex), kBlackClearColour);
 
         // blit scene to backbuffer
-        pCommands->setShaderInput(pTextureAlloc->deviceOffset(screenTextureIndex), 0);
-        pCommands->setVertexBuffer(pScreenQuadVerts);
-        pCommands->setIndexBuffer(pScreenQuadIndices);
-        pCommands->drawIndexBuffer(6);
+        pDirectCommands->setShaderInput(pTextureAlloc->deviceOffset(screenTextureIndex), 0);
+        pDirectCommands->setVertexBuffer(pScreenQuadVerts);
+        pDirectCommands->setIndexBuffer(pScreenQuadIndices);
+        pDirectCommands->drawIndexBuffer(6);
 
-        pCommands->transition(pRenderTarget, render::ResourceState::eRenderTarget, render::ResourceState::ePresent);
+        pDirectCommands->transition(pRenderTarget, render::ResourceState::eRenderTarget, render::ResourceState::ePresent);
     }
 
     void beginFrame() {
         frameIndex = pDisplayQueue->getFrameIndex();
-        pCommands->begin(frameData[frameIndex].pMemory);
+        pDirectCommands->begin(frameData[frameIndex].pMemory);
 
         executeScene();
         executePost();
-        pCommands->end();
+        pDirectCommands->end();
     }
 
     void endFrame() {
         size_t value = frameData[frameIndex].fenceValue++;
-        pQueue->signal(pFence, value);
+        pDirectQueue->signal(pFence, value);
+
+        if (pFence->getValue() < value) {
+            pFence->wait(value);
+        }
+    }
+
+    void waitForCopy() {
+        size_t value = copyFenceValue++;
+        pCopyQueue->signal(pFence, value);
 
         if (pFence->getValue() < value) {
             pFence->wait(value);
@@ -466,9 +500,16 @@ private:
     std::vector<render::Adapter*> adapters;
     render::Device *pDevice;
 
-    render::DeviceQueue *pQueue;
+    render::DeviceQueue *pDirectQueue;
 
-    render::Commands *pCommands;
+    render::Commands *pDirectCommands;
+
+    // device copy data
+
+    render::DeviceQueue *pCopyQueue;
+    render::CommandMemory *pCopyAllocator;
+    render::Commands *pCopyCommands;
+    size_t copyFenceValue = 1;
 
     size_t frameIndex = 0;
     render::Fence *pFence;

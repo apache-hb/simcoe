@@ -57,7 +57,16 @@ static D3D12_RESOURCE_STATES getResourceState(ResourceState state) {
     case ResourceState::ePresent: return D3D12_RESOURCE_STATE_PRESENT;
     case ResourceState::eRenderTarget: return D3D12_RESOURCE_STATE_RENDER_TARGET;
     case ResourceState::eShaderResource: return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    case ResourceState::eCopyDest: return D3D12_RESOURCE_STATE_COPY_DEST;
     default: throw std::runtime_error("invalid resource state");
+    }
+}
+
+static D3D12_COMMAND_LIST_TYPE getCommandType(CommandType type) {
+    switch (type) {
+    case CommandType::eDirect: return D3D12_COMMAND_LIST_TYPE_DIRECT;
+    case CommandType::eCopy: return D3D12_COMMAND_LIST_TYPE_COPY;
+    default: throw std::runtime_error("invalid command type");
     }
 }
 
@@ -262,9 +271,6 @@ void Commands::copyTexture(TextureBuffer *pDestination, UploadBuffer *pSource, c
     };
 
     UpdateSubresources(pList, pDestination->getResource(), pSource->getResource(), 0, 0, 1, &update);
-
-    D3D12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(pDestination->getResource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-    pList->ResourceBarrier(1, &transition);
 }
 
 Commands *Commands::create(ID3D12GraphicsCommandList *pList) {
@@ -361,10 +367,10 @@ DisplayQueue::~DisplayQueue() {
 
 // device
 
-DeviceQueue *Device::createQueue() {
+DeviceQueue *Device::createQueue(CommandType type) {
     ID3D12CommandQueue *pQueue = nullptr;
     D3D12_COMMAND_QUEUE_DESC desc = {
-        .Type = D3D12_COMMAND_LIST_TYPE_DIRECT,
+        .Type = getCommandType(type),
     };
 
     HR_CHECK(pDevice->CreateCommandQueue(&desc, IID_PPV_ARGS(&pQueue)));
@@ -372,20 +378,20 @@ DeviceQueue *Device::createQueue() {
     return DeviceQueue::create(pQueue);
 }
 
-Commands *Device::createCommands(CommandMemory *pMemory) {
+Commands *Device::createCommands(CommandType type, CommandMemory *pMemory) {
     ID3D12CommandAllocator *pAllocator = pMemory->getAllocator();
 
     ID3D12GraphicsCommandList *pList = nullptr;
-    HR_CHECK(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, pAllocator, nullptr, IID_PPV_ARGS(&pList)));
+    HR_CHECK(pDevice->CreateCommandList(0, getCommandType(type), pAllocator, nullptr, IID_PPV_ARGS(&pList)));
 
     HR_CHECK(pList->Close());
 
     return Commands::create(pList);
 }
 
-CommandMemory *Device::createCommandMemory() {
+CommandMemory *Device::createCommandMemory(CommandType type) {
     ID3D12CommandAllocator *pAllocator = nullptr;
-    HR_CHECK(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&pAllocator)));
+    HR_CHECK(pDevice->CreateCommandAllocator(getCommandType(type), IID_PPV_ARGS(&pAllocator)));
 
     return CommandMemory::create(pAllocator);
 }

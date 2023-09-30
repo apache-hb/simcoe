@@ -113,7 +113,8 @@ namespace simcoe::render {
 
         ePresent,
         eRenderTarget,
-        eShaderResource
+        eShaderResource,
+        eCopyDest
     };
 
     struct VertexAttribute {
@@ -154,12 +155,17 @@ namespace simcoe::render {
         PixelFormat format;
     };
 
+    enum struct CommandType {
+        eDirect,
+        eCopy
+    };
+
     struct Device {
         // public interface
 
-        DeviceQueue *createQueue();
-        Commands *createCommands(CommandMemory *pMemory);
-        CommandMemory *createCommandMemory();
+        DeviceQueue *createQueue(CommandType type);
+        Commands *createCommands(CommandType type, CommandMemory *pMemory);
+        CommandMemory *createCommandMemory(CommandType type);
 
         DescriptorHeap *createRenderTargetHeap(UINT count);
         DescriptorHeap *createTextureHeap(UINT count);
@@ -371,18 +377,15 @@ namespace simcoe::render {
             : pResource(pResource)
         { }
 
+    private:
         ID3D12Resource *pResource;
     };
 
     // render target
 
     struct RenderTarget : DeviceResource {
+        using DeviceResource::DeviceResource;
         static RenderTarget *create(ID3D12Resource *pResource);
-
-    private:
-        RenderTarget(ID3D12Resource *pResource)
-            : DeviceResource(pResource)
-        { }
     };
 
     struct VertexBuffer : DeviceResource {
@@ -414,21 +417,13 @@ namespace simcoe::render {
     };
 
     struct TextureBuffer : DeviceResource {
+        using DeviceResource::DeviceResource;
         static TextureBuffer *create(ID3D12Resource *pResource);
-
-    private:
-        TextureBuffer(ID3D12Resource *pResource)
-            : DeviceResource(pResource)
-        { }
     };
 
     struct UploadBuffer : DeviceResource {
+        using DeviceResource::DeviceResource;
         static UploadBuffer *create(ID3D12Resource *pResource);
-
-    private:
-        UploadBuffer(ID3D12Resource *pResource)
-            : DeviceResource(pResource)
-        { }
     };
 
     // descriptor heap
