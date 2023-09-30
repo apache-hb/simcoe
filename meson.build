@@ -26,7 +26,8 @@ src = [
     'engine/src/assets/assets.cpp',
 
     # render
-    'engine/src/render/render.cpp'
+    'engine/src/render/render.cpp',
+    'engine/src/render/vendor.cpp',
 ]
 
 deps = [

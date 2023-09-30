@@ -22,6 +22,7 @@ namespace simcoe::render {
 
     struct Commands;
 
+    struct DeviceResource;
     struct RenderTarget;
     struct VertexBuffer;
     struct IndexBuffer;
@@ -179,8 +180,7 @@ namespace simcoe::render {
 
         // resource management
 
-        void mapRenderTarget(HostHeapOffset handle, RenderTarget *pTarget);
-        void mapRenderTarget(HostHeapOffset handle, TextureBuffer *pTexture);
+        void mapRenderTarget(HostHeapOffset handle, DeviceResource *pTarget);
         void mapTexture(HostHeapOffset handle, TextureBuffer *pTexture);
 
         // module interface
@@ -311,8 +311,7 @@ namespace simcoe::render {
         void begin(CommandMemory *pMemory);
         void end();
 
-        void transition(RenderTarget *pTarget, ResourceState from, ResourceState to);
-        void transition(TextureBuffer *pTarget, ResourceState from, ResourceState to);
+        void transition(DeviceResource *pTarget, ResourceState from, ResourceState to);
         void clearRenderTarget(HostHeapOffset handle, math::float4 colour);
 
         void setDisplay(const Display& display);
@@ -326,8 +325,7 @@ namespace simcoe::render {
         void drawVertexBuffer(UINT count);
         void drawIndexBuffer(UINT count);
 
-        void copyBuffer(VertexBuffer *pDestination, UploadBuffer *pSource);
-        void copyBuffer(IndexBuffer *pDestination, UploadBuffer *pSource);
+        void copyBuffer(DeviceResource *pDestination, UploadBuffer *pSource);
         void copyTexture(TextureBuffer *pDestination, UploadBuffer *pSource, const TextureInfo& info, std::span<const std::byte> data);
 
         // module interface
@@ -362,82 +360,75 @@ namespace simcoe::render {
         ID3D12PipelineState *pState;
     };
 
+    // any resource
+
+    struct DeviceResource {
+        ID3D12Resource *getResource() { return pResource; }
+        ~DeviceResource();
+
+    protected:
+        DeviceResource(ID3D12Resource *pResource)
+            : pResource(pResource)
+        { }
+
+        ID3D12Resource *pResource;
+    };
+
     // render target
 
-    struct RenderTarget {
+    struct RenderTarget : DeviceResource {
         static RenderTarget *create(ID3D12Resource *pResource);
-
-        ID3D12Resource *getResource() { return pResource; }
-        ~RenderTarget();
 
     private:
         RenderTarget(ID3D12Resource *pResource)
-            : pResource(pResource)
+            : DeviceResource(pResource)
         { }
-
-        ID3D12Resource *pResource;
     };
 
-    struct VertexBuffer {
+    struct VertexBuffer : DeviceResource {
         static VertexBuffer *create(ID3D12Resource *pResource, D3D12_VERTEX_BUFFER_VIEW view);
 
-        ID3D12Resource *getResource() { return pResource; }
         D3D12_VERTEX_BUFFER_VIEW getView() { return view; }
-        ~VertexBuffer();
 
     private:
         VertexBuffer(ID3D12Resource *pResource, D3D12_VERTEX_BUFFER_VIEW view)
-            : pResource(pResource)
+            : DeviceResource(pResource)
             , view(view)
         { }
 
-        ID3D12Resource *pResource;
         D3D12_VERTEX_BUFFER_VIEW view;
     };
 
-    struct IndexBuffer {
+    struct IndexBuffer : DeviceResource {
         static IndexBuffer *create(ID3D12Resource *pResource, D3D12_INDEX_BUFFER_VIEW view);
 
-        ID3D12Resource *getResource() { return pResource; }
         D3D12_INDEX_BUFFER_VIEW getView() { return view; }
-        ~IndexBuffer();
 
     private:
         IndexBuffer(ID3D12Resource *pResource, D3D12_INDEX_BUFFER_VIEW view)
-            : pResource(pResource)
+            : DeviceResource(pResource)
             , view(view)
         { }
 
-        ID3D12Resource *pResource;
         D3D12_INDEX_BUFFER_VIEW view;
     };
 
-    struct TextureBuffer {
+    struct TextureBuffer : DeviceResource {
         static TextureBuffer *create(ID3D12Resource *pResource);
-
-        ID3D12Resource *getResource() { return pResource; }
-        ~TextureBuffer();
 
     private:
         TextureBuffer(ID3D12Resource *pResource)
-            : pResource(pResource)
+            : DeviceResource(pResource)
         { }
-
-        ID3D12Resource *pResource;
     };
 
-    struct UploadBuffer {
+    struct UploadBuffer : DeviceResource {
         static UploadBuffer *create(ID3D12Resource *pResource);
-
-        ID3D12Resource *getResource() { return pResource; }
-        ~UploadBuffer();
 
     private:
         UploadBuffer(ID3D12Resource *pResource)
-            : pResource(pResource)
+            : DeviceResource(pResource)
         { }
-
-        ID3D12Resource *pResource;
     };
 
     // descriptor heap

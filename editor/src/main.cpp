@@ -499,7 +499,7 @@ private:
     render::VertexBuffer *pScreenQuadVerts;
     render::IndexBuffer *pScreenQuadIndices;
 
-    // resources
+    // scene resources
 
     render::PipelineState *pScenePipeline;
     render::VertexBuffer *pQuadVertexBuffer;

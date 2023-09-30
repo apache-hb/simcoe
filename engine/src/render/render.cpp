@@ -167,28 +167,13 @@ void Commands::end() {
     pList->Close();
 }
 
-void Commands::transition(RenderTarget *pTarget, ResourceState from, ResourceState to) {
+void Commands::transition(DeviceResource *pTarget, ResourceState from, ResourceState to) {
     D3D12_RESOURCE_BARRIER barrier = {
         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
         .Transition = {
             .pResource = pTarget->getResource(),
             .Subresource = 0,
-            .StateBefore = getResourceState(from),
-            .StateAfter = getResourceState(to),
-        },
-    };
-
-    pList->ResourceBarrier(1, &barrier);
-}
-
-void Commands::transition(TextureBuffer *pTarget, ResourceState from, ResourceState to) {
-    D3D12_RESOURCE_BARRIER barrier = {
-        .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-        .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
-        .Transition = {
-            .pResource = pTarget->getResource(),
-            .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
             .StateBefore = getResourceState(from),
             .StateAfter = getResourceState(to),
         },
@@ -262,11 +247,7 @@ void Commands::drawIndexBuffer(UINT count) {
     pList->DrawIndexedInstanced(count, 1, 0, 0, 0);
 }
 
-void Commands::copyBuffer(VertexBuffer *pDestination, UploadBuffer *pSource) {
-    pList->CopyResource(pDestination->getResource(), pSource->getResource());
-}
-
-void Commands::copyBuffer(IndexBuffer *pDestination, UploadBuffer *pSource) {
+void Commands::copyBuffer(DeviceResource *pDestination, UploadBuffer *pSource) {
     pList->CopyResource(pDestination->getResource(), pSource->getResource());
 }
 
@@ -676,22 +657,13 @@ UploadBuffer *Device::createTextureUploadBuffer(const TextureInfo& createInfo) {
     return UploadBuffer::create(pResource);
 }
 
-void Device::mapRenderTarget(HostHeapOffset handle, RenderTarget *pTarget) {
+void Device::mapRenderTarget(HostHeapOffset handle, DeviceResource *pTarget) {
     D3D12_RENDER_TARGET_VIEW_DESC desc = {
         .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
         .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
     };
 
     pDevice->CreateRenderTargetView(pTarget->getResource(), &desc, hostHandle(handle));
-}
-
-void Device::mapRenderTarget(HostHeapOffset handle, TextureBuffer *pTexture) {
-    D3D12_RENDER_TARGET_VIEW_DESC desc = {
-        .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
-        .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
-    };
-
-    pDevice->CreateRenderTargetView(pTexture->getResource(), &desc, hostHandle(handle));
 }
 
 void Device::mapTexture(HostHeapOffset handle, TextureBuffer *pTexture) {
@@ -824,14 +796,16 @@ PipelineState *PipelineState::create(ID3D12RootSignature *pRootSignature, ID3D12
     return new PipelineState(pRootSignature, pState);
 }
 
+// resource
+
+DeviceResource::~DeviceResource() {
+    pResource->Release();
+}
+
 // render target
 
 RenderTarget *RenderTarget::create(ID3D12Resource *pResource) {
     return new RenderTarget(pResource);
-}
-
-RenderTarget::~RenderTarget() {
-    pResource->Release();
 }
 
 // vertex buffer
@@ -840,18 +814,10 @@ VertexBuffer *VertexBuffer::create(ID3D12Resource *pResource, D3D12_VERTEX_BUFFE
     return new VertexBuffer(pResource, view);
 }
 
-VertexBuffer::~VertexBuffer() {
-    pResource->Release();
-}
-
 // index buffer
 
 IndexBuffer *IndexBuffer::create(ID3D12Resource *pResource, D3D12_INDEX_BUFFER_VIEW view) {
     return new IndexBuffer(pResource, view);
-}
-
-IndexBuffer::~IndexBuffer() {
-    pResource->Release();
 }
 
 // texture buffer
@@ -859,18 +825,10 @@ TextureBuffer *TextureBuffer::create(ID3D12Resource *pResource) {
     return new TextureBuffer(pResource);
 }
 
-TextureBuffer::~TextureBuffer() {
-    pResource->Release();
-}
-
 // upload buffer
 
 UploadBuffer *UploadBuffer::create(ID3D12Resource *pResource) {
     return new UploadBuffer(pResource);
-}
-
-UploadBuffer::~UploadBuffer() {
-    pResource->Release();
 }
 
 // fence
@@ -891,18 +849,4 @@ Fence *Fence::create(ID3D12Fence *pFence, HANDLE hEvent) {
 Fence::~Fence() {
     pFence->Release();
     CloseHandle(hEvent);
-}
-
-#define DLLEXPORT __declspec(dllexport)
-
-extern "C" {
-    // load the agility sdk
-    DLLEXPORT extern const UINT D3D12SDKVersion = 602;
-    DLLEXPORT extern const char* D3D12SDKPath = ".\\data\\libs\\agility\\";
-}
-
-extern "C" {
-    // ask vendors to use the high performance gpu if we have one
-    DLLEXPORT extern const DWORD NvOptimusEnablement = 0x00000001;
-    DLLEXPORT extern int AmdPowerXpressRequestHighPerformance = 1;
 }
