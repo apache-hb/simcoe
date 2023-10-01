@@ -20,7 +20,6 @@ namespace editor {
     struct Vertex {
         math::float3 position;
         math::float2 uv;
-        math::float4 colour;
     };
 
     template<typename T>

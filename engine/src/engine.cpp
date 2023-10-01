@@ -4,22 +4,20 @@
 
 using namespace simcoe;
 
-namespace {
-    void log(std::string_view prefix, std::string_view msg) {
-        std::cout << prefix << ": " << msg << std::endl;
-    }
+static void innerLog(std::string_view prefix, std::string_view msg) {
+    std::cout << prefix << ": " << msg << std::endl;
 }
 
 void simcoe::logInfo(std::string_view msg) {
-    log("INFO", msg);
+    innerLog("INFO", msg);
 }
 
 void simcoe::logWarn(std::string_view msg) {
-    log("WARN", msg);
+    innerLog("WARN", msg);
 }
 
 void simcoe::logError(std::string_view msg) {
-    log("ERROR", msg);
+    innerLog("ERROR", msg);
 }
 
 Region::Region(std::string_view start, std::string_view stop) : stop(stop) {

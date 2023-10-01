@@ -55,12 +55,16 @@ engine = declare_dependency(
 
 python3 = import('python').find_installation()
 
-here = meson.current_source_dir()
-script = here/'data/scripts/compile-hlsl.py'
+script_dir = meson.current_source_dir()/'data/scripts'
 
 hlsl = generator(python3,
     output : [ '@BASENAME@.ps.cso', '@BASENAME@.vs.cso' ],
-    arguments : [ script, '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'vs,ps', '6_0' ]
+    arguments : [ script_dir/'compile-hlsl.py', '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'vs,ps', '6_0' ]
+)
+
+copy = generator(python3,
+    output : '@PLAINNAME@',
+    arguments : [ script_dir/'copy-asset.py', '@INPUT@', '@OUTPUT@' ]
 )
 
 src = [
@@ -69,7 +73,10 @@ src = [
 
     # shaders
     hlsl.process('data/shaders/quad.hlsl'),
-    hlsl.process('data/shaders/blit.hlsl')
+    hlsl.process('data/shaders/blit.hlsl'),
+
+    # assets
+    copy.process('data/images/uv-coords.png')
 ]
 
 executable('editor', src,

@@ -92,6 +92,7 @@ void RenderContext::render() {
 
 RenderContext::RenderContext(const RenderCreateInfo& createInfo) : createInfo(createInfo) {
     pContext = render::Context::create();
+    
     createContextData();
     createDeviceData(selectAdapter());
     createDisplayData();
@@ -334,6 +335,7 @@ void RenderContext::createResources() {
 }
 
 void RenderContext::destroyResources() {
+    delete pTextureBuffer;
     delete pScenePipeline;
     delete pQuadVertexBuffer;
     delete pQuadIndexBuffer;

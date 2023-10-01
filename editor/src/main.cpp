@@ -38,13 +38,13 @@ static void commonMain(simcoe::System& system) {
         .renderHeight = 600
     };
 
-    auto *pContext = editor::RenderContext::create(renderCreateInfo);
+    std::shared_ptr<editor::RenderContext> context{editor::RenderContext::create(renderCreateInfo)};
 
-    std::jthread renderThread([&](std::stop_token token) {
+    std::jthread renderThread([=](std::stop_token token) {
         simcoe::Region region("render thread started", "render thread stopped");
 
         while (!token.stop_requested()) {
-            pContext->render();
+            context->render();
         }
     });
 

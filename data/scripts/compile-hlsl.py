@@ -1,7 +1,7 @@
 from subprocess import run
 from sys import argv
 
-# usage: hlsl.py <file> <output> <targets> <model> [--debug]
+# usage: compile-hlsl.py <file> <output> <targets> <model> [--debug]
 # <file> is the input file
 # <output> is the output file
 # <targets> is the shader targets, comma separated

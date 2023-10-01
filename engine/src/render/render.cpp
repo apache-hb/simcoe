@@ -114,6 +114,10 @@ static D3D12_SHADER_VISIBILITY getVisibility(InputVisibility visibility) {
     }
 }
 
+static void setName(ID3D12Object *pObject, LPCWSTR name) {
+    pObject->SetName(name);
+}
+
 const char *severityToString(D3D12_MESSAGE_SEVERITY severity) {
     switch (severity) {
     case D3D12_MESSAGE_SEVERITY_CORRUPTION: return "CORRUPTION";
@@ -274,6 +278,7 @@ void Commands::copyTexture(TextureBuffer *pDestination, UploadBuffer *pSource, c
 }
 
 Commands *Commands::create(ID3D12GraphicsCommandList *pList) {
+    setName(pList, L"Commands");
     return new Commands(pList);
 }
 
@@ -284,6 +289,7 @@ Commands::~Commands() {
 // command memory
 
 CommandMemory *CommandMemory::create(ID3D12CommandAllocator *pAllocator) {
+    setName(pAllocator, L"CommandMemory");
     return new CommandMemory(pAllocator);
 }
 
@@ -327,10 +333,14 @@ DisplayQueue *DeviceQueue::createDisplayQueue(Context *pContext, const DisplayQu
     IDXGISwapChain4 *pSwapChain = nullptr;
     HR_CHECK(pSwapChain1->QueryInterface(IID_PPV_ARGS(&pSwapChain)));
 
+    // release the swap chain 1 interface
+    pSwapChain1->Release();
+
     return DisplayQueue::create(pSwapChain, tearing);
 }
 
 DeviceQueue *DeviceQueue::create(ID3D12CommandQueue *pQueue) {
+    setName(pQueue, L"DeviceQueue");
     return new DeviceQueue(pQueue);
 }
 
@@ -779,9 +789,12 @@ Context *Context::create() {
 
 Context::~Context() {
     pFactory->Release();
-    if (pDebug) {
+    if (pDebug != nullptr) {
+        logInfo("reporting dxgi live objects");
         pDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
         pDebug->Release();
+    } else {
+        logWarn("cannot report dxgi live objects");
     }
 }
 
@@ -796,6 +809,7 @@ HostHeapOffset DescriptorHeap::hostOffset(UINT index) {
 }
 
 DescriptorHeap *DescriptorHeap::create(ID3D12DescriptorHeap *pHeap, UINT descriptorSize) {
+    setName(pHeap, L"DescriptorHeap");
     return new DescriptorHeap(pHeap, descriptorSize);
 }
 
@@ -823,29 +837,34 @@ DeviceResource::~DeviceResource() {
 // render target
 
 RenderTarget *RenderTarget::create(ID3D12Resource *pResource) {
+    setName(pResource, L"RenderTarget");
     return new RenderTarget(pResource);
 }
 
 // vertex buffer
 
 VertexBuffer *VertexBuffer::create(ID3D12Resource *pResource, D3D12_VERTEX_BUFFER_VIEW view) {
+    setName(pResource, L"VertexBuffer");
     return new VertexBuffer(pResource, view);
 }
 
 // index buffer
 
 IndexBuffer *IndexBuffer::create(ID3D12Resource *pResource, D3D12_INDEX_BUFFER_VIEW view) {
+    setName(pResource, L"IndexBuffer");
     return new IndexBuffer(pResource, view);
 }
 
 // texture buffer
 TextureBuffer *TextureBuffer::create(ID3D12Resource *pResource) {
+    setName(pResource, L"TextureBuffer");
     return new TextureBuffer(pResource);
 }
 
 // upload buffer
 
 UploadBuffer *UploadBuffer::create(ID3D12Resource *pResource) {
+    setName(pResource, L"UploadBuffer");
     return new UploadBuffer(pResource);
 }
 
@@ -861,6 +880,7 @@ void Fence::wait(size_t value) {
 }
 
 Fence *Fence::create(ID3D12Fence *pFence, HANDLE hEvent) {
+    setName(pFence, L"Fence");
     return new Fence(pFence, hEvent);
 }
 
