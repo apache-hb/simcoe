@@ -22,19 +22,6 @@ using namespace simcoe::render;
         } \
     } while (false)
 
-static std::string narrow(std::wstring_view wstr) {
-    std::string result(wstr.size() + 1, '\0');
-    size_t size = result.size();
-
-    errno_t err = wcstombs_s(&size, result.data(), result.size(), wstr.data(), wstr.size());
-    if (err != 0) {
-        return "";
-    }
-
-    result.resize(size - 1);
-    return result;
-}
-
 static D3D_ROOT_SIGNATURE_VERSION getRootSigVersion(ID3D12Device4 *pDevice) {
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = { .HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1 };
     if (FAILED(pDevice->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData)))) {
@@ -737,7 +724,7 @@ Device *Adapter::createDevice() {
 
 AdapterInfo Adapter::getInfo() {
     AdapterInfo info = {
-        .name = narrow(desc.Description),
+        .name = util::narrow(desc.Description),
         .type = (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) ? AdapterType::eSoftware : AdapterType::eDiscrete,
     };
 

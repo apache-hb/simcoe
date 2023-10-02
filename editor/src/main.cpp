@@ -15,14 +15,18 @@ using namespace simcoe;
         } \
     } while (false)
 
+static constexpr auto kWindowWidth = 1920;
+static constexpr auto kWindowHeight = 1080;
+
 static void commonMain(simcoe::System& system) {
     assets::Assets depot = { std::filesystem::current_path() / "build" / "editor.exe.p" };
 
     const simcoe::WindowCreateInfo windowCreateInfo = {
         .title = "simcoe",
         .style = simcoe::WindowStyle::eWindowed,
-        .width = 1920,
-        .height = 1080
+
+        .width = kWindowWidth,
+        .height = kWindowHeight
     };
 
     simcoe::Window window = system.createWindow(windowCreateInfo);
@@ -31,20 +35,22 @@ static void commonMain(simcoe::System& system) {
         .hWindow = window.getHandle(),
         .depot = depot,
 
-        .displayWidth = 1920,
-        .displayHeight = 1080,
+        .displayWidth = kWindowWidth,
+        .displayHeight = kWindowHeight,
 
         .renderWidth = 800,
         .renderHeight = 600
     };
 
-    std::shared_ptr<editor::RenderContext> context{editor::RenderContext::create(renderCreateInfo)};
-
-    std::jthread renderThread([=](std::stop_token token) {
+    // move the render context into the render thread to prevent hangs on shutdown
+    std::unique_ptr<editor::RenderContext> context{editor::RenderContext::create(renderCreateInfo)};
+    std::jthread renderThread([ctx = std::move(context)](std::stop_token token) {
         simcoe::Region region("render thread started", "render thread stopped");
 
+        // TODO: if the render loop throws an exception, the program will std::terminate
+        // we should handle this case and restart the render loop
         while (!token.stop_requested()) {
-            context->render();
+            ctx->render();
         }
     });
 
@@ -54,7 +60,7 @@ static void commonMain(simcoe::System& system) {
 }
 
 static int innerMain(simcoe::System& system) try {
-    // dont use a Region here because we want to know if commonMain throws an exception
+    // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
     simcoe::logInfo("startup");
     commonMain(system);
     simcoe::logInfo("shutdown");
@@ -63,12 +69,19 @@ static int innerMain(simcoe::System& system) try {
 } catch (const std::exception& err) {
     simcoe::logError(std::format("unhandled exception: {}", err.what()));
     return 99;
+} catch (...) {
+    simcoe::logError("unhandled exception");
+    return 99;
 }
 
-int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+// gui entry point
+
+int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
     simcoe::System system(hInstance, nCmdShow);
     return innerMain(system);
 }
+
+// command line entry point
 
 int main(int argc, const char **argv) {
     simcoe::System system(GetModuleHandle(nullptr), SW_SHOWDEFAULT);

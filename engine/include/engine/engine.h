@@ -14,4 +14,8 @@ namespace simcoe {
     private:
         std::string_view stop;
     };
+
+    namespace util {
+        std::string narrow(std::wstring_view wstr);
+    }
 }

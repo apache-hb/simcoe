@@ -27,3 +27,16 @@ Region::Region(std::string_view start, std::string_view stop) : stop(stop) {
 Region::~Region() {
     logInfo(stop);
 }
+
+std::string util::narrow(std::wstring_view wstr) {
+    std::string result(wstr.size() + 1, '\0');
+    size_t size = result.size();
+
+    errno_t err = wcstombs_s(&size, result.data(), result.size(), wstr.data(), wstr.size());
+    if (err != 0) {
+        return "";
+    }
+
+    result.resize(size - 1);
+    return result;
+}
