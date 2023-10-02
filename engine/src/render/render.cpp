@@ -97,6 +97,7 @@ static size_t getPixelByteSize(PixelFormat fmt) {
 static D3D12_SHADER_VISIBILITY getVisibility(InputVisibility visibility) {
     switch (visibility) {
     case InputVisibility::ePixel: return D3D12_SHADER_VISIBILITY_PIXEL;
+    case InputVisibility::eVertex: return D3D12_SHADER_VISIBILITY_VERTEX;
     default: throw std::runtime_error("invalid shader visibility");
     }
 }
@@ -133,23 +134,23 @@ const char *categoryToString(D3D12_MESSAGE_CATEGORY category) {
     }
 }
 
-static void debugCallback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID id, LPCSTR pDescription, void *pUser) {
+static void debugCallback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID id, LPCSTR desc, void *pUser) {
     const char *categoryStr = categoryToString(category);
     const char *severityStr = severityToString(severity);
 
     switch (severity) {
     case D3D12_MESSAGE_SEVERITY_CORRUPTION:
     case D3D12_MESSAGE_SEVERITY_ERROR:
-        simcoe::logError(std::format("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), pDescription));
+        simcoe::logError("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
         break;
     case D3D12_MESSAGE_SEVERITY_WARNING:
-        simcoe::logWarn(std::format("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), pDescription));
+        simcoe::logWarn("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
         break;
 
     default:
     case D3D12_MESSAGE_SEVERITY_INFO:
     case D3D12_MESSAGE_SEVERITY_MESSAGE:
-        simcoe::logInfo(std::format("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), pDescription));
+        simcoe::logInfo("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
         return;
     }
 }
@@ -407,7 +408,7 @@ DescriptorHeap *Device::createRenderTargetHeap(UINT count) {
     return DescriptorHeap::create(pHeap, descriptorSize);
 }
 
-DescriptorHeap *Device::createTextureHeap(UINT count) {
+DescriptorHeap *Device::createShaderDataHeap(UINT count) {
     D3D12_DESCRIPTOR_HEAP_DESC desc = {
         .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
         .NumDescriptors = count,
@@ -422,26 +423,43 @@ DescriptorHeap *Device::createTextureHeap(UINT count) {
     return DescriptorHeap::create(pHeap, descriptorSize);
 }
 
+static CD3DX12_DESCRIPTOR_RANGE1 createRange(D3D12_DESCRIPTOR_RANGE_TYPE type, const InputSlot& slot) {
+    CD3DX12_DESCRIPTOR_RANGE1 range;
+    range.Init(type, 1, slot.reg, 0, slot.isStatic ? D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC : D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+    return range;
+}
+
 PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo) {
     // create root parameters
-    size_t inputs = createInfo.inputs.size();
-    auto *pRanges = new D3D12_DESCRIPTOR_RANGE1[inputs];
     std::vector<D3D12_ROOT_PARAMETER1> parameters;
-    for (size_t i = 0; i < inputs; i++) {
-        const auto& input = createInfo.inputs[i];
 
-        CD3DX12_DESCRIPTOR_RANGE1 range;
-        range.Init(
-            D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-            1, input.reg, 0,
-            input.isStatic ? D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC : D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE
-        );
+    // first check texture inputs
+    size_t textureInputs = createInfo.textureInputs.size();
+    auto *pTextureRanges = new D3D12_DESCRIPTOR_RANGE1[textureInputs];
+    for (size_t i = 0; i < textureInputs; i++) {
+        const auto& input = createInfo.textureInputs[i];
 
-        pRanges[i] = range;
+        pTextureRanges[i] = createRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, input);
 
         CD3DX12_ROOT_PARAMETER1 parameter;
         parameter.InitAsDescriptorTable(
-            1, &pRanges[i],
+            1, &pTextureRanges[i],
+            getVisibility(input.visibility)
+        );
+        parameters.push_back(parameter);
+    }
+
+    // then uniforms
+    size_t uniformInputs = createInfo.uniformInputs.size();
+    auto *pUniformRanges = new D3D12_DESCRIPTOR_RANGE1[uniformInputs];
+    for (size_t i = 0; i < uniformInputs; i++) {
+        const auto& input = createInfo.uniformInputs[i];
+
+        pUniformRanges[i] = createRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, input);
+
+        CD3DX12_ROOT_PARAMETER1 parameter;
+        parameter.InitAsDescriptorTable(
+            1, &pUniformRanges[i],
             getVisibility(input.visibility)
         );
         parameters.push_back(parameter);
@@ -480,10 +498,10 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> error;
     if (HRESULT hr = D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, rootSignatureVersion, &signature, &error); FAILED(hr)) {
-        simcoe::logError(std::format("Failed to serialize root signature: {:X}", unsigned(hr)));
+        simcoe::logError("Failed to serialize root signature: {:X}", unsigned(hr));
 
         std::string_view msg{static_cast<LPCSTR>(error->GetBufferPointer()), error->GetBufferSize() / sizeof(char)};
-        simcoe::logError(std::format("{}", msg));
+        simcoe::logError("{}", msg);
 
         return nullptr;
     }
@@ -585,6 +603,25 @@ IndexBuffer *Device::createIndexBuffer(size_t length, TypeFormat fmt) {
     return IndexBuffer::create(pResource, view);
 }
 
+UniformBuffer *Device::createUniformBuffer(size_t length) {
+    ID3D12Resource *pResource = nullptr;
+
+    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+    D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(length);
+
+    HR_CHECK(pDevice->CreateCommittedResource(
+        &heap, D3D12_HEAP_FLAG_NONE, &desc,
+        D3D12_RESOURCE_STATE_GENERIC_READ,
+        nullptr, IID_PPV_ARGS(&pResource)
+    ));
+
+    // map the buffer
+    void *pMapped = nullptr;
+    HR_CHECK(pResource->Map(0, nullptr, &pMapped));
+
+    return UniformBuffer::create(pResource, pMapped);
+}
+
 TextureBuffer *Device::createTextureRenderTarget(const TextureInfo& createInfo, const math::float4& clearColour) {
     ID3D12Resource *pResource = nullptr;
 
@@ -669,11 +706,20 @@ UploadBuffer *Device::createTextureUploadBuffer(const TextureInfo& createInfo) {
 
 void Device::mapRenderTarget(HostHeapOffset handle, DeviceResource *pTarget) {
     D3D12_RENDER_TARGET_VIEW_DESC desc = {
-        .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+        .Format = DXGI_FORMAT_R8G8B8A8_UNORM, // todo: this doesnt account for pixel format
         .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
     };
 
     pDevice->CreateRenderTargetView(pTarget->getResource(), &desc, hostHandle(handle));
+}
+
+void Device::mapUniform(HostHeapOffset handle, UniformBuffer *pUniform, size_t size) {
+    D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {
+        .BufferLocation = pUniform->getResource()->GetGPUVirtualAddress(),
+        .SizeInBytes = UINT(size),
+    };
+
+    pDevice->CreateConstantBufferView(&desc, hostHandle(handle));
 }
 
 void Device::mapTexture(HostHeapOffset handle, TextureBuffer *pTexture) {
@@ -807,6 +853,9 @@ DescriptorHeap::~DescriptorHeap() {
 // pipeline state
 
 PipelineState *PipelineState::create(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState) {
+    setName(pRootSignature, L"RootSignature");
+    setName(pState, L"PipelineState");
+
     return new PipelineState(pRootSignature, pState);
 }
 
@@ -846,6 +895,21 @@ IndexBuffer *IndexBuffer::create(ID3D12Resource *pResource, D3D12_INDEX_BUFFER_V
 TextureBuffer *TextureBuffer::create(ID3D12Resource *pResource) {
     setName(pResource, L"TextureBuffer");
     return new TextureBuffer(pResource);
+}
+
+// uniform buffer
+
+void UniformBuffer::write(const void *pData, size_t length) {
+    memcpy(pMapped, pData, length);
+}
+
+UniformBuffer *UniformBuffer::create(ID3D12Resource *pResource, void *pMapped) {
+    setName(pResource, L"UniformBuffer");
+    return new UniformBuffer(pResource, pMapped);
+}
+
+UniformBuffer::~UniformBuffer() {
+    getResource()->Unmap(0, nullptr);
 }
 
 // upload buffer

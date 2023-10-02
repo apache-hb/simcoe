@@ -38,8 +38,8 @@ static void commonMain(simcoe::System& system) {
         .displayWidth = kWindowWidth,
         .displayHeight = kWindowHeight,
 
-        .renderWidth = 800,
-        .renderHeight = 600
+        .renderWidth = 1920 * 2,
+        .renderHeight = 1080 * 2
     };
 
     // move the render context into the render thread to prevent hangs on shutdown
@@ -47,10 +47,12 @@ static void commonMain(simcoe::System& system) {
     std::jthread renderThread([ctx = std::move(context)](std::stop_token token) {
         simcoe::Region region("render thread started", "render thread stopped");
 
+        simcoe::Timer timer;
+
         // TODO: if the render loop throws an exception, the program will std::terminate
         // we should handle this case and restart the render loop
         while (!token.stop_requested()) {
-            ctx->render();
+            ctx->render(timer.now());
         }
     });
 
@@ -67,7 +69,7 @@ static int innerMain(simcoe::System& system) try {
 
     return 0;
 } catch (const std::exception& err) {
-    simcoe::logError(std::format("unhandled exception: {}", err.what()));
+    simcoe::logError("unhandled exception: {}", err.what());
     return 99;
 } catch (...) {
     simcoe::logError("unhandled exception");

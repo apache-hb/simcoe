@@ -81,7 +81,8 @@ RenderContext::~RenderContext() {
     delete pContext;
 }
 
-void RenderContext::render() {
+void RenderContext::render(float time) {
+    updateUniform(time);
     beginFrame();
 
     pDirectQueue->execute(pDirectCommands);
@@ -178,8 +179,8 @@ void RenderContext::destroyDisplayData() {
 void RenderContext::createPostData() {
     // create texture heap
 
-    render::DescriptorHeap *pHeap = pDevice->createTextureHeap(2);
-    pTextureAlloc = new TextureAlloc(pHeap);
+    render::DescriptorHeap *pHeap = pDevice->createShaderDataHeap(3);
+    pDataAlloc = new DataAlloc(pHeap);
 
     // create scissors and viewports
     sceneDisplay = createDisplay(createInfo.renderWidth, createInfo.renderHeight);
@@ -195,12 +196,12 @@ void RenderContext::createPostData() {
 
     pSceneTarget = pDevice->createTextureRenderTarget(textureInfo, kClearColour);
     sceneRenderTargetIndex = pRenderTargetAlloc->alloc();
-    screenTextureIndex = pTextureAlloc->alloc();
+    screenTextureIndex = pDataAlloc->alloc();
 
     // map scene target into texture and render target heaps
 
     pDevice->mapRenderTarget(pRenderTargetAlloc->hostOffset(sceneRenderTargetIndex), pSceneTarget);
-    pDevice->mapTexture(pTextureAlloc->hostOffset(screenTextureIndex), pSceneTarget);
+    pDevice->mapTexture(pDataAlloc->hostOffset(screenTextureIndex), pSceneTarget);
 
     // create post pso
 
@@ -213,8 +214,8 @@ void RenderContext::createPostData() {
             { "TEXCOORD", offsetof(Vertex, uv), render::TypeFormat::eFloat2 }
         },
 
-        .inputs = {
-            { render::InputVisibility::ePixel, 0, false }
+        .textureInputs = {
+            { render::InputVisibility::ePixel, 0, false },
         },
 
         .samplers = {
@@ -244,7 +245,7 @@ void RenderContext::createPostData() {
 }
 
 void RenderContext::destroyPostData() {
-    delete pTextureAlloc;
+    delete pDataAlloc;
     delete pPostPipeline;
     delete pScreenQuadVerts;
     delete pScreenQuadIndices;
@@ -262,8 +263,12 @@ void RenderContext::createResources() {
             { "TEXCOORD", offsetof(Vertex, uv), render::TypeFormat::eFloat2 }
         },
 
-        .inputs = {
+        .textureInputs = {
             { render::InputVisibility::ePixel, 0, true }
+        },
+
+        .uniformInputs = {
+            { render::InputVisibility::eVertex, 0, false }
         },
 
         .samplers = {
@@ -274,13 +279,11 @@ void RenderContext::createResources() {
     pScenePipeline = pDevice->createPipelineState(psoCreateInfo);
 
     // data to upload
-    float aspect = float(createInfo.renderHeight) / float(createInfo.renderWidth);
-
     const auto quad = std::to_array<Vertex>({
-        Vertex{ { 0.5f, -0.5f * aspect, 0.0f }, { 0.f, 0.f } }, // top left
-        Vertex{ { 0.5f, 0.5f * aspect, 0.0f }, { 1.f, 0.f } }, // top right
-        Vertex{ { -0.5f, -0.5f * aspect, 0.0f }, { 0.f, 1.f } }, // bottom left
-        Vertex{ { -0.5f, 0.5f * aspect, 0.0f }, { 1.f, 1.f } } // bottom right
+        Vertex{ { 0.5f, -0.5f, 0.0f }, { 0.f, 0.f } }, // top left
+        Vertex{ { 0.5f, 0.5f, 0.0f }, { 1.f, 0.f } }, // top right
+        Vertex{ { -0.5f, -0.5f, 0.0f }, { 0.f, 1.f } }, // bottom left
+        Vertex{ { -0.5f, 0.5f, 0.0f }, { 1.f, 1.f } } // bottom right
     });
 
     const auto indices = std::to_array<uint16_t>({
@@ -308,10 +311,16 @@ void RenderContext::createResources() {
     pQuadIndexBuffer = pDevice->createIndexBuffer(indices.size(), render::TypeFormat::eUint16);
     pTextureBuffer = pDevice->createTexture(textureInfo);
 
+    // create uniform data
+
+    pQuadUniformBuffer = pDevice->createUniformBuffer(sizeof(UniformData));
+    quadUniformIndex = pDataAlloc->alloc();
+    pDevice->mapUniform(pDataAlloc->hostOffset(quadUniformIndex), pQuadUniformBuffer, sizeof(UniformData));
+
     // create texture heap and map texture into it
 
-    quadTextureIndex = pTextureAlloc->alloc();
-    pDevice->mapTexture(pTextureAlloc->hostOffset(quadTextureIndex), pTextureBuffer);
+    quadTextureIndex = pDataAlloc->alloc();
+    pDevice->mapTexture(pDataAlloc->hostOffset(quadTextureIndex), pTextureBuffer);
 
     // upload data
 
@@ -335,6 +344,7 @@ void RenderContext::createResources() {
 }
 
 void RenderContext::destroyResources() {
+    delete pQuadUniformBuffer;
     delete pTextureBuffer;
     delete pScenePipeline;
     delete pQuadVertexBuffer;
@@ -350,14 +360,18 @@ void RenderContext::executeScene() {
 
     // bind state for scene
     pDirectCommands->setPipelineState(pScenePipeline);
-    pDirectCommands->setHeap(pTextureAlloc->pHeap);
+    pDirectCommands->setHeap(pDataAlloc->pHeap);
     pDirectCommands->setDisplay(sceneDisplay);
 
     pDirectCommands->setRenderTarget(renderTargetIndex);
     pDirectCommands->clearRenderTarget(renderTargetIndex, kClearColour);
 
     // draw scene content
-    pDirectCommands->setShaderInput(pTextureAlloc->deviceOffset(quadTextureIndex), 0);
+
+    // TODO: this requires some pretty fucked guessing, should sort that out
+    pDirectCommands->setShaderInput(pDataAlloc->deviceOffset(quadTextureIndex), 0);
+    pDirectCommands->setShaderInput(pDataAlloc->deviceOffset(quadUniformIndex), 1);
+
     pDirectCommands->setVertexBuffer(pQuadVertexBuffer);
     pDirectCommands->setIndexBuffer(pQuadIndexBuffer);
     pDirectCommands->drawIndexBuffer(6);
@@ -373,7 +387,7 @@ void RenderContext::executePost() {
 
     // bind state for post
     pDirectCommands->setPipelineState(pPostPipeline);
-    pDirectCommands->setHeap(pTextureAlloc->pHeap);
+    pDirectCommands->setHeap(pDataAlloc->pHeap);
     pDirectCommands->setDisplay(postDisplay);
 
     // set the actual back buffer as the render target
@@ -381,7 +395,7 @@ void RenderContext::executePost() {
     pDirectCommands->clearRenderTarget(pRenderTargetAlloc->hostOffset(renderTargetHeapIndex), kBlackClearColour);
 
     // blit scene to backbuffer
-    pDirectCommands->setShaderInput(pTextureAlloc->deviceOffset(screenTextureIndex), 0);
+    pDirectCommands->setShaderInput(pDataAlloc->deviceOffset(screenTextureIndex), 0);
     pDirectCommands->setVertexBuffer(pScreenQuadVerts);
     pDirectCommands->setIndexBuffer(pScreenQuadIndices);
     pDirectCommands->drawIndexBuffer(6);
@@ -396,6 +410,16 @@ void RenderContext::beginFrame() {
     executeScene();
     executePost();
     pDirectCommands->end();
+}
+
+void RenderContext::updateUniform(float time) {
+    UniformData data = {
+        .offset = { 0.f, std::sin(time) / 3 },
+        .angle = time,
+        .aspect = float(createInfo.renderHeight) / float(createInfo.renderWidth)
+    };
+
+    pQuadUniformBuffer->write(&data, sizeof(UniformData));
 }
 
 void RenderContext::endFrame() {

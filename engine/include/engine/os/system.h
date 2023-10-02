@@ -27,6 +27,16 @@ namespace simcoe {
         HWND hWindow;
     };
 
+    struct Timer {
+        Timer();
+
+        float now();
+
+    private:
+        size_t frequency;
+        size_t start;
+    };
+
     struct System {
         System(HINSTANCE hInstance, int nCmdShow);
         ~System();

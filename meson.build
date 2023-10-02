@@ -21,6 +21,7 @@ src = [
 
     # os
     'engine/src/os/system.cpp',
+    'engine/src/os/timer.cpp',
 
     # assets
     'engine/src/assets/assets.cpp',

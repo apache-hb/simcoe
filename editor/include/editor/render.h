@@ -6,6 +6,13 @@
 namespace editor {
     using namespace simcoe;
 
+    struct UNIFORM_ALIGN UniformData {
+        math::float2 offset;
+
+        float angle;
+        float aspect;
+    };
+
     struct RenderCreateInfo {
         HWND hWindow;
         assets::Assets& depot;
@@ -52,10 +59,10 @@ namespace editor {
     };
 
     struct RenderTargetHeap;
-    struct TextureHeap;
+    struct ShaderDataHeap;
 
     using RenderTargetAlloc = DescriptorAlloc<RenderTargetHeap>;
-    using TextureAlloc = DescriptorAlloc<TextureHeap>;
+    using DataAlloc = DescriptorAlloc<ShaderDataHeap>;
 
     struct FrameData {
         render::RenderTarget *pRenderTarget;
@@ -73,7 +80,7 @@ namespace editor {
         static RenderContext *create(const RenderCreateInfo& createInfo);
 
         ~RenderContext();
-        void render();
+        void render(float time);
 
     private:
         RenderContext(const RenderCreateInfo& createInfo);
@@ -103,6 +110,8 @@ namespace editor {
         void destroyResources();
 
         // rendering
+
+        void updateUniform(float time);
 
         void executeScene();
         void executePost();
@@ -143,7 +152,7 @@ namespace editor {
         render::DisplayQueue *pDisplayQueue;
 
         RenderTargetAlloc *pRenderTargetAlloc;
-        TextureAlloc *pTextureAlloc;
+        DataAlloc *pDataAlloc;
 
         // render resolution dependant data
 
@@ -151,7 +160,7 @@ namespace editor {
 
         render::TextureBuffer *pSceneTarget;
         RenderTargetAlloc::Index sceneRenderTargetIndex;
-        TextureAlloc::Index screenTextureIndex;
+        DataAlloc::Index screenTextureIndex;
 
         // present resolution dependant data
 
@@ -167,6 +176,9 @@ namespace editor {
         render::IndexBuffer *pQuadIndexBuffer;
 
         render::TextureBuffer *pTextureBuffer;
-        TextureAlloc::Index quadTextureIndex;
+        DataAlloc::Index quadTextureIndex;
+
+        render::UniformBuffer *pQuadUniformBuffer;
+        DataAlloc::Index quadUniformIndex;
     };
 }

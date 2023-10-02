@@ -10,6 +10,8 @@
 #include <dxgi1_6.h>
 #include <dxgidebug.h>
 
+#define UNIFORM_ALIGN alignas(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
+
 namespace simcoe::render {
     // forwards
 
@@ -28,6 +30,7 @@ namespace simcoe::render {
     struct IndexBuffer;
     struct TextureBuffer;
     struct UploadBuffer;
+    struct UniformBuffer;
 
     struct DescriptorHeap;
     struct PipelineState;
@@ -105,7 +108,8 @@ namespace simcoe::render {
     };
 
     enum struct InputVisibility {
-        ePixel
+        ePixel,
+        eVertex
     };
 
     enum struct ResourceState {
@@ -140,7 +144,9 @@ namespace simcoe::render {
 
         std::vector<VertexAttribute> attributes;
 
-        std::vector<InputSlot> inputs;
+        std::vector<InputSlot> textureInputs;
+        std::vector<InputSlot> uniformInputs;
+
         std::vector<SamplerSlot> samplers;
     };
 
@@ -168,7 +174,7 @@ namespace simcoe::render {
         CommandMemory *createCommandMemory(CommandType type);
 
         DescriptorHeap *createRenderTargetHeap(UINT count);
-        DescriptorHeap *createTextureHeap(UINT count);
+        DescriptorHeap *createShaderDataHeap(UINT count);
 
         PipelineState *createPipelineState(const PipelineCreateInfo& createInfo);
         Fence *createFence();
@@ -177,6 +183,7 @@ namespace simcoe::render {
 
         VertexBuffer *createVertexBuffer(size_t length, size_t stride);
         IndexBuffer *createIndexBuffer(size_t length, TypeFormat fmt);
+        UniformBuffer *createUniformBuffer(size_t length);
 
         TextureBuffer *createTextureRenderTarget(const TextureInfo& createInfo, const math::float4& clearColour);
         TextureBuffer *createTexture(const TextureInfo& createInfo);
@@ -187,6 +194,7 @@ namespace simcoe::render {
         // resource management
 
         void mapRenderTarget(HostHeapOffset handle, DeviceResource *pTarget);
+        void mapUniform(HostHeapOffset handle, UniformBuffer *pUniform, size_t size);
         void mapTexture(HostHeapOffset handle, TextureBuffer *pTexture);
 
         // module interface
@@ -424,6 +432,23 @@ namespace simcoe::render {
     struct UploadBuffer : DeviceResource {
         using DeviceResource::DeviceResource;
         static UploadBuffer *create(ID3D12Resource *pResource);
+    };
+
+    struct UniformBuffer : DeviceResource {
+        using DeviceResource::DeviceResource;
+
+        void write(const void *pData, size_t length);
+
+        static UniformBuffer *create(ID3D12Resource *pResource, void *pData);
+        ~UniformBuffer();
+
+    private:
+        UniformBuffer(ID3D12Resource *pResource, void *pData)
+            : DeviceResource(pResource)
+            , pMapped(pData)
+        { }
+
+        void *pMapped;
     };
 
     // descriptor heap
