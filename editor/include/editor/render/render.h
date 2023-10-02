@@ -6,12 +6,11 @@
 namespace editor {
     using namespace simcoe;
 
-    struct UNIFORM_ALIGN UniformData {
-        math::float2 offset;
+    // forward declarations
 
-        float angle;
-        float aspect;
-    };
+    struct RenderContext;
+
+    // external api types
 
     struct RenderCreateInfo {
         HWND hWindow;
@@ -24,10 +23,21 @@ namespace editor {
         UINT renderHeight;
     };
 
+    // shader data types
+
+    struct UNIFORM_ALIGN UniformData {
+        math::float2 offset;
+
+        float angle;
+        float aspect;
+    };
+    
     struct Vertex {
         math::float3 position;
         math::float2 uv;
     };
+
+    // helper types
 
     template<typename T>
     struct DescriptorAlloc {
@@ -81,6 +91,9 @@ namespace editor {
 
         ~RenderContext();
         void render(float time);
+
+        // getters
+        const RenderCreateInfo& getCreateInfo() const { return createInfo; }
 
     private:
         RenderContext(const RenderCreateInfo& createInfo);

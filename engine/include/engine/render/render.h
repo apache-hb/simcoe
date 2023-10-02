@@ -113,8 +113,6 @@ namespace simcoe::render {
     };
 
     enum struct ResourceState {
-        eDefault,
-
         ePresent,
         eRenderTarget,
         eShaderResource,

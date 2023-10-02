@@ -70,7 +70,10 @@ copy = generator(python3,
 
 src = [
     'editor/src/main.cpp',
-    'editor/src/editor/render.cpp',
+
+    # render
+    'editor/src/editor/render/render.cpp',
+    'editor/src/editor/render/graph.cpp',
 
     # shaders
     hlsl.process('data/shaders/quad.hlsl'),

@@ -14,23 +14,54 @@ namespace {
         default: throw std::runtime_error("invalid window style");
         }
     }
+
+    Window *getWindow(HWND hWnd) {
+        return reinterpret_cast<Window *>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+    }
 }
 
 // window callback
 
 LRESULT CALLBACK Window::callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    Window *pWindow = getWindow(hWnd);
+
     switch (uMsg) {
+    case WM_CREATE: {
+        CREATESTRUCT *pCreateStruct = reinterpret_cast<CREATESTRUCT *>(lParam);
+        pWindow = reinterpret_cast<Window *>(pCreateStruct->lpCreateParams);
+        SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pWindow));
+        return 0;
+    }
+
+    case WM_SIZE: {
+        UINT width = LOWORD(lParam);
+        UINT height = HIWORD(lParam);
+        pWindow->pCallbacks->onResize(width, height);
+        return 0;
+    }
+
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
+
     default:
+        break;
+    }
+
+    if (pWindow == nullptr) {
         return DefWindowProc(hWnd, uMsg, wParam, lParam);
     }
+
+    if (pWindow->pCallbacks->onEvent(hWnd, uMsg, wParam, lParam)) {
+        return 0;
+    }
+
+    return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
 // window api
 
-Window::Window(HINSTANCE hInstance, int nCmdShow, const WindowCreateInfo& createInfo) {
+Window::Window(HINSTANCE hInstance, int nCmdShow, const WindowCreateInfo& createInfo) : pCallbacks(createInfo.pCallbacks) {
     hWindow = CreateWindow(
         /* lpClassName = */ kClassName,
         /* lpWindowName = */ createInfo.title,
@@ -55,6 +86,18 @@ Window::Window(HINSTANCE hInstance, int nCmdShow, const WindowCreateInfo& create
 
 Window::~Window() {
     DestroyWindow(hWindow);
+}
+
+// window getters
+
+HWND Window::getHandle() const {
+    return hWindow;
+}
+
+math::int2 Window::getSize() const {
+    RECT rect;
+    GetClientRect(hWindow, &rect);
+    return math::int2{rect.right - rect.left, rect.bottom - rect.top};
 }
 
 // system api
