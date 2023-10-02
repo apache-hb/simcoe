@@ -40,9 +40,10 @@ LRESULT CALLBACK Window::callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
         return 0;
     }
 
-    case WM_DESTROY:
-        PostQuitMessage(0);
+    case WM_DESTROY: {
+        pWindow->pCallbacks->onClose();
         return 0;
+    }
 
     default:
         break;
@@ -127,10 +128,14 @@ Window System::createWindow(const WindowCreateInfo& createInfo) {
 }
 
 bool System::getEvent() {
-    return GetMessage(&msg, nullptr, 0, 0) != 0;
+    return (GetMessage(&msg, nullptr, 0, 0) != 0);
 }
 
 void System::dispatchEvent() {
     TranslateMessage(&msg);
     DispatchMessage(&msg);
+}
+
+void System::quit() {
+    PostQuitMessage(0);
 }

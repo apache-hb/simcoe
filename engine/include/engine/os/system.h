@@ -9,6 +9,7 @@ namespace simcoe {
         virtual ~IWindowCallbacks() = default;
 
         virtual void onResize(int width, int height) { }
+        virtual void onClose() { }
 
         virtual bool onEvent(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { return false; }
     };
@@ -59,6 +60,7 @@ namespace simcoe {
 
         bool getEvent();
         void dispatchEvent();
+        void quit();
 
     private:
         HINSTANCE hInstance;
