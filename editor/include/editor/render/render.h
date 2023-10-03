@@ -75,11 +75,6 @@ namespace editor {
         size_t fenceValue = 1;
     };
 
-    struct RenderTarget {
-        render::TextureBuffer *pTarget;
-        RenderTargetAlloc::Index index;
-    };
-
     struct RenderContext {
         static constexpr UINT kBackBufferCount = 2;
         static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
@@ -94,8 +89,6 @@ namespace editor {
 
         void beginCopy();
         void endCopy();
-
-        void executeScene(DataAlloc::Index quadUniformIndex, DataAlloc::Index quadTextureIndex, const RenderTarget& target);
 
         void executePost(DataAlloc::Index sceneTarget);
 
@@ -115,6 +108,18 @@ namespace editor {
 
         render::PipelineState *createPipelineState(const render::PipelineCreateInfo& createInfo) {
             return pDevice->createPipelineState(createInfo);
+        }
+
+        render::UploadBuffer *createUploadBuffer(const void *pData, size_t size) {
+            return pDevice->createUploadBuffer(pData, size);
+        }
+
+        render::IndexBuffer *createIndexBuffer(size_t length, render::TypeFormat format) {
+            return pDevice->createIndexBuffer(length, format);
+        }
+
+        render::VertexBuffer *createVertexBuffer(size_t length, size_t stride) {
+            return pDevice->createVertexBuffer(length, stride);
         }
 
         render::UploadBuffer *createTextureUploadBuffer(const render::TextureInfo& info) {
@@ -157,12 +162,34 @@ namespace editor {
             pDirectCommands->setPipelineState(pPipeline);
         }
 
+        void setRenderTarget(RenderTargetAlloc::Index index, const math::float4& clear) {
+            auto host = pRenderTargetAlloc->hostOffset(index);
+            pDirectCommands->setRenderTarget(host);
+            pDirectCommands->clearRenderTarget(host, clear);
+        }
+
+        void setShaderInput(DataAlloc::Index index, UINT slot) {
+            pDirectCommands->setShaderInput(pDataAlloc->deviceOffset(index), slot);
+        }
+
+        void drawIndexBuffer(render::IndexBuffer *pBuffer, size_t count) {
+            pDirectCommands->setIndexBuffer(pBuffer);
+            pDirectCommands->drawIndexBuffer(count);
+        }
+
+        void setVertexBuffer(render::VertexBuffer *pBuffer) {
+            pDirectCommands->setVertexBuffer(pBuffer);
+        }
+
+        // copy commands
+
         void copyTexture(render::TextureBuffer *pDst, render::UploadBuffer *pSrc, const render::TextureInfo& info, std::span<const std::byte> data) {
             pCopyCommands->copyTexture(pDst, pSrc, info, data);
         }
 
-        // waits
-        void waitForCopy();
+        void copyBuffer(render::DeviceResource *pDst, render::UploadBuffer *pSrc) {
+            pCopyCommands->copyBuffer(pDst, pSrc);
+        }
 
     private:
         RenderContext(const RenderCreateInfo& createInfo);
@@ -188,8 +215,7 @@ namespace editor {
         void createPostData();
         void destroyPostData();
 
-        void createResources();
-        void destroyResources();
+        void waitForCopy();
 
         // rendering
 
@@ -202,7 +228,6 @@ namespace editor {
         render::Device *pDevice;
 
         render::DeviceQueue *pDirectQueue;
-
         render::Commands *pDirectCommands;
 
         // device copy data
@@ -228,10 +253,5 @@ namespace editor {
 
         render::VertexBuffer *pScreenQuadVerts;
         render::IndexBuffer *pScreenQuadIndices;
-
-        // scene resources
-
-        render::VertexBuffer *pQuadVertexBuffer;
-        render::IndexBuffer *pQuadIndexBuffer;
     };
 }

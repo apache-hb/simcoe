@@ -167,6 +167,8 @@ struct UNIFORM_ALIGN UniformData {
 };
 
 struct ScenePass final : IRenderPass {
+    static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
+
     static constexpr auto kQuadVerts = std::to_array<Vertex>({
         Vertex{ { 0.5f, -0.5f, 0.0f }, { 0.f, 0.f } }, // top left
         Vertex{ { 0.5f, 0.5f, 0.0f }, { 1.f, 0.f } }, // top right
@@ -215,23 +217,55 @@ struct ScenePass final : IRenderPass {
 
         pPipeline = ctx->createPipelineState(psoCreateInfo);
 
-
         // create uniform buffer
 
         pQuadUniformBuffer = ctx->createUniformBuffer(sizeof(UniformData));
         quadUniformIndex = ctx->mapUniform(pQuadUniformBuffer, sizeof(UniformData));
+
+        // create vertex data
+        std::unique_ptr<render::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(kQuadVerts.data(), kQuadVerts.size() * sizeof(Vertex))};
+        std::unique_ptr<render::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(kQuadIndices.data(), kQuadIndices.size() * sizeof(uint16_t))};
+
+        pQuadVertexBuffer = ctx->createVertexBuffer(kQuadVerts.size(), sizeof(Vertex));
+        pQuadIndexBuffer = ctx->createIndexBuffer(kQuadIndices.size(), render::TypeFormat::eUint16);
+
+        ctx->beginCopy();
+        ctx->copyBuffer(pQuadVertexBuffer, pVertexStaging.get());
+        ctx->copyBuffer(pQuadIndexBuffer, pIndexStaging.get());
+        ctx->endCopy();
     }
 
     void destroy(RenderContext *ctx) override {
         delete pPipeline;
         delete pQuadUniformBuffer;
 
+        delete pQuadVertexBuffer;
+        delete pQuadIndexBuffer;
+
         delete pTimer;
     }
 
     void execute(RenderContext *ctx) override {
-        const auto time = pTimer->now();
+        updateUniform(ctx);
+
+        IResourceHandle *pTarget = pSceneTarget->getHandle();
+        IResourceHandle *pTexture = pTextureHandle->getHandle();
+
+        ctx->setPipeline(pPipeline);
+        ctx->setDisplay(display);
+        ctx->setRenderTarget(pTarget->rtvIndex, kClearColour);
+
+        ctx->setShaderInput(pTexture->srvIndex, 0);
+        ctx->setShaderInput(quadUniformIndex, 1);
+
+        ctx->setVertexBuffer(pQuadVertexBuffer);
+        ctx->drawIndexBuffer(pQuadIndexBuffer, kQuadIndices.size());
+    }
+
+    void updateUniform(RenderContext *ctx) {
+        float time = pTimer->now();
         const auto& createInfo = ctx->getCreateInfo();
+
         UniformData data = {
             .offset = { 0.f, std::sin(time) / 3 },
             .angle = time,
@@ -239,14 +273,6 @@ struct ScenePass final : IRenderPass {
         };
 
         pQuadUniformBuffer->write(&data, sizeof(UniformData));
-
-        IResourceHandle *pTarget = pSceneTarget->getHandle();
-        IResourceHandle *pTexture = pTextureHandle->getHandle();
-        RenderTarget rt = { (render::TextureBuffer*)pTarget->getResource(), pTarget->rtvIndex };
-
-        ctx->setPipeline(pPipeline);
-        ctx->setDisplay(display);
-        ctx->executeScene(quadUniformIndex, pTexture->srvIndex, rt);
     }
 
     PassResource<SceneTargetHandle> *pSceneTarget;
@@ -257,6 +283,9 @@ struct ScenePass final : IRenderPass {
     render::Display display;
 
     render::PipelineState *pPipeline;
+
+    render::VertexBuffer *pQuadVertexBuffer;
+    render::IndexBuffer *pQuadIndexBuffer;
 
     render::UniformBuffer *pQuadUniformBuffer;
     DataAlloc::Index quadUniformIndex;

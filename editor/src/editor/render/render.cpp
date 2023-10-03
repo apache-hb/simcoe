@@ -23,7 +23,6 @@ RenderContext *RenderContext::create(const RenderCreateInfo& createInfo) {
 }
 
 RenderContext::~RenderContext() {
-    destroyResources();
     destroyPostData();
     destroyDisplayData();
     destroyDeviceData();
@@ -39,7 +38,6 @@ RenderContext::RenderContext(const RenderCreateInfo& createInfo) : createInfo(cr
     createDeviceData(selectAdapter());
     createDisplayData();
     createPostData();
-    createResources();
 }
 
 // create data that depends on the context
@@ -146,82 +144,6 @@ void RenderContext::destroyPostData() {
     delete pDataAlloc;
     delete pScreenQuadVerts;
     delete pScreenQuadIndices;
-}
-
-void RenderContext::createResources() {
-    // data to upload
-    const auto quad = std::to_array<Vertex>({
-        Vertex{ { 0.5f, -0.5f, 0.0f }, { 0.f, 0.f } }, // top left
-        Vertex{ { 0.5f, 0.5f, 0.0f }, { 1.f, 0.f } }, // top right
-        Vertex{ { -0.5f, -0.5f, 0.0f }, { 0.f, 1.f } }, // bottom left
-        Vertex{ { -0.5f, 0.5f, 0.0f }, { 1.f, 1.f } } // bottom right
-    });
-
-    const auto indices = std::to_array<uint16_t>({
-        0, 2, 1,
-        1, 2, 3
-    });
-
-    assets::Image image = createInfo.depot.loadImage("uv-coords.png");
-    const render::TextureInfo textureInfo = {
-        .width = image.width,
-        .height = image.height,
-
-        .format = render::PixelFormat::eRGBA8
-    };
-
-    // create staging buffers
-
-    std::unique_ptr<render::UploadBuffer> pVertexStaging{pDevice->createUploadBuffer(quad.data(), quad.size() * sizeof(Vertex))};
-    std::unique_ptr<render::UploadBuffer> pIndexStaging{pDevice->createUploadBuffer(indices.data(), indices.size() * sizeof(uint16_t))};
-    std::unique_ptr<render::UploadBuffer> pTextureStaging{pDevice->createTextureUploadBuffer(textureInfo)};
-
-    // create destination buffers
-
-    pQuadVertexBuffer = pDevice->createVertexBuffer(quad.size(), sizeof(Vertex));
-    pQuadIndexBuffer = pDevice->createIndexBuffer(indices.size(), render::TypeFormat::eUint16);
-
-
-    // upload data
-
-    pDirectCommands->begin(frameData[frameIndex].pMemory);
-    pCopyCommands->begin(pCopyAllocator);
-
-    pCopyCommands->copyBuffer(pQuadVertexBuffer, pVertexStaging.get());
-    pCopyCommands->copyBuffer(pQuadIndexBuffer, pIndexStaging.get());
-
-    pCopyCommands->end();
-    pDirectCommands->end();
-
-    pCopyQueue->execute(pCopyCommands);
-    waitForCopy();
-
-    pDirectQueue->execute(pDirectCommands);
-    endRender();
-}
-
-void RenderContext::destroyResources() {
-    delete pQuadVertexBuffer;
-    delete pQuadIndexBuffer;
-}
-
-// rendering
-
-void RenderContext::executeScene(DataAlloc::Index quadUniformIndex, DataAlloc::Index quadTextureIndex, const RenderTarget& target) {
-    auto renderTargetIndex = pRenderTargetAlloc->hostOffset(target.index);
-
-    pDirectCommands->setRenderTarget(renderTargetIndex);
-    pDirectCommands->clearRenderTarget(renderTargetIndex, kClearColour);
-
-    // draw scene content
-
-    // TODO: this requires some pretty fucked guessing, should sort that out
-    pDirectCommands->setShaderInput(pDataAlloc->deviceOffset(quadTextureIndex), 0);
-    pDirectCommands->setShaderInput(pDataAlloc->deviceOffset(quadUniformIndex), 1);
-
-    pDirectCommands->setVertexBuffer(pQuadVertexBuffer);
-    pDirectCommands->setIndexBuffer(pQuadIndexBuffer);
-    pDirectCommands->drawIndexBuffer(6);
 }
 
 void RenderContext::executePost(DataAlloc::Index sceneTarget) {
