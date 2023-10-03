@@ -75,6 +75,11 @@ src = [
     'editor/src/editor/render/render.cpp',
     'editor/src/editor/render/graph.cpp',
 
+    # render graph objects
+    'editor/src/editor/graph/assets.cpp',
+    'editor/src/editor/graph/post.cpp',
+    'editor/src/editor/graph/scene.cpp',
+
     # shaders
     hlsl.process('data/shaders/quad.hlsl'),
     hlsl.process('data/shaders/blit.hlsl'),

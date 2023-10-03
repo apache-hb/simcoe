@@ -100,17 +100,13 @@ void RenderContext::destroyDisplayData() {
         delete frameData[i].pMemory;
     }
 
-    delete pRenderTargetAlloc;
     delete pDirectCommands;
     delete pDisplayQueue;
 }
 
 void RenderContext::createHeaps() {
-    render::DescriptorHeap *pRtvHeap = pDevice->createRenderTargetHeap(kBackBufferCount + 1);
-    pRenderTargetAlloc = new RenderTargetAlloc(pRtvHeap);
-    
-    render::DescriptorHeap *pSrvHeap = pDevice->createShaderDataHeap(3);
-    pDataAlloc = new DataAlloc(pSrvHeap);
+    pRenderTargetAlloc = new RenderTargetAlloc(pDevice->createRenderTargetHeap(kBackBufferCount + 1));
+    pDataAlloc = new DataAlloc(pDevice->createShaderDataHeap(3));
 }
 
 void RenderContext::destroyHeaps() {
