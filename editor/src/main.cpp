@@ -88,11 +88,55 @@ constexpr render::Display createLetterBoxDisplay(UINT renderWidth, UINT renderHe
     return { viewport, scissor };
 }
 
+static constexpr math::float4 kBlackClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
+
 ///
 /// render passes
 ///
 
-struct SceneTargetHandle final : IResourceHandle {
+struct RenderTarget {
+    render::RenderTarget *pRenderTarget;
+    RenderTargetAlloc::Index rtvIndex;
+    render::ResourceState state;
+};
+
+struct SwapChainHandle final : IResourceHandle {
+    void create(RenderContext *ctx) override {
+        for (UINT i = 0; i < RenderContext::kBackBufferCount; ++i) {
+            render::RenderTarget *pTarget = ctx->getRenderTarget(i);
+            RenderTargetAlloc::Index rtvIndex = ctx->mapRenderTarget(pTarget);
+
+            targets[i] = { pTarget, rtvIndex, render::ResourceState::ePresent };
+        }
+    }
+
+    void destroy(RenderContext *ctx) override {
+        for (UINT i = 0; i < RenderContext::kBackBufferCount; ++i) {
+            delete targets[i].pRenderTarget;
+        }
+    }
+
+    render::ResourceState getCurrentState(RenderContext *ctx) const override {
+        return targets[ctx->getFrameIndex()].state;
+    }
+
+    void setCurrentState(RenderContext *ctx, render::ResourceState state) override {
+        targets[ctx->getFrameIndex()].state = state;
+    }
+
+    render::DeviceResource *getResource(RenderContext *ctx) const override {
+        return targets[ctx->getFrameIndex()].pRenderTarget;
+    }
+
+    RenderTargetAlloc::Index getRtvIndex(RenderContext *ctx) const override {
+        return targets[ctx->getFrameIndex()].rtvIndex;
+    }
+
+private:
+    RenderTarget targets[RenderContext::kBackBufferCount];
+};
+
+struct SceneTargetHandle final : ISingleResourceHandle<render::TextureBuffer> {
     static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
 
     void create(RenderContext *ctx) override {
@@ -114,14 +158,14 @@ struct SceneTargetHandle final : IResourceHandle {
         delete pResource;
     }
 
-    render::DeviceResource* getResource() const override {
-        return pResource;
+    RenderTargetAlloc::Index getRtvIndex(RenderContext *ctx) const override { 
+        return rtvIndex; 
     }
 
-    render::TextureBuffer *pResource;
+    RenderTargetAlloc::Index rtvIndex;
 };
 
-struct TextureHandle final : IResourceHandle {
+struct TextureHandle final : ISingleResourceHandle<render::TextureBuffer> {
     TextureHandle(std::string name)
         : name(name)
     { }
@@ -151,12 +195,11 @@ struct TextureHandle final : IResourceHandle {
         delete pResource;
     }
 
-    render::DeviceResource *getResource() const override {
-        return pResource;
+    RenderTargetAlloc::Index getRtvIndex(RenderContext *ctx) const override { 
+        return RenderTargetAlloc::Index::eInvalid; 
     }
 
     std::string name;
-    render::TextureBuffer *pResource;
 };
 
 struct UNIFORM_ALIGN UniformData {
@@ -253,7 +296,7 @@ struct ScenePass final : IRenderPass {
 
         ctx->setPipeline(pPipeline);
         ctx->setDisplay(display);
-        ctx->setRenderTarget(pTarget->rtvIndex, kClearColour);
+        ctx->setRenderTarget(pTarget->getRtvIndex(ctx), kClearColour);
 
         ctx->setShaderInput(pTexture->srvIndex, 0);
         ctx->setShaderInput(quadUniformIndex, 1);
@@ -304,9 +347,10 @@ struct PostPass final : IRenderPass {
         1, 2, 3
     });
 
-    PostPass(SceneTargetHandle *pSceneTarget) 
+    PostPass(SceneTargetHandle *pSceneTarget, SwapChainHandle *pBackBuffers) 
         : IRenderPass()
         , pSceneTarget(addResource<SceneTargetHandle>(pSceneTarget, render::ResourceState::eShaderResource))
+        , pBackBuffers(addResource<SwapChainHandle>(pBackBuffers, render::ResourceState::eRenderTarget))
     { }
     
     void create(RenderContext *ctx) override {
@@ -333,27 +377,58 @@ struct PostPass final : IRenderPass {
         };
 
         pPipeline = ctx->createPipelineState(psoCreateInfo);
+        
+        std::unique_ptr<render::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(kScreenQuad.data(), kScreenQuad.size() * sizeof(Vertex))};
+        std::unique_ptr<render::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(kScreenQuadIndices.data(), kScreenQuadIndices.size() * sizeof(uint16_t))};
+
+        pScreenQuadVerts = ctx->createVertexBuffer(kScreenQuad.size(), sizeof(Vertex));
+        pScreenQuadIndices = ctx->createIndexBuffer(kScreenQuadIndices.size(), render::TypeFormat::eUint16);
+
+        ctx->beginCopy();
+
+        ctx->copyBuffer(pScreenQuadVerts, pVertexStaging.get());
+        ctx->copyBuffer(pScreenQuadIndices, pIndexStaging.get());
+
+        ctx->endCopy();
     }
 
     void destroy(RenderContext *ctx) override {
         delete pPipeline;
+
+        delete pScreenQuadVerts;
+        delete pScreenQuadIndices;
     }
 
     void execute(RenderContext *ctx) override {
         IResourceHandle *pTarget = pSceneTarget->getHandle();
+        IResourceHandle *pRenderTarget = pBackBuffers->getHandle();
 
         ctx->setPipeline(pPipeline);
         ctx->setDisplay(display);
-        ctx->executePost(pTarget->srvIndex);
+
+        ctx->setRenderTarget(pRenderTarget->getRtvIndex(ctx), kBlackClearColour);
+
+        ctx->setShaderInput(pTarget->srvIndex, 0);
+        ctx->setVertexBuffer(pScreenQuadVerts);
+        ctx->drawIndexBuffer(pScreenQuadIndices, kScreenQuadIndices.size());
     }
 
     PassResource<SceneTargetHandle> *pSceneTarget;
+    PassResource<SwapChainHandle> *pBackBuffers;
 
     render::Display display;
     render::PipelineState *pPipeline;
+
+    render::VertexBuffer *pScreenQuadVerts;
+    render::IndexBuffer *pScreenQuadIndices;
 };
 
 struct PresentPass final : IRenderPass {
+    PresentPass(SwapChainHandle *pBackBuffers)
+        : IRenderPass()
+        , pBackBuffers(addResource<SwapChainHandle>(pBackBuffers, render::ResourceState::ePresent))
+    { }
+
     void create(RenderContext *ctx) override {
 
     }
@@ -365,6 +440,8 @@ struct PresentPass final : IRenderPass {
     void execute(RenderContext *ctx) override {
         ctx->executePresent();
     }
+
+    PassResource<SwapChainHandle> *pBackBuffers;
 };
 
 ///
@@ -406,13 +483,15 @@ static void commonMain() {
         RenderGraph graph{ctx.get()};
         SceneTargetHandle *pSceneTarget = new SceneTargetHandle();
         TextureHandle *pTexture = new TextureHandle("uv-coords.png");
+        SwapChainHandle *pBackBuffers = new SwapChainHandle();
 
+        graph.addResource(pBackBuffers);
         graph.addResource(pSceneTarget);
         graph.addResource(pTexture);
 
         graph.addPass(new ScenePass(pSceneTarget, pTexture));
-        graph.addPass(new PostPass(pSceneTarget));
-        graph.addPass(new PresentPass());
+        graph.addPass(new PostPass(pSceneTarget, pBackBuffers));
+        graph.addPass(new PresentPass(pBackBuffers));
 
         // TODO: if the render loop throws an exception, the program will std::terminate
         // we should handle this case and restart the render loop

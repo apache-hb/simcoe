@@ -23,8 +23,8 @@ RenderContext *RenderContext::create(const RenderCreateInfo& createInfo) {
 }
 
 RenderContext::~RenderContext() {
-    destroyPostData();
     destroyDisplayData();
+    destroyHeaps();
     destroyDeviceData();
     destroyContextData();
 
@@ -36,8 +36,8 @@ RenderContext::RenderContext(const RenderCreateInfo& createInfo) : createInfo(cr
     
     createContextData();
     createDeviceData(selectAdapter());
+    createHeaps();
     createDisplayData();
-    createPostData();
 }
 
 // create data that depends on the context
@@ -86,19 +86,10 @@ void RenderContext::createDisplayData() {
     pDisplayQueue = pDirectQueue->createDisplayQueue(pContext, displayCreateInfo);
 
     // create render targets
-    render::DescriptorHeap *pHeap = pDevice->createRenderTargetHeap(kBackBufferCount + 1);
-    pRenderTargetAlloc = new RenderTargetAlloc(pHeap);
-
     frameIndex = pDisplayQueue->getFrameIndex();
 
     for (UINT i = 0; i < kBackBufferCount; ++i) {
-        render::CommandMemory *pMemory = pDevice->createCommandMemory(render::CommandType::eDirect);
-        render::RenderTarget *pRenderTarget = pDisplayQueue->getRenderTarget(i);
-        RenderTargetAlloc::Index rtvIndex = pRenderTargetAlloc->alloc();
-
-        pDevice->mapRenderTarget(pRenderTargetAlloc->hostOffset(rtvIndex), pRenderTarget);
-
-        frameData[i] = { pRenderTarget, rtvIndex, pMemory };
+        frameData[i] = { pDevice->createCommandMemory(render::CommandType::eDirect) };
     }
 
     pDirectCommands = pDevice->createCommands(render::CommandType::eDirect, frameData[frameIndex].pMemory);
@@ -107,7 +98,6 @@ void RenderContext::createDisplayData() {
 void RenderContext::destroyDisplayData() {
     for (UINT i = 0; i < kBackBufferCount; ++i) {
         delete frameData[i].pMemory;
-        delete frameData[i].pRenderTarget;
     }
 
     delete pRenderTargetAlloc;
@@ -115,54 +105,17 @@ void RenderContext::destroyDisplayData() {
     delete pDisplayQueue;
 }
 
-void RenderContext::createPostData() {
-    // create texture heap
-
-    render::DescriptorHeap *pHeap = pDevice->createShaderDataHeap(3);
-    pDataAlloc = new DataAlloc(pHeap);
-
-    // upload data
-
-    std::unique_ptr<render::UploadBuffer> pVertexStaging{pDevice->createUploadBuffer(kScreenQuad.data(), kScreenQuad.size() * sizeof(Vertex))};
-    std::unique_ptr<render::UploadBuffer> pIndexStaging{pDevice->createUploadBuffer(kScreenQuadIndices.data(), kScreenQuadIndices.size() * sizeof(uint16_t))};
-
-    pScreenQuadVerts = pDevice->createVertexBuffer(kScreenQuad.size(), sizeof(Vertex));
-    pScreenQuadIndices = pDevice->createIndexBuffer(kScreenQuadIndices.size(), render::TypeFormat::eUint16);
-
-    pCopyCommands->begin(pCopyAllocator);
-
-    pCopyCommands->copyBuffer(pScreenQuadVerts, pVertexStaging.get());
-    pCopyCommands->copyBuffer(pScreenQuadIndices, pIndexStaging.get());
-
-    pCopyCommands->end();
-
-    pCopyQueue->execute(pCopyCommands);
-    waitForCopy();
+void RenderContext::createHeaps() {
+    render::DescriptorHeap *pRtvHeap = pDevice->createRenderTargetHeap(kBackBufferCount + 1);
+    pRenderTargetAlloc = new RenderTargetAlloc(pRtvHeap);
+    
+    render::DescriptorHeap *pSrvHeap = pDevice->createShaderDataHeap(3);
+    pDataAlloc = new DataAlloc(pSrvHeap);
 }
 
-void RenderContext::destroyPostData() {
+void RenderContext::destroyHeaps() {
     delete pDataAlloc;
-    delete pScreenQuadVerts;
-    delete pScreenQuadIndices;
-}
-
-void RenderContext::executePost(DataAlloc::Index sceneTarget) {
-    auto renderTargetHeapIndex = frameData[frameIndex].renderTargetHeapIndex;
-    render::RenderTarget *pRenderTarget = frameData[frameIndex].pRenderTarget;
-
-    pDirectCommands->transition(pRenderTarget, render::ResourceState::ePresent, render::ResourceState::eRenderTarget);
-
-    // set the actual back buffer as the render target
-    pDirectCommands->setRenderTarget(pRenderTargetAlloc->hostOffset(renderTargetHeapIndex));
-    pDirectCommands->clearRenderTarget(pRenderTargetAlloc->hostOffset(renderTargetHeapIndex), kBlackClearColour);
-
-    // blit scene to backbuffer
-    pDirectCommands->setShaderInput(pDataAlloc->deviceOffset(sceneTarget), 0);
-    pDirectCommands->setVertexBuffer(pScreenQuadVerts);
-    pDirectCommands->setIndexBuffer(pScreenQuadIndices);
-    pDirectCommands->drawIndexBuffer(6);
-
-    pDirectCommands->transition(pRenderTarget, render::ResourceState::eRenderTarget, render::ResourceState::ePresent);
+    delete pRenderTargetAlloc;
 }
 
 void RenderContext::executePresent() {

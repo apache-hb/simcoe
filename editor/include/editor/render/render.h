@@ -34,7 +34,7 @@ namespace editor {
 
     template<typename T>
     struct DescriptorAlloc {
-        enum struct Index : size_t { };
+        enum struct Index : size_t { eInvalid = SIZE_MAX };
 
         DescriptorAlloc(render::DescriptorHeap *pHeap)
             : pHeap(pHeap)
@@ -68,9 +68,6 @@ namespace editor {
     using DataAlloc = DescriptorAlloc<ShaderDataHeap>;
 
     struct FrameData {
-        render::RenderTarget *pRenderTarget;
-        RenderTargetAlloc::Index renderTargetHeapIndex;
-
         render::CommandMemory *pMemory;
         size_t fenceValue = 1;
     };
@@ -90,12 +87,12 @@ namespace editor {
         void beginCopy();
         void endCopy();
 
-        void executePost(DataAlloc::Index sceneTarget);
-
         void executePresent();
 
         // getters
         const RenderCreateInfo& getCreateInfo() const { return createInfo; }
+        size_t getFrameIndex() const { return frameIndex; }
+        render::RenderTarget *getRenderTarget(size_t index) { return pDisplayQueue->getRenderTarget(index); }
 
         // create resources
         render::TextureBuffer *createTextureRenderTarget(const render::TextureInfo& createInfo, const math::float4& clearColour) {
@@ -207,13 +204,13 @@ namespace editor {
         // create data that depends on the device
         void createDeviceData(render::Adapter* pAdapter);
         void destroyDeviceData();
+        
+        void createHeaps();
+        void destroyHeaps();
 
         // create data that depends on the present queue
         void createDisplayData();
         void destroyDisplayData();
-
-        void createPostData();
-        void destroyPostData();
 
         void waitForCopy();
 
@@ -246,12 +243,9 @@ namespace editor {
 
         render::DisplayQueue *pDisplayQueue;
 
+        // heaps
+
         RenderTargetAlloc *pRenderTargetAlloc;
         DataAlloc *pDataAlloc;
-
-        // present resolution dependant data
-
-        render::VertexBuffer *pScreenQuadVerts;
-        render::IndexBuffer *pScreenQuadIndices;
     };
 }

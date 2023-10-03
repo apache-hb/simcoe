@@ -9,11 +9,27 @@ namespace editor {
         virtual void create(RenderContext *ctx) = 0;
         virtual void destroy(RenderContext *ctx) = 0;
 
-        virtual render::DeviceResource* getResource() const = 0;
+        virtual render::DeviceResource* getResource(RenderContext *ctx) const = 0;
 
-        render::ResourceState currentState;
-        RenderTargetAlloc::Index rtvIndex;
+        virtual render::ResourceState getCurrentState(RenderContext *ctx) const = 0;
+        virtual void setCurrentState(RenderContext *ctx, render::ResourceState state) = 0;
+
+        virtual RenderTargetAlloc::Index getRtvIndex(RenderContext *ctx) const = 0;
+
         DataAlloc::Index srvIndex;
+    };
+
+    template<typename T>
+    struct ISingleResourceHandle : IResourceHandle {
+        virtual ~ISingleResourceHandle() = default;
+
+        render::DeviceResource* getResource(RenderContext *ctx) const final override { return pResource; }
+        render::ResourceState getCurrentState(RenderContext *ctx) const final override { return currentState; }
+        void setCurrentState(RenderContext *ctx, render::ResourceState state) final override { currentState = state; }
+        
+    protected:
+        T *pResource;
+        render::ResourceState currentState;
     };
 
     struct BasePassResource {
