@@ -38,6 +38,8 @@ namespace simcoe {
         static LRESULT CALLBACK callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     private:
+        void endResize(UINT width, UINT height);
+
         HWND hWindow;
         IWindowCallbacks *pCallbacks;
     };

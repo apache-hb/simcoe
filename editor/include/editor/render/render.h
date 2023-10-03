@@ -81,24 +81,36 @@ namespace editor {
 
         ~RenderContext();
 
+        void beginDirect();
+        void endDirect();
+
         void beginRender();
         void endRender();
 
         void beginCopy();
         void endCopy();
 
-        void executePresent();
+        void waitForCopyQueue();
+        void waitForDirectQueue();
+
+        // actions
+
+        void changeDisplaySize(UINT width, UINT height);
+        void changeRenderSize(UINT width, UINT height);
 
         // getters
         const RenderCreateInfo& getCreateInfo() const { return createInfo; }
         size_t getFrameIndex() const { return frameIndex; }
+        render::Device *getDevice() const { return pDevice; }
+        render::Commands *getDirectCommands() const { return pDirectCommands; }
+        DataAlloc *getDataAlloc() { return pDataAlloc; }
         render::RenderTarget *getRenderTarget(size_t index) { return pDisplayQueue->getRenderTarget(index); }
 
         // create resources
         render::TextureBuffer *createTextureRenderTarget(const render::TextureInfo& createInfo, const math::float4& clearColour) {
             return pDevice->createTextureRenderTarget(createInfo, clearColour);
         }
-        
+
         render::UniformBuffer *createUniformBuffer(size_t size) {
             return pDevice->createUniformBuffer(size);
         }
@@ -146,6 +158,10 @@ namespace editor {
             return index;
         }
 
+        DataAlloc::Index allocSrvIndex() {
+            return pDataAlloc->alloc();
+        }
+
         // commands
         void transition(render::DeviceResource *pResource, render::ResourceState from, render::ResourceState to) {
             pDirectCommands->transition(pResource, from, to);
@@ -163,6 +179,10 @@ namespace editor {
             auto host = pRenderTargetAlloc->hostOffset(index);
             pDirectCommands->setRenderTarget(host);
             pDirectCommands->clearRenderTarget(host, clear);
+        }
+
+        void setRenderTarget(RenderTargetAlloc::Index index) {
+            pDirectCommands->setRenderTarget(pRenderTargetAlloc->hostOffset(index));
         }
 
         void setShaderInput(DataAlloc::Index index, UINT slot) {
@@ -204,7 +224,7 @@ namespace editor {
         // create data that depends on the device
         void createDeviceData(render::Adapter* pAdapter);
         void destroyDeviceData();
-        
+
         void createHeaps();
         void destroyHeaps();
 
@@ -212,7 +232,8 @@ namespace editor {
         void createDisplayData();
         void destroyDisplayData();
 
-        void waitForCopy();
+        void createFrameData();
+        void destroyFrameData();
 
         // rendering
 
@@ -230,9 +251,11 @@ namespace editor {
         // device copy data
 
         render::DeviceQueue *pCopyQueue;
+
         render::CommandMemory *pCopyAllocator;
         render::Commands *pCopyCommands;
-        size_t copyFenceValue = 1;
+
+        std::atomic_size_t copyFenceValue = 1;
 
         size_t frameIndex = 0;
         render::Fence *pFence;

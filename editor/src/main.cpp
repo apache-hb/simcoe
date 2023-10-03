@@ -7,6 +7,9 @@
 #include "editor/graph/assets.h"
 #include "editor/graph/post.h"
 #include "editor/graph/scene.h"
+#include "editor/graph/gui.h"
+
+#include "imgui/imgui.h"
 
 #include <array>
 
@@ -20,12 +23,13 @@ using namespace editor;
             std::abort(); \
         } \
     } while (false)
-    
+
 static constexpr auto kWindowWidth = 1920;
 static constexpr auto kWindowHeight = 1080;
 
 static simcoe::System *pSystem = nullptr;
 static std::jthread *pRenderThread = nullptr;
+static RenderGraph *pGraph = nullptr;
 
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
@@ -35,6 +39,25 @@ struct GameWindow final : IWindowCallbacks {
 
     void onResize(int width, int height) override {
         logInfo("resize: {}x{}", width, height);
+        if (pGraph != nullptr) pGraph->resize(width, height);
+    }
+
+    bool onEvent(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) override {
+        return graph::IGuiPass::handleMsg(hWnd, uMsg, wParam, lParam);
+    }
+};
+
+struct GameGui final : graph::IGuiPass {
+    using graph::IGuiPass::IGuiPass;
+
+    void content() override {
+        ImGui::ShowDemoWindow();
+
+        ImGui::Begin("Debug");
+        if (ImGui::Button("Meme")) {
+
+        }
+        ImGui::End();
     }
 };
 
@@ -72,28 +95,32 @@ static void commonMain() {
     };
 
     // move the render context into the render thread to prevent hangs on shutdown
-    std::unique_ptr<editor::RenderContext> context{editor::RenderContext::create(renderCreateInfo)};
-    pRenderThread = new std::jthread([ctx = std::move(context)](std::stop_token token) {
+    editor::RenderContext *pContext = editor::RenderContext::create(renderCreateInfo);
+    pRenderThread = new std::jthread([pContext](std::stop_token token) {
         simcoe::Region region("render thread started", "render thread stopped");
-        
-        RenderGraph graph{ctx.get()};
+
+        pGraph = new RenderGraph(pContext);
         auto *pSceneTarget = new graph::SceneTargetHandle();
         auto *pTexture = new graph::TextureHandle("uv-coords.png");
         auto *pBackBuffers = new graph::SwapChainHandle();
 
-        graph.addResource(pBackBuffers);
-        graph.addResource(pSceneTarget);
-        graph.addResource(pTexture);
+        pGraph->addResource(pBackBuffers);
+        pGraph->addResource(pSceneTarget);
+        pGraph->addResource(pTexture);
 
-        graph.addPass(new graph::ScenePass(pSceneTarget, pTexture));
-        graph.addPass(new graph::PostPass(pSceneTarget, pBackBuffers));
-        graph.addPass(new graph::PresentPass(pBackBuffers));
+        pGraph->addPass(new graph::ScenePass(pSceneTarget, pTexture));
+        pGraph->addPass(new graph::PostPass(pSceneTarget, pBackBuffers));
+        pGraph->addPass(new GameGui(pBackBuffers));
+        pGraph->addPass(new graph::PresentPass(pBackBuffers));
 
         // TODO: if the render loop throws an exception, the program will std::terminate
         // we should handle this case and restart the render loop
         while (!token.stop_requested()) {
-            graph.execute();
+            pGraph->execute();
         }
+
+        delete pGraph;
+        delete pContext;
     });
 
     while (pSystem->getEvent()) {

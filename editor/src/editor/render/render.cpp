@@ -1,28 +1,15 @@
 #include "editor/render/render.h"
 
-#include <array>
+#include "engine/engine.h"
 
 using namespace editor;
-
-namespace {
-    const auto kScreenQuad = std::to_array<Vertex>({
-        Vertex{ { 1.f, -1.f, 0.0f }, { 0.f, 0.f } }, // top left
-        Vertex{ { 1.f, 1.f, 0.0f }, { 1.f, 0.f } }, // top right
-        Vertex{ { -1.f, -1.f, 0.0f }, { 0.f, 1.f } }, // bottom left
-        Vertex{ { -1.f, 1.f, 0.0f }, { 1.f, 1.f } } // bottom right
-    });
-
-    const auto kScreenQuadIndices = std::to_array<uint16_t>({
-        0, 2, 1,
-        1, 2, 3
-    });
-}
 
 RenderContext *RenderContext::create(const RenderCreateInfo& createInfo) {
     return new RenderContext(createInfo);
 }
 
 RenderContext::~RenderContext() {
+    destroyFrameData();
     destroyDisplayData();
     destroyHeaps();
     destroyDeviceData();
@@ -33,11 +20,12 @@ RenderContext::~RenderContext() {
 
 RenderContext::RenderContext(const RenderCreateInfo& createInfo) : createInfo(createInfo) {
     pContext = render::Context::create();
-    
+
     createContextData();
     createDeviceData(selectAdapter());
     createHeaps();
     createDisplayData();
+    createFrameData();
 }
 
 // create data that depends on the context
@@ -54,11 +42,17 @@ void RenderContext::destroyContextData() {
 // create data that depends on the device
 void RenderContext::createDeviceData(render::Adapter* pAdapter) {
     pDevice = pAdapter->createDevice();
+
     pDirectQueue = pDevice->createQueue(render::CommandType::eDirect);
+    pDirectQueue->setName("direct queue");
+
     pCopyQueue = pDevice->createQueue(render::CommandType::eCopy);
+    pCopyQueue->setName("copy queue");
 
     pCopyAllocator = pDevice->createCommandMemory(render::CommandType::eCopy);
     pCopyCommands = pDevice->createCommands(render::CommandType::eCopy, pCopyAllocator);
+    pCopyCommands->setName("copy commands");
+
     pFence = pDevice->createFence();
 }
 
@@ -73,7 +67,7 @@ void RenderContext::destroyDeviceData() {
     delete pDevice;
 }
 
-// create data that depends on the present queue
+// create data that depends on resolution
 void RenderContext::createDisplayData() {
     // create swapchain
     const render::DisplayQueueCreateInfo displayCreateInfo = {
@@ -84,8 +78,14 @@ void RenderContext::createDisplayData() {
     };
 
     pDisplayQueue = pDirectQueue->createDisplayQueue(pContext, displayCreateInfo);
+}
 
-    // create render targets
+void RenderContext::destroyDisplayData() {
+    delete pDisplayQueue;
+}
+
+// create data that relys on the number of backbuffers
+void RenderContext::createFrameData() {
     frameIndex = pDisplayQueue->getFrameIndex();
 
     for (UINT i = 0; i < kBackBufferCount; ++i) {
@@ -93,20 +93,20 @@ void RenderContext::createDisplayData() {
     }
 
     pDirectCommands = pDevice->createCommands(render::CommandType::eDirect, frameData[frameIndex].pMemory);
+    pDirectCommands->setName("direct commands");
 }
 
-void RenderContext::destroyDisplayData() {
+void RenderContext::destroyFrameData() {
     for (UINT i = 0; i < kBackBufferCount; ++i) {
         delete frameData[i].pMemory;
     }
 
     delete pDirectCommands;
-    delete pDisplayQueue;
 }
 
 void RenderContext::createHeaps() {
     pRenderTargetAlloc = new RenderTargetAlloc(pDevice->createRenderTargetHeap(kBackBufferCount + 1));
-    pDataAlloc = new DataAlloc(pDevice->createShaderDataHeap(3));
+    pDataAlloc = new DataAlloc(pDevice->createShaderDataHeap(1024));
 }
 
 void RenderContext::destroyHeaps() {
@@ -114,19 +114,35 @@ void RenderContext::destroyHeaps() {
     delete pRenderTargetAlloc;
 }
 
-void RenderContext::executePresent() {
-    pDirectCommands->end();
-    pDirectQueue->execute(pDirectCommands);
-    pDisplayQueue->present();
+void RenderContext::changeDisplaySize(UINT width, UINT height) {
+    pRenderTargetAlloc->offset = 0;
+    pDataAlloc->offset = 0;
+
+    destroyDisplayData();
+    createInfo.displayWidth = width;
+    createInfo.displayHeight = height;
+    createDisplayData();
 }
 
 void RenderContext::beginRender() {
     frameIndex = pDisplayQueue->getFrameIndex();
+}
+
+void RenderContext::endRender() {
+    pDisplayQueue->present();
+}
+
+void RenderContext::beginDirect() {
     pDirectCommands->begin(frameData[frameIndex].pMemory);
     pDirectCommands->setHeap(pDataAlloc->pHeap);
 }
 
-void RenderContext::endRender() {
+void RenderContext::endDirect() {
+    pDirectCommands->end();
+    pDirectQueue->execute(pDirectCommands);
+}
+
+void RenderContext::waitForDirectQueue() {
     size_t value = frameData[frameIndex].fenceValue++;
     pDirectQueue->signal(pFence, value);
 
@@ -142,10 +158,10 @@ void RenderContext::beginCopy() {
 void RenderContext::endCopy() {
     pCopyCommands->end();
     pCopyQueue->execute(pCopyCommands);
-    waitForCopy();
+    waitForCopyQueue();
 }
 
-void RenderContext::waitForCopy() {
+void RenderContext::waitForCopyQueue() {
     size_t value = copyFenceValue++;
     pCopyQueue->signal(pFence, value);
 
@@ -153,4 +169,3 @@ void RenderContext::waitForCopy() {
         pFence->wait(value);
     }
 }
-

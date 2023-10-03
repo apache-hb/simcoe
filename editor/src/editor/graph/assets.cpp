@@ -49,6 +49,8 @@ void SceneTargetHandle::create(RenderContext *ctx) {
     };
 
     pResource = ctx->createTextureRenderTarget(textureCreateInfo, kClearColour);
+    pResource->setName("scene target");
+
     currentState = render::ResourceState::eShaderResource;
     rtvIndex = ctx->mapRenderTarget(pResource);
     srvIndex = ctx->mapTexture(pResource);
@@ -77,13 +79,19 @@ void TextureHandle::create(RenderContext *ctx) {
         .format = render::PixelFormat::eRGBA8
     };
 
-    std::unique_ptr<render::UploadBuffer> pTextureStaging{ctx->createTextureUploadBuffer(textureInfo)};
     pResource = ctx->createTexture(textureInfo);
+    pResource->setName(name);
+
     srvIndex = ctx->mapTexture(pResource);
     currentState = render::ResourceState::eCopyDest;
 
+    std::unique_ptr<render::UploadBuffer> pTextureStaging{ctx->createTextureUploadBuffer(textureInfo)};
+    pTextureStaging->setName(name + " staging");
+
     ctx->beginCopy();
+
     ctx->copyTexture(pResource, pTextureStaging.get(), textureInfo, image.data);
+
     ctx->endCopy();
 }
 

@@ -2,6 +2,8 @@
 
 #include <stdexcept>
 
+#include "engine/engine.h"
+
 using namespace simcoe;
 
 namespace {
@@ -33,16 +35,25 @@ LRESULT CALLBACK Window::callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
         return 0;
     }
 
-    case WM_SIZE: {
-        UINT width = LOWORD(lParam);
-        UINT height = HIWORD(lParam);
-        pWindow->pCallbacks->onResize(width, height);
-        return 0;
-    }
-
     case WM_DESTROY: {
         pWindow->pCallbacks->onClose();
         return 0;
+    }
+
+    // case WM_ENTERSIZEMOVE: {
+    //     return 0;
+    // }
+
+    // case WM_EXITSIZEMOVE: {
+    //     RECT rect;
+    //     GetClientRect(hWnd, &rect);
+    //     pWindow->endResize(rect.right - rect.left, rect.bottom - rect.top);
+    //     return 0;
+    // }
+    case WM_SIZE: {
+        UINT width = LOWORD(lParam);
+        UINT height = HIWORD(lParam);
+        pWindow->endResize(width, height);
     }
 
     default:
@@ -67,8 +78,8 @@ Window::Window(HINSTANCE hInstance, int nCmdShow, const WindowCreateInfo& create
         /* lpClassName = */ kClassName,
         /* lpWindowName = */ createInfo.title,
         /* dwStyle = */ getStyle(createInfo.style),
-        /* x = */ CW_USEDEFAULT,
-        /* y = */ CW_USEDEFAULT,
+        /* x = */ (GetSystemMetrics(SM_CXSCREEN) - createInfo.width) / 2,
+        /* y = */ (GetSystemMetrics(SM_CYSCREEN) - createInfo.height) / 2,
         /* nWidth = */ createInfo.width,
         /* nHeight = */ createInfo.height,
         /* hWndParent = */ nullptr,
@@ -87,6 +98,12 @@ Window::Window(HINSTANCE hInstance, int nCmdShow, const WindowCreateInfo& create
 
 Window::~Window() {
     DestroyWindow(hWindow);
+}
+
+// callbacks
+
+void Window::endResize(UINT newWidth, UINT newHeight) {
+    pCallbacks->onResize(newWidth, newHeight);
 }
 
 // window getters

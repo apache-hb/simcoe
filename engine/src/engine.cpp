@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include <windows.h>
+
 using namespace simcoe;
 
 static void innerLog(std::string_view prefix, std::string_view msg) {
@@ -38,5 +40,12 @@ std::string util::narrow(std::wstring_view wstr) {
     }
 
     result.resize(size - 1);
+    return result;
+}
+
+std::wstring util::widen(std::string_view str) {
+    auto needed = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0);
+    std::wstring result(needed, '\0');
+    MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), result.data(), (int)result.size());
     return result;
 }

@@ -14,6 +14,7 @@ namespace editor::graph {
         void destroy(RenderContext *ctx) override;
         void execute(RenderContext *ctx) override;
 
+    private:
         PassResource<graph::SceneTargetHandle> *pSceneTarget;
         PassResource<graph::SwapChainHandle> *pBackBuffers;
 
@@ -31,6 +32,7 @@ namespace editor::graph {
         void destroy(RenderContext *ctx) override;
         void execute(RenderContext *ctx) override;
 
+    private:
         PassResource<graph::SwapChainHandle> *pBackBuffers;
     };
 }

@@ -5,14 +5,6 @@
 #include "engine/os/system.h"
 
 namespace editor::graph {
-
-    struct UNIFORM_ALIGN UniformData {
-        math::float2 offset;
-
-        float angle;
-        float aspect;
-    };
-
     struct ScenePass final : IRenderPass {
         ScenePass(graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture);
 
@@ -20,6 +12,7 @@ namespace editor::graph {
         void destroy(RenderContext *ctx) override;
         void execute(RenderContext *ctx) override;
 
+    private:
         void updateUniform(RenderContext *ctx);
 
         PassResource<graph::SceneTargetHandle> *pSceneTarget;

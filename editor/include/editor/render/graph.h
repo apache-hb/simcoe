@@ -26,7 +26,7 @@ namespace editor {
         render::DeviceResource* getResource(RenderContext *ctx) const final override { return pResource; }
         render::ResourceState getCurrentState(RenderContext *ctx) const final override { return currentState; }
         void setCurrentState(RenderContext *ctx, render::ResourceState state) final override { currentState = state; }
-        
+
     protected:
         T *pResource;
         render::ResourceState currentState;
@@ -61,7 +61,7 @@ namespace editor {
         virtual void destroy(RenderContext *ctx) = 0;
 
         virtual void execute(RenderContext *ctx) = 0;
-        
+
         template<typename T>
         PassResource<T> *addResource(T *pHandle, render::ResourceState requiredState) {
             auto *pResource = new PassResource<T>(pHandle, requiredState);
@@ -74,26 +74,16 @@ namespace editor {
 
     struct RenderGraph {
         RenderGraph(RenderContext *ctx)
-            : ctx(ctx) 
+            : ctx(ctx)
         { }
 
         ~RenderGraph() {
-            ctx->endRender();
-            
-            for (IRenderPass *pPass : passes) {
-                pPass->destroy(ctx);
-                delete pPass;
-            }
-
-            for (IResourceHandle *pHandle : resources) {
-                pHandle->destroy(ctx);
-                delete pHandle;
-            }
+            destroy();
         }
 
-        void addPass(IRenderPass *pPass) { 
+        void addPass(IRenderPass *pPass) {
             pPass->create(ctx);
-            passes.push_back(pPass); 
+            passes.push_back(pPass);
         }
 
         void addResource(IResourceHandle *pHandle) {
@@ -102,9 +92,16 @@ namespace editor {
             resources.push_back(pHandle);
         }
 
+        void resize(UINT width, UINT height);
+
         void execute();
     private:
         void executePass(IRenderPass *pPass);
+
+        void create();
+        void destroy();
+
+        std::mutex renderLock;
 
         RenderContext *ctx;
         std::vector<IRenderPass*> passes;

@@ -2,12 +2,49 @@
 
 using namespace editor;
 
+void RenderGraph::resize(UINT width, UINT height) {
+    std::lock_guard guard(renderLock);
+
+    ctx->waitForDirectQueue();
+
+    destroy();
+
+    ctx->changeDisplaySize(width, height);
+
+    create();
+}
+
 void RenderGraph::execute() {
+    std::lock_guard guard(renderLock);
+
     ctx->beginRender();
+    ctx->beginDirect();
     for (IRenderPass *pPass : passes) {
         executePass(pPass);
     }
+    ctx->endDirect();
     ctx->endRender();
+    ctx->waitForDirectQueue();
+}
+
+void RenderGraph::create() {
+    for (IResourceHandle *pHandle : resources) {
+        pHandle->create(ctx);
+    }
+
+    for (IRenderPass *pPass : passes) {
+        pPass->create(ctx);
+    }
+}
+
+void RenderGraph::destroy() {
+    for (IRenderPass *pPass : passes) {
+        pPass->destroy(ctx);
+    }
+
+    for (IResourceHandle *pHandle : resources) {
+        pHandle->destroy(ctx);
+    }
 }
 
 void RenderGraph::executePass(IRenderPass *pPass) {

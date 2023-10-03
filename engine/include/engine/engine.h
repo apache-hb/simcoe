@@ -33,5 +33,6 @@ namespace simcoe {
 
     namespace util {
         std::string narrow(std::wstring_view wstr);
+        std::wstring widen(std::string_view str);
     }
 }

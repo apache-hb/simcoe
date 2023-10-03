@@ -71,6 +71,17 @@ copy = generator(python3,
 src = [
     'editor/src/main.cpp',
 
+    # dear imgui
+    'editor/src/imgui/imgui.cpp',
+    'editor/src/imgui/imgui_draw.cpp',
+    'editor/src/imgui/imgui_widgets.cpp',
+    'editor/src/imgui/imgui_demo.cpp',
+    'editor/src/imgui/imgui_tables.cpp',
+
+    # dear imgui backends
+    'editor/src/imgui/backends/imgui_impl_win32.cpp',
+    'editor/src/imgui/backends/imgui_impl_dx12.cpp',
+
     # render
     'editor/src/editor/render/render.cpp',
     'editor/src/editor/render/graph.cpp',
@@ -79,6 +90,7 @@ src = [
     'editor/src/editor/graph/assets.cpp',
     'editor/src/editor/graph/post.cpp',
     'editor/src/editor/graph/scene.cpp',
+    'editor/src/editor/graph/gui.cpp',
 
     # shaders
     hlsl.process('data/shaders/quad.hlsl'),

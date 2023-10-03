@@ -39,6 +39,13 @@ static constexpr auto kQuadIndices = std::to_array<uint16_t>({
     1, 2, 3
 });
 
+struct UNIFORM_ALIGN UniformData {
+    math::float2 offset;
+
+    float angle;
+    float aspect;
+};
+
 ScenePass::ScenePass(graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture) 
     : IRenderPass()
     , pSceneTarget(addResource<graph::SceneTargetHandle>(pSceneTarget, render::ResourceState::eRenderTarget))

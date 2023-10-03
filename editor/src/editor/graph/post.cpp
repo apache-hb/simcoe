@@ -53,7 +53,7 @@ static constexpr render::Display createLetterBoxDisplay(UINT renderWidth, UINT r
     return { viewport, scissor };
 }
 
-PostPass::PostPass(graph::SceneTargetHandle *pSceneTarget, graph::SwapChainHandle *pBackBuffers) 
+PostPass::PostPass(graph::SceneTargetHandle *pSceneTarget, graph::SwapChainHandle *pBackBuffers)
     : IRenderPass()
     , pSceneTarget(addResource<graph::SceneTargetHandle>(pSceneTarget, render::ResourceState::eShaderResource))
     , pBackBuffers(addResource<graph::SwapChainHandle>(pBackBuffers, render::ResourceState::eRenderTarget))
@@ -83,7 +83,7 @@ void PostPass::create(RenderContext *ctx) {
     };
 
     pPipeline = ctx->createPipelineState(psoCreateInfo);
-    
+
     std::unique_ptr<render::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(kScreenQuad.data(), kScreenQuad.size() * sizeof(Vertex))};
     std::unique_ptr<render::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(kScreenQuadIndices.data(), kScreenQuadIndices.size() * sizeof(uint16_t))};
 
@@ -121,7 +121,7 @@ void PostPass::execute(RenderContext *ctx) {
 
 ///
 /// present pass
-/// 
+///
 
 PresentPass::PresentPass(graph::SwapChainHandle *pBackBuffers)
     : IRenderPass()
@@ -137,6 +137,6 @@ void PresentPass::destroy(RenderContext *ctx) {
 }
 
 void PresentPass::execute(RenderContext *ctx) {
-    ctx->executePresent();
+
 }
 
