@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/engine.h"
+
 #include "engine/math/math.h"
 
 #include <string>
@@ -42,6 +44,41 @@ namespace simcoe::render {
     enum struct HostHeapOffset : size_t { eInvalid = SIZE_MAX };
 
     // context
+
+    template<typename T>
+    struct Object {
+        std::string getName() {
+            UINT length = 0;
+            pObject->GetPrivateData(WKPDID_D3DDebugObjectNameW, &length, nullptr);
+
+            std::wstring name;
+            name.resize(length);
+
+            pObject->GetPrivateData(WKPDID_D3DDebugObjectNameW, &length, name.data());
+
+            return util::narrow(name);
+        }
+
+        void setName(std::string_view name) {
+            std::wstring wname = util::widen(name);
+
+            pObject->SetPrivateData(WKPDID_D3DDebugObjectNameW, UINT(wname.size() * sizeof(wchar_t)), wname.data());
+        }
+
+    protected:
+        Object(T *pObject)
+            : pObject(pObject)
+        { }
+
+        ~Object() {
+            pObject->Release();
+        }
+
+        T *get() { return pObject; }
+
+    private:
+        T *pObject;
+    };
 
     struct Context {
         // public interface
@@ -164,7 +201,7 @@ namespace simcoe::render {
         eCopy
     };
 
-    struct Device {
+    struct Device : Object<ID3D12Device4> {
         // public interface
 
         DeviceQueue *createQueue(CommandType type);
@@ -200,17 +237,16 @@ namespace simcoe::render {
         static Device *create(IDXGIAdapter4 *pAdapter);
         ~Device();
 
-        ID3D12Device4 *getDevice() { return pDevice; }
+        ID3D12Device4 *getDevice() { return Object::get(); }
 
     private:
         Device(ID3D12Device4 *pDevice, ID3D12InfoQueue1 *pInfoQueue, DWORD cookie, D3D_ROOT_SIGNATURE_VERSION version)
-            : pDevice(pDevice)
+            : Object(pDevice)
             , pInfoQueue(pInfoQueue)
             , cookie(cookie)
             , rootSignatureVersion(version)
         { }
 
-        ID3D12Device4 *pDevice;
         ID3D12InfoQueue1 *pInfoQueue;
         DWORD cookie;
         D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion;
@@ -253,7 +289,7 @@ namespace simcoe::render {
 
     // queue
 
-    struct DeviceQueue {
+    struct DeviceQueue : Object<ID3D12CommandQueue> {
         // public interface
 
         DisplayQueue *createDisplayQueue(Context *pContext, const DisplayQueueCreateInfo& createInfo);
@@ -264,33 +300,27 @@ namespace simcoe::render {
         // module interface
 
         static DeviceQueue *create(ID3D12CommandQueue *pQueue);
-        ~DeviceQueue();
 
-        ID3D12CommandQueue *getQueue() { return pQueue; }
+        ID3D12CommandQueue *getQueue() { return Object::get(); }
 
     private:
         DeviceQueue(ID3D12CommandQueue *pQueue)
-            : pQueue(pQueue)
+            : Object(pQueue)
         { }
-
-        ID3D12CommandQueue *pQueue;
     };
 
     // allocator
 
-    struct CommandMemory {
+    struct CommandMemory : Object<ID3D12CommandAllocator> {
         // module interface
 
         static CommandMemory *create(ID3D12CommandAllocator *pAllocator);
-        ~CommandMemory();
 
-        ID3D12CommandAllocator *getAllocator() { return pAllocator; }
+        ID3D12CommandAllocator *getAllocator() { return Object::get(); }
     private:
         CommandMemory(ID3D12CommandAllocator *pAllocator)
-            : pAllocator(pAllocator)
+            : Object(pAllocator)
         { }
-
-        ID3D12CommandAllocator *pAllocator;
     };
 
     // commands
@@ -317,7 +347,7 @@ namespace simcoe::render {
         Scissor scissor;
     };
 
-    struct Commands {
+    struct Commands : Object<ID3D12GraphicsCommandList> {
         // public interface
 
         void begin(CommandMemory *pMemory);
@@ -343,16 +373,13 @@ namespace simcoe::render {
         // module interface
 
         static Commands *create(ID3D12GraphicsCommandList *pList);
-        ~Commands();
 
-        ID3D12GraphicsCommandList *getCommandList() { return pList; }
+        ID3D12GraphicsCommandList *getCommandList() { return Object::get(); }
 
     private:
         Commands(ID3D12GraphicsCommandList *pList)
-            : pList(pList)
+            : Object(pList)
         { }
-
-        ID3D12GraphicsCommandList *pList;
     };
 
     struct PipelineState {
@@ -374,17 +401,13 @@ namespace simcoe::render {
 
     // any resource
 
-    struct DeviceResource {
-        ID3D12Resource *getResource() { return pResource; }
-        ~DeviceResource();
+    struct DeviceResource : Object<ID3D12Resource> {
+        ID3D12Resource *getResource() { return Object::get(); }
 
     protected:
         DeviceResource(ID3D12Resource *pResource)
-            : pResource(pResource)
+            : Object(pResource)
         { }
-
-    private:
-        ID3D12Resource *pResource;
     };
 
     // render target
@@ -451,28 +474,26 @@ namespace simcoe::render {
 
     // descriptor heap
 
-    struct DescriptorHeap {
+    struct DescriptorHeap : Object<ID3D12DescriptorHeap> {
         DeviceHeapOffset deviceOffset(UINT index);
         HostHeapOffset hostOffset(UINT index);
 
         static DescriptorHeap *create(ID3D12DescriptorHeap *pHeap, UINT descriptorSize);
-        ~DescriptorHeap();
 
-        ID3D12DescriptorHeap *getHeap() { return pHeap; }
+        ID3D12DescriptorHeap *getHeap() { return Object::get(); }
 
     private:
         DescriptorHeap(ID3D12DescriptorHeap *pHeap, UINT descriptorSize)
-            : pHeap(pHeap)
+            : Object(pHeap)
             , descriptorSize(descriptorSize)
         { }
 
-        ID3D12DescriptorHeap *pHeap;
         UINT descriptorSize;
     };
 
     // fence
 
-    struct Fence {
+    struct Fence : Object<ID3D12Fence> {
         // public interface
 
         size_t getValue();
@@ -482,14 +503,13 @@ namespace simcoe::render {
         static Fence *create(ID3D12Fence *pFence, HANDLE hEvent);
         ~Fence();
 
-        ID3D12Fence *getFence() { return pFence; }
+        ID3D12Fence *getFence() { return Object::get(); }
     private:
         Fence(ID3D12Fence *pFence, HANDLE hEvent)
-            : pFence(pFence)
+            : Object(pFence)
             , hEvent(hEvent)
         { }
 
-        ID3D12Fence *pFence;
         HANDLE hEvent;
     };
 }

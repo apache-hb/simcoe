@@ -31,6 +31,8 @@ static simcoe::System *pSystem = nullptr;
 static std::jthread *pRenderThread = nullptr;
 static RenderGraph *pGraph = nullptr;
 
+int size[2];
+
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
         delete pRenderThread;
@@ -54,8 +56,9 @@ struct GameGui final : graph::IGuiPass {
         ImGui::ShowDemoWindow();
 
         ImGui::Begin("Debug");
-        if (ImGui::Button("Meme")) {
-
+        ImGui::SliderInt2("Size", size, 0, 1920);
+        if (ImGui::Button("Apply")) {
+            new std::thread([] { pGraph->resize(size[0], size[1]); });
         }
         ImGui::End();
     }
@@ -72,7 +75,7 @@ static void commonMain() {
 
     const simcoe::WindowCreateInfo windowCreateInfo = {
         .title = "simcoe",
-        .style = simcoe::WindowStyle::eWindowed,
+        .style = simcoe::WindowStyle::eBorderless,
 
         .width = kWindowWidth,
         .height = kWindowHeight,
@@ -81,14 +84,16 @@ static void commonMain() {
     };
 
     simcoe::Window window = pSystem->createWindow(windowCreateInfo);
-    auto [width, height] = window.getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
+    auto [realWidth, realHeight] = window.getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
+    size[0] = realWidth;
+    size[1] = realHeight;
 
     const editor::RenderCreateInfo renderCreateInfo = {
         .hWindow = window.getHandle(),
         .depot = depot,
 
-        .displayWidth = width,
-        .displayHeight = height,
+        .displayWidth = realWidth,
+        .displayHeight = realHeight,
 
         .renderWidth = 1920 * 2,
         .renderHeight = 1080 * 2

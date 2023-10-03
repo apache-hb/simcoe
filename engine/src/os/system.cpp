@@ -35,10 +35,9 @@ LRESULT CALLBACK Window::callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
         return 0;
     }
 
-    case WM_DESTROY: {
+    case WM_CLOSE:
         pWindow->pCallbacks->onClose();
         return 0;
-    }
 
     // case WM_ENTERSIZEMOVE: {
     //     return 0;

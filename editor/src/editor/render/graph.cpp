@@ -5,7 +5,7 @@ using namespace editor;
 void RenderGraph::resize(UINT width, UINT height) {
     std::lock_guard guard(renderLock);
 
-    ctx->waitForDirectQueue();
+    ctx->flush();
 
     destroy();
 
@@ -19,9 +19,11 @@ void RenderGraph::execute() {
 
     ctx->beginRender();
     ctx->beginDirect();
+
     for (IRenderPass *pPass : passes) {
         executePass(pPass);
     }
+
     ctx->endDirect();
     ctx->endRender();
     ctx->waitForDirectQueue();

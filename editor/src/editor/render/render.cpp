@@ -44,14 +44,10 @@ void RenderContext::createDeviceData(render::Adapter* pAdapter) {
     pDevice = pAdapter->createDevice();
 
     pDirectQueue = pDevice->createQueue(render::CommandType::eDirect);
-    pDirectQueue->setName("direct queue");
-
     pCopyQueue = pDevice->createQueue(render::CommandType::eCopy);
-    pCopyQueue->setName("copy queue");
 
     pCopyAllocator = pDevice->createCommandMemory(render::CommandType::eCopy);
     pCopyCommands = pDevice->createCommands(render::CommandType::eCopy, pCopyAllocator);
-    pCopyCommands->setName("copy commands");
 
     pFence = pDevice->createFence();
 }
@@ -93,7 +89,6 @@ void RenderContext::createFrameData() {
     }
 
     pDirectCommands = pDevice->createCommands(render::CommandType::eDirect, frameData[frameIndex].pMemory);
-    pDirectCommands->setName("direct commands");
 }
 
 void RenderContext::destroyFrameData() {
@@ -124,6 +119,12 @@ void RenderContext::changeDisplaySize(UINT width, UINT height) {
     createDisplayData();
 }
 
+void RenderContext::flush() {
+    waitForDirectQueue();
+
+    directFenceValue = 1;
+}
+
 void RenderContext::beginRender() {
     frameIndex = pDisplayQueue->getFrameIndex();
 }
@@ -143,7 +144,7 @@ void RenderContext::endDirect() {
 }
 
 void RenderContext::waitForDirectQueue() {
-    size_t value = frameData[frameIndex].fenceValue++;
+    size_t value = directFenceValue++;
     pDirectQueue->signal(pFence, value);
 
     if (pFence->getValue() < value) {
@@ -165,7 +166,7 @@ void RenderContext::waitForCopyQueue() {
     size_t value = copyFenceValue++;
     pCopyQueue->signal(pFence, value);
 
-    if (pFence->getValue() < value) {
+    if (pFence->getValue() <= value) {
         pFence->wait(value);
     }
 }

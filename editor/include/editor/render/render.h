@@ -69,7 +69,6 @@ namespace editor {
 
     struct FrameData {
         render::CommandMemory *pMemory;
-        size_t fenceValue = 1;
     };
 
     struct RenderContext {
@@ -80,6 +79,8 @@ namespace editor {
         static RenderContext *create(const RenderCreateInfo& createInfo);
 
         ~RenderContext();
+
+        void flush();
 
         void beginDirect();
         void endDirect();
@@ -258,6 +259,7 @@ namespace editor {
         std::atomic_size_t copyFenceValue = 1;
 
         size_t frameIndex = 0;
+        size_t directFenceValue = 1;
         render::Fence *pFence;
 
         FrameData frameData[kBackBufferCount];

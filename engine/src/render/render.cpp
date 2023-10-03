@@ -161,11 +161,11 @@ void Commands::begin(CommandMemory *pMemory) {
     ID3D12CommandAllocator *pAllocator = pMemory->getAllocator();
 
     pAllocator->Reset();
-    pList->Reset(pAllocator, nullptr);
+    get()->Reset(pAllocator, nullptr);
 }
 
 void Commands::end() {
-    pList->Close();
+    get()->Close();
 }
 
 void Commands::transition(DeviceResource *pTarget, ResourceState from, ResourceState to) {
@@ -180,11 +180,11 @@ void Commands::transition(DeviceResource *pTarget, ResourceState from, ResourceS
         },
     };
 
-    pList->ResourceBarrier(1, &barrier);
+    get()->ResourceBarrier(1, &barrier);
 }
 
 void Commands::clearRenderTarget(HostHeapOffset handle, math::float4 colour) {
-    pList->ClearRenderTargetView(hostHandle(handle), colour.data(), 0, nullptr);
+    get()->ClearRenderTargetView(hostHandle(handle), colour.data(), 0, nullptr);
 }
 
 void Commands::setDisplay(const Display& display) {
@@ -205,51 +205,51 @@ void Commands::setDisplay(const Display& display) {
         .bottom = scissor.bottom,
     };
 
-    pList->RSSetViewports(1, &v);
-    pList->RSSetScissorRects(1, &s);
+    get()->RSSetViewports(1, &v);
+    get()->RSSetScissorRects(1, &s);
 }
 
 void Commands::setPipelineState(PipelineState *pState) {
-    pList->SetGraphicsRootSignature(pState->getRootSignature());
-    pList->SetPipelineState(pState->getState());
+    get()->SetGraphicsRootSignature(pState->getRootSignature());
+    get()->SetPipelineState(pState->getState());
 }
 
 void Commands::setHeap(DescriptorHeap *pHeap) {
     ID3D12DescriptorHeap *pDescriptorHeap = pHeap->getHeap();
-    pList->SetDescriptorHeaps(1, &pDescriptorHeap);
+    get()->SetDescriptorHeaps(1, &pDescriptorHeap);
 }
 
 void Commands::setShaderInput(DeviceHeapOffset handle, UINT reg) {
-    pList->SetGraphicsRootDescriptorTable(reg, deviceHandle(handle));
+    get()->SetGraphicsRootDescriptorTable(reg, deviceHandle(handle));
 }
 
 void Commands::setRenderTarget(HostHeapOffset handle) {
     D3D12_CPU_DESCRIPTOR_HANDLE handles[] = { hostHandle(handle) };
-    pList->OMSetRenderTargets(1, handles, FALSE, nullptr);
+    get()->OMSetRenderTargets(1, handles, FALSE, nullptr);
 }
 
 void Commands::setVertexBuffer(VertexBuffer *pBuffer) {
-    pList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    get()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     D3D12_VERTEX_BUFFER_VIEW views[] = { pBuffer->getView() };
-    pList->IASetVertexBuffers(0, 1, views);
+    get()->IASetVertexBuffers(0, 1, views);
 }
 
 void Commands::setIndexBuffer(IndexBuffer *pBuffer) {
     D3D12_INDEX_BUFFER_VIEW view = pBuffer->getView();
-    pList->IASetIndexBuffer(&view);
+    get()->IASetIndexBuffer(&view);
 }
 
 void Commands::drawVertexBuffer(UINT count) {
-    pList->DrawInstanced(count, 1, 0, 0);
+    get()->DrawInstanced(count, 1, 0, 0);
 }
 
 void Commands::drawIndexBuffer(UINT count) {
-    pList->DrawIndexedInstanced(count, 1, 0, 0, 0);
+    get()->DrawIndexedInstanced(count, 1, 0, 0, 0);
 }
 
 void Commands::copyBuffer(DeviceResource *pDestination, UploadBuffer *pSource) {
-    pList->CopyResource(pDestination->getResource(), pSource->getResource());
+    get()->CopyResource(pDestination->getResource(), pSource->getResource());
 }
 
 void Commands::copyTexture(TextureBuffer *pDestination, UploadBuffer *pSource, const TextureInfo& info, std::span<const std::byte> data) {
@@ -262,38 +262,28 @@ void Commands::copyTexture(TextureBuffer *pDestination, UploadBuffer *pSource, c
         .SlicePitch = slicePitch
     };
 
-    UpdateSubresources(pList, pDestination->getResource(), pSource->getResource(), 0, 0, 1, &update);
+    UpdateSubresources(get(), pDestination->getResource(), pSource->getResource(), 0, 0, 1, &update);
 }
 
 Commands *Commands::create(ID3D12GraphicsCommandList *pList) {
-    setName(pList, L"Commands");
     return new Commands(pList);
-}
-
-Commands::~Commands() {
-    pList->Release();
 }
 
 // command memory
 
 CommandMemory *CommandMemory::create(ID3D12CommandAllocator *pAllocator) {
-    setName(pAllocator, L"CommandMemory");
     return new CommandMemory(pAllocator);
-}
-
-CommandMemory::~CommandMemory() {
-    pAllocator->Release();
 }
 
 // device queue
 
 void DeviceQueue::signal(Fence *pFence, size_t value) {
-    pQueue->Signal(pFence->getFence(), value);
+    get()->Signal(pFence->getFence(), value);
 }
 
 void DeviceQueue::execute(Commands *pCommands) {
     ID3D12CommandList *pList = pCommands->getCommandList();
-    pQueue->ExecuteCommandLists(1, &pList);
+    get()->ExecuteCommandLists(1, &pList);
 }
 
 DisplayQueue *DeviceQueue::createDisplayQueue(Context *pContext, const DisplayQueueCreateInfo& createInfo) {
@@ -328,12 +318,7 @@ DisplayQueue *DeviceQueue::createDisplayQueue(Context *pContext, const DisplayQu
 }
 
 DeviceQueue *DeviceQueue::create(ID3D12CommandQueue *pQueue) {
-    setName(pQueue, L"DeviceQueue");
     return new DeviceQueue(pQueue);
-}
-
-DeviceQueue::~DeviceQueue() {
-    pQueue->Release();
 }
 
 // display queue
@@ -371,7 +356,7 @@ DeviceQueue *Device::createQueue(CommandType type) {
         .Type = getCommandType(type),
     };
 
-    HR_CHECK(pDevice->CreateCommandQueue(&desc, IID_PPV_ARGS(&pQueue)));
+    HR_CHECK(get()->CreateCommandQueue(&desc, IID_PPV_ARGS(&pQueue)));
 
     return DeviceQueue::create(pQueue);
 }
@@ -380,7 +365,7 @@ Commands *Device::createCommands(CommandType type, CommandMemory *pMemory) {
     ID3D12CommandAllocator *pAllocator = pMemory->getAllocator();
 
     ID3D12GraphicsCommandList *pList = nullptr;
-    HR_CHECK(pDevice->CreateCommandList(0, getCommandType(type), pAllocator, nullptr, IID_PPV_ARGS(&pList)));
+    HR_CHECK(get()->CreateCommandList(0, getCommandType(type), pAllocator, nullptr, IID_PPV_ARGS(&pList)));
 
     HR_CHECK(pList->Close());
 
@@ -389,7 +374,7 @@ Commands *Device::createCommands(CommandType type, CommandMemory *pMemory) {
 
 CommandMemory *Device::createCommandMemory(CommandType type) {
     ID3D12CommandAllocator *pAllocator = nullptr;
-    HR_CHECK(pDevice->CreateCommandAllocator(getCommandType(type), IID_PPV_ARGS(&pAllocator)));
+    HR_CHECK(get()->CreateCommandAllocator(getCommandType(type), IID_PPV_ARGS(&pAllocator)));
 
     return CommandMemory::create(pAllocator);
 }
@@ -401,9 +386,9 @@ DescriptorHeap *Device::createRenderTargetHeap(UINT count) {
     };
 
     ID3D12DescriptorHeap *pHeap = nullptr;
-    HR_CHECK(pDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&pHeap)));
+    HR_CHECK(get()->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&pHeap)));
 
-    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    UINT descriptorSize = get()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
     return DescriptorHeap::create(pHeap, descriptorSize);
 }
@@ -416,9 +401,9 @@ DescriptorHeap *Device::createShaderDataHeap(UINT count) {
     };
 
     ID3D12DescriptorHeap *pHeap = nullptr;
-    HR_CHECK(pDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&pHeap)));
+    HR_CHECK(get()->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&pHeap)));
 
-    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    UINT descriptorSize = get()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     return DescriptorHeap::create(pHeap, descriptorSize);
 }
@@ -541,14 +526,14 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
     };
 
     ID3D12PipelineState *pPipeline = nullptr;
-    HR_CHECK(pDevice->CreateGraphicsPipelineState(&pipelineDesc, IID_PPV_ARGS(&pPipeline)));
+    HR_CHECK(get()->CreateGraphicsPipelineState(&pipelineDesc, IID_PPV_ARGS(&pPipeline)));
 
     return PipelineState::create(pSignature, pPipeline);
 }
 
 Fence *Device::createFence() {
     ID3D12Fence *pFence = nullptr;
-    HR_CHECK(pDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&pFence)));
+    HR_CHECK(get()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&pFence)));
 
     HANDLE hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     if (!hEvent) {
@@ -565,7 +550,7 @@ VertexBuffer *Device::createVertexBuffer(size_t length, size_t stride) {
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size);
 
-    HR_CHECK(pDevice->CreateCommittedResource(
+    HR_CHECK(get()->CreateCommittedResource(
         &heap, D3D12_HEAP_FLAG_NONE, &desc,
         D3D12_RESOURCE_STATE_COMMON,
         nullptr, IID_PPV_ARGS(&pResource)
@@ -588,7 +573,7 @@ IndexBuffer *Device::createIndexBuffer(size_t length, TypeFormat fmt) {
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size);
 
-    HR_CHECK(pDevice->CreateCommittedResource(
+    HR_CHECK(get()->CreateCommittedResource(
         &heap, D3D12_HEAP_FLAG_NONE, &desc,
         D3D12_RESOURCE_STATE_COMMON,
         nullptr, IID_PPV_ARGS(&pResource)
@@ -609,7 +594,7 @@ UniformBuffer *Device::createUniformBuffer(size_t length) {
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
     D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(length);
 
-    HR_CHECK(pDevice->CreateCommittedResource(
+    HR_CHECK(get()->CreateCommittedResource(
         &heap, D3D12_HEAP_FLAG_NONE, &desc,
         D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr, IID_PPV_ARGS(&pResource)
@@ -629,7 +614,6 @@ TextureBuffer *Device::createTextureRenderTarget(const TextureInfo& createInfo, 
         .Color = { clearColour.x, clearColour.y, clearColour.z, clearColour.w },
     };
 
-
     ID3D12Resource *pResource = nullptr;
 
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
@@ -644,7 +628,7 @@ TextureBuffer *Device::createTextureRenderTarget(const TextureInfo& createInfo, 
         .Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
     };
 
-    HR_CHECK(pDevice->CreateCommittedResource(
+    HR_CHECK(get()->CreateCommittedResource(
         &heap, D3D12_HEAP_FLAG_NONE, &desc,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
         &clear, IID_PPV_ARGS(&pResource)
@@ -662,7 +646,7 @@ TextureBuffer *Device::createTexture(const TextureInfo& createInfo) {
         UINT(createInfo.width), UINT(createInfo.height)
     );
 
-    HR_CHECK(pDevice->CreateCommittedResource(
+    HR_CHECK(get()->CreateCommittedResource(
         &heap, D3D12_HEAP_FLAG_NONE, &desc,
         D3D12_RESOURCE_STATE_COPY_DEST,
         nullptr, IID_PPV_ARGS(&pResource)
@@ -676,7 +660,7 @@ UploadBuffer *Device::createUploadBuffer(const void *pData, size_t length) {
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
     D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(length);
 
-    HR_CHECK(pDevice->CreateCommittedResource(
+    HR_CHECK(get()->CreateCommittedResource(
         &heap, D3D12_HEAP_FLAG_NONE,
         &desc, D3D12_RESOURCE_STATE_COMMON,
         nullptr, IID_PPV_ARGS(&pResource)
@@ -697,7 +681,7 @@ UploadBuffer *Device::createTextureUploadBuffer(const TextureInfo& createInfo) {
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
     D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size);
 
-    HR_CHECK(pDevice->CreateCommittedResource(
+    HR_CHECK(get()->CreateCommittedResource(
         &heap, D3D12_HEAP_FLAG_NONE,
         &desc, D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr, IID_PPV_ARGS(&pResource)
@@ -712,7 +696,7 @@ void Device::mapRenderTarget(HostHeapOffset handle, DeviceResource *pTarget) {
         .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
     };
 
-    pDevice->CreateRenderTargetView(pTarget->getResource(), &desc, hostHandle(handle));
+    get()->CreateRenderTargetView(pTarget->getResource(), &desc, hostHandle(handle));
 }
 
 void Device::mapUniform(HostHeapOffset handle, UniformBuffer *pUniform, size_t size) {
@@ -721,7 +705,7 @@ void Device::mapUniform(HostHeapOffset handle, UniformBuffer *pUniform, size_t s
         .SizeInBytes = UINT(size),
     };
 
-    pDevice->CreateConstantBufferView(&desc, hostHandle(handle));
+    get()->CreateConstantBufferView(&desc, hostHandle(handle));
 }
 
 void Device::mapTexture(HostHeapOffset handle, TextureBuffer *pTexture) {
@@ -732,7 +716,7 @@ void Device::mapTexture(HostHeapOffset handle, TextureBuffer *pTexture) {
         .Texture2D = { .MostDetailedMip = 0, .MipLevels = 1 },
     };
 
-    pDevice->CreateShaderResourceView(pTexture->getResource(), &desc, hostHandle(handle));
+    get()->CreateShaderResourceView(pTexture->getResource(), &desc, hostHandle(handle));
 }
 
 Device *Device::create(IDXGIAdapter4 *pAdapter) {
@@ -761,7 +745,6 @@ Device *Device::create(IDXGIAdapter4 *pAdapter) {
 
 Device::~Device() {
     if (pInfoQueue) { pInfoQueue->Release(); }
-    pDevice->Release();
 }
 
 // adapter
@@ -836,20 +819,15 @@ Context::~Context() {
 // descriptor heap
 
 DeviceHeapOffset DescriptorHeap::deviceOffset(UINT index) {
-    return DeviceHeapOffset(pHeap->GetGPUDescriptorHandleForHeapStart().ptr + index * descriptorSize);
+    return DeviceHeapOffset(get()->GetGPUDescriptorHandleForHeapStart().ptr + index * descriptorSize);
 }
 
 HostHeapOffset DescriptorHeap::hostOffset(UINT index) {
-    return HostHeapOffset(pHeap->GetCPUDescriptorHandleForHeapStart().ptr + index * descriptorSize);
+    return HostHeapOffset(get()->GetCPUDescriptorHandleForHeapStart().ptr + index * descriptorSize);
 }
 
 DescriptorHeap *DescriptorHeap::create(ID3D12DescriptorHeap *pHeap, UINT descriptorSize) {
-    setName(pHeap, L"DescriptorHeap");
     return new DescriptorHeap(pHeap, descriptorSize);
-}
-
-DescriptorHeap::~DescriptorHeap() {
-    pHeap->Release();
 }
 
 // pipeline state
@@ -866,36 +844,26 @@ PipelineState::~PipelineState() {
     pState->Release();
 }
 
-// resource
-
-DeviceResource::~DeviceResource() {
-    pResource->Release();
-}
-
 // render target
 
 RenderTarget *RenderTarget::create(ID3D12Resource *pResource) {
-    setName(pResource, L"RenderTarget");
     return new RenderTarget(pResource);
 }
 
 // vertex buffer
 
 VertexBuffer *VertexBuffer::create(ID3D12Resource *pResource, D3D12_VERTEX_BUFFER_VIEW view) {
-    setName(pResource, L"VertexBuffer");
     return new VertexBuffer(pResource, view);
 }
 
 // index buffer
 
 IndexBuffer *IndexBuffer::create(ID3D12Resource *pResource, D3D12_INDEX_BUFFER_VIEW view) {
-    setName(pResource, L"IndexBuffer");
     return new IndexBuffer(pResource, view);
 }
 
 // texture buffer
 TextureBuffer *TextureBuffer::create(ID3D12Resource *pResource) {
-    setName(pResource, L"TextureBuffer");
     return new TextureBuffer(pResource);
 }
 
@@ -906,7 +874,6 @@ void UniformBuffer::write(const void *pData, size_t length) {
 }
 
 UniformBuffer *UniformBuffer::create(ID3D12Resource *pResource, void *pMapped) {
-    setName(pResource, L"UniformBuffer");
     return new UniformBuffer(pResource, pMapped);
 }
 
@@ -917,27 +884,24 @@ UniformBuffer::~UniformBuffer() {
 // upload buffer
 
 UploadBuffer *UploadBuffer::create(ID3D12Resource *pResource) {
-    setName(pResource, L"UploadBuffer");
     return new UploadBuffer(pResource);
 }
 
 // fence
 
 size_t Fence::getValue() {
-    return pFence->GetCompletedValue();
+    return get()->GetCompletedValue();
 }
 
 void Fence::wait(size_t value) {
-    pFence->SetEventOnCompletion(value, hEvent);
+    get()->SetEventOnCompletion(value, hEvent);
     WaitForSingleObject(hEvent, INFINITE);
 }
 
 Fence *Fence::create(ID3D12Fence *pFence, HANDLE hEvent) {
-    setName(pFence, L"Fence");
     return new Fence(pFence, hEvent);
 }
 
 Fence::~Fence() {
-    pFence->Release();
     CloseHandle(hEvent);
 }
