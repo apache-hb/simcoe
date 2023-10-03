@@ -13,11 +13,10 @@ void RenderGraph::execute() {
 void RenderGraph::executePass(IRenderPass *pPass) {
     for (const PassResource *pInput : pPass->inputs) {
         auto [pHandle, requiredState] = *pInput;
-        auto [pResource, actualState] = *pHandle;
 
-        if (actualState != requiredState) {
-            ctx->transition(pResource, actualState, pInput->requiredState);
-            pHandle->state = requiredState;
+        if (pHandle->currentState != requiredState) {
+            ctx->transition(pHandle->getResource(), pHandle->currentState, pInput->requiredState);
+            pHandle->currentState = requiredState;
         }
     }
 

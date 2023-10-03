@@ -623,12 +623,14 @@ UniformBuffer *Device::createUniformBuffer(size_t length) {
 }
 
 TextureBuffer *Device::createTextureRenderTarget(const TextureInfo& createInfo, const math::float4& clearColour) {
-    ID3D12Resource *pResource = nullptr;
-
+    DXGI_FORMAT format = getPixelTypeFormat(createInfo.format);
     D3D12_CLEAR_VALUE clear = {
-        .Format = getPixelTypeFormat(createInfo.format),
+        .Format = format,
         .Color = { clearColour.x, clearColour.y, clearColour.z, clearColour.w },
     };
+
+
+    ID3D12Resource *pResource = nullptr;
 
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     D3D12_RESOURCE_DESC desc = {
@@ -637,7 +639,7 @@ TextureBuffer *Device::createTextureRenderTarget(const TextureInfo& createInfo, 
         .Height = UINT(createInfo.height),
         .DepthOrArraySize = 1,
         .MipLevels = 1,
-        .Format = getPixelTypeFormat(createInfo.format),
+        .Format = format,
         .SampleDesc = { .Count = 1 },
         .Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,
     };

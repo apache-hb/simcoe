@@ -82,6 +82,11 @@ namespace editor {
         size_t fenceValue = 1;
     };
 
+    struct RenderTarget {
+        render::TextureBuffer *pTarget;
+        RenderTargetAlloc::Index index;
+    };
+
     struct RenderContext {
         static constexpr UINT kBackBufferCount = 2;
         static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
@@ -94,12 +99,30 @@ namespace editor {
         void beginRender();
         void endRender();
 
-        void executeScene(float time);
-        void executePost();
+        void executeScene(const RenderTarget& target, float time);
+        void executePost(DataAlloc::Index sceneTarget);
         void executePresent();
 
         // getters
         const RenderCreateInfo& getCreateInfo() const { return createInfo; }
+
+        // create resources
+        render::TextureBuffer *createTextureRenderTarget(const render::TextureInfo& createInfo, const math::float4& clearColour) {
+            return pDevice->createTextureRenderTarget(createInfo, clearColour);
+        }
+
+        // heap allocators
+        RenderTargetAlloc::Index mapRenderTarget(render::DeviceResource *pResource) {
+            auto index = pRenderTargetAlloc->alloc();
+            pDevice->mapRenderTarget(pRenderTargetAlloc->hostOffset(index), pResource);
+            return index;
+        }
+
+        DataAlloc::Index mapTexture(render::TextureBuffer *pResource) {
+            auto index = pDataAlloc->alloc();
+            pDevice->mapTexture(pDataAlloc->hostOffset(index), pResource);
+            return index;
+        }
 
         // commands
         void transition(render::DeviceResource *pResource, render::ResourceState from, render::ResourceState to) {
@@ -175,10 +198,6 @@ namespace editor {
         // render resolution dependant data
 
         render::Display sceneDisplay;
-
-        render::TextureBuffer *pSceneTarget;
-        RenderTargetAlloc::Index sceneRenderTargetIndex;
-        DataAlloc::Index screenTextureIndex;
 
         // present resolution dependant data
 

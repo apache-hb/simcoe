@@ -3,13 +3,21 @@
 #include "editor/render/render.h"
 
 namespace editor {
-    struct ResourceHandle {
-        render::DeviceResource *pResource;
-        render::ResourceState state;
+    struct IResourceHandle {
+        virtual ~IResourceHandle() = default;
+
+        virtual void create(RenderContext *ctx) = 0;
+        virtual void destroy(RenderContext *ctx) = 0;
+
+        virtual render::DeviceResource* getResource() const = 0;
+
+        render::ResourceState currentState;
+        RenderTargetAlloc::Index rtvIndex;
+        DataAlloc::Index srvIndex;
     };
 
     struct PassResource {
-        ResourceHandle *pHandle;
+        IResourceHandle *pHandle;
         render::ResourceState requiredState;
     };
 
@@ -21,7 +29,11 @@ namespace editor {
 
         virtual void execute(RenderContext *ctx) = 0;
         
-        PassResource *addInput(render::ResourceState requiredState);
+        PassResource *addResource(IResourceHandle *pHandle, render::ResourceState requiredState) {
+            PassResource *pResource = new PassResource{ pHandle, requiredState };
+            inputs.push_back(pResource);
+            return pResource;
+        }
 
         std::vector<PassResource*> inputs;
     };
@@ -36,6 +48,11 @@ namespace editor {
                 pPass->destroy(ctx);
                 delete pPass;
             }
+            
+            for (IResourceHandle *pHandle : resources) {
+                pHandle->destroy(ctx);
+                delete pHandle;
+            }
         }
 
         void addPass(IRenderPass *pPass) { 
@@ -43,10 +60,9 @@ namespace editor {
             passes.push_back(pPass); 
         }
 
-        ResourceHandle *addResource(render::DeviceResource *pResource, render::ResourceState state) {
-            ResourceHandle *pHandle = new ResourceHandle{ pResource, state };
+        void addResource(IResourceHandle *pHandle) {
+            pHandle->create(ctx);
             resources.push_back(pHandle);
-            return pHandle;
         }
 
         void execute();
@@ -55,6 +71,6 @@ namespace editor {
 
         RenderContext *ctx;
         std::vector<IRenderPass*> passes;
-        std::vector<ResourceHandle*> resources;
+        std::vector<IResourceHandle*> resources;
     };
 }

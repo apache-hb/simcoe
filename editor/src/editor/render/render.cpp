@@ -176,23 +176,6 @@ void RenderContext::createPostData() {
     sceneDisplay = createDisplay(createInfo.renderWidth, createInfo.renderHeight);
     postDisplay = createLetterBoxDisplay(createInfo.renderWidth, createInfo.renderHeight, createInfo.displayWidth, createInfo.displayHeight);
 
-    // create scene target
-    const render::TextureInfo textureInfo = {
-        .width = createInfo.renderWidth,
-        .height = createInfo.renderHeight,
-
-        .format = render::PixelFormat::eRGBA8
-    };
-
-    pSceneTarget = pDevice->createTextureRenderTarget(textureInfo, kClearColour);
-    sceneRenderTargetIndex = pRenderTargetAlloc->alloc();
-    screenTextureIndex = pDataAlloc->alloc();
-
-    // map scene target into texture and render target heaps
-
-    pDevice->mapRenderTarget(pRenderTargetAlloc->hostOffset(sceneRenderTargetIndex), pSceneTarget);
-    pDevice->mapTexture(pDataAlloc->hostOffset(screenTextureIndex), pSceneTarget);
-
     // create post pso
 
     const render::PipelineCreateInfo psoCreateInfo = {
@@ -239,7 +222,6 @@ void RenderContext::destroyPostData() {
     delete pPostPipeline;
     delete pScreenQuadVerts;
     delete pScreenQuadIndices;
-    delete pSceneTarget;
 }
 
 void RenderContext::createResources() {
@@ -343,12 +325,10 @@ void RenderContext::destroyResources() {
 
 // rendering
 
-void RenderContext::executeScene(float time) {
+void RenderContext::executeScene(const RenderTarget& target, float time) {
     updateUniform(time);
-    
-    auto renderTargetIndex = pRenderTargetAlloc->hostOffset(sceneRenderTargetIndex);
 
-    pDirectCommands->transition(pSceneTarget, render::ResourceState::eShaderResource, render::ResourceState::eRenderTarget);
+    auto renderTargetIndex = pRenderTargetAlloc->hostOffset(target.index);
 
     // bind state for scene
     pDirectCommands->setPipelineState(pScenePipeline);
@@ -367,11 +347,9 @@ void RenderContext::executeScene(float time) {
     pDirectCommands->setVertexBuffer(pQuadVertexBuffer);
     pDirectCommands->setIndexBuffer(pQuadIndexBuffer);
     pDirectCommands->drawIndexBuffer(6);
-
-    pDirectCommands->transition(pSceneTarget, render::ResourceState::eRenderTarget, render::ResourceState::eShaderResource);
 }
 
-void RenderContext::executePost() {
+void RenderContext::executePost(DataAlloc::Index sceneTarget) {
     auto renderTargetHeapIndex = frameData[frameIndex].renderTargetHeapIndex;
     render::RenderTarget *pRenderTarget = frameData[frameIndex].pRenderTarget;
 
@@ -387,7 +365,7 @@ void RenderContext::executePost() {
     pDirectCommands->clearRenderTarget(pRenderTargetAlloc->hostOffset(renderTargetHeapIndex), kBlackClearColour);
 
     // blit scene to backbuffer
-    pDirectCommands->setShaderInput(pDataAlloc->deviceOffset(screenTextureIndex), 0);
+    pDirectCommands->setShaderInput(pDataAlloc->deviceOffset(sceneTarget), 0);
     pDirectCommands->setVertexBuffer(pScreenQuadVerts);
     pDirectCommands->setIndexBuffer(pScreenQuadIndices);
     pDirectCommands->drawIndexBuffer(6);

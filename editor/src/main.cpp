@@ -40,6 +40,35 @@ static GameWindow gWindowCallbacks;
 /// render passes
 ///
 
+struct SceneTarget final : IResourceHandle {
+    static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
+
+    void create(RenderContext *ctx) override {
+        const auto& createInfo = ctx->getCreateInfo();
+
+        const render::TextureInfo textureCreateInfo = {
+            .width = createInfo.renderWidth,
+            .height = createInfo.renderHeight,
+            .format = render::PixelFormat::eRGBA8,
+        };
+
+        pResource = ctx->createTextureRenderTarget(textureCreateInfo, kClearColour);
+        currentState = render::ResourceState::eShaderResource;
+        rtvIndex = ctx->mapRenderTarget(pResource);
+        srvIndex = ctx->mapTexture(pResource);
+    }
+
+    void destroy(RenderContext *ctx) override {
+        delete pResource;
+    }
+
+    render::DeviceResource* getResource() const override {
+        return pResource;
+    }
+
+    render::TextureBuffer *pResource;
+};
+
 struct ScenePass final : IRenderPass {
     static constexpr auto kQuadVerts = std::to_array<Vertex>({
         Vertex{ { 0.5f, -0.5f, 0.0f }, { 0.f, 0.f } }, // top left
@@ -53,6 +82,10 @@ struct ScenePass final : IRenderPass {
         1, 2, 3
     });
 
+    ScenePass(IResourceHandle *pSceneTarget) 
+        : pSceneTarget(addResource(pSceneTarget, render::ResourceState::eRenderTarget))
+    { }
+
     void create(RenderContext *ctx) override {
         pTimer = new simcoe::Timer();
     }
@@ -62,13 +95,20 @@ struct ScenePass final : IRenderPass {
     }
 
     void execute(RenderContext *ctx) override {
-        ctx->executeScene(pTimer->now());
+        IResourceHandle *pTarget = pSceneTarget->pHandle;
+        ctx->executeScene({ (render::TextureBuffer*)pTarget->getResource(), pTarget->rtvIndex }, pTimer->now());
     }
+
+    PassResource *pSceneTarget;
 
     simcoe::Timer *pTimer;
 };
 
 struct PostPass final : IRenderPass {
+    PostPass(IResourceHandle *pSceneTarget) 
+        : pSceneTarget(addResource(pSceneTarget, render::ResourceState::eShaderResource))
+    { }
+    
     void create(RenderContext *ctx) override {
 
     }
@@ -78,8 +118,11 @@ struct PostPass final : IRenderPass {
     }
 
     void execute(RenderContext *ctx) override {
-        ctx->executePost();
+        IResourceHandle *pTarget = pSceneTarget->pHandle;
+        ctx->executePost(pTarget->srvIndex);
     }
+
+    PassResource *pSceneTarget;
 };
 
 struct PresentPass final : IRenderPass {
@@ -133,8 +176,11 @@ static void commonMain() {
         simcoe::Region region("render thread started", "render thread stopped");
         
         RenderGraph graph{ctx.get()};
-        graph.addPass(new ScenePass());
-        graph.addPass(new PostPass());
+        IResourceHandle *pSceneTarget = new SceneTarget();
+
+        graph.addResource(pSceneTarget);
+        graph.addPass(new ScenePass(pSceneTarget));
+        graph.addPass(new PostPass(pSceneTarget));
         graph.addPass(new PresentPass());
 
         // TODO: if the render loop throws an exception, the program will std::terminate
