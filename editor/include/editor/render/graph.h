@@ -44,11 +44,13 @@ namespace editor {
         { }
 
         ~RenderGraph() {
+            ctx->endRender();
+            
             for (IRenderPass *pPass : passes) {
                 pPass->destroy(ctx);
                 delete pPass;
             }
-            
+
             for (IResourceHandle *pHandle : resources) {
                 pHandle->destroy(ctx);
                 delete pHandle;

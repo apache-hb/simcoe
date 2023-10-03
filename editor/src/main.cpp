@@ -37,6 +37,58 @@ struct GameWindow final : IWindowCallbacks {
 static GameWindow gWindowCallbacks;
 
 ///
+/// create display helper functions
+///
+
+constexpr render::Display createDisplay(UINT width, UINT height) {
+    render::Viewport viewport = {
+        .width = float(width),
+        .height = float(height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
+
+    render::Scissor scissor = {
+        .right = LONG(width),
+        .bottom = LONG(height)
+    };
+
+    return { viewport, scissor };
+}
+
+constexpr render::Display createLetterBoxDisplay(UINT renderWidth, UINT renderHeight, UINT displayWidth, UINT displayHeight) {
+    auto widthRatio = float(renderWidth) / displayWidth;
+    auto heightRatio = float(renderHeight) / displayHeight;
+
+    float x = 1.f;
+    float y = 1.f;
+
+    if (widthRatio < heightRatio) {
+        x = widthRatio / heightRatio;
+    } else {
+        y = heightRatio / widthRatio;
+    }
+
+    render::Viewport viewport = {
+        .x = displayWidth * (1.f - x) / 2.f,
+        .y = displayHeight * (1.f - y) / 2.f,
+        .width = x * displayWidth,
+        .height = y * displayHeight,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
+
+    render::Scissor scissor = {
+        LONG(viewport.x),
+        LONG(viewport.y),
+        LONG(viewport.x + viewport.width),
+        LONG(viewport.y + viewport.height)
+    };
+
+    return { viewport, scissor };
+}
+
+///
 /// render passes
 ///
 
@@ -69,6 +121,13 @@ struct SceneTarget final : IResourceHandle {
     render::TextureBuffer *pResource;
 };
 
+struct UNIFORM_ALIGN UniformData {
+    math::float2 offset;
+
+    float angle;
+    float aspect;
+};
+
 struct ScenePass final : IRenderPass {
     static constexpr auto kQuadVerts = std::to_array<Vertex>({
         Vertex{ { 0.5f, -0.5f, 0.0f }, { 0.f, 0.f } }, // top left
@@ -87,42 +146,101 @@ struct ScenePass final : IRenderPass {
     { }
 
     void create(RenderContext *ctx) override {
+        const auto& createInfo = ctx->getCreateInfo();
         pTimer = new simcoe::Timer();
+        display = createDisplay(createInfo.renderWidth, createInfo.renderHeight);
+
+        pQuadUniformBuffer = ctx->createUniformBuffer(sizeof(UniformData));
+        quadUniformIndex = ctx->mapUniform(pQuadUniformBuffer, sizeof(UniformData));
     }
 
     void destroy(RenderContext *ctx) override {
+        delete pQuadUniformBuffer;
+
         delete pTimer;
     }
 
     void execute(RenderContext *ctx) override {
+        const auto time = pTimer->now();
+        const auto& createInfo = ctx->getCreateInfo();
+        UniformData data = {
+            .offset = { 0.f, std::sin(time) / 3 },
+            .angle = time,
+            .aspect = float(createInfo.renderHeight) / float(createInfo.renderWidth)
+        };
+
+        pQuadUniformBuffer->write(&data, sizeof(UniformData));
+
         IResourceHandle *pTarget = pSceneTarget->pHandle;
-        ctx->executeScene({ (render::TextureBuffer*)pTarget->getResource(), pTarget->rtvIndex }, pTimer->now());
+        ctx->executeScene(quadUniformIndex, display, { (render::TextureBuffer*)pTarget->getResource(), pTarget->rtvIndex });
     }
 
     PassResource *pSceneTarget;
 
     simcoe::Timer *pTimer;
+
+    render::Display display;
+
+    render::UniformBuffer *pQuadUniformBuffer;
+    DataAlloc::Index quadUniformIndex;
 };
 
 struct PostPass final : IRenderPass {
+    static constexpr auto kScreenQuad = std::to_array<Vertex>({
+        Vertex{ { 1.f, -1.f, 0.0f }, { 0.f, 0.f } }, // top left
+        Vertex{ { 1.f, 1.f, 0.0f }, { 1.f, 0.f } }, // top right
+        Vertex{ { -1.f, -1.f, 0.0f }, { 0.f, 1.f } }, // bottom left
+        Vertex{ { -1.f, 1.f, 0.0f }, { 1.f, 1.f } } // bottom right
+    });
+
+    static constexpr auto kScreenQuadIndices = std::to_array<uint16_t>({
+        0, 2, 1,
+        1, 2, 3
+    });
+
     PostPass(IResourceHandle *pSceneTarget) 
         : pSceneTarget(addResource(pSceneTarget, render::ResourceState::eShaderResource))
     { }
     
     void create(RenderContext *ctx) override {
+        const auto& createInfo = ctx->getCreateInfo();
 
+        display = createLetterBoxDisplay(createInfo.renderWidth, createInfo.renderHeight, createInfo.displayWidth, createInfo.displayHeight);
+
+        const render::PipelineCreateInfo psoCreateInfo = {
+            .vertexShader = createInfo.depot.loadBlob("blit.vs.cso"),
+            .pixelShader = createInfo.depot.loadBlob("blit.ps.cso"),
+
+            .attributes = {
+                { "POSITION", offsetof(Vertex, position), render::TypeFormat::eFloat3 },
+                { "TEXCOORD", offsetof(Vertex, uv), render::TypeFormat::eFloat2 }
+            },
+
+            .textureInputs = {
+                { render::InputVisibility::ePixel, 0, false },
+            },
+
+            .samplers = {
+                { render::InputVisibility::ePixel, 0 }
+            }
+        };
+
+        pPipeline = ctx->createPipelineState(psoCreateInfo);
     }
 
     void destroy(RenderContext *ctx) override {
-
+        delete pPipeline;
     }
 
     void execute(RenderContext *ctx) override {
         IResourceHandle *pTarget = pSceneTarget->pHandle;
-        ctx->executePost(pTarget->srvIndex);
+        ctx->executePost(display, pPipeline, pTarget->srvIndex);
     }
 
     PassResource *pSceneTarget;
+
+    render::Display display;
+    render::PipelineState *pPipeline;
 };
 
 struct PresentPass final : IRenderPass {

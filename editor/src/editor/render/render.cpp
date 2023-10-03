@@ -16,55 +16,6 @@ namespace {
         0, 2, 1,
         1, 2, 3
     });
-
-    constexpr render::Display createDisplay(UINT width, UINT height) {
-        render::Viewport viewport = {
-            .width = float(width),
-            .height = float(height),
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f
-        };
-
-        render::Scissor scissor = {
-            .right = LONG(width),
-            .bottom = LONG(height)
-        };
-
-        return { viewport, scissor };
-    }
-
-    constexpr render::Display createLetterBoxDisplay(UINT renderWidth, UINT renderHeight, UINT displayWidth, UINT displayHeight) {
-        auto widthRatio = float(renderWidth) / displayWidth;
-        auto heightRatio = float(renderHeight) / displayHeight;
-
-        float x = 1.f;
-        float y = 1.f;
-
-        if (widthRatio < heightRatio) {
-            x = widthRatio / heightRatio;
-        } else {
-            y = heightRatio / widthRatio;
-        }
-
-        render::Viewport viewport = {
-            .x = displayWidth * (1.f - x) / 2.f,
-            .y = displayHeight * (1.f - y) / 2.f,
-            .width = x * displayWidth,
-            .height = y * displayHeight,
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f
-        };
-
-        render::Scissor scissor = {
-            LONG(viewport.x),
-            LONG(viewport.y),
-            LONG(viewport.x + viewport.width),
-            LONG(viewport.y + viewport.height)
-        };
-
-        return { viewport, scissor };
-    }
-
 }
 
 RenderContext *RenderContext::create(const RenderCreateInfo& createInfo) {
@@ -172,32 +123,6 @@ void RenderContext::createPostData() {
     render::DescriptorHeap *pHeap = pDevice->createShaderDataHeap(3);
     pDataAlloc = new DataAlloc(pHeap);
 
-    // create scissors and viewports
-    sceneDisplay = createDisplay(createInfo.renderWidth, createInfo.renderHeight);
-    postDisplay = createLetterBoxDisplay(createInfo.renderWidth, createInfo.renderHeight, createInfo.displayWidth, createInfo.displayHeight);
-
-    // create post pso
-
-    const render::PipelineCreateInfo psoCreateInfo = {
-        .vertexShader = createInfo.depot.loadBlob("blit.vs.cso"),
-        .pixelShader = createInfo.depot.loadBlob("blit.ps.cso"),
-
-        .attributes = {
-            { "POSITION", offsetof(Vertex, position), render::TypeFormat::eFloat3 },
-            { "TEXCOORD", offsetof(Vertex, uv), render::TypeFormat::eFloat2 }
-        },
-
-        .textureInputs = {
-            { render::InputVisibility::ePixel, 0, false },
-        },
-
-        .samplers = {
-            { render::InputVisibility::ePixel, 0 }
-        }
-    };
-
-    pPostPipeline = pDevice->createPipelineState(psoCreateInfo);
-
     // upload data
 
     std::unique_ptr<render::UploadBuffer> pVertexStaging{pDevice->createUploadBuffer(kScreenQuad.data(), kScreenQuad.size() * sizeof(Vertex))};
@@ -219,7 +144,6 @@ void RenderContext::createPostData() {
 
 void RenderContext::destroyPostData() {
     delete pDataAlloc;
-    delete pPostPipeline;
     delete pScreenQuadVerts;
     delete pScreenQuadIndices;
 }
@@ -283,12 +207,6 @@ void RenderContext::createResources() {
     pQuadIndexBuffer = pDevice->createIndexBuffer(indices.size(), render::TypeFormat::eUint16);
     pTextureBuffer = pDevice->createTexture(textureInfo);
 
-    // create uniform data
-
-    pQuadUniformBuffer = pDevice->createUniformBuffer(sizeof(UniformData));
-    quadUniformIndex = pDataAlloc->alloc();
-    pDevice->mapUniform(pDataAlloc->hostOffset(quadUniformIndex), pQuadUniformBuffer, sizeof(UniformData));
-
     // create texture heap and map texture into it
 
     quadTextureIndex = pDataAlloc->alloc();
@@ -316,7 +234,6 @@ void RenderContext::createResources() {
 }
 
 void RenderContext::destroyResources() {
-    delete pQuadUniformBuffer;
     delete pTextureBuffer;
     delete pScenePipeline;
     delete pQuadVertexBuffer;
@@ -325,15 +242,13 @@ void RenderContext::destroyResources() {
 
 // rendering
 
-void RenderContext::executeScene(const RenderTarget& target, float time) {
-    updateUniform(time);
-
+void RenderContext::executeScene(DataAlloc::Index quadUniformIndex, const render::Display& display, const RenderTarget& target) {
     auto renderTargetIndex = pRenderTargetAlloc->hostOffset(target.index);
 
     // bind state for scene
     pDirectCommands->setPipelineState(pScenePipeline);
     pDirectCommands->setHeap(pDataAlloc->pHeap);
-    pDirectCommands->setDisplay(sceneDisplay);
+    pDirectCommands->setDisplay(display);
 
     pDirectCommands->setRenderTarget(renderTargetIndex);
     pDirectCommands->clearRenderTarget(renderTargetIndex, kClearColour);
@@ -349,7 +264,7 @@ void RenderContext::executeScene(const RenderTarget& target, float time) {
     pDirectCommands->drawIndexBuffer(6);
 }
 
-void RenderContext::executePost(DataAlloc::Index sceneTarget) {
+void RenderContext::executePost(const render::Display& display, render::PipelineState *pPostPipeline, DataAlloc::Index sceneTarget) {
     auto renderTargetHeapIndex = frameData[frameIndex].renderTargetHeapIndex;
     render::RenderTarget *pRenderTarget = frameData[frameIndex].pRenderTarget;
 
@@ -358,7 +273,7 @@ void RenderContext::executePost(DataAlloc::Index sceneTarget) {
     // bind state for post
     pDirectCommands->setPipelineState(pPostPipeline);
     pDirectCommands->setHeap(pDataAlloc->pHeap);
-    pDirectCommands->setDisplay(postDisplay);
+    pDirectCommands->setDisplay(display);
 
     // set the actual back buffer as the render target
     pDirectCommands->setRenderTarget(pRenderTargetAlloc->hostOffset(renderTargetHeapIndex));
@@ -377,16 +292,6 @@ void RenderContext::executePresent() {
     pDirectCommands->end();
     pDirectQueue->execute(pDirectCommands);
     pDisplayQueue->present();
-}
-
-void RenderContext::updateUniform(float time) {
-    UniformData data = {
-        .offset = { 0.f, std::sin(time) / 3 },
-        .angle = time,
-        .aspect = float(createInfo.renderHeight) / float(createInfo.renderWidth)
-    };
-
-    pQuadUniformBuffer->write(&data, sizeof(UniformData));
 }
 
 void RenderContext::beginRender() {

@@ -25,13 +25,6 @@ namespace editor {
 
     // shader data types
 
-    struct UNIFORM_ALIGN UniformData {
-        math::float2 offset;
-
-        float angle;
-        float aspect;
-    };
-    
     struct Vertex {
         math::float3 position;
         math::float2 uv;
@@ -99,8 +92,17 @@ namespace editor {
         void beginRender();
         void endRender();
 
-        void executeScene(const RenderTarget& target, float time);
-        void executePost(DataAlloc::Index sceneTarget);
+        void executeScene(
+            DataAlloc::Index quadUniformIndex,
+            const render::Display& display, 
+            const RenderTarget& target
+        );
+        void executePost(
+            const render::Display& display, 
+            render::PipelineState *pPostPipeline, 
+            DataAlloc::Index sceneTarget
+        );
+
         void executePresent();
 
         // getters
@@ -109,6 +111,14 @@ namespace editor {
         // create resources
         render::TextureBuffer *createTextureRenderTarget(const render::TextureInfo& createInfo, const math::float4& clearColour) {
             return pDevice->createTextureRenderTarget(createInfo, clearColour);
+        }
+        
+        render::UniformBuffer *createUniformBuffer(size_t size) {
+            return pDevice->createUniformBuffer(size);
+        }
+
+        render::PipelineState *createPipelineState(const render::PipelineCreateInfo& createInfo) {
+            return pDevice->createPipelineState(createInfo);
         }
 
         // heap allocators
@@ -121,6 +131,12 @@ namespace editor {
         DataAlloc::Index mapTexture(render::TextureBuffer *pResource) {
             auto index = pDataAlloc->alloc();
             pDevice->mapTexture(pDataAlloc->hostOffset(index), pResource);
+            return index;
+        }
+
+        DataAlloc::Index mapUniform(render::UniformBuffer *pBuffer, size_t size) {
+            auto index = pDataAlloc->alloc();
+            pDevice->mapUniform(pDataAlloc->hostOffset(index), pBuffer, size);
             return index;
         }
 
@@ -158,8 +174,6 @@ namespace editor {
 
         // rendering
 
-        void updateUniform(float time);
-
         void waitForCopy();
 
         RenderCreateInfo createInfo;
@@ -188,20 +202,12 @@ namespace editor {
 
         // swapchain resolution dependant data
 
-        render::Display postDisplay;
-
         render::DisplayQueue *pDisplayQueue;
 
         RenderTargetAlloc *pRenderTargetAlloc;
         DataAlloc *pDataAlloc;
 
-        // render resolution dependant data
-
-        render::Display sceneDisplay;
-
         // present resolution dependant data
-
-        render::PipelineState *pPostPipeline;
 
         render::VertexBuffer *pScreenQuadVerts;
         render::IndexBuffer *pScreenQuadIndices;
@@ -214,8 +220,5 @@ namespace editor {
 
         render::TextureBuffer *pTextureBuffer;
         DataAlloc::Index quadTextureIndex;
-
-        render::UniformBuffer *pQuadUniformBuffer;
-        DataAlloc::Index quadUniformIndex;
     };
 }
