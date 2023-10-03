@@ -81,16 +81,6 @@ RenderContext::~RenderContext() {
     delete pContext;
 }
 
-void RenderContext::render(float time) {
-    updateUniform(time);
-    beginFrame();
-
-    pDirectQueue->execute(pDirectCommands);
-    pDisplayQueue->present();
-
-    endFrame();
-}
-
 RenderContext::RenderContext(const RenderCreateInfo& createInfo) : createInfo(createInfo) {
     pContext = render::Context::create();
     
@@ -340,7 +330,7 @@ void RenderContext::createResources() {
     waitForCopy();
 
     pDirectQueue->execute(pDirectCommands);
-    endFrame();
+    endRender();
 }
 
 void RenderContext::destroyResources() {
@@ -353,7 +343,9 @@ void RenderContext::destroyResources() {
 
 // rendering
 
-void RenderContext::executeScene() {
+void RenderContext::executeScene(float time) {
+    updateUniform(time);
+    
     auto renderTargetIndex = pRenderTargetAlloc->hostOffset(sceneRenderTargetIndex);
 
     pDirectCommands->transition(pSceneTarget, render::ResourceState::eShaderResource, render::ResourceState::eRenderTarget);
@@ -403,13 +395,10 @@ void RenderContext::executePost() {
     pDirectCommands->transition(pRenderTarget, render::ResourceState::eRenderTarget, render::ResourceState::ePresent);
 }
 
-void RenderContext::beginFrame() {
-    frameIndex = pDisplayQueue->getFrameIndex();
-    pDirectCommands->begin(frameData[frameIndex].pMemory);
-
-    executeScene();
-    executePost();
+void RenderContext::executePresent() {
     pDirectCommands->end();
+    pDirectQueue->execute(pDirectCommands);
+    pDisplayQueue->present();
 }
 
 void RenderContext::updateUniform(float time) {
@@ -422,7 +411,12 @@ void RenderContext::updateUniform(float time) {
     pQuadUniformBuffer->write(&data, sizeof(UniformData));
 }
 
-void RenderContext::endFrame() {
+void RenderContext::beginRender() {
+    frameIndex = pDisplayQueue->getFrameIndex();
+    pDirectCommands->begin(frameData[frameIndex].pMemory);
+}
+
+void RenderContext::endRender() {
     size_t value = frameData[frameIndex].fenceValue++;
     pDirectQueue->signal(pFence, value);
 

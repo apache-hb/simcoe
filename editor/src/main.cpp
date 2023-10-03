@@ -7,6 +7,7 @@
 #include <array>
 
 using namespace simcoe;
+using namespace editor;
 
 #define ASSERT(expr) \
     do { \
@@ -34,6 +35,70 @@ struct GameWindow final : IWindowCallbacks {
 };
 
 static GameWindow gWindowCallbacks;
+
+///
+/// render passes
+///
+
+struct ScenePass final : IRenderPass {
+    static constexpr auto kQuadVerts = std::to_array<Vertex>({
+        Vertex{ { 0.5f, -0.5f, 0.0f }, { 0.f, 0.f } }, // top left
+        Vertex{ { 0.5f, 0.5f, 0.0f }, { 1.f, 0.f } }, // top right
+        Vertex{ { -0.5f, -0.5f, 0.0f }, { 0.f, 1.f } }, // bottom left
+        Vertex{ { -0.5f, 0.5f, 0.0f }, { 1.f, 1.f } } // bottom right
+    });
+
+    static constexpr auto kQuadIndices = std::to_array<uint16_t>({
+        0, 2, 1,
+        1, 2, 3
+    });
+
+    void create(RenderContext *ctx) override {
+        pTimer = new simcoe::Timer();
+    }
+
+    void destroy(RenderContext *ctx) override {
+        delete pTimer;
+    }
+
+    void execute(RenderContext *ctx) override {
+        ctx->executeScene(pTimer->now());
+    }
+
+    simcoe::Timer *pTimer;
+};
+
+struct PostPass final : IRenderPass {
+    void create(RenderContext *ctx) override {
+
+    }
+
+    void destroy(RenderContext *ctx) override {
+
+    }
+
+    void execute(RenderContext *ctx) override {
+        ctx->executePost();
+    }
+};
+
+struct PresentPass final : IRenderPass {
+    void create(RenderContext *ctx) override {
+
+    }
+
+    void destroy(RenderContext *ctx) override {
+
+    }
+
+    void execute(RenderContext *ctx) override {
+        ctx->executePresent();
+    }
+};
+
+///
+/// entry point
+///
 
 static void commonMain() {
     assets::Assets depot = { std::filesystem::current_path() / "build" / "editor.exe.p" };
@@ -66,13 +131,16 @@ static void commonMain() {
     std::unique_ptr<editor::RenderContext> context{editor::RenderContext::create(renderCreateInfo)};
     pRenderThread = new std::jthread([ctx = std::move(context)](std::stop_token token) {
         simcoe::Region region("render thread started", "render thread stopped");
-
-        simcoe::Timer timer;
+        
+        RenderGraph graph{ctx.get()};
+        graph.addPass(new ScenePass());
+        graph.addPass(new PostPass());
+        graph.addPass(new PresentPass());
 
         // TODO: if the render loop throws an exception, the program will std::terminate
         // we should handle this case and restart the render loop
         while (!token.stop_requested()) {
-            ctx->render(timer.now());
+            graph.execute();
         }
     });
 

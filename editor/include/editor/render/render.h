@@ -90,10 +90,21 @@ namespace editor {
         static RenderContext *create(const RenderCreateInfo& createInfo);
 
         ~RenderContext();
-        void render(float time);
+
+        void beginRender();
+        void endRender();
+
+        void executeScene(float time);
+        void executePost();
+        void executePresent();
 
         // getters
         const RenderCreateInfo& getCreateInfo() const { return createInfo; }
+
+        // commands
+        void transition(render::DeviceResource *pResource, render::ResourceState from, render::ResourceState to) {
+            pDirectCommands->transition(pResource, from, to);
+        }
 
     private:
         RenderContext(const RenderCreateInfo& createInfo);
@@ -125,12 +136,6 @@ namespace editor {
         // rendering
 
         void updateUniform(float time);
-
-        void executeScene();
-        void executePost();
-
-        void beginFrame();
-        void endFrame();
 
         void waitForCopy();
 
