@@ -16,9 +16,26 @@ namespace editor {
         DataAlloc::Index srvIndex;
     };
 
-    struct PassResource {
-        IResourceHandle *pHandle;
+    struct BasePassResource {
+        virtual ~BasePassResource() = default;
+        virtual IResourceHandle *getHandle() const = 0;
+
+        BasePassResource(render::ResourceState requiredState)
+            : requiredState(requiredState)
+        { }
+
         render::ResourceState requiredState;
+    };
+
+    template<typename T>
+    struct PassResource : BasePassResource {
+        PassResource(T *pHandle, render::ResourceState requiredState)
+            : BasePassResource(requiredState)
+            , pHandle(pHandle)
+        { }
+
+        IResourceHandle *getHandle() const override { return pHandle; }
+        T *pHandle = nullptr;
     };
 
     struct IRenderPass {
@@ -29,13 +46,14 @@ namespace editor {
 
         virtual void execute(RenderContext *ctx) = 0;
         
-        PassResource *addResource(IResourceHandle *pHandle, render::ResourceState requiredState) {
-            PassResource *pResource = new PassResource{ pHandle, requiredState };
+        template<typename T>
+        PassResource<T> *addResource(T *pHandle, render::ResourceState requiredState) {
+            auto *pResource = new PassResource<T>(pHandle, requiredState);
             inputs.push_back(pResource);
             return pResource;
         }
 
-        std::vector<PassResource*> inputs;
+        std::vector<BasePassResource*> inputs;
     };
 
     struct RenderGraph {
@@ -64,6 +82,7 @@ namespace editor {
 
         void addResource(IResourceHandle *pHandle) {
             pHandle->create(ctx);
+
             resources.push_back(pHandle);
         }
 

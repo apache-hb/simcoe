@@ -92,7 +92,7 @@ constexpr render::Display createLetterBoxDisplay(UINT renderWidth, UINT renderHe
 /// render passes
 ///
 
-struct SceneTarget final : IResourceHandle {
+struct SceneTargetHandle final : IResourceHandle {
     static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
 
     void create(RenderContext *ctx) override {
@@ -121,6 +121,44 @@ struct SceneTarget final : IResourceHandle {
     render::TextureBuffer *pResource;
 };
 
+struct TextureHandle final : IResourceHandle {
+    TextureHandle(std::string name)
+        : name(name)
+    { }
+
+    void create(RenderContext *ctx) override {
+        const auto& createInfo = ctx->getCreateInfo();
+        assets::Image image = createInfo.depot.loadImage(name);
+
+        const render::TextureInfo textureInfo = {
+            .width = image.width,
+            .height = image.height,
+
+            .format = render::PixelFormat::eRGBA8
+        };
+
+        std::unique_ptr<render::UploadBuffer> pTextureStaging{ctx->createTextureUploadBuffer(textureInfo)};
+        pResource = ctx->createTexture(textureInfo);
+        srvIndex = ctx->mapTexture(pResource);
+        currentState = render::ResourceState::eCopyDest;
+
+        ctx->beginCopy();
+        ctx->copyTexture(pResource, pTextureStaging.get(), textureInfo, image.data);
+        ctx->endCopy();
+    }
+
+    void destroy(RenderContext *ctx) override {
+        delete pResource;
+    }
+
+    render::DeviceResource *getResource() const override {
+        return pResource;
+    }
+
+    std::string name;
+    render::TextureBuffer *pResource;
+};
+
 struct UNIFORM_ALIGN UniformData {
     math::float2 offset;
 
@@ -141,8 +179,10 @@ struct ScenePass final : IRenderPass {
         1, 2, 3
     });
 
-    ScenePass(IResourceHandle *pSceneTarget) 
-        : pSceneTarget(addResource(pSceneTarget, render::ResourceState::eRenderTarget))
+    ScenePass(SceneTargetHandle *pSceneTarget, TextureHandle *pTexture) 
+        : IRenderPass()
+        , pSceneTarget(addResource<SceneTargetHandle>(pSceneTarget, render::ResourceState::eRenderTarget))
+        , pTextureHandle(addResource<TextureHandle>(pTexture, render::ResourceState::eShaderResource))
     { }
 
     void create(RenderContext *ctx) override {
@@ -200,15 +240,17 @@ struct ScenePass final : IRenderPass {
 
         pQuadUniformBuffer->write(&data, sizeof(UniformData));
 
-        IResourceHandle *pTarget = pSceneTarget->pHandle;
+        IResourceHandle *pTarget = pSceneTarget->getHandle();
+        IResourceHandle *pTexture = pTextureHandle->getHandle();
         RenderTarget rt = { (render::TextureBuffer*)pTarget->getResource(), pTarget->rtvIndex };
 
         ctx->setPipeline(pPipeline);
         ctx->setDisplay(display);
-        ctx->executeScene(quadUniformIndex, rt);
+        ctx->executeScene(quadUniformIndex, pTexture->srvIndex, rt);
     }
 
-    PassResource *pSceneTarget;
+    PassResource<SceneTargetHandle> *pSceneTarget;
+    PassResource<TextureHandle> *pTextureHandle;
 
     simcoe::Timer *pTimer;
 
@@ -233,8 +275,9 @@ struct PostPass final : IRenderPass {
         1, 2, 3
     });
 
-    PostPass(IResourceHandle *pSceneTarget) 
-        : pSceneTarget(addResource(pSceneTarget, render::ResourceState::eShaderResource))
+    PostPass(SceneTargetHandle *pSceneTarget) 
+        : IRenderPass()
+        , pSceneTarget(addResource<SceneTargetHandle>(pSceneTarget, render::ResourceState::eShaderResource))
     { }
     
     void create(RenderContext *ctx) override {
@@ -268,14 +311,14 @@ struct PostPass final : IRenderPass {
     }
 
     void execute(RenderContext *ctx) override {
-        IResourceHandle *pTarget = pSceneTarget->pHandle;
+        IResourceHandle *pTarget = pSceneTarget->getHandle();
 
         ctx->setPipeline(pPipeline);
         ctx->setDisplay(display);
         ctx->executePost(pTarget->srvIndex);
     }
 
-    PassResource *pSceneTarget;
+    PassResource<SceneTargetHandle> *pSceneTarget;
 
     render::Display display;
     render::PipelineState *pPipeline;
@@ -332,10 +375,13 @@ static void commonMain() {
         simcoe::Region region("render thread started", "render thread stopped");
         
         RenderGraph graph{ctx.get()};
-        IResourceHandle *pSceneTarget = new SceneTarget();
+        SceneTargetHandle *pSceneTarget = new SceneTargetHandle();
+        TextureHandle *pTexture = new TextureHandle("uv-coords.png");
 
         graph.addResource(pSceneTarget);
-        graph.addPass(new ScenePass(pSceneTarget));
+        graph.addResource(pTexture);
+
+        graph.addPass(new ScenePass(pSceneTarget, pTexture));
         graph.addPass(new PostPass(pSceneTarget));
         graph.addPass(new PresentPass());
 

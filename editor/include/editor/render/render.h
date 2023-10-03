@@ -92,7 +92,10 @@ namespace editor {
         void beginRender();
         void endRender();
 
-        void executeScene(DataAlloc::Index quadUniformIndex, const RenderTarget& target);
+        void beginCopy();
+        void endCopy();
+
+        void executeScene(DataAlloc::Index quadUniformIndex, DataAlloc::Index quadTextureIndex, const RenderTarget& target);
 
         void executePost(DataAlloc::Index sceneTarget);
 
@@ -112,6 +115,14 @@ namespace editor {
 
         render::PipelineState *createPipelineState(const render::PipelineCreateInfo& createInfo) {
             return pDevice->createPipelineState(createInfo);
+        }
+
+        render::UploadBuffer *createTextureUploadBuffer(const render::TextureInfo& info) {
+            return pDevice->createTextureUploadBuffer(info);
+        }
+
+        render::TextureBuffer *createTexture(const render::TextureInfo& info) {
+            return pDevice->createTexture(info);
         }
 
         // heap allocators
@@ -146,6 +157,13 @@ namespace editor {
             pDirectCommands->setPipelineState(pPipeline);
         }
 
+        void copyTexture(render::TextureBuffer *pDst, render::UploadBuffer *pSrc, const render::TextureInfo& info, std::span<const std::byte> data) {
+            pCopyCommands->copyTexture(pDst, pSrc, info, data);
+        }
+
+        // waits
+        void waitForCopy();
+
     private:
         RenderContext(const RenderCreateInfo& createInfo);
 
@@ -174,8 +192,6 @@ namespace editor {
         void destroyResources();
 
         // rendering
-
-        void waitForCopy();
 
         RenderCreateInfo createInfo;
 
@@ -217,8 +233,5 @@ namespace editor {
 
         render::VertexBuffer *pQuadVertexBuffer;
         render::IndexBuffer *pQuadIndexBuffer;
-
-        render::TextureBuffer *pTextureBuffer;
-        DataAlloc::Index quadTextureIndex;
     };
 }

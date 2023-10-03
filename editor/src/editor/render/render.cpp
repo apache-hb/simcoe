@@ -180,12 +180,7 @@ void RenderContext::createResources() {
 
     pQuadVertexBuffer = pDevice->createVertexBuffer(quad.size(), sizeof(Vertex));
     pQuadIndexBuffer = pDevice->createIndexBuffer(indices.size(), render::TypeFormat::eUint16);
-    pTextureBuffer = pDevice->createTexture(textureInfo);
 
-    // create texture heap and map texture into it
-
-    quadTextureIndex = pDataAlloc->alloc();
-    pDevice->mapTexture(pDataAlloc->hostOffset(quadTextureIndex), pTextureBuffer);
 
     // upload data
 
@@ -194,9 +189,6 @@ void RenderContext::createResources() {
 
     pCopyCommands->copyBuffer(pQuadVertexBuffer, pVertexStaging.get());
     pCopyCommands->copyBuffer(pQuadIndexBuffer, pIndexStaging.get());
-    pCopyCommands->copyTexture(pTextureBuffer, pTextureStaging.get(), textureInfo, image.data);
-
-    pDirectCommands->transition(pTextureBuffer, render::ResourceState::eCopyDest, render::ResourceState::eShaderResource);
 
     pCopyCommands->end();
     pDirectCommands->end();
@@ -209,14 +201,13 @@ void RenderContext::createResources() {
 }
 
 void RenderContext::destroyResources() {
-    delete pTextureBuffer;
     delete pQuadVertexBuffer;
     delete pQuadIndexBuffer;
 }
 
 // rendering
 
-void RenderContext::executeScene(DataAlloc::Index quadUniformIndex, const RenderTarget& target) {
+void RenderContext::executeScene(DataAlloc::Index quadUniformIndex, DataAlloc::Index quadTextureIndex, const RenderTarget& target) {
     auto renderTargetIndex = pRenderTargetAlloc->hostOffset(target.index);
 
     pDirectCommands->setRenderTarget(renderTargetIndex);
@@ -271,6 +262,16 @@ void RenderContext::endRender() {
     if (pFence->getValue() < value) {
         pFence->wait(value);
     }
+}
+
+void RenderContext::beginCopy() {
+    pCopyCommands->begin(pCopyAllocator);
+}
+
+void RenderContext::endCopy() {
+    pCopyCommands->end();
+    pCopyQueue->execute(pCopyCommands);
+    waitForCopy();
 }
 
 void RenderContext::waitForCopy() {
