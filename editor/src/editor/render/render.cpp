@@ -149,31 +149,6 @@ void RenderContext::destroyPostData() {
 }
 
 void RenderContext::createResources() {
-    // create pso
-    const render::PipelineCreateInfo psoCreateInfo = {
-        .vertexShader = createInfo.depot.loadBlob("quad.vs.cso"),
-        .pixelShader = createInfo.depot.loadBlob("quad.ps.cso"),
-
-        .attributes = {
-            { "POSITION", offsetof(Vertex, position), render::TypeFormat::eFloat3 },
-            { "TEXCOORD", offsetof(Vertex, uv), render::TypeFormat::eFloat2 }
-        },
-
-        .textureInputs = {
-            { render::InputVisibility::ePixel, 0, true }
-        },
-
-        .uniformInputs = {
-            { render::InputVisibility::eVertex, 0, false }
-        },
-
-        .samplers = {
-            { render::InputVisibility::ePixel, 0 }
-        }
-    };
-
-    pScenePipeline = pDevice->createPipelineState(psoCreateInfo);
-
     // data to upload
     const auto quad = std::to_array<Vertex>({
         Vertex{ { 0.5f, -0.5f, 0.0f }, { 0.f, 0.f } }, // top left
@@ -235,20 +210,14 @@ void RenderContext::createResources() {
 
 void RenderContext::destroyResources() {
     delete pTextureBuffer;
-    delete pScenePipeline;
     delete pQuadVertexBuffer;
     delete pQuadIndexBuffer;
 }
 
 // rendering
 
-void RenderContext::executeScene(DataAlloc::Index quadUniformIndex, const render::Display& display, const RenderTarget& target) {
+void RenderContext::executeScene(DataAlloc::Index quadUniformIndex, const RenderTarget& target) {
     auto renderTargetIndex = pRenderTargetAlloc->hostOffset(target.index);
-
-    // bind state for scene
-    pDirectCommands->setPipelineState(pScenePipeline);
-    pDirectCommands->setHeap(pDataAlloc->pHeap);
-    pDirectCommands->setDisplay(display);
 
     pDirectCommands->setRenderTarget(renderTargetIndex);
     pDirectCommands->clearRenderTarget(renderTargetIndex, kClearColour);
@@ -264,16 +233,11 @@ void RenderContext::executeScene(DataAlloc::Index quadUniformIndex, const render
     pDirectCommands->drawIndexBuffer(6);
 }
 
-void RenderContext::executePost(const render::Display& display, render::PipelineState *pPostPipeline, DataAlloc::Index sceneTarget) {
+void RenderContext::executePost(DataAlloc::Index sceneTarget) {
     auto renderTargetHeapIndex = frameData[frameIndex].renderTargetHeapIndex;
     render::RenderTarget *pRenderTarget = frameData[frameIndex].pRenderTarget;
 
     pDirectCommands->transition(pRenderTarget, render::ResourceState::ePresent, render::ResourceState::eRenderTarget);
-
-    // bind state for post
-    pDirectCommands->setPipelineState(pPostPipeline);
-    pDirectCommands->setHeap(pDataAlloc->pHeap);
-    pDirectCommands->setDisplay(display);
 
     // set the actual back buffer as the render target
     pDirectCommands->setRenderTarget(pRenderTargetAlloc->hostOffset(renderTargetHeapIndex));
@@ -297,6 +261,7 @@ void RenderContext::executePresent() {
 void RenderContext::beginRender() {
     frameIndex = pDisplayQueue->getFrameIndex();
     pDirectCommands->begin(frameData[frameIndex].pMemory);
+    pDirectCommands->setHeap(pDataAlloc->pHeap);
 }
 
 void RenderContext::endRender() {

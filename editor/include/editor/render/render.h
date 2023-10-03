@@ -92,16 +92,9 @@ namespace editor {
         void beginRender();
         void endRender();
 
-        void executeScene(
-            DataAlloc::Index quadUniformIndex,
-            const render::Display& display, 
-            const RenderTarget& target
-        );
-        void executePost(
-            const render::Display& display, 
-            render::PipelineState *pPostPipeline, 
-            DataAlloc::Index sceneTarget
-        );
+        void executeScene(DataAlloc::Index quadUniformIndex, const RenderTarget& target);
+
+        void executePost(DataAlloc::Index sceneTarget);
 
         void executePresent();
 
@@ -143,6 +136,14 @@ namespace editor {
         // commands
         void transition(render::DeviceResource *pResource, render::ResourceState from, render::ResourceState to) {
             pDirectCommands->transition(pResource, from, to);
+        }
+
+        void setDisplay(const render::Display& display) {
+            pDirectCommands->setDisplay(display);
+        }
+
+        void setPipeline(render::PipelineState *pPipeline) {
+            pDirectCommands->setPipelineState(pPipeline);
         }
 
     private:
@@ -214,7 +215,6 @@ namespace editor {
 
         // scene resources
 
-        render::PipelineState *pScenePipeline;
         render::VertexBuffer *pQuadVertexBuffer;
         render::IndexBuffer *pQuadIndexBuffer;
 

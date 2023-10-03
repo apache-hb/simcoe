@@ -150,11 +150,40 @@ struct ScenePass final : IRenderPass {
         pTimer = new simcoe::Timer();
         display = createDisplay(createInfo.renderWidth, createInfo.renderHeight);
 
+        // create pipeline
+        const render::PipelineCreateInfo psoCreateInfo = {
+            .vertexShader = createInfo.depot.loadBlob("quad.vs.cso"),
+            .pixelShader = createInfo.depot.loadBlob("quad.ps.cso"),
+
+            .attributes = {
+                { "POSITION", offsetof(Vertex, position), render::TypeFormat::eFloat3 },
+                { "TEXCOORD", offsetof(Vertex, uv), render::TypeFormat::eFloat2 }
+            },
+
+            .textureInputs = {
+                { render::InputVisibility::ePixel, 0, true }
+            },
+
+            .uniformInputs = {
+                { render::InputVisibility::eVertex, 0, false }
+            },
+
+            .samplers = {
+                { render::InputVisibility::ePixel, 0 }
+            }
+        };
+
+        pPipeline = ctx->createPipelineState(psoCreateInfo);
+
+
+        // create uniform buffer
+
         pQuadUniformBuffer = ctx->createUniformBuffer(sizeof(UniformData));
         quadUniformIndex = ctx->mapUniform(pQuadUniformBuffer, sizeof(UniformData));
     }
 
     void destroy(RenderContext *ctx) override {
+        delete pPipeline;
         delete pQuadUniformBuffer;
 
         delete pTimer;
@@ -172,7 +201,11 @@ struct ScenePass final : IRenderPass {
         pQuadUniformBuffer->write(&data, sizeof(UniformData));
 
         IResourceHandle *pTarget = pSceneTarget->pHandle;
-        ctx->executeScene(quadUniformIndex, display, { (render::TextureBuffer*)pTarget->getResource(), pTarget->rtvIndex });
+        RenderTarget rt = { (render::TextureBuffer*)pTarget->getResource(), pTarget->rtvIndex };
+
+        ctx->setPipeline(pPipeline);
+        ctx->setDisplay(display);
+        ctx->executeScene(quadUniformIndex, rt);
     }
 
     PassResource *pSceneTarget;
@@ -180,6 +213,8 @@ struct ScenePass final : IRenderPass {
     simcoe::Timer *pTimer;
 
     render::Display display;
+
+    render::PipelineState *pPipeline;
 
     render::UniformBuffer *pQuadUniformBuffer;
     DataAlloc::Index quadUniformIndex;
@@ -234,7 +269,10 @@ struct PostPass final : IRenderPass {
 
     void execute(RenderContext *ctx) override {
         IResourceHandle *pTarget = pSceneTarget->pHandle;
-        ctx->executePost(display, pPipeline, pTarget->srvIndex);
+
+        ctx->setPipeline(pPipeline);
+        ctx->setDisplay(display);
+        ctx->executePost(pTarget->srvIndex);
     }
 
     PassResource *pSceneTarget;
