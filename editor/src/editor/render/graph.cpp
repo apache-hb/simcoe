@@ -22,6 +22,46 @@ void RenderGraph::resizeDisplay(UINT width, UINT height) {
     lock = false;
 }
 
+void RenderGraph::resizeRender(UINT width, UINT height) {
+    const auto& createInfo = ctx->getCreateInfo();
+    if (width == createInfo.renderWidth && height == createInfo.renderHeight)
+        return;
+
+    lock = true;
+    std::lock_guard guard(renderLock);
+
+    ctx->waitForDirectQueue();
+    ctx->waitForCopyQueue();
+
+    destroyIf(StateDep::eDepRenderSize);
+
+    ctx->changeRenderSize(width, height);
+
+    createIf(StateDep::eDepRenderSize);
+
+    lock = false;
+}
+
+void RenderGraph::changeBackBufferCount(UINT count) {
+    const auto& createInfo = ctx->getCreateInfo();
+    if (count == createInfo.backBufferCount)
+        return;
+
+    lock = true;
+    std::lock_guard guard(renderLock);
+
+    ctx->waitForDirectQueue();
+    ctx->waitForCopyQueue();
+
+    destroyIf(StateDep::eDepBackBufferCount);
+
+    ctx->changeBackBufferCount(count);
+
+    createIf(StateDep::eDepBackBufferCount);
+
+    lock = false;
+}
+
 void RenderGraph::execute() {
     if (lock) { return; }
 

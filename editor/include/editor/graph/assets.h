@@ -4,6 +4,7 @@
 
 namespace editor::graph {
     using ITextureHandle = ISingleResourceHandle<render::TextureBuffer>;
+    using IUniformHandle = ISingleResourceHandle<render::UniformBuffer>;
 
     struct SwapChainHandle final : IResourceHandle {
         SwapChainHandle() : IResourceHandle(StateDep(eDepDisplaySize | eDepBackBufferCount)) { }
@@ -23,7 +24,7 @@ namespace editor::graph {
             render::ResourceState state;
         };
 
-        RenderTarget targets[RenderContext::kBackBufferCount];
+        std::vector<RenderTarget> targets;
     };
 
     struct SceneTargetHandle final : ITextureHandle {

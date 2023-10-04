@@ -63,7 +63,7 @@ namespace editor {
             , pHandle(pHandle)
         { }
 
-        IResourceHandle *getHandle() const override { return pHandle; }
+        T *getHandle() const override { return pHandle; }
         T *pHandle = nullptr;
     };
 
@@ -110,6 +110,8 @@ namespace editor {
         }
 
         void resizeDisplay(UINT width, UINT height);
+        void resizeRender(UINT width, UINT height);
+        void changeBackBufferCount(UINT count);
 
         void execute();
     private:

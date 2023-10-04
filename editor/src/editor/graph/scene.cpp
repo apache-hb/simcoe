@@ -46,15 +46,41 @@ struct UNIFORM_ALIGN UniformData {
     float aspect;
 };
 
-ScenePass::ScenePass(graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture)
+void UniformHandle::create(RenderContext *ctx) {
+    pResource = ctx->createUniformBuffer(sizeof(UniformData));
+    currentState = render::ResourceState::eShaderResource;
+    srvIndex = ctx->mapUniform(pResource, sizeof(UniformData));
+}
+
+void UniformHandle::destroy(RenderContext *ctx) {
+    auto *pSrvHeap = ctx->getSrvHeap();
+    pSrvHeap->release(srvIndex);
+
+    delete pResource;
+}
+
+void UniformHandle::update(RenderContext *ctx) {
+    float time = timer.now();
+    const auto& createInfo = ctx->getCreateInfo();
+
+    UniformData data = {
+        .offset = { 0.f, std::sin(time) / 3 },
+        .angle = time,
+        .aspect = float(createInfo.renderHeight) / float(createInfo.renderWidth)
+    };
+
+    pResource->write(&data, sizeof(UniformData));
+}
+
+ScenePass::ScenePass(graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform)
     : IRenderPass(eDepRenderSize)
     , pSceneTarget(addResource<graph::SceneTargetHandle>(pSceneTarget, render::ResourceState::eRenderTarget))
     , pTextureHandle(addResource<graph::TextureHandle>(pTexture, render::ResourceState::eShaderResource))
+    , pUniformHandle(addResource<graph::UniformHandle>(pUniform, render::ResourceState::eShaderResource))
 { }
 
 void ScenePass::create(RenderContext *ctx) {
     const auto& createInfo = ctx->getCreateInfo();
-    pTimer = new simcoe::Timer();
     display = createDisplay(createInfo.renderWidth, createInfo.renderHeight);
 
     // create pipeline
@@ -82,11 +108,6 @@ void ScenePass::create(RenderContext *ctx) {
 
     pPipeline = ctx->createPipelineState(psoCreateInfo);
 
-    // create uniform buffer
-
-    pQuadUniformBuffer = ctx->createUniformBuffer(sizeof(UniformData));
-    quadUniformIndex = ctx->mapUniform(pQuadUniformBuffer, sizeof(UniformData));
-
     // create vertex data
     std::unique_ptr<render::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(kQuadVerts.data(), kQuadVerts.size() * sizeof(Vertex))};
     std::unique_ptr<render::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(kQuadIndices.data(), kQuadIndices.size() * sizeof(uint16_t))};
@@ -101,44 +122,26 @@ void ScenePass::create(RenderContext *ctx) {
 }
 
 void ScenePass::destroy(RenderContext *ctx) {
-    auto *pSrvHeap = ctx->getSrvHeap();
-    pSrvHeap->release(quadUniformIndex);
-
     delete pPipeline;
-    delete pQuadUniformBuffer;
 
     delete pQuadVertexBuffer;
     delete pQuadIndexBuffer;
-
-    delete pTimer;
 }
 
 void ScenePass::execute(RenderContext *ctx) {
-    updateUniform(ctx);
-
     IResourceHandle *pTarget = pSceneTarget->getHandle();
     IResourceHandle *pTexture = pTextureHandle->getHandle();
+    UniformHandle *pUniform = pUniformHandle->getHandle();
+
+    pUniform->update(ctx);
 
     ctx->setPipeline(pPipeline);
     ctx->setDisplay(display);
     ctx->setRenderTarget(pTarget->getRtvIndex(ctx), kClearColour);
 
     ctx->setShaderInput(pTexture->srvIndex, 0);
-    ctx->setShaderInput(quadUniformIndex, 1);
+    ctx->setShaderInput(pUniform->srvIndex, 1);
 
     ctx->setVertexBuffer(pQuadVertexBuffer);
     ctx->drawIndexBuffer(pQuadIndexBuffer, kQuadIndices.size());
-}
-
-void ScenePass::updateUniform(RenderContext *ctx) {
-    float time = pTimer->now();
-    const auto& createInfo = ctx->getCreateInfo();
-
-    UniformData data = {
-        .offset = { 0.f, std::sin(time) / 3 },
-        .angle = time,
-        .aspect = float(createInfo.renderHeight) / float(createInfo.renderWidth)
-    };
-
-    pQuadUniformBuffer->write(&data, sizeof(UniformData));
 }

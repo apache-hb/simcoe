@@ -4,7 +4,10 @@ using namespace editor;
 using namespace editor::graph;
 
 void SwapChainHandle::create(RenderContext *ctx) {
-    for (UINT i = 0; i < RenderContext::kBackBufferCount; i++) {
+    const auto &createInfo = ctx->getCreateInfo();
+    targets.resize(createInfo.backBufferCount);
+
+    for (UINT i = 0; i < createInfo.backBufferCount; i++) {
         render::RenderTarget *pTarget = ctx->getRenderTarget(i);
         RenderTargetAlloc::Index rtvIndex = ctx->mapRenderTarget(pTarget);
 
@@ -15,12 +18,15 @@ void SwapChainHandle::create(RenderContext *ctx) {
 }
 
 void SwapChainHandle::destroy(RenderContext *ctx) {
+    const auto& createInfo = ctx->getCreateInfo();
     auto *pRtvHeap = ctx->getRtvHeap();
-    for (UINT i = 0; i < RenderContext::kBackBufferCount; ++i) {
+    for (UINT i = 0; i < createInfo.backBufferCount; ++i) {
         const auto& frame = targets[i];
         delete frame.pRenderTarget;
         pRtvHeap->release(frame.rtvIndex);
     }
+
+    targets.clear();
 }
 
 render::ResourceState SwapChainHandle::getCurrentState(RenderContext *ctx) const {

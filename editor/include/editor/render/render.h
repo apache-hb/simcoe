@@ -17,6 +17,8 @@ namespace editor {
         HWND hWindow;
         assets::Assets& depot;
 
+        UINT backBufferCount = 2;
+
         UINT displayWidth;
         UINT displayHeight;
 
@@ -86,7 +88,6 @@ namespace editor {
     };
 
     struct RenderContext {
-        static constexpr UINT kBackBufferCount = 2;
         static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
         static constexpr math::float4 kBlackClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
 
@@ -112,6 +113,7 @@ namespace editor {
 
         void changeDisplaySize(UINT width, UINT height);
         void changeRenderSize(UINT width, UINT height);
+        void changeBackBufferCount(UINT count);
 
         // getters
         const RenderCreateInfo& getCreateInfo() const { return createInfo; }
@@ -279,7 +281,7 @@ namespace editor {
         size_t directFenceValue = 1;
         render::Fence *pFence;
 
-        FrameData frameData[kBackBufferCount];
+        std::vector<FrameData> frameData;
 
         // swapchain resolution dependant data
 

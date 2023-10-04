@@ -47,9 +47,8 @@ struct GameWindow final : IWindowCallbacks {
 
     void onResize(int width, int height) override {
         gWorkQueue.enqueue([width, height] {
-            logInfo("resize-apply-begin: {}x{}", width, height);
             if (pGraph != nullptr) pGraph->resizeDisplay(width, height);
-            logInfo("resize-apply-end: {}x{}", width, height);
+            logInfo("resize-display: {}x{}", width, height);
         });
     }
 
@@ -60,6 +59,19 @@ struct GameWindow final : IWindowCallbacks {
 
 struct GameGui final : graph::IGuiPass {
     using graph::IGuiPass::IGuiPass;
+
+    int renderSize[2];
+    int backBufferCount;
+
+    void create(RenderContext *ctx) override {
+        IGuiPass::create(ctx);
+
+        const auto &createInfo = ctx->getCreateInfo();
+        renderSize[0] = createInfo.renderWidth;
+        renderSize[1] = createInfo.renderHeight;
+
+        backBufferCount = createInfo.backBufferCount;
+    }
 
     void content(RenderContext *ctx) override {
         ImGui::ShowDemoWindow();
@@ -72,6 +84,20 @@ struct GameGui final : graph::IGuiPass {
         const auto& createInfo = ctx->getCreateInfo();
         ImGui::Text("present: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
         ImGui::Text("render: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
+
+        if (ImGui::SliderInt2("render size", renderSize, 64, 4096)) {
+            gWorkQueue.enqueue([this] {
+                pGraph->resizeRender(renderSize[0], renderSize[1]);
+                logInfo("resize-render: {}x{}", renderSize[0], renderSize[1]);
+            });
+        }
+
+        if (ImGui::SliderInt("backbuffer count", &backBufferCount, 2, 8)) {
+            gWorkQueue.enqueue([this] {
+                pGraph->changeBackBufferCount(backBufferCount);
+                logInfo("change-backbuffer-count: {}", backBufferCount);
+            });
+        }
 
         ImGui::Text("rtv heap: %zu", rtvAlloc.getSize());
         for (size_t i = 0; i < rtvAlloc.getSize(); i++) {
@@ -138,13 +164,15 @@ static void commonMain() {
         pGraph = new RenderGraph(pContext);
         auto *pSceneTarget = new graph::SceneTargetHandle();
         auto *pTexture = new graph::TextureHandle("uv-coords.png");
+        auto *pUniform = new graph::UniformHandle();
         auto *pBackBuffers = new graph::SwapChainHandle();
 
         pGraph->addResource(pBackBuffers);
         pGraph->addResource(pSceneTarget);
+        pGraph->addResource(pUniform);
         pGraph->addResource(pTexture);
 
-        pGraph->addPass(new graph::ScenePass(pSceneTarget, pTexture));
+        pGraph->addPass(new graph::ScenePass(pSceneTarget, pTexture, pUniform));
         pGraph->addPass(new graph::PostPass(pSceneTarget, pBackBuffers));
         pGraph->addPass(new GameGui(pBackBuffers));
         pGraph->addPass(new graph::PresentPass(pBackBuffers));

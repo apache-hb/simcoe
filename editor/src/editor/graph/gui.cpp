@@ -38,7 +38,7 @@ void IGuiPass::create(RenderContext *ctx) {
     std::lock_guard guard(imguiLock);
     ImGui_ImplWin32_Init(createInfo.hWindow);
     ImGui_ImplDX12_Init(ctx->getDevice()->getDevice(),
-        RenderContext::kBackBufferCount,
+        createInfo.backBufferCount,
         DXGI_FORMAT_R8G8B8A8_UNORM,
         pHeap->pHeap->getHeap(),
         D3D12_CPU_DESCRIPTOR_HANDLE { size_t(pHeap->hostOffset(guiUniformIndex)) },

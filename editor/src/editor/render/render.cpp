@@ -70,7 +70,7 @@ void RenderContext::createDisplayData() {
         .hWindow = createInfo.hWindow,
         .width = createInfo.displayWidth,
         .height = createInfo.displayHeight,
-        .bufferCount = kBackBufferCount
+        .bufferCount = createInfo.backBufferCount,
     };
 
     pDisplayQueue = pDirectQueue->createDisplayQueue(pContext, displayCreateInfo);
@@ -84,7 +84,8 @@ void RenderContext::destroyDisplayData() {
 void RenderContext::createFrameData() {
     frameIndex = pDisplayQueue->getFrameIndex();
 
-    for (UINT i = 0; i < kBackBufferCount; ++i) {
+    frameData.resize(createInfo.backBufferCount);
+    for (UINT i = 0; i < createInfo.backBufferCount; ++i) {
         frameData[i] = { pDevice->createCommandMemory(render::CommandType::eDirect) };
     }
 
@@ -92,15 +93,17 @@ void RenderContext::createFrameData() {
 }
 
 void RenderContext::destroyFrameData() {
-    for (UINT i = 0; i < kBackBufferCount; ++i) {
+    for (UINT i = 0; i < createInfo.backBufferCount; ++i) {
         delete frameData[i].pMemory;
     }
+
+    frameData.clear();
 
     delete pDirectCommands;
 }
 
 void RenderContext::createHeaps() {
-    pRenderTargetAlloc = new RenderTargetAlloc(pDevice->createRenderTargetHeap(kBackBufferCount + 1), kBackBufferCount + 1);
+    pRenderTargetAlloc = new RenderTargetAlloc(pDevice->createRenderTargetHeap(16), 16);
     pDataAlloc = new DataAlloc(pDevice->createShaderDataHeap(64), 64);
 }
 
@@ -114,6 +117,21 @@ void RenderContext::changeDisplaySize(UINT width, UINT height) {
     createInfo.displayWidth = width;
     createInfo.displayHeight = height;
     createDisplayData();
+}
+
+void RenderContext::changeRenderSize(UINT width, UINT height) {
+    createInfo.renderWidth = width;
+    createInfo.renderHeight = height;
+}
+
+void RenderContext::changeBackBufferCount(UINT count) {
+    destroyFrameData();
+    destroyDisplayData();
+
+    createInfo.backBufferCount = count;
+
+    createDisplayData();
+    createFrameData();
 }
 
 void RenderContext::beginRender() {
