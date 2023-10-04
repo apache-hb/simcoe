@@ -304,6 +304,8 @@ namespace editor {
         DataAlloc *pDataAlloc;
 
         // state
+    public:
+        bool fullscreen = false;
         RenderTargetAlloc::Index currentRenderTarget = RenderTargetAlloc::Index::eInvalid;
     };
 }

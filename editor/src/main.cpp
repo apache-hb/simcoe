@@ -30,6 +30,7 @@ static constexpr auto kWindowWidth = 1920;
 static constexpr auto kWindowHeight = 1080;
 
 static simcoe::System *pSystem = nullptr;
+static simcoe::Window *pWindow = nullptr;
 static std::jthread *pRenderThread = nullptr;
 static RenderGraph *pGraph = nullptr;
 
@@ -65,6 +66,9 @@ struct GameGui final : graph::IGuiPass {
 
     int currentAdapter = 0;
     std::vector<const char*> adapterNames;
+
+    bool fullscreen = false;
+    RECT saveCoords = {};
 
     void create(RenderContext *ctx) override {
         IGuiPass::create(ctx);
@@ -103,6 +107,20 @@ struct GameGui final : graph::IGuiPass {
         const auto& createInfo = ctx->getCreateInfo();
         ImGui::Text("present: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
         ImGui::Text("render: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
+        if (ImGui::Checkbox("fullscreen", &fullscreen)) {
+            gWorkQueue.enqueue([this] {
+                if (fullscreen) {
+                    saveCoords = pWindow->getCoords();
+                    RECT coords = pSystem->nearestDisplayCoords(pWindow);
+                    pWindow->enterFullscreen();
+                    pWindow->moveWindow(coords);
+                } else {
+                    pWindow->exitFullscreen();
+                    pWindow->moveWindow(saveCoords);
+                }
+                logInfo("set-fullscreen: {}", fullscreen);
+            });
+        }
 
         if (ImGui::SliderInt2("render size", renderSize, 64, 4096)) {
             gWorkQueue.enqueue([this] {
@@ -158,11 +176,11 @@ static void commonMain() {
         .pCallbacks = &gWindowCallbacks
     };
 
-    simcoe::Window window = pSystem->createWindow(windowCreateInfo);
-    auto [realWidth, realHeight] = window.getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
+    pWindow = pSystem->createWindow(windowCreateInfo);
+    auto [realWidth, realHeight] = pWindow->getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
 
     const editor::RenderCreateInfo renderCreateInfo = {
-        .hWindow = window.getHandle(),
+        .hWindow = pWindow->getHandle(),
         .depot = depot,
 
         .displayWidth = realWidth,

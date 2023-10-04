@@ -34,6 +34,11 @@ namespace simcoe {
 
         HWND getHandle() const;
         math::int2 getSize() const;
+        RECT getCoords() const;
+
+        void enterFullscreen();
+        void exitFullscreen();
+        void moveWindow(RECT rect);
 
         static LRESULT CALLBACK callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
@@ -58,7 +63,9 @@ namespace simcoe {
         System(HINSTANCE hInstance, int nCmdShow);
         ~System();
 
-        Window createWindow(const WindowCreateInfo& createInfo);
+        Window *createWindow(const WindowCreateInfo& createInfo);
+
+        RECT nearestDisplayCoords(Window *pWindow);
 
         bool getEvent();
         void dispatchEvent();

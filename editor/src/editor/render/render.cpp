@@ -84,6 +84,7 @@ void RenderContext::destroyDisplayData() {
 // create data that relys on the number of backbuffers
 void RenderContext::createFrameData() {
     frameIndex = pDisplayQueue->getFrameIndex();
+    fullscreen = pDisplayQueue->isFullscreen();
 
     frameData.resize(createInfo.backBufferCount);
     for (UINT i = 0; i < createInfo.backBufferCount; ++i) {
@@ -114,10 +115,12 @@ void RenderContext::destroyHeaps() {
 }
 
 void RenderContext::changeDisplaySize(UINT width, UINT height) {
-    destroyDisplayData();
+    destroyFrameData();
     createInfo.displayWidth = width;
     createInfo.displayHeight = height;
-    createDisplayData();
+
+    pDisplayQueue->resizeBuffers(createInfo.backBufferCount, width, height);
+    createFrameData();
 }
 
 void RenderContext::changeRenderSize(UINT width, UINT height) {
@@ -127,11 +130,10 @@ void RenderContext::changeRenderSize(UINT width, UINT height) {
 
 void RenderContext::changeBackBufferCount(UINT count) {
     destroyFrameData();
-    destroyDisplayData();
 
     createInfo.backBufferCount = count;
 
-    createDisplayData();
+    pDisplayQueue->resizeBuffers(count, createInfo.displayWidth, createInfo.displayHeight);
     createFrameData();
 }
 
@@ -154,7 +156,7 @@ void RenderContext::beginRender() {
 }
 
 void RenderContext::endRender() {
-    pDisplayQueue->present();
+    pDisplayQueue->present(!fullscreen);
 }
 
 void RenderContext::beginDirect() {

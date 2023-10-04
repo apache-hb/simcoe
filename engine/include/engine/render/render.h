@@ -268,7 +268,11 @@ namespace simcoe::render {
         RenderTarget *getRenderTarget(UINT index);
         size_t getFrameIndex();
 
-        void present();
+        void resizeBuffers(UINT bufferCount, UINT width, UINT height);
+
+        bool isFullscreen();
+
+        void present(bool allowTearing);
 
         // module interface
 

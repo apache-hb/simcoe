@@ -18,7 +18,7 @@ using namespace simcoe::render;
         HRESULT hr = (expr); \
         if (FAILED(hr)) { \
             simcoe::logError(#expr); \
-            return nullptr; \
+            throw std::runtime_error(#expr); \
         } \
     } while (false)
 
@@ -327,6 +327,20 @@ size_t DisplayQueue::getFrameIndex() {
     return pSwapChain->GetCurrentBackBufferIndex();
 }
 
+void DisplayQueue::resizeBuffers(UINT bufferCount, UINT width, UINT height) {
+    DXGI_SWAP_CHAIN_DESC desc = {};
+    pSwapChain->GetDesc(&desc);
+
+    HR_CHECK(pSwapChain->ResizeBuffers(bufferCount, width, height, desc.BufferDesc.Format, desc.Flags));
+}
+
+bool DisplayQueue::isFullscreen() {
+    BOOL fullscreen = FALSE;
+    HR_CHECK(pSwapChain->GetFullscreenState(&fullscreen, nullptr));
+
+    return fullscreen == TRUE;
+}
+
 RenderTarget *DisplayQueue::getRenderTarget(UINT index) {
     ID3D12Resource *pResource = nullptr;
     HR_CHECK(pSwapChain->GetBuffer(index, IID_PPV_ARGS(&pResource)));
@@ -334,8 +348,8 @@ RenderTarget *DisplayQueue::getRenderTarget(UINT index) {
     return RenderTarget::create(pResource);
 }
 
-void DisplayQueue::present() {
-    UINT flags = tearing ? DXGI_PRESENT_ALLOW_TEARING : 0u;
+void DisplayQueue::present(bool allowTearing) {
+    UINT flags = (tearing) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
 
     pSwapChain->Present(0, flags);
 }
