@@ -11,7 +11,9 @@
 
 #include "imgui/imgui.h"
 
-#include <array>
+#include "moodycamel/concurrentqueue.h"
+
+#include <functional>
 
 using namespace simcoe;
 using namespace editor;
@@ -31,17 +33,25 @@ static simcoe::System *pSystem = nullptr;
 static std::jthread *pRenderThread = nullptr;
 static RenderGraph *pGraph = nullptr;
 
+using WorkItem = std::function<void()>;
+
+moodycamel::ConcurrentQueue<WorkItem> gWorkQueue{64};
+static std::jthread *pWorkThread = nullptr;
+
 int size[2];
 
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
+        delete pWorkThread;
         delete pRenderThread;
         pSystem->quit();
     }
 
     void onResize(int width, int height) override {
         logInfo("resize: {}x{}", width, height);
-        if (pGraph != nullptr) pGraph->resize(width, height);
+        gWorkQueue.enqueue([width, height] {
+            if (pGraph != nullptr) pGraph->resize(width, height);
+        });
     }
 
     bool onEvent(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) override {
@@ -58,7 +68,7 @@ struct GameGui final : graph::IGuiPass {
         ImGui::Begin("Debug");
         ImGui::SliderInt2("Size", size, 0, 1920);
         if (ImGui::Button("Apply")) {
-            new std::thread([] { pGraph->resize(size[0], size[1]); });
+            gWorkQueue.enqueue([width = size[0], height = size[1]]{ pGraph->resize(width, height); });
         }
         ImGui::End();
     }
@@ -75,7 +85,7 @@ static void commonMain() {
 
     const simcoe::WindowCreateInfo windowCreateInfo = {
         .title = "simcoe",
-        .style = simcoe::WindowStyle::eBorderless,
+        .style = simcoe::WindowStyle::eWindowed,
 
         .width = kWindowWidth,
         .height = kWindowHeight,
@@ -98,6 +108,16 @@ static void commonMain() {
         .renderWidth = 1920 * 2,
         .renderHeight = 1080 * 2
     };
+
+    pWorkThread = new std::jthread([](std::stop_token token) {
+        while (!token.stop_requested()) {
+            WorkItem item;
+            if (gWorkQueue.try_dequeue(item)) {
+                item();
+            }
+        }
+        simcoe::logInfo("work thread stopped");
+    });
 
     // move the render context into the render thread to prevent hangs on shutdown
     editor::RenderContext *pContext = editor::RenderContext::create(renderCreateInfo);

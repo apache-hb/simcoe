@@ -54,6 +54,8 @@ engine = declare_dependency(
 ### editor
 ###
 
+moodycamel = subproject('atomic-queue').get_variable('queue')
+
 python3 = import('python').find_installation()
 
 script_dir = meson.current_source_dir()/'data/scripts'
@@ -101,7 +103,7 @@ src = [
 ]
 
 executable('editor', src,
-    dependencies : engine,
+    dependencies : [ engine, moodycamel ],
     include_directories : [ 'editor/include' ]
 )
 

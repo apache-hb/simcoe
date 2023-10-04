@@ -119,12 +119,6 @@ void RenderContext::changeDisplaySize(UINT width, UINT height) {
     createDisplayData();
 }
 
-void RenderContext::flush() {
-    waitForDirectQueue();
-
-    directFenceValue = 1;
-}
-
 void RenderContext::beginRender() {
     frameIndex = pDisplayQueue->getFrameIndex();
 }

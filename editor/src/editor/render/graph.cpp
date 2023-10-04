@@ -3,9 +3,14 @@
 using namespace editor;
 
 void RenderGraph::resize(UINT width, UINT height) {
+    const auto& createInfo = ctx->getCreateInfo();
+    if (width == createInfo.displayWidth && height == createInfo.displayHeight)
+        return;
+
     std::lock_guard guard(renderLock);
 
-    ctx->flush();
+    ctx->waitForDirectQueue();
+    ctx->waitForCopyQueue();
 
     destroy();
 

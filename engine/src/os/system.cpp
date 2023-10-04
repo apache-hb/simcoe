@@ -43,17 +43,13 @@ LRESULT CALLBACK Window::callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
     //     return 0;
     // }
 
-    // case WM_EXITSIZEMOVE: {
-    //     RECT rect;
-    //     GetClientRect(hWnd, &rect);
-    //     pWindow->endResize(rect.right - rect.left, rect.bottom - rect.top);
-    //     return 0;
-    // }
-    case WM_SIZE: {
-        UINT width = LOWORD(lParam);
-        UINT height = HIWORD(lParam);
-        pWindow->endResize(width, height);
+    case WM_EXITSIZEMOVE: {
+        RECT rect;
+        GetClientRect(hWnd, &rect);
+        pWindow->endResize(rect.right - rect.left, rect.bottom - rect.top);
+        return 0;
     }
+
 
     default:
         break;
