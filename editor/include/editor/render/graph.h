@@ -118,6 +118,7 @@ namespace editor {
         void createIf(StateDep dep);
         void destroyIf(StateDep dep);
 
+        std::atomic_bool lock;
         std::mutex renderLock;
 
         RenderContext *ctx;

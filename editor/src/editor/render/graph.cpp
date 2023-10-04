@@ -7,6 +7,7 @@ void RenderGraph::resizeDisplay(UINT width, UINT height) {
     if (width == createInfo.displayWidth && height == createInfo.displayHeight)
         return;
 
+    lock = true;
     std::lock_guard guard(renderLock);
 
     ctx->waitForDirectQueue();
@@ -17,9 +18,13 @@ void RenderGraph::resizeDisplay(UINT width, UINT height) {
     ctx->changeDisplaySize(width, height);
 
     createIf(StateDep::eDepDisplaySize);
+
+    lock = false;
 }
 
 void RenderGraph::execute() {
+    if (lock) { return; }
+
     std::lock_guard guard(renderLock);
 
     ctx->beginRender();

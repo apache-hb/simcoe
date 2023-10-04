@@ -46,7 +46,6 @@ struct GameWindow final : IWindowCallbacks {
     }
 
     void onResize(int width, int height) override {
-        logInfo("resize-msg: {}x{}", width, height);
         gWorkQueue.enqueue([width, height] {
             logInfo("resize-apply-begin: {}x{}", width, height);
             if (pGraph != nullptr) pGraph->resizeDisplay(width, height);
