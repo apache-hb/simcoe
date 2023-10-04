@@ -17,6 +17,7 @@ namespace editor {
         HWND hWindow;
         assets::Assets& depot;
 
+        size_t adapterIndex = 0;
         UINT backBufferCount = 2;
 
         UINT displayWidth;
@@ -114,10 +115,14 @@ namespace editor {
         void changeDisplaySize(UINT width, UINT height);
         void changeRenderSize(UINT width, UINT height);
         void changeBackBufferCount(UINT count);
+        void changeAdapter(size_t index);
 
         // getters
         const RenderCreateInfo& getCreateInfo() const { return createInfo; }
         size_t getFrameIndex() const { return frameIndex; }
+
+        std::vector<render::Adapter*> &getAdapters() { return adapters; }
+
         render::Device *getDevice() const { return pDevice; }
         render::Commands *getDirectCommands() const { return pDirectCommands; }
 
@@ -196,12 +201,18 @@ namespace editor {
         }
 
         void setRenderTarget(RenderTargetAlloc::Index index, const math::float4& clear) {
+            if (currentRenderTarget == index) return;
+            currentRenderTarget = index;
+
             auto host = pRenderTargetAlloc->hostOffset(index);
             pDirectCommands->setRenderTarget(host);
             pDirectCommands->clearRenderTarget(host, clear);
         }
 
         void setRenderTarget(RenderTargetAlloc::Index index) {
+            if (currentRenderTarget == index) return;
+            currentRenderTarget = index;
+
             pDirectCommands->setRenderTarget(pRenderTargetAlloc->hostOffset(index));
         }
 
@@ -234,7 +245,7 @@ namespace editor {
         // state selection
 
         render::Adapter* selectAdapter() {
-            return adapters[0];
+            return adapters[createInfo.adapterIndex];
         }
 
         // create data that depends on the context
@@ -242,7 +253,7 @@ namespace editor {
         void destroyContextData();
 
         // create data that depends on the device
-        void createDeviceData(render::Adapter* pAdapter);
+        void createDeviceData();
         void destroyDeviceData();
 
         void createHeaps();
@@ -291,5 +302,8 @@ namespace editor {
 
         RenderTargetAlloc *pRenderTargetAlloc;
         DataAlloc *pDataAlloc;
+
+        // state
+        RenderTargetAlloc::Index currentRenderTarget = RenderTargetAlloc::Index::eInvalid;
     };
 }

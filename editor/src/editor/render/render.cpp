@@ -22,7 +22,7 @@ RenderContext::RenderContext(const RenderCreateInfo& createInfo) : createInfo(cr
     pContext = render::Context::create();
 
     createContextData();
-    createDeviceData(selectAdapter());
+    createDeviceData();
     createHeaps();
     createDisplayData();
     createFrameData();
@@ -40,7 +40,8 @@ void RenderContext::destroyContextData() {
 }
 
 // create data that depends on the device
-void RenderContext::createDeviceData(render::Adapter* pAdapter) {
+void RenderContext::createDeviceData() {
+    render::Adapter* pAdapter = selectAdapter();
     pDevice = pAdapter->createDevice();
 
     pDirectQueue = pDevice->createQueue(render::CommandType::eDirect);
@@ -131,6 +132,20 @@ void RenderContext::changeBackBufferCount(UINT count) {
     createInfo.backBufferCount = count;
 
     createDisplayData();
+    createFrameData();
+}
+
+void RenderContext::changeAdapter(size_t index) {
+    destroyFrameData();
+    destroyHeaps();
+    destroyDisplayData();
+    destroyDeviceData();
+
+    createInfo.adapterIndex = index;
+
+    createDeviceData();
+    createDisplayData();
+    createHeaps();
     createFrameData();
 }
 

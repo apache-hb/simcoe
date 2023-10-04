@@ -62,6 +62,26 @@ void RenderGraph::changeBackBufferCount(UINT count) {
     lock = false;
 }
 
+void RenderGraph::changeAdapter(UINT index) {
+    const auto& createInfo = ctx->getCreateInfo();
+    if (index == createInfo.adapterIndex)
+        return;
+
+    lock = true;
+    std::lock_guard guard(renderLock);
+
+    ctx->waitForDirectQueue();
+    ctx->waitForCopyQueue();
+
+    destroyIf(StateDep::eDepDevice);
+
+    ctx->changeAdapter(index);
+
+    createIf(StateDep::eDepDevice);
+
+    lock = false;
+}
+
 void RenderGraph::execute() {
     if (lock) { return; }
 

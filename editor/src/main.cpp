@@ -63,6 +63,9 @@ struct GameGui final : graph::IGuiPass {
     int renderSize[2];
     int backBufferCount;
 
+    int currentAdapter = 0;
+    std::vector<const char*> adapterNames;
+
     void create(RenderContext *ctx) override {
         IGuiPass::create(ctx);
 
@@ -71,6 +74,22 @@ struct GameGui final : graph::IGuiPass {
         renderSize[1] = createInfo.renderHeight;
 
         backBufferCount = createInfo.backBufferCount;
+
+        currentAdapter = createInfo.adapterIndex;
+        for (auto *pAdapter : ctx->getAdapters()) {
+            auto info = pAdapter->getInfo();
+            adapterNames.push_back(_strdup(info.name.c_str()));
+        }
+    }
+
+    void destroy(RenderContext *ctx) override {
+        IGuiPass::destroy(ctx);
+
+        for (const char *pName : adapterNames) {
+            free((void*)pName);
+        }
+
+        adapterNames.clear();
     }
 
     void content(RenderContext *ctx) override {
@@ -96,6 +115,13 @@ struct GameGui final : graph::IGuiPass {
             gWorkQueue.enqueue([this] {
                 pGraph->changeBackBufferCount(backBufferCount);
                 logInfo("change-backbuffer-count: {}", backBufferCount);
+            });
+        }
+
+        if (ImGui::Combo("device", &currentAdapter, adapterNames.data(), adapterNames.size())) {
+            gWorkQueue.enqueue([this] {
+                pGraph->changeAdapter(currentAdapter);
+                logInfo("change-adapter: {}", currentAdapter);
             });
         }
 

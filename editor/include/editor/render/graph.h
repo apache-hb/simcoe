@@ -112,6 +112,7 @@ namespace editor {
         void resizeDisplay(UINT width, UINT height);
         void resizeRender(UINT width, UINT height);
         void changeBackBufferCount(UINT count);
+        void changeAdapter(UINT index);
 
         void execute();
     private:
