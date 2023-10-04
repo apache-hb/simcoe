@@ -4,17 +4,22 @@ using namespace editor;
 using namespace editor::graph;
 
 void SwapChainHandle::create(RenderContext *ctx) {
-    for (UINT i = 0; i < RenderContext::kBackBufferCount; ++i) {
+    for (UINT i = 0; i < RenderContext::kBackBufferCount; i++) {
         render::RenderTarget *pTarget = ctx->getRenderTarget(i);
         RenderTargetAlloc::Index rtvIndex = ctx->mapRenderTarget(pTarget);
+
+        pTarget->setName("swapchain-target-" + std::to_string(i));
 
         targets[i] = { pTarget, rtvIndex, render::ResourceState::ePresent };
     }
 }
 
 void SwapChainHandle::destroy(RenderContext *ctx) {
+    auto *pRtvHeap = ctx->getRtvHeap();
     for (UINT i = 0; i < RenderContext::kBackBufferCount; ++i) {
-        delete targets[i].pRenderTarget;
+        const auto& frame = targets[i];
+        delete frame.pRenderTarget;
+        pRtvHeap->release(frame.rtvIndex);
     }
 }
 
@@ -52,9 +57,15 @@ void SceneTargetHandle::create(RenderContext *ctx) {
     currentState = render::ResourceState::eShaderResource;
     rtvIndex = ctx->mapRenderTarget(pResource);
     srvIndex = ctx->mapTexture(pResource);
+
+    pResource->setName("scene-target");
 }
 
 void SceneTargetHandle::destroy(RenderContext *ctx) {
+    auto *pRtvHeap = ctx->getRtvHeap();
+    auto *pSrvHeap = ctx->getSrvHeap();
+    pRtvHeap->release(rtvIndex);
+    pSrvHeap->release(srvIndex);
     delete pResource;
 }
 
@@ -83,6 +94,9 @@ void TextureHandle::create(RenderContext *ctx) {
 
     std::unique_ptr<render::UploadBuffer> pTextureStaging{ctx->createTextureUploadBuffer(textureInfo)};
 
+    pResource->setName(name);
+    pResource->setName("staging(" + name + ")");
+
     ctx->beginCopy();
 
     ctx->copyTexture(pResource, pTextureStaging.get(), textureInfo, image.data);
@@ -91,5 +105,8 @@ void TextureHandle::create(RenderContext *ctx) {
 }
 
 void TextureHandle::destroy(RenderContext *ctx) {
+    auto *pSrvHeap = ctx->getSrvHeap();
+
+    pSrvHeap->release(srvIndex);
     delete pResource;
 }

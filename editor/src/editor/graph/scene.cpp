@@ -46,8 +46,8 @@ struct UNIFORM_ALIGN UniformData {
     float aspect;
 };
 
-ScenePass::ScenePass(graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture) 
-    : IRenderPass()
+ScenePass::ScenePass(graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture)
+    : IRenderPass(eDepRenderSize)
     , pSceneTarget(addResource<graph::SceneTargetHandle>(pSceneTarget, render::ResourceState::eRenderTarget))
     , pTextureHandle(addResource<graph::TextureHandle>(pTexture, render::ResourceState::eShaderResource))
 { }
@@ -101,6 +101,9 @@ void ScenePass::create(RenderContext *ctx) {
 }
 
 void ScenePass::destroy(RenderContext *ctx) {
+    auto *pSrvHeap = ctx->getSrvHeap();
+    pSrvHeap->release(quadUniformIndex);
+
     delete pPipeline;
     delete pQuadUniformBuffer;
 

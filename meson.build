@@ -23,6 +23,9 @@ src = [
     'engine/src/os/system.cpp',
     'engine/src/os/timer.cpp',
 
+    # memory
+    'engine/src/memory/bitmap.cpp',
+
     # assets
     'engine/src/assets/assets.cpp',
 

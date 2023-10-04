@@ -7,7 +7,7 @@ namespace editor::graph {
         IGuiPass(IResourceHandle *pHandle);
         ~IGuiPass();
 
-        virtual void content() = 0;
+        virtual void content(RenderContext *ctx) = 0;
 
         void create(RenderContext *ctx) override;
         void destroy(RenderContext *ctx) override;

@@ -2,7 +2,7 @@
 
 using namespace editor;
 
-void RenderGraph::resize(UINT width, UINT height) {
+void RenderGraph::resizeDisplay(UINT width, UINT height) {
     const auto& createInfo = ctx->getCreateInfo();
     if (width == createInfo.displayWidth && height == createInfo.displayHeight)
         return;
@@ -12,11 +12,11 @@ void RenderGraph::resize(UINT width, UINT height) {
     ctx->waitForDirectQueue();
     ctx->waitForCopyQueue();
 
-    destroy();
+    destroyIf(StateDep::eDepDisplaySize);
 
     ctx->changeDisplaySize(width, height);
 
-    create();
+    createIf(StateDep::eDepDisplaySize);
 }
 
 void RenderGraph::execute() {
@@ -34,23 +34,23 @@ void RenderGraph::execute() {
     ctx->waitForDirectQueue();
 }
 
-void RenderGraph::create() {
+void RenderGraph::createIf(StateDep dep) {
     for (IResourceHandle *pHandle : resources) {
-        pHandle->create(ctx);
+        if (pHandle->stateDeps & dep) pHandle->create(ctx);
     }
 
     for (IRenderPass *pPass : passes) {
-        pPass->create(ctx);
+        if (pPass->stateDeps & dep) pPass->create(ctx);
     }
 }
 
-void RenderGraph::destroy() {
+void RenderGraph::destroyIf(StateDep dep) {
     for (IRenderPass *pPass : passes) {
-        pPass->destroy(ctx);
+        if (pPass->stateDeps & dep) pPass->destroy(ctx);
     }
 
     for (IResourceHandle *pHandle : resources) {
-        pHandle->destroy(ctx);
+        if (pHandle->stateDeps & dep) pHandle->destroy(ctx);
     }
 }
 

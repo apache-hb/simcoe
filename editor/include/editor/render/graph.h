@@ -3,8 +3,18 @@
 #include "editor/render/render.h"
 
 namespace editor {
+    enum StateDep {
+        eDepDevice = (1 << 0),
+        eDepDisplaySize = (1 << 1),
+        eDepRenderSize = (1 << 2),
+        eDepBackBufferCount = (1 << 3),
+    };
+
     struct IResourceHandle {
         virtual ~IResourceHandle() = default;
+        IResourceHandle(StateDep stateDeps = eDepDevice)
+            : stateDeps(StateDep(stateDeps | eDepDevice))
+        { }
 
         virtual void create(RenderContext *ctx) = 0;
         virtual void destroy(RenderContext *ctx) = 0;
@@ -17,10 +27,13 @@ namespace editor {
         virtual RenderTargetAlloc::Index getRtvIndex(RenderContext *ctx) const = 0;
 
         DataAlloc::Index srvIndex;
+        StateDep stateDeps;
     };
 
     template<typename T>
     struct ISingleResourceHandle : IResourceHandle {
+        using IResourceHandle::IResourceHandle;
+
         virtual ~ISingleResourceHandle() = default;
 
         render::DeviceResource* getResource(RenderContext *ctx) const final override { return pResource; }
@@ -56,6 +69,9 @@ namespace editor {
 
     struct IRenderPass {
         virtual ~IRenderPass() = default;
+        IRenderPass(StateDep stateDeps = eDepDevice)
+            : stateDeps(StateDep(stateDeps | eDepDevice))
+        { }
 
         virtual void create(RenderContext *ctx) = 0;
         virtual void destroy(RenderContext *ctx) = 0;
@@ -70,6 +86,7 @@ namespace editor {
         }
 
         std::vector<BasePassResource*> inputs;
+        StateDep stateDeps;
     };
 
     struct RenderGraph {
@@ -78,7 +95,7 @@ namespace editor {
         { }
 
         ~RenderGraph() {
-            destroy();
+            destroyIf(eDepDevice); // everything depends on device
         }
 
         void addPass(IRenderPass *pPass) {
@@ -92,14 +109,14 @@ namespace editor {
             resources.push_back(pHandle);
         }
 
-        void resize(UINT width, UINT height);
+        void resizeDisplay(UINT width, UINT height);
 
         void execute();
     private:
         void executePass(IRenderPass *pPass);
 
-        void create();
-        void destroy();
+        void createIf(StateDep dep);
+        void destroyIf(StateDep dep);
 
         std::mutex renderLock;
 

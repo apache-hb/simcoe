@@ -38,8 +38,6 @@ using WorkItem = std::function<void()>;
 moodycamel::ConcurrentQueue<WorkItem> gWorkQueue{64};
 static std::jthread *pWorkThread = nullptr;
 
-int size[2];
-
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
         delete pWorkThread;
@@ -48,9 +46,11 @@ struct GameWindow final : IWindowCallbacks {
     }
 
     void onResize(int width, int height) override {
-        logInfo("resize: {}x{}", width, height);
+        logInfo("resize-msg: {}x{}", width, height);
         gWorkQueue.enqueue([width, height] {
-            if (pGraph != nullptr) pGraph->resize(width, height);
+            logInfo("resize-apply-begin: {}x{}", width, height);
+            if (pGraph != nullptr) pGraph->resizeDisplay(width, height);
+            logInfo("resize-apply-end: {}x{}", width, height);
         });
     }
 
@@ -62,14 +62,28 @@ struct GameWindow final : IWindowCallbacks {
 struct GameGui final : graph::IGuiPass {
     using graph::IGuiPass::IGuiPass;
 
-    void content() override {
+    void content(RenderContext *ctx) override {
         ImGui::ShowDemoWindow();
 
-        ImGui::Begin("Debug");
-        ImGui::SliderInt2("Size", size, 0, 1920);
-        if (ImGui::Button("Apply")) {
-            gWorkQueue.enqueue([width = size[0], height = size[1]]{ pGraph->resize(width, height); });
+        ImGui::Begin("debug");
+        auto *pSrvHeap = ctx->getSrvHeap();
+        auto *pRtvHeap = ctx->getRtvHeap();
+        auto& rtvAlloc = pRtvHeap->mem;
+
+        const auto& createInfo = ctx->getCreateInfo();
+        ImGui::Text("present: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
+        ImGui::Text("render: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
+
+        ImGui::Text("rtv heap: %zu", rtvAlloc.getSize());
+        for (size_t i = 0; i < rtvAlloc.getSize(); i++) {
+            ImGui::BulletText("%zu: %s", i, rtvAlloc.test(engine::BitMap::Index(i)) ? "used" : "free");
         }
+
+        ImGui::Text("srv heap: %zu", pSrvHeap->mem.getSize());
+        for (size_t i = 0; i < pSrvHeap->mem.getSize(); i++) {
+            ImGui::BulletText("%zu: %s", i, pSrvHeap->mem.test(engine::BitMap::Index(i)) ? "used" : "free");
+        }
+
         ImGui::End();
     }
 };
@@ -95,8 +109,6 @@ static void commonMain() {
 
     simcoe::Window window = pSystem->createWindow(windowCreateInfo);
     auto [realWidth, realHeight] = window.getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
-    size[0] = realWidth;
-    size[1] = realHeight;
 
     const editor::RenderCreateInfo renderCreateInfo = {
         .hWindow = window.getHandle(),

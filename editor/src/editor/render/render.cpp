@@ -100,8 +100,8 @@ void RenderContext::destroyFrameData() {
 }
 
 void RenderContext::createHeaps() {
-    pRenderTargetAlloc = new RenderTargetAlloc(pDevice->createRenderTargetHeap(kBackBufferCount + 1));
-    pDataAlloc = new DataAlloc(pDevice->createShaderDataHeap(1024));
+    pRenderTargetAlloc = new RenderTargetAlloc(pDevice->createRenderTargetHeap(kBackBufferCount + 1), kBackBufferCount + 1);
+    pDataAlloc = new DataAlloc(pDevice->createShaderDataHeap(64), 64);
 }
 
 void RenderContext::destroyHeaps() {
@@ -110,9 +110,6 @@ void RenderContext::destroyHeaps() {
 }
 
 void RenderContext::changeDisplaySize(UINT width, UINT height) {
-    pRenderTargetAlloc->offset = 0;
-    pDataAlloc->offset = 0;
-
     destroyDisplayData();
     createInfo.displayWidth = width;
     createInfo.displayHeight = height;

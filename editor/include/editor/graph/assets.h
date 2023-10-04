@@ -6,6 +6,8 @@ namespace editor::graph {
     using ITextureHandle = ISingleResourceHandle<render::TextureBuffer>;
 
     struct SwapChainHandle final : IResourceHandle {
+        SwapChainHandle() : IResourceHandle(StateDep(eDepDisplaySize | eDepBackBufferCount)) { }
+
         void create(RenderContext *ctx) override;
         void destroy(RenderContext *ctx) override;
 
@@ -25,6 +27,8 @@ namespace editor::graph {
     };
 
     struct SceneTargetHandle final : ITextureHandle {
+        SceneTargetHandle() : ITextureHandle(StateDep(eDepRenderSize)) { }
+
         static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
 
         void create(RenderContext *ctx) override;

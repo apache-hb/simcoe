@@ -2,6 +2,7 @@
 
 #include "engine/assets/assets.h"
 #include "engine/render/render.h"
+#include "engine/memory/bitmap.h"
 
 namespace editor {
     using namespace simcoe;
@@ -34,19 +35,32 @@ namespace editor {
 
     template<typename T>
     struct DescriptorAlloc {
-        enum struct Index : size_t { eInvalid = SIZE_MAX };
+        using Index = engine::BitMap::Index;
 
-        DescriptorAlloc(render::DescriptorHeap *pHeap)
+        DescriptorAlloc(render::DescriptorHeap *pHeap, size_t size)
             : pHeap(pHeap)
-            , offset(0)
+            , mem(size)
         { }
 
         ~DescriptorAlloc() {
             delete pHeap;
         }
 
+        void reset() {
+            mem.reset();
+        }
+
         Index alloc() {
-            return Index(offset++);
+            Index idx = mem.alloc();
+            if (idx == Index::eInvalid) {
+                throw std::runtime_error("out of descriptor heap space");
+            }
+
+            return idx;
+        }
+
+        void release(Index index) {
+            mem.release(index);
         }
 
         render::HostHeapOffset hostOffset(Index index) const {
@@ -58,7 +72,7 @@ namespace editor {
         }
 
         render::DescriptorHeap *pHeap;
-        size_t offset;
+        engine::BitMap mem;
     };
 
     struct RenderTargetHeap;
@@ -104,7 +118,10 @@ namespace editor {
         size_t getFrameIndex() const { return frameIndex; }
         render::Device *getDevice() const { return pDevice; }
         render::Commands *getDirectCommands() const { return pDirectCommands; }
-        DataAlloc *getDataAlloc() { return pDataAlloc; }
+
+        DataAlloc *getSrvHeap() { return pDataAlloc; }
+        RenderTargetAlloc *getRtvHeap() { return pRenderTargetAlloc; }
+
         render::RenderTarget *getRenderTarget(size_t index) { return pDisplayQueue->getRenderTarget(index); }
 
         // create resources

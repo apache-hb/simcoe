@@ -12,7 +12,7 @@ namespace {
 }
 
 IGuiPass::IGuiPass(IResourceHandle *pHandle)
-    : IRenderPass()
+    : IRenderPass(eDepDisplaySize)
     , pHandle(addResource(pHandle, render::ResourceState::eRenderTarget))
 {
     IMGUI_CHECKVERSION();
@@ -33,7 +33,7 @@ void IGuiPass::create(RenderContext *ctx) {
     const auto& createInfo = ctx->getCreateInfo();
     guiUniformIndex = ctx->allocSrvIndex();
 
-    auto *pHeap = ctx->getDataAlloc();
+    auto *pHeap = ctx->getSrvHeap();
 
     std::lock_guard guard(imguiLock);
     ImGui_ImplWin32_Init(createInfo.hWindow);
@@ -47,9 +47,14 @@ void IGuiPass::create(RenderContext *ctx) {
 }
 
 void IGuiPass::destroy(RenderContext *ctx) {
+    auto *pHeap = ctx->getSrvHeap();
+
     std::lock_guard guard(imguiLock);
+
     ImGui_ImplDX12_Shutdown();
     ImGui_ImplWin32_Shutdown();
+
+    pHeap->release(guiUniformIndex);
 }
 
 void IGuiPass::execute(RenderContext *ctx) {
@@ -62,7 +67,7 @@ void IGuiPass::execute(RenderContext *ctx) {
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    content();
+    content(ctx);
 
     ImGui::Render();
 

@@ -54,7 +54,7 @@ static constexpr render::Display createLetterBoxDisplay(UINT renderWidth, UINT r
 }
 
 PostPass::PostPass(graph::SceneTargetHandle *pSceneTarget, graph::SwapChainHandle *pBackBuffers)
-    : IRenderPass()
+    : IRenderPass(StateDep(eDepDisplaySize | eDepRenderSize))
     , pSceneTarget(addResource<graph::SceneTargetHandle>(pSceneTarget, render::ResourceState::eShaderResource))
     , pBackBuffers(addResource<graph::SwapChainHandle>(pBackBuffers, render::ResourceState::eRenderTarget))
 { }
