@@ -106,7 +106,7 @@ void RenderContext::destroyFrameData() {
 
 void RenderContext::createHeaps() {
     pRenderTargetAlloc = new RenderTargetAlloc(pDevice->createRenderTargetHeap(16), 16);
-    pDataAlloc = new DataAlloc(pDevice->createShaderDataHeap(64), 64);
+    pDataAlloc = new ShaderResourceAlloc(pDevice->createShaderDataHeap(64), 64);
 }
 
 void RenderContext::destroyHeaps() {

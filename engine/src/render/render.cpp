@@ -228,6 +228,12 @@ void Commands::setRenderTarget(HostHeapOffset handle) {
     get()->OMSetRenderTargets(1, handles, FALSE, nullptr);
 }
 
+void Commands::setRenderTarget(HostHeapOffset rtvHandle, HostHeapOffset dsvHandle) {
+    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[] = { hostHandle(rtvHandle) };
+    D3D12_CPU_DESCRIPTOR_HANDLE innerDsvHandle = hostHandle(dsvHandle);
+    get()->OMSetRenderTargets(1, rtvHandles, FALSE, &innerDsvHandle);
+}
+
 void Commands::setVertexBuffer(VertexBuffer *pBuffer) {
     get()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -349,7 +355,7 @@ RenderTarget *DisplayQueue::getRenderTarget(UINT index) {
 }
 
 void DisplayQueue::present(bool allowTearing) {
-    UINT flags = (tearing) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
+    UINT flags = (tearing && allowTearing) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
 
     pSwapChain->Present(0, flags);
 }
@@ -418,6 +424,20 @@ DescriptorHeap *Device::createShaderDataHeap(UINT count) {
     HR_CHECK(get()->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&pHeap)));
 
     UINT descriptorSize = get()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    return DescriptorHeap::create(pHeap, descriptorSize);
+}
+
+DescriptorHeap *Device::createDepthStencilHeap(UINT count) {
+    D3D12_DESCRIPTOR_HEAP_DESC desc = {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
+        .NumDescriptors = count,
+    };
+
+    ID3D12DescriptorHeap *pHeap = nullptr;
+    HR_CHECK(get()->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&pHeap)));
+
+    UINT descriptorSize = get()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
     return DescriptorHeap::create(pHeap, descriptorSize);
 }
@@ -522,10 +542,13 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
         attributes.push_back(desc);
     }
 
+    const auto& vs = createInfo.vertexShader;
+    const auto& ps = createInfo.pixelShader;
+
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineDesc = {
         .pRootSignature = pSignature,
-        .VS = CD3DX12_SHADER_BYTECODE(createInfo.vertexShader.data(), createInfo.vertexShader.size()),
-        .PS = CD3DX12_SHADER_BYTECODE(createInfo.pixelShader.data(), createInfo.pixelShader.size()),
+        .VS = CD3DX12_SHADER_BYTECODE(vs.data(), vs.size()),
+        .PS = CD3DX12_SHADER_BYTECODE(ps.data(), ps.size()),
 
         .BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT),
         .SampleMask = UINT_MAX,

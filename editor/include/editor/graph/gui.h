@@ -18,6 +18,6 @@ namespace editor::graph {
 
     private:
         PassResource<IResourceHandle> *pHandle;
-        DataAlloc::Index guiUniformIndex;
+        ShaderResourceAlloc::Index guiUniformIndex;
     };
 }

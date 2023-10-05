@@ -82,7 +82,7 @@ namespace editor {
     struct ShaderDataHeap;
 
     using RenderTargetAlloc = DescriptorAlloc<RenderTargetHeap>;
-    using DataAlloc = DescriptorAlloc<ShaderDataHeap>;
+    using ShaderResourceAlloc = DescriptorAlloc<ShaderDataHeap>;
 
     struct FrameData {
         render::CommandMemory *pMemory;
@@ -126,7 +126,7 @@ namespace editor {
         render::Device *getDevice() const { return pDevice; }
         render::Commands *getDirectCommands() const { return pDirectCommands; }
 
-        DataAlloc *getSrvHeap() { return pDataAlloc; }
+        ShaderResourceAlloc *getSrvHeap() { return pDataAlloc; }
         RenderTargetAlloc *getRtvHeap() { return pRenderTargetAlloc; }
 
         render::RenderTarget *getRenderTarget(size_t index) { return pDisplayQueue->getRenderTarget(index); }
@@ -171,19 +171,19 @@ namespace editor {
             return index;
         }
 
-        DataAlloc::Index mapTexture(render::TextureBuffer *pResource) {
+        ShaderResourceAlloc::Index mapTexture(render::TextureBuffer *pResource) {
             auto index = pDataAlloc->alloc();
             pDevice->mapTexture(pDataAlloc->hostOffset(index), pResource);
             return index;
         }
 
-        DataAlloc::Index mapUniform(render::UniformBuffer *pBuffer, size_t size) {
+        ShaderResourceAlloc::Index mapUniform(render::UniformBuffer *pBuffer, size_t size) {
             auto index = pDataAlloc->alloc();
             pDevice->mapUniform(pDataAlloc->hostOffset(index), pBuffer, size);
             return index;
         }
 
-        DataAlloc::Index allocSrvIndex() {
+        ShaderResourceAlloc::Index allocSrvIndex() {
             return pDataAlloc->alloc();
         }
 
@@ -216,7 +216,7 @@ namespace editor {
             pDirectCommands->setRenderTarget(pRenderTargetAlloc->hostOffset(index));
         }
 
-        void setShaderInput(DataAlloc::Index index, UINT slot) {
+        void setShaderInput(ShaderResourceAlloc::Index index, UINT slot) {
             pDirectCommands->setShaderInput(pDataAlloc->deviceOffset(index), slot);
         }
 
@@ -301,7 +301,7 @@ namespace editor {
         // heaps
 
         RenderTargetAlloc *pRenderTargetAlloc;
-        DataAlloc *pDataAlloc;
+        ShaderResourceAlloc *pDataAlloc;
 
         // state
     public:

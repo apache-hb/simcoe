@@ -136,7 +136,6 @@ void Window::exitFullscreen() {
 }
 
 void Window::moveWindow(RECT rect) {
-    simcoe::logInfo("move-window: {} {} {} {}", rect.left, rect.top, rect.right, rect.bottom);
     SetWindowPos(hWindow, HWND_TOPMOST, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, 0);
 }
 

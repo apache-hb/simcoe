@@ -210,6 +210,7 @@ namespace simcoe::render {
 
         DescriptorHeap *createRenderTargetHeap(UINT count);
         DescriptorHeap *createShaderDataHeap(UINT count);
+        DescriptorHeap *createDepthStencilHeap(UINT count);
 
         PipelineState *createPipelineState(const PipelineCreateInfo& createInfo);
         Fence *createFence();
@@ -365,6 +366,7 @@ namespace simcoe::render {
         void setHeap(DescriptorHeap *pHeap);
         void setShaderInput(DeviceHeapOffset handle, UINT reg);
         void setRenderTarget(HostHeapOffset handle);
+        void setRenderTarget(HostHeapOffset rtvHandle, HostHeapOffset dsvHandle);
         void setVertexBuffer(VertexBuffer *pBuffer);
         void setIndexBuffer(IndexBuffer *pBuffer);
 

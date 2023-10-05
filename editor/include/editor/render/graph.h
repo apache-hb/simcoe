@@ -26,7 +26,7 @@ namespace editor {
 
         virtual RenderTargetAlloc::Index getRtvIndex(RenderContext *ctx) const = 0;
 
-        DataAlloc::Index srvIndex;
+        ShaderResourceAlloc::Index srvIndex;
         StateDep stateDeps;
     };
 
