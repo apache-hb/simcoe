@@ -6,6 +6,9 @@
 
 using namespace simcoe;
 
+#define WM_USER_COMMAND (WM_USER + 1)
+using UserCommandFn = void(*)(Window *pWindow);
+
 namespace {
     constexpr const char *kClassName = "simcoe";
 
@@ -32,6 +35,10 @@ namespace {
         GetMonitorInfoA(hMonitor, &info);
 
         return info.rcMonitor;
+    }
+
+    void sendCommand(Window *pWindow, UserCommandFn fn) {
+        PostMessage(pWindow->getHandle(), WM_USER_COMMAND, reinterpret_cast<WPARAM>(fn), 0);
     }
 }
 
@@ -62,6 +69,10 @@ LRESULT CALLBACK Window::callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
     case WM_SIZE:
         pWindow->doSizeChange(wParam, LOWORD(lParam), HIWORD(lParam));
+        return 0;
+
+    case WM_USER_COMMAND:
+        reinterpret_cast<UserCommandFn>(wParam)(pWindow);
         return 0;
 
     default:
@@ -111,8 +122,7 @@ void Window::doResize(int width, int height, bool fullscreen) {
 
     pCallbacks->onResize({
         .width = width,
-        .height = height,
-        .bFullscreen = fullscreen
+        .height = height
     });
 }
 
@@ -168,13 +178,16 @@ RECT Window::getClientCoords() const {
 }
 
 void Window::enterFullscreen() {
-    SetWindowLong(hWindow, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+    logInfo("enter fullscreen");
+    sendCommand(this, [](Window *pWindow) {
+        pWindow->bIgnoreNextResize = true;
+    });
     ShowWindow(hWindow, SW_MAXIMIZE);
 }
 
-void Window::exitFullscreen(RECT rect) {
-    SetWindowLong(hWindow, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
-    SetWindowPos(hWindow, HWND_TOP, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_SHOWWINDOW);
+void Window::exitFullscreen() {
+    logInfo("exit fullscreen");
+    ShowWindow(hWindow, SW_RESTORE);
 }
 
 // system api

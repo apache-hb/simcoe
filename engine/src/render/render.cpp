@@ -119,12 +119,17 @@ void Context::destroyHeaps() {
     delete pRenderTargetAlloc;
 }
 
-void Context::changeDisplaySize(UINT width, UINT height, bool bFullscreen) {
+void Context::changeFullscreen(bool bFullscreen) {
+    destroyFrameData();
+    pDisplayQueue->setFullscreenState(bFullscreen);
+    createFrameData();
+}
+
+void Context::changeDisplaySize(UINT width, UINT height) {
     destroyFrameData();
     createInfo.displayWidth = width;
     createInfo.displayHeight = height;
 
-    pDisplayQueue->setFullscreenState(bFullscreen);
     pDisplayQueue->resizeBuffers(createInfo.backBufferCount, width, height);
     createFrameData();
 }

@@ -9,13 +9,13 @@ namespace simcoe {
     struct ResizeEvent {
         int width;
         int height;
-        bool bFullscreen;
     };
 
     struct IWindowCallbacks {
         virtual ~IWindowCallbacks() = default;
 
         virtual void onResize(const ResizeEvent& event) { }
+        virtual void onFullscreen(bool bFullscreen) { }
         virtual void onClose() { }
 
         virtual bool onEvent(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { return false; }
@@ -45,7 +45,7 @@ namespace simcoe {
         RECT getClientCoords() const;
 
         void enterFullscreen();
-        void exitFullscreen(RECT rect);
+        void exitFullscreen();
 
         static LRESULT CALLBACK callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
@@ -57,6 +57,7 @@ namespace simcoe {
         void endUserResize();
 
         bool bUserIsResizing = false;
+        bool bIgnoreNextResize = false;
 
         HWND hWindow;
         IWindowCallbacks *pCallbacks;

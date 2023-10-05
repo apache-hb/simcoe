@@ -4,6 +4,7 @@
 
 namespace simcoe::render {
     enum StateDep {
+        eNone = 0,
         eDepDevice = (1 << 0),
         eDepDisplaySize = (1 << 1),
         eDepRenderSize = (1 << 2),
@@ -118,7 +119,8 @@ namespace simcoe::render {
             return pHandle;
         }
 
-        void resizeDisplay(UINT width, UINT height, bool bFullscreen);
+        void setFullscreen(bool bFullscreen);
+        void resizeDisplay(UINT width, UINT height);
         void resizeRender(UINT width, UINT height);
         void changeBackBufferCount(UINT count);
         void changeAdapter(UINT index);

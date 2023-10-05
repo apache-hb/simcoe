@@ -112,7 +112,8 @@ namespace simcoe::render {
 
         // actions
 
-        void changeDisplaySize(UINT width, UINT height, bool bFullscreen);
+        void changeFullscreen(bool bFullscreen);
+        void changeDisplaySize(UINT width, UINT height);
         void changeRenderSize(UINT width, UINT height);
         void changeBackBufferCount(UINT count);
         void changeAdapter(size_t index);

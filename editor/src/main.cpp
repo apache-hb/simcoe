@@ -48,11 +48,18 @@ struct GameWindow final : IWindowCallbacks {
 
     void onResize(const ResizeEvent& event) override {
         gWorkQueue.enqueue([&, event] {
-            auto [width, height, fs] = event;
+            auto [width, height] = event;
 
-            if (pGraph) pGraph->resizeDisplay(width, height, fs);
-            gFullscreen = fs;
-            logInfo("resize-display: {}x{} fs={}", width, height, fs);
+            if (pGraph) pGraph->resizeDisplay(width, height);
+            logInfo("resize-display: {}x{}", width, height);
+        });
+    }
+
+    void onFullscreen(bool bFullscreen) override {
+        gWorkQueue.enqueue([bFullscreen] {
+            if (pGraph) pGraph->setFullscreen(bFullscreen);
+            gFullscreen = bFullscreen;
+            logInfo("set-fullscreen: {}", bFullscreen);
         });
     }
 
@@ -69,8 +76,6 @@ struct GameGui final : graph::IGuiPass {
 
     int currentAdapter = 0;
     std::vector<const char*> adapterNames;
-
-    RECT saveWindow = pWindow->getWindowCoords();
 
     void create() override {
         IGuiPass::create();
@@ -121,16 +126,13 @@ struct GameGui final : graph::IGuiPass {
         ImGui::Text("present: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
         ImGui::Text("render: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
         if (ImGui::Checkbox("fullscreen", &gFullscreen)) {
-            gWorkQueue.enqueue([this, fs = gFullscreen] {
+            gWorkQueue.enqueue([fs = gFullscreen] {
                 if (fs) {
-                    saveWindow = pWindow->getWindowCoords();
-                    RECT monitorCoords = pSystem->nearestDisplayCoords(pWindow);
-
+                    pGraph->setFullscreen(true);
                     pWindow->enterFullscreen();
-                    pGraph->resizeDisplay(monitorCoords.right - monitorCoords.left, monitorCoords.bottom - monitorCoords.top, true);
                 } else {
-                    pWindow->exitFullscreen(saveWindow);
-                    pGraph->resizeDisplay(saveWindow.right - saveWindow.left, saveWindow.bottom - saveWindow.top, false);
+                    pGraph->setFullscreen(false);
+                    pWindow->exitFullscreen();
                 }
             });
         }
