@@ -70,8 +70,8 @@ struct GameGui final : graph::IGuiPass {
     bool fullscreen = false;
     RECT saveCoords = {};
 
-    void create(RenderContext *ctx) override {
-        IGuiPass::create(ctx);
+    void create() override {
+        IGuiPass::create();
 
         const auto &createInfo = ctx->getCreateInfo();
         renderSize[0] = createInfo.renderWidth;
@@ -86,8 +86,8 @@ struct GameGui final : graph::IGuiPass {
         }
     }
 
-    void destroy(RenderContext *ctx) override {
-        IGuiPass::destroy(ctx);
+    void destroy() override {
+        IGuiPass::destroy();
 
         for (const char *pName : adapterNames) {
             free((void*)pName);
@@ -96,7 +96,7 @@ struct GameGui final : graph::IGuiPass {
         adapterNames.clear();
     }
 
-    void content(RenderContext *ctx) override {
+    void content() override {
         ImGui::ShowDemoWindow();
 
         ImGui::Begin("debug");
@@ -206,20 +206,16 @@ static void commonMain() {
         simcoe::Region region("render thread started", "render thread stopped");
 
         pGraph = new RenderGraph(pContext);
-        auto *pSceneTarget = new graph::SceneTargetHandle();
-        auto *pTexture = new graph::TextureHandle("uv-coords.png");
-        auto *pUniform = new graph::UniformHandle();
-        auto *pBackBuffers = new graph::SwapChainHandle();
 
-        pGraph->addResource(pBackBuffers);
-        pGraph->addResource(pSceneTarget);
-        pGraph->addResource(pUniform);
-        pGraph->addResource(pTexture);
+        auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
+        auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
+        auto *pTexture = pGraph->addResource<graph::TextureHandle>("uv-coords.png");
+        auto *pUniform = pGraph->addResource<graph::UniformHandle>();
 
-        pGraph->addPass(new graph::ScenePass(pSceneTarget, pTexture, pUniform));
-        pGraph->addPass(new graph::PostPass(pSceneTarget, pBackBuffers));
-        pGraph->addPass(new GameGui(pBackBuffers));
-        pGraph->addPass(new graph::PresentPass(pBackBuffers));
+        pGraph->addPass<graph::ScenePass>(pSceneTarget, pTexture, pUniform);
+        pGraph->addPass<graph::PostPass>(pSceneTarget, pBackBuffers);
+        pGraph->addPass<GameGui>(pBackBuffers);
+        pGraph->addPass<graph::PresentPass>(pBackBuffers);
 
         // TODO: if the render loop throws an exception, the program will std::terminate
         // we should handle this case and restart the render loop

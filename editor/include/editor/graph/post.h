@@ -8,11 +8,11 @@
 
 namespace editor::graph {
     struct PostPass final : IRenderPass {
-        PostPass(graph::SceneTargetHandle *pSceneTarget, graph::SwapChainHandle *pBackBuffers);
-        
-        void create(RenderContext *ctx) override;
-        void destroy(RenderContext *ctx) override;
-        void execute(RenderContext *ctx) override;
+        PostPass(RenderContext *ctx, graph::SceneTargetHandle *pSceneTarget, graph::SwapChainHandle *pBackBuffers);
+
+        void create() override;
+        void destroy() override;
+        void execute() override;
 
     private:
         PassResource<graph::SceneTargetHandle> *pSceneTarget;
@@ -26,11 +26,11 @@ namespace editor::graph {
     };
 
     struct PresentPass final : IRenderPass {
-        PresentPass(graph::SwapChainHandle *pBackBuffers);
+        PresentPass(RenderContext *ctx, graph::SwapChainHandle *pBackBuffers);
 
-        void create(RenderContext *ctx) override;
-        void destroy(RenderContext *ctx) override;
-        void execute(RenderContext *ctx) override;
+        void create() override;
+        void destroy() override;
+        void execute() override;
 
     private:
         PassResource<graph::SwapChainHandle> *pBackBuffers;

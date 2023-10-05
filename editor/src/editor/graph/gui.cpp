@@ -11,8 +11,8 @@ namespace {
     std::recursive_mutex imguiLock;
 }
 
-IGuiPass::IGuiPass(IResourceHandle *pHandle)
-    : IRenderPass(eDepDisplaySize)
+IGuiPass::IGuiPass(RenderContext *ctx, IResourceHandle *pHandle)
+    : IRenderPass(ctx, eDepDisplaySize)
     , pHandle(addResource(pHandle, render::ResourceState::eRenderTarget))
 {
     IMGUI_CHECKVERSION();
@@ -29,7 +29,7 @@ IGuiPass::~IGuiPass() {
     ImGui::DestroyContext();
 }
 
-void IGuiPass::create(RenderContext *ctx) {
+void IGuiPass::create() {
     const auto& createInfo = ctx->getCreateInfo();
     guiUniformIndex = ctx->allocSrvIndex();
 
@@ -46,7 +46,7 @@ void IGuiPass::create(RenderContext *ctx) {
     );
 }
 
-void IGuiPass::destroy(RenderContext *ctx) {
+void IGuiPass::destroy() {
     auto *pHeap = ctx->getSrvHeap();
 
     std::lock_guard guard(imguiLock);
@@ -57,7 +57,7 @@ void IGuiPass::destroy(RenderContext *ctx) {
     pHeap->release(guiUniformIndex);
 }
 
-void IGuiPass::execute(RenderContext *ctx) {
+void IGuiPass::execute() {
     auto *pCommands = ctx->getDirectCommands();
     auto *pTarget = pHandle->getHandle();
 
@@ -67,11 +67,11 @@ void IGuiPass::execute(RenderContext *ctx) {
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    content(ctx);
+    content();
 
     ImGui::Render();
 
-    ctx->setRenderTarget(pTarget->getRtvIndex(ctx));
+    ctx->setRenderTarget(pTarget->getRtvIndex());
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), pCommands->getCommandList());
 }
 

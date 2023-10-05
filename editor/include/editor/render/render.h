@@ -80,9 +80,11 @@ namespace editor {
 
     struct RenderTargetHeap;
     struct ShaderDataHeap;
+    struct DepthStencilHeap;
 
     using RenderTargetAlloc = DescriptorAlloc<RenderTargetHeap>;
     using ShaderResourceAlloc = DescriptorAlloc<ShaderDataHeap>;
+    using DepthStencilAlloc = DescriptorAlloc<DepthStencilHeap>;
 
     struct FrameData {
         render::CommandMemory *pMemory;
@@ -302,6 +304,7 @@ namespace editor {
 
         RenderTargetAlloc *pRenderTargetAlloc;
         ShaderResourceAlloc *pDataAlloc;
+        DepthStencilAlloc *pDepthStencilAlloc;
 
         // state
     public:

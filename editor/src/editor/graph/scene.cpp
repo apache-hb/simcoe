@@ -46,13 +46,13 @@ struct UNIFORM_ALIGN UniformData {
     float aspect;
 };
 
-void UniformHandle::create(RenderContext *ctx) {
+void UniformHandle::create() {
     pResource = ctx->createUniformBuffer(sizeof(UniformData));
     currentState = render::ResourceState::eShaderResource;
     srvIndex = ctx->mapUniform(pResource, sizeof(UniformData));
 }
 
-void UniformHandle::destroy(RenderContext *ctx) {
+void UniformHandle::destroy() {
     auto *pSrvHeap = ctx->getSrvHeap();
     pSrvHeap->release(srvIndex);
 
@@ -72,14 +72,14 @@ void UniformHandle::update(RenderContext *ctx) {
     pResource->write(&data, sizeof(UniformData));
 }
 
-ScenePass::ScenePass(graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform)
-    : IRenderPass(eDepRenderSize)
+ScenePass::ScenePass(RenderContext *ctx, graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform)
+    : IRenderPass(ctx, eDepRenderSize)
     , pSceneTarget(addResource<graph::SceneTargetHandle>(pSceneTarget, render::ResourceState::eRenderTarget))
     , pTextureHandle(addResource<graph::TextureHandle>(pTexture, render::ResourceState::eShaderResource))
     , pUniformHandle(addResource<graph::UniformHandle>(pUniform, render::ResourceState::eShaderResource))
 { }
 
-void ScenePass::create(RenderContext *ctx) {
+void ScenePass::create() {
     const auto& createInfo = ctx->getCreateInfo();
     display = createDisplay(createInfo.renderWidth, createInfo.renderHeight);
 
@@ -121,14 +121,14 @@ void ScenePass::create(RenderContext *ctx) {
     ctx->endCopy();
 }
 
-void ScenePass::destroy(RenderContext *ctx) {
+void ScenePass::destroy() {
     delete pPipeline;
 
     delete pQuadVertexBuffer;
     delete pQuadIndexBuffer;
 }
 
-void ScenePass::execute(RenderContext *ctx) {
+void ScenePass::execute() {
     IResourceHandle *pTarget = pSceneTarget->getHandle();
     IResourceHandle *pTexture = pTextureHandle->getHandle();
     UniformHandle *pUniform = pUniformHandle->getHandle();
@@ -137,7 +137,7 @@ void ScenePass::execute(RenderContext *ctx) {
 
     ctx->setPipeline(pPipeline);
     ctx->setDisplay(display);
-    ctx->setRenderTarget(pTarget->getRtvIndex(ctx), kClearColour);
+    ctx->setRenderTarget(pTarget->getRtvIndex(), kClearColour);
 
     ctx->setShaderInput(pTexture->srvIndex, 0);
     ctx->setShaderInput(pUniform->srvIndex, 1);

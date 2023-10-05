@@ -3,7 +3,7 @@
 using namespace editor;
 using namespace editor::graph;
 
-void SwapChainHandle::create(RenderContext *ctx) {
+void SwapChainHandle::create() {
     const auto &createInfo = ctx->getCreateInfo();
     targets.resize(createInfo.backBufferCount);
 
@@ -17,7 +17,7 @@ void SwapChainHandle::create(RenderContext *ctx) {
     }
 }
 
-void SwapChainHandle::destroy(RenderContext *ctx) {
+void SwapChainHandle::destroy() {
     const auto& createInfo = ctx->getCreateInfo();
     auto *pRtvHeap = ctx->getRtvHeap();
     for (UINT i = 0; i < createInfo.backBufferCount; ++i) {
@@ -29,19 +29,19 @@ void SwapChainHandle::destroy(RenderContext *ctx) {
     targets.clear();
 }
 
-render::ResourceState SwapChainHandle::getCurrentState(RenderContext *ctx) const {
+render::ResourceState SwapChainHandle::getCurrentState() const {
     return targets[ctx->getFrameIndex()].state;
 }
 
-void SwapChainHandle::setCurrentState(RenderContext *ctx, render::ResourceState state) {
+void SwapChainHandle::setCurrentState(render::ResourceState state) {
     targets[ctx->getFrameIndex()].state = state;
 }
 
-render::DeviceResource *SwapChainHandle::getResource(RenderContext *ctx) const {
+render::DeviceResource *SwapChainHandle::getResource() const {
     return targets[ctx->getFrameIndex()].pRenderTarget;
 }
 
-RenderTargetAlloc::Index SwapChainHandle::getRtvIndex(RenderContext *ctx) const {
+RenderTargetAlloc::Index SwapChainHandle::getRtvIndex() const {
     return targets[ctx->getFrameIndex()].rtvIndex;
 }
 
@@ -50,7 +50,7 @@ RenderTargetAlloc::Index SwapChainHandle::getRtvIndex(RenderContext *ctx) const 
 /// scene target handle
 ///
 
-void SceneTargetHandle::create(RenderContext *ctx) {
+void SceneTargetHandle::create() {
     const auto& createInfo = ctx->getCreateInfo();
 
     const render::TextureInfo textureCreateInfo = {
@@ -67,7 +67,7 @@ void SceneTargetHandle::create(RenderContext *ctx) {
     pResource->setName("scene-target");
 }
 
-void SceneTargetHandle::destroy(RenderContext *ctx) {
+void SceneTargetHandle::destroy() {
     auto *pRtvHeap = ctx->getRtvHeap();
     auto *pSrvHeap = ctx->getSrvHeap();
     pRtvHeap->release(rtvIndex);
@@ -79,11 +79,12 @@ void SceneTargetHandle::destroy(RenderContext *ctx) {
 /// texture handle
 ///
 
-TextureHandle::TextureHandle(std::string name)
-    : name(name)
+TextureHandle::TextureHandle(RenderContext *ctx, std::string name)
+    : ITextureHandle(ctx)
+    , name(name)
 { }
 
-void TextureHandle::create(RenderContext *ctx) {
+void TextureHandle::create() {
     const auto& createInfo = ctx->getCreateInfo();
     assets::Image image = createInfo.depot.loadImage(name);
 
@@ -110,7 +111,7 @@ void TextureHandle::create(RenderContext *ctx) {
     ctx->endCopy();
 }
 
-void TextureHandle::destroy(RenderContext *ctx) {
+void TextureHandle::destroy() {
     auto *pSrvHeap = ctx->getSrvHeap();
 
     pSrvHeap->release(srvIndex);

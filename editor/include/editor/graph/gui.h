@@ -4,15 +4,15 @@
 
 namespace editor::graph {
     struct IGuiPass : IRenderPass {
-        IGuiPass(IResourceHandle *pHandle);
+        IGuiPass(RenderContext *ctx, IResourceHandle *pHandle);
         ~IGuiPass();
 
-        virtual void content(RenderContext *ctx) = 0;
+        virtual void content() = 0;
 
-        void create(RenderContext *ctx) override;
-        void destroy(RenderContext *ctx) override;
+        void create() override;
+        void destroy() override;
 
-        void execute(RenderContext *ctx) override;
+        void execute() override;
 
         static LRESULT handleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 

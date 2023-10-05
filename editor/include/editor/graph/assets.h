@@ -7,15 +7,17 @@ namespace editor::graph {
     using IUniformHandle = ISingleResourceHandle<render::UniformBuffer>;
 
     struct SwapChainHandle final : IResourceHandle {
-        SwapChainHandle() : IResourceHandle(StateDep(eDepDisplaySize | eDepBackBufferCount)) { }
+        SwapChainHandle(RenderContext *ctx)
+            : IResourceHandle(ctx, StateDep(eDepDisplaySize | eDepBackBufferCount))
+        { }
 
-        void create(RenderContext *ctx) override;
-        void destroy(RenderContext *ctx) override;
+        void create() override;
+        void destroy() override;
 
-        render::ResourceState getCurrentState(RenderContext *ctx) const override;
-        void setCurrentState(RenderContext *ctx, render::ResourceState state) override;
-        render::DeviceResource *getResource(RenderContext *ctx) const override;
-        RenderTargetAlloc::Index getRtvIndex(RenderContext *ctx) const override;
+        render::ResourceState getCurrentState() const override;
+        void setCurrentState(render::ResourceState state) override;
+        render::DeviceResource *getResource() const override;
+        RenderTargetAlloc::Index getRtvIndex() const override;
 
     private:
         struct RenderTarget {
@@ -28,14 +30,16 @@ namespace editor::graph {
     };
 
     struct SceneTargetHandle final : ITextureHandle {
-        SceneTargetHandle() : ITextureHandle(StateDep(eDepRenderSize)) { }
+        SceneTargetHandle(RenderContext *ctx)
+            : ITextureHandle(ctx, StateDep(eDepRenderSize))
+        { }
 
         static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
 
-        void create(RenderContext *ctx) override;
-        void destroy(RenderContext *ctx) override;
+        void create() override;
+        void destroy() override;
 
-        RenderTargetAlloc::Index getRtvIndex(RenderContext *ctx) const override {
+        RenderTargetAlloc::Index getRtvIndex() const override {
             return rtvIndex;
         }
 
@@ -44,12 +48,12 @@ namespace editor::graph {
     };
 
     struct TextureHandle final : ITextureHandle {
-        TextureHandle(std::string name);
+        TextureHandle(RenderContext *ctx, std::string name);
 
-        void create(RenderContext *ctx) override;
-        void destroy(RenderContext *ctx) override;
+        void create() override;
+        void destroy() override;
 
-        RenderTargetAlloc::Index getRtvIndex(RenderContext *ctx) const override {
+        RenderTargetAlloc::Index getRtvIndex() const override {
             return RenderTargetAlloc::Index::eInvalid;
         }
 

@@ -6,12 +6,16 @@
 
 namespace editor::graph {
     struct UniformHandle final : IUniformHandle {
-        void create(RenderContext *ctx) override;
-        void destroy(RenderContext *ctx) override;
+        UniformHandle(RenderContext *ctx)
+            : IUniformHandle(ctx)
+        { }
+
+        void create() override;
+        void destroy() override;
 
         void update(RenderContext *ctx);
 
-        RenderTargetAlloc::Index getRtvIndex(RenderContext *ctx) const override {
+        RenderTargetAlloc::Index getRtvIndex() const override {
             return RenderTargetAlloc::Index::eInvalid;
         }
     private:
@@ -19,11 +23,11 @@ namespace editor::graph {
     };
 
     struct ScenePass final : IRenderPass {
-        ScenePass(graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform);
+        ScenePass(RenderContext *ctx, graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform);
 
-        void create(RenderContext *ctx) override;
-        void destroy(RenderContext *ctx) override;
-        void execute(RenderContext *ctx) override;
+        void create() override;
+        void destroy() override;
+        void execute() override;
 
     private:
 

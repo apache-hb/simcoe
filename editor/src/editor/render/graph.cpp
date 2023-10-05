@@ -101,21 +101,21 @@ void RenderGraph::execute() {
 
 void RenderGraph::createIf(StateDep dep) {
     for (IResourceHandle *pHandle : resources) {
-        if (pHandle->stateDeps & dep) pHandle->create(ctx);
+        if (pHandle->dependsOn(dep)) pHandle->create();
     }
 
     for (IRenderPass *pPass : passes) {
-        if (pPass->stateDeps & dep) pPass->create(ctx);
+        if (pPass->dependsOn(dep)) pPass->create();
     }
 }
 
 void RenderGraph::destroyIf(StateDep dep) {
     for (IRenderPass *pPass : passes) {
-        if (pPass->stateDeps & dep) pPass->destroy(ctx);
+        if (pPass->dependsOn(dep)) pPass->destroy();
     }
 
     for (IResourceHandle *pHandle : resources) {
-        if (pHandle->stateDeps & dep) pHandle->destroy(ctx);
+        if (pHandle->dependsOn(dep)) pHandle->destroy();
     }
 }
 
@@ -123,13 +123,13 @@ void RenderGraph::executePass(IRenderPass *pPass) {
     for (const auto *pInput : pPass->inputs) {
         auto *pHandle = pInput->getHandle();
         auto requiredState = pInput->requiredState;
-        auto currentState = pHandle->getCurrentState(ctx);
+        auto currentState = pHandle->getCurrentState();
 
         if (currentState != requiredState) {
-            ctx->transition(pHandle->getResource(ctx), currentState, pInput->requiredState);
-            pHandle->setCurrentState(ctx, requiredState);
+            ctx->transition(pHandle->getResource(), currentState, pInput->requiredState);
+            pHandle->setCurrentState(requiredState);
         }
     }
 
-    pPass->execute(ctx);
+    pPass->execute();
 }

@@ -10,24 +10,38 @@ namespace editor {
         eDepBackBufferCount = (1 << 3),
     };
 
-    struct IResourceHandle {
-        virtual ~IResourceHandle() = default;
-        IResourceHandle(StateDep stateDeps = eDepDevice)
-            : stateDeps(StateDep(stateDeps | eDepDevice))
+    struct IGraphObject {
+        virtual ~IGraphObject() = default;
+
+        IGraphObject(RenderContext *ctx, StateDep stateDeps = eDepDevice)
+            : ctx(ctx)
+            , stateDeps(StateDep(stateDeps | eDepDevice))
         { }
 
-        virtual void create(RenderContext *ctx) = 0;
-        virtual void destroy(RenderContext *ctx) = 0;
+        RenderContext *ctx;
 
-        virtual render::DeviceResource* getResource(RenderContext *ctx) const = 0;
+        bool dependsOn(StateDep dep) const { return (stateDeps & dep) != 0; }
+    private:
+        StateDep stateDeps;
+    };
 
-        virtual render::ResourceState getCurrentState(RenderContext *ctx) const = 0;
-        virtual void setCurrentState(RenderContext *ctx, render::ResourceState state) = 0;
+    struct IResourceHandle : IGraphObject {
+        virtual ~IResourceHandle() = default;
+        IResourceHandle(RenderContext *ctx, StateDep stateDeps = eDepDevice)
+            : IGraphObject(ctx, stateDeps)
+        { }
 
-        virtual RenderTargetAlloc::Index getRtvIndex(RenderContext *ctx) const = 0;
+        virtual void create() = 0;
+        virtual void destroy() = 0;
+
+        virtual render::DeviceResource* getResource() const = 0;
+
+        virtual render::ResourceState getCurrentState() const = 0;
+        virtual void setCurrentState(render::ResourceState state) = 0;
+
+        virtual RenderTargetAlloc::Index getRtvIndex() const = 0;
 
         ShaderResourceAlloc::Index srvIndex;
-        StateDep stateDeps;
     };
 
     template<typename T>
@@ -36,9 +50,9 @@ namespace editor {
 
         virtual ~ISingleResourceHandle() = default;
 
-        render::DeviceResource* getResource(RenderContext *ctx) const final override { return pResource; }
-        render::ResourceState getCurrentState(RenderContext *ctx) const final override { return currentState; }
-        void setCurrentState(RenderContext *ctx, render::ResourceState state) final override { currentState = state; }
+        render::DeviceResource* getResource() const final override { return pResource; }
+        render::ResourceState getCurrentState() const final override { return currentState; }
+        void setCurrentState(render::ResourceState state) final override { currentState = state; }
 
     protected:
         T *pResource;
@@ -67,26 +81,26 @@ namespace editor {
         T *pHandle = nullptr;
     };
 
-    struct IRenderPass {
+    struct IRenderPass : IGraphObject {
         virtual ~IRenderPass() = default;
-        IRenderPass(StateDep stateDeps = eDepDevice)
-            : stateDeps(StateDep(stateDeps | eDepDevice))
+        IRenderPass(RenderContext *ctx, StateDep stateDeps = eDepDevice)
+            : IGraphObject(ctx, stateDeps)
         { }
 
-        virtual void create(RenderContext *ctx) = 0;
-        virtual void destroy(RenderContext *ctx) = 0;
+        virtual void create() = 0;
+        virtual void destroy() = 0;
 
-        virtual void execute(RenderContext *ctx) = 0;
+        virtual void execute() = 0;
 
+        std::vector<BasePassResource*> inputs;
+
+    protected:
         template<typename T>
         PassResource<T> *addResource(T *pHandle, render::ResourceState requiredState) {
             auto *pResource = new PassResource<T>(pHandle, requiredState);
             inputs.push_back(pResource);
             return pResource;
         }
-
-        std::vector<BasePassResource*> inputs;
-        StateDep stateDeps;
     };
 
     struct RenderGraph {
@@ -98,15 +112,18 @@ namespace editor {
             destroyIf(eDepDevice); // everything depends on device
         }
 
-        void addPass(IRenderPass *pPass) {
-            pPass->create(ctx);
-            passes.push_back(pPass);
+        template<typename T, typename... A>
+        T *addPass(A&&... args) {
+            T *pPass = new T(ctx, std::forward<A>(args)...);
+            addPassObject(pPass);
+            return pPass;
         }
 
-        void addResource(IResourceHandle *pHandle) {
-            pHandle->create(ctx);
-
-            resources.push_back(pHandle);
+        template<typename T, typename... A>
+        T *addResource(A&&... args) {
+            T *pHandle = new T(ctx, std::forward<A>(args)...);
+            addResourceObject(pHandle);
+            return pHandle;
         }
 
         void resizeDisplay(UINT width, UINT height);
@@ -116,6 +133,16 @@ namespace editor {
 
         void execute();
     private:
+        void addResourceObject(IResourceHandle *pHandle) {
+            pHandle->create();
+            resources.push_back(pHandle);
+        }
+
+        void addPassObject(IRenderPass *pPass) {
+            pPass->create();
+            passes.push_back(pPass);
+        }
+
         void executePass(IRenderPass *pPass);
 
         void createIf(StateDep dep);

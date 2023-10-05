@@ -53,13 +53,13 @@ static constexpr render::Display createLetterBoxDisplay(UINT renderWidth, UINT r
     return { viewport, scissor };
 }
 
-PostPass::PostPass(graph::SceneTargetHandle *pSceneTarget, graph::SwapChainHandle *pBackBuffers)
-    : IRenderPass(StateDep(eDepDisplaySize | eDepRenderSize))
+PostPass::PostPass(RenderContext *ctx, graph::SceneTargetHandle *pSceneTarget, graph::SwapChainHandle *pBackBuffers)
+    : IRenderPass(ctx, StateDep(eDepDisplaySize | eDepRenderSize))
     , pSceneTarget(addResource<graph::SceneTargetHandle>(pSceneTarget, render::ResourceState::eShaderResource))
     , pBackBuffers(addResource<graph::SwapChainHandle>(pBackBuffers, render::ResourceState::eRenderTarget))
 { }
 
-void PostPass::create(RenderContext *ctx) {
+void PostPass::create() {
     const auto& createInfo = ctx->getCreateInfo();
 
     display = createLetterBoxDisplay(createInfo.renderWidth, createInfo.renderHeight, createInfo.displayWidth, createInfo.displayHeight);
@@ -98,21 +98,21 @@ void PostPass::create(RenderContext *ctx) {
     ctx->endCopy();
 }
 
-void PostPass::destroy(RenderContext *ctx) {
+void PostPass::destroy() {
     delete pPipeline;
 
     delete pScreenQuadVerts;
     delete pScreenQuadIndices;
 }
 
-void PostPass::execute(RenderContext *ctx) {
+void PostPass::execute() {
     IResourceHandle *pTarget = pSceneTarget->getHandle();
     IResourceHandle *pRenderTarget = pBackBuffers->getHandle();
 
     ctx->setPipeline(pPipeline);
     ctx->setDisplay(display);
 
-    ctx->setRenderTarget(pRenderTarget->getRtvIndex(ctx), kBlackClearColour);
+    ctx->setRenderTarget(pRenderTarget->getRtvIndex(), kBlackClearColour);
 
     ctx->setShaderInput(pTarget->srvIndex, 0);
     ctx->setVertexBuffer(pScreenQuadVerts);
@@ -123,20 +123,20 @@ void PostPass::execute(RenderContext *ctx) {
 /// present pass
 ///
 
-PresentPass::PresentPass(graph::SwapChainHandle *pBackBuffers)
-    : IRenderPass()
+PresentPass::PresentPass(RenderContext *ctx, graph::SwapChainHandle *pBackBuffers)
+    : IRenderPass(ctx)
     , pBackBuffers(addResource<graph::SwapChainHandle>(pBackBuffers, render::ResourceState::ePresent))
 { }
 
-void PresentPass::create(RenderContext *ctx) {
+void PresentPass::create() {
 
 }
 
-void PresentPass::destroy(RenderContext *ctx) {
+void PresentPass::destroy() {
 
 }
 
-void PresentPass::execute(RenderContext *ctx) {
+void PresentPass::execute() {
 
 }
 
