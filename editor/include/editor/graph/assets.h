@@ -3,8 +3,8 @@
 #include "editor/render/graph.h"
 
 namespace editor::graph {
-    using ITextureHandle = ISingleResourceHandle<render::TextureBuffer>;
-    using IUniformHandle = ISingleResourceHandle<render::UniformBuffer>;
+    using ITextureHandle = IShaderResourceHandle<render::TextureBuffer>;
+    using IUniformHandle = IShaderResourceHandle<render::UniformBuffer>;
 
     struct SwapChainHandle final : IResourceHandle {
         SwapChainHandle(RenderContext *ctx)
@@ -31,7 +31,7 @@ namespace editor::graph {
 
     struct SceneTargetHandle final : ITextureHandle {
         SceneTargetHandle(RenderContext *ctx)
-            : ITextureHandle(ctx, StateDep(eDepRenderSize))
+            : ITextureHandle(ctx, eDepRenderSize)
         { }
 
         static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
@@ -51,14 +51,8 @@ namespace editor::graph {
         TextureHandle(RenderContext *ctx, std::string name);
 
         void create() override;
-        void destroy() override;
-
-        RenderTargetAlloc::Index getRtvIndex() const override {
-            return RenderTargetAlloc::Index::eInvalid;
-        }
 
     private:
         std::string name;
     };
-
 }

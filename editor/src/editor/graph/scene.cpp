@@ -48,17 +48,10 @@ struct UNIFORM_ALIGN UniformData {
 
 void UniformHandle::create() {
     auto *pResource = ctx->createUniformBuffer(sizeof(UniformData));
-    srvIndex = ctx->mapUniform(pResource, sizeof(UniformData));
 
     setResource(pResource);
+    setSrvIndex(ctx->mapUniform(pResource, sizeof(UniformData)));
     setCurrentState(render::ResourceState::eShaderResource);
-}
-
-void UniformHandle::destroy() {
-    auto *pSrvHeap = ctx->getSrvHeap();
-    pSrvHeap->release(srvIndex);
-
-    delete getResource();
 }
 
 void UniformHandle::update(RenderContext *ctx) {
@@ -141,8 +134,8 @@ void ScenePass::execute() {
     ctx->setDisplay(display);
     ctx->setRenderTarget(pTarget->getRtvIndex(), kClearColour);
 
-    ctx->setShaderInput(pTexture->srvIndex, 0);
-    ctx->setShaderInput(pUniform->srvIndex, 1);
+    ctx->setShaderInput(pTexture->getSrvIndex(), 0);
+    ctx->setShaderInput(pUniform->getSrvIndex(), 1);
 
     ctx->setVertexBuffer(pQuadVertexBuffer);
     ctx->drawIndexBuffer(pQuadIndexBuffer, kQuadIndices.size());

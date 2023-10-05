@@ -18,9 +18,13 @@ namespace editor {
             , stateDeps(StateDep(stateDeps | eDepDevice))
         { }
 
-        RenderContext *ctx;
+        virtual void create() = 0;
+        virtual void destroy() = 0;
 
         bool dependsOn(StateDep dep) const { return (stateDeps & dep) != 0; }
+    protected:
+        RenderContext *ctx;
+
     private:
         StateDep stateDeps;
     };
@@ -31,27 +35,25 @@ namespace editor {
             : IGraphObject(ctx, stateDeps)
         { }
 
-        virtual void create() = 0;
-        virtual void destroy() = 0;
-
         virtual render::DeviceResource* getResource() const = 0;
 
         virtual render::ResourceState getCurrentState() const = 0;
         virtual void setCurrentState(render::ResourceState state) = 0;
 
-        virtual RenderTargetAlloc::Index getRtvIndex() const = 0;
-
-        ShaderResourceAlloc::Index srvIndex;
+        virtual RenderTargetAlloc::Index getRtvIndex() const { return RenderTargetAlloc::Index::eInvalid; }
+        virtual ShaderResourceAlloc::Index getSrvIndex() const { return ShaderResourceAlloc::Index::eInvalid; }
     };
 
     template<typename T>
-    struct ISingleResourceHandle : IResourceHandle {
+    struct IAnyResourceHandle : IResourceHandle {
         using IResourceHandle::IResourceHandle;
+        virtual ~IAnyResourceHandle() = default;
 
-        virtual ~ISingleResourceHandle() = default;
+        void destroy() override {
+            delete pResource;
+        }
 
         render::DeviceResource* getResource() const final override { return pResource; }
-
         render::ResourceState getCurrentState() const final override { return currentState; }
         void setCurrentState(render::ResourceState state) final override { currentState = state; }
 
@@ -62,6 +64,28 @@ namespace editor {
     private:
         T *pResource;
         render::ResourceState currentState;
+    };
+
+    template<typename T>
+    struct IShaderResourceHandle : IAnyResourceHandle<T> {
+        using Super = IAnyResourceHandle<T>;
+        using Super::Super;
+        virtual ~IShaderResourceHandle() = default;
+
+        void destroy() override {
+            auto *pSrvHeap = this->ctx->getSrvHeap();
+            pSrvHeap->release(getSrvIndex());
+
+            Super::destroy();
+        }
+
+        ShaderResourceAlloc::Index getSrvIndex() const final override { return srvIndex; }
+
+    protected:
+        void setSrvIndex(ShaderResourceAlloc::Index index) { srvIndex = index; }
+
+    private:
+        ShaderResourceAlloc::Index srvIndex;
     };
 
     struct BasePassResource {
@@ -91,9 +115,6 @@ namespace editor {
         IRenderPass(RenderContext *ctx, StateDep stateDeps = eDepDevice)
             : IGraphObject(ctx, stateDeps)
         { }
-
-        virtual void create() = 0;
-        virtual void destroy() = 0;
 
         virtual void execute() = 0;
 

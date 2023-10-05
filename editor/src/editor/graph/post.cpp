@@ -114,7 +114,7 @@ void PostPass::execute() {
 
     ctx->setRenderTarget(pRenderTarget->getRtvIndex(), kBlackClearColour);
 
-    ctx->setShaderInput(pTarget->srvIndex, 0);
+    ctx->setShaderInput(pTarget->getSrvIndex(), 0);
     ctx->setVertexBuffer(pScreenQuadVerts);
     ctx->drawIndexBuffer(pScreenQuadIndices, kScreenQuadIndices.size());
 }

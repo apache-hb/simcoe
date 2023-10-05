@@ -11,13 +11,8 @@ namespace editor::graph {
         { }
 
         void create() override;
-        void destroy() override;
 
         void update(RenderContext *ctx);
-
-        RenderTargetAlloc::Index getRtvIndex() const override {
-            return RenderTargetAlloc::Index::eInvalid;
-        }
     private:
         simcoe::Timer timer;
     };
