@@ -12,7 +12,7 @@ namespace {
 }
 
 IGuiPass::IGuiPass(RenderContext *ctx, IResourceHandle *pHandle)
-    : IRenderPass(ctx, eDepDisplaySize)
+    : IRenderPass(ctx, "imgui", eDepDisplaySize)
     , pHandle(addAttachment(pHandle, render::ResourceState::eRenderTarget))
 {
     IMGUI_CHECKVERSION();

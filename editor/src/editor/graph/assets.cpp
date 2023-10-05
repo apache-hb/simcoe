@@ -82,7 +82,7 @@ void SceneTargetHandle::destroy() {
 ///
 
 TextureHandle::TextureHandle(RenderContext *ctx, std::string name)
-    : ITextureHandle(ctx)
+    : ITextureHandle(ctx, name)
     , name(name)
 { }
 

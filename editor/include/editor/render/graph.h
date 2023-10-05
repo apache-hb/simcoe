@@ -13,8 +13,9 @@ namespace editor {
     struct IGraphObject {
         virtual ~IGraphObject() = default;
 
-        IGraphObject(RenderContext *ctx, StateDep stateDeps = eDepDevice)
+        IGraphObject(RenderContext *ctx, std::string name, StateDep stateDeps = eDepDevice)
             : ctx(ctx)
+            , name(name)
             , stateDeps(StateDep(stateDeps | eDepDevice))
         { }
 
@@ -22,18 +23,20 @@ namespace editor {
         virtual void destroy() = 0;
 
         bool dependsOn(StateDep dep) const { return (stateDeps & dep) != 0; }
+        std::string_view getName() const { return name; }
 
     protected:
         RenderContext *ctx;
 
     private:
+        std::string name;
         StateDep stateDeps;
     };
 
     struct IResourceHandle : IGraphObject {
         virtual ~IResourceHandle() = default;
-        IResourceHandle(RenderContext *ctx, StateDep stateDeps = eDepDevice)
-            : IGraphObject(ctx, stateDeps)
+        IResourceHandle(RenderContext *ctx, std::string name, StateDep stateDeps = eDepDevice)
+            : IGraphObject(ctx, name, stateDeps)
         { }
 
         virtual render::DeviceResource* getResource() const = 0;
@@ -41,8 +44,8 @@ namespace editor {
         virtual render::ResourceState getCurrentState() const = 0;
         virtual void setCurrentState(render::ResourceState state) = 0;
 
-        virtual RenderTargetAlloc::Index getRtvIndex() const { return RenderTargetAlloc::Index::eInvalid; }
-        virtual ShaderResourceAlloc::Index getSrvIndex() const { return ShaderResourceAlloc::Index::eInvalid; }
+        virtual RenderTargetAlloc::Index getRtvIndex() const { throw std::runtime_error(std::format("resource {} does not have an rtv index", getName())); }
+        virtual ShaderResourceAlloc::Index getSrvIndex() const { throw std::runtime_error(std::format("resource {} does not have an srv index", getName())); }
     };
 
     template<typename T>
@@ -115,8 +118,8 @@ namespace editor {
 
     struct IRenderPass : IGraphObject {
         virtual ~IRenderPass() = default;
-        IRenderPass(RenderContext *ctx, StateDep stateDeps = eDepDevice)
-            : IGraphObject(ctx, stateDeps)
+        IRenderPass(RenderContext *ctx, std::string name, StateDep stateDeps = eDepDevice)
+            : IGraphObject(ctx, name, stateDeps)
         { }
 
         virtual void execute() = 0;
@@ -181,6 +184,9 @@ namespace editor {
         std::mutex renderLock;
 
         RenderContext *ctx;
+
+    public:
+        // TODO: make private
         std::vector<IRenderPass*> passes;
         std::vector<IResourceHandle*> resources;
     };

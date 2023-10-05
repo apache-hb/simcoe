@@ -96,6 +96,17 @@ struct GameGui final : graph::IGuiPass {
         adapterNames.clear();
     }
 
+    static constexpr const char *stateToString(render::ResourceState state) {
+        switch (state) {
+        case render::ResourceState::ePresent: return "present";
+        case render::ResourceState::eRenderTarget: return "render-target";
+        case render::ResourceState::eShaderResource: return "shader-resource";
+        case render::ResourceState::eCopyDest: return "copy-dest";
+
+        default: return "unknown";
+        }
+    }
+
     void content() override {
         ImGui::ShowDemoWindow();
 

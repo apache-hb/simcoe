@@ -7,7 +7,7 @@
 namespace editor::graph {
     struct UniformHandle final : IUniformHandle {
         UniformHandle(RenderContext *ctx)
-            : IUniformHandle(ctx)
+            : IUniformHandle(ctx, "uniform")
         { }
 
         void create() override;
