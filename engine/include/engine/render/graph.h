@@ -53,6 +53,12 @@ namespace simcoe::render {
         }
     };
 
+    struct IRTVHandle {
+        virtual ~IRTVHandle() = default;
+
+        virtual RenderTargetAlloc::Index getRtvIndex() const = 0;
+    };
+
     struct BasePassAttachment {
         virtual ~BasePassAttachment() = default;
         virtual IResourceHandle *getHandle() const = 0;
@@ -61,6 +67,9 @@ namespace simcoe::render {
             : requiredState(requiredState)
         { }
 
+        rhi::ResourceState getRequiredState() const { return requiredState; }
+
+    private:
         rhi::ResourceState requiredState;
     };
 

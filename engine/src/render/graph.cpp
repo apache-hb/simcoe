@@ -89,11 +89,11 @@ void Graph::destroyIf(StateDep dep) {
 void Graph::executePass(IRenderPass *pPass) {
     for (const auto *pInput : pPass->inputs) {
         auto *pHandle = pInput->getHandle();
-        auto requiredState = pInput->requiredState;
+        auto requiredState = pInput->getRequiredState();
         auto currentState = pHandle->getCurrentState();
 
         if (currentState != requiredState) {
-            ctx->transition(pHandle->getResource(), currentState, pInput->requiredState);
+            ctx->transition(pHandle->getResource(), currentState, requiredState);
             pHandle->setCurrentState(requiredState);
         }
     }
