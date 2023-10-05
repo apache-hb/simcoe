@@ -69,9 +69,9 @@ void UniformHandle::update(RenderContext *ctx) {
 
 ScenePass::ScenePass(RenderContext *ctx, graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform)
     : IRenderPass(ctx, eDepRenderSize)
-    , pSceneTarget(addResource<graph::SceneTargetHandle>(pSceneTarget, render::ResourceState::eRenderTarget))
-    , pTextureHandle(addResource<graph::TextureHandle>(pTexture, render::ResourceState::eShaderResource))
-    , pUniformHandle(addResource<graph::UniformHandle>(pUniform, render::ResourceState::eShaderResource))
+    , pSceneTarget(addAttachment<graph::SceneTargetHandle>(pSceneTarget, render::ResourceState::eRenderTarget))
+    , pTextureHandle(addAttachment<graph::TextureHandle>(pTexture, render::ResourceState::eShaderResource))
+    , pUniformHandle(addAttachment<graph::UniformHandle>(pUniform, render::ResourceState::eShaderResource))
 { }
 
 void ScenePass::create() {

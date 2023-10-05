@@ -22,6 +22,7 @@ namespace editor {
         virtual void destroy() = 0;
 
         bool dependsOn(StateDep dep) const { return (stateDeps & dep) != 0; }
+
     protected:
         RenderContext *ctx;
 
@@ -88,11 +89,11 @@ namespace editor {
         ShaderResourceAlloc::Index srvIndex;
     };
 
-    struct BasePassResource {
-        virtual ~BasePassResource() = default;
+    struct BasePassAttachment {
+        virtual ~BasePassAttachment() = default;
         virtual IResourceHandle *getHandle() const = 0;
 
-        BasePassResource(render::ResourceState requiredState)
+        BasePassAttachment(render::ResourceState requiredState)
             : requiredState(requiredState)
         { }
 
@@ -100,13 +101,15 @@ namespace editor {
     };
 
     template<typename T>
-    struct PassResource : BasePassResource {
-        PassResource(T *pHandle, render::ResourceState requiredState)
-            : BasePassResource(requiredState)
+    struct PassAttachment : BasePassAttachment {
+        PassAttachment(T *pHandle, render::ResourceState requiredState)
+            : BasePassAttachment(requiredState)
             , pHandle(pHandle)
         { }
 
         T *getHandle() const override { return pHandle; }
+
+    private:
         T *pHandle = nullptr;
     };
 
@@ -118,12 +121,12 @@ namespace editor {
 
         virtual void execute() = 0;
 
-        std::vector<BasePassResource*> inputs;
+        std::vector<BasePassAttachment*> inputs;
 
     protected:
         template<typename T>
-        PassResource<T> *addResource(T *pHandle, render::ResourceState requiredState) {
-            auto *pResource = new PassResource<T>(pHandle, requiredState);
+        PassAttachment<T> *addAttachment(T *pHandle, render::ResourceState requiredState) {
+            auto *pResource = new PassAttachment<T>(pHandle, requiredState);
             inputs.push_back(pResource);
             return pResource;
         }

@@ -25,10 +25,9 @@ namespace editor::graph {
         void execute() override;
 
     private:
-
-        PassResource<graph::SceneTargetHandle> *pSceneTarget;
-        PassResource<graph::TextureHandle> *pTextureHandle;
-        PassResource<graph::UniformHandle> *pUniformHandle;
+        PassAttachment<graph::SceneTargetHandle> *pSceneTarget;
+        PassAttachment<graph::TextureHandle> *pTextureHandle;
+        PassAttachment<graph::UniformHandle> *pUniformHandle;
 
         render::Display display;
 

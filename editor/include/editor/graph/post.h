@@ -15,8 +15,8 @@ namespace editor::graph {
         void execute() override;
 
     private:
-        PassResource<graph::SceneTargetHandle> *pSceneTarget;
-        PassResource<graph::SwapChainHandle> *pBackBuffers;
+        PassAttachment<graph::SceneTargetHandle> *pSceneTarget;
+        PassAttachment<graph::SwapChainHandle> *pBackBuffers;
 
         render::Display display;
         render::PipelineState *pPipeline;
@@ -33,6 +33,6 @@ namespace editor::graph {
         void execute() override;
 
     private:
-        PassResource<graph::SwapChainHandle> *pBackBuffers;
+        PassAttachment<graph::SwapChainHandle> *pBackBuffers;
     };
 }
