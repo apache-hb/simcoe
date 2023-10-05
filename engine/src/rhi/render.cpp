@@ -333,18 +333,22 @@ size_t DisplayQueue::getFrameIndex() {
     return pSwapChain->GetCurrentBackBufferIndex();
 }
 
+bool DisplayQueue::getFullscreenState() {
+    BOOL fullscreen = FALSE;
+    HR_CHECK(pSwapChain->GetFullscreenState(&fullscreen, nullptr));
+
+    return fullscreen;
+}
+
+void DisplayQueue::setFullscreenState(bool fullscreen) {
+    HR_CHECK(pSwapChain->SetFullscreenState(fullscreen, nullptr));
+}
+
 void DisplayQueue::resizeBuffers(UINT bufferCount, UINT width, UINT height) {
     DXGI_SWAP_CHAIN_DESC desc = {};
     pSwapChain->GetDesc(&desc);
 
     HR_CHECK(pSwapChain->ResizeBuffers(bufferCount, width, height, desc.BufferDesc.Format, desc.Flags));
-}
-
-bool DisplayQueue::isFullscreen() {
-    BOOL fullscreen = FALSE;
-    HR_CHECK(pSwapChain->GetFullscreenState(&fullscreen, nullptr));
-
-    return fullscreen == TRUE;
 }
 
 RenderTarget *DisplayQueue::getRenderTarget(UINT index) {

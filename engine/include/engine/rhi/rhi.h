@@ -268,10 +268,10 @@ namespace simcoe::rhi {
         // public interface
         RenderTarget *getRenderTarget(UINT index);
         size_t getFrameIndex();
+        bool getFullscreenState();
+        void setFullscreenState(bool fullscreen);
 
         void resizeBuffers(UINT bufferCount, UINT width, UINT height);
-
-        bool isFullscreen();
 
         void present(bool allowTearing);
 

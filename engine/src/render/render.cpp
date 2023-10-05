@@ -85,7 +85,7 @@ void Context::destroyDisplayData() {
 // create data that relys on the number of backbuffers
 void Context::createFrameData() {
     frameIndex = pDisplayQueue->getFrameIndex();
-    fullscreen = pDisplayQueue->isFullscreen();
+    bReportedFullscreen = pDisplayQueue->getFullscreenState();
 
     frameData.resize(createInfo.backBufferCount);
     for (UINT i = 0; i < createInfo.backBufferCount; i++) {
@@ -119,11 +119,12 @@ void Context::destroyHeaps() {
     delete pRenderTargetAlloc;
 }
 
-void Context::changeDisplaySize(UINT width, UINT height) {
+void Context::changeDisplaySize(UINT width, UINT height, bool bFullscreen) {
     destroyFrameData();
     createInfo.displayWidth = width;
     createInfo.displayHeight = height;
 
+    pDisplayQueue->setFullscreenState(bFullscreen);
     pDisplayQueue->resizeBuffers(createInfo.backBufferCount, width, height);
     createFrameData();
 }
@@ -161,7 +162,7 @@ void Context::beginRender() {
 }
 
 void Context::endRender() {
-    pDisplayQueue->present(!fullscreen);
+    pDisplayQueue->present(false);
 }
 
 void Context::beginDirect() {

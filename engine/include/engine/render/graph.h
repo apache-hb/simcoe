@@ -52,50 +52,6 @@ namespace simcoe::render {
         }
     };
 
-    template<typename T>
-    struct IAnyResourceHandle : IResourceHandle {
-        using IResourceHandle::IResourceHandle;
-        virtual ~IAnyResourceHandle() = default;
-
-        void destroy() override {
-            delete pResource;
-        }
-
-        rhi::DeviceResource* getResource() const final override { return pResource; }
-        rhi::ResourceState getCurrentState() const final override { return currentState; }
-        void setCurrentState(rhi::ResourceState state) final override { currentState = state; }
-
-    protected:
-        T *getBuffer() const { return pResource; }
-        void setResource(T *pResource) { this->pResource = pResource; }
-
-    private:
-        T *pResource;
-        rhi::ResourceState currentState;
-    };
-
-    template<typename T>
-    struct IShaderResourceHandle : IAnyResourceHandle<T> {
-        using Super = IAnyResourceHandle<T>;
-        using Super::Super;
-        virtual ~IShaderResourceHandle() = default;
-
-        void destroy() override {
-            auto *pSrvHeap = this->ctx->getSrvHeap();
-            pSrvHeap->release(getSrvIndex());
-
-            Super::destroy();
-        }
-
-        ShaderResourceAlloc::Index getSrvIndex() const final override { return srvIndex; }
-
-    protected:
-        void setSrvIndex(ShaderResourceAlloc::Index index) { srvIndex = index; }
-
-    private:
-        ShaderResourceAlloc::Index srvIndex;
-    };
-
     struct BasePassAttachment {
         virtual ~BasePassAttachment() = default;
         virtual IResourceHandle *getHandle() const = 0;
@@ -162,7 +118,7 @@ namespace simcoe::render {
             return pHandle;
         }
 
-        void resizeDisplay(UINT width, UINT height);
+        void resizeDisplay(UINT width, UINT height, bool bFullscreen);
         void resizeRender(UINT width, UINT height);
         void changeBackBufferCount(UINT count);
         void changeAdapter(UINT index);

@@ -3,13 +3,13 @@
 using namespace simcoe;
 using namespace simcoe::render;
 
-void Graph::resizeDisplay(UINT width, UINT height) {
+void Graph::resizeDisplay(UINT width, UINT height, bool bFullscreen) {
     const auto& createInfo = ctx->getCreateInfo();
     if (width == createInfo.displayWidth && height == createInfo.displayHeight)
         return;
 
     changeData(StateDep::eDepDisplaySize, [=] {
-        ctx->changeDisplaySize(width, height);
+        ctx->changeDisplaySize(width, height, bFullscreen);
     });
 }
 

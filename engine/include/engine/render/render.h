@@ -112,7 +112,7 @@ namespace simcoe::render {
 
         // actions
 
-        void changeDisplaySize(UINT width, UINT height);
+        void changeDisplaySize(UINT width, UINT height, bool bFullscreen);
         void changeRenderSize(UINT width, UINT height);
         void changeBackBufferCount(UINT count);
         void changeAdapter(size_t index);
@@ -306,7 +306,11 @@ namespace simcoe::render {
 
         // state
     public:
-        bool fullscreen = false;
+        // modifiable state
+        bool bAllowTearing = false;
+
+        // info
+        bool bReportedFullscreen = false;
         RenderTargetAlloc::Index currentRenderTarget = RenderTargetAlloc::Index::eInvalid;
     };
 }

@@ -20,6 +20,19 @@ namespace {
     Window *getWindow(HWND hWnd) {
         return reinterpret_cast<Window *>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
     }
+
+    RECT getNearestMonitorCoords(HWND hWindow) {
+        RECT rect;
+        GetWindowRect(hWindow, &rect);
+
+        POINT pt = { rect.left, rect.top };
+        HMONITOR hMonitor = MonitorFromPoint(pt, MONITOR_DEFAULTTOPRIMARY);
+
+        MONITORINFO info = { sizeof(MONITORINFO) };
+        GetMonitorInfoA(hMonitor, &info);
+
+        return info.rcMonitor;
+    }
 }
 
 // window callback
@@ -39,33 +52,23 @@ LRESULT CALLBACK Window::callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
         pWindow->pCallbacks->onClose();
         return 0;
 
-    case WM_EXITSIZEMOVE: {
-        RECT rect;
-        GetClientRect(hWnd, &rect);
-        pWindow->endResize(rect.right - rect.left, rect.bottom - rect.top);
-        return 0;
-    }
+    case WM_ENTERSIZEMOVE:
+        pWindow->beginUserResize();
+        break;
 
-    case WM_SIZE: {
-        if (wParam != SIZE_MAXIMIZED && wParam != SIZE_RESTORED) {
-            return 0;
-        }
-
-        RECT rect;
-        GetClientRect(hWnd, &rect);
-        pWindow->endResize(rect.right - rect.left, rect.bottom - rect.top);
+    case WM_EXITSIZEMOVE:
+        pWindow->endUserResize();
         return 0;
-    }
+
+    case WM_SIZE:
+        pWindow->doSizeChange(wParam, LOWORD(lParam), HIWORD(lParam));
+        return 0;
 
     default:
         break;
     }
 
-    if (pWindow == nullptr) {
-        return DefWindowProc(hWnd, uMsg, wParam, lParam);
-    }
-
-    if (pWindow->pCallbacks->onEvent(hWnd, uMsg, wParam, lParam)) {
+    if (pWindow != nullptr && pWindow->pCallbacks->onEvent(hWnd, uMsg, wParam, lParam)) {
         return 0;
     }
 
@@ -103,8 +106,41 @@ Window::~Window() {
 
 // callbacks
 
-void Window::endResize(UINT newWidth, UINT newHeight) {
-    pCallbacks->onResize(newWidth, newHeight);
+void Window::doResize(int width, int height, bool fullscreen) {
+    logInfo("resize: {} {} {}", width, height, fullscreen);
+
+    pCallbacks->onResize({
+        .width = width,
+        .height = height,
+        .bFullscreen = fullscreen
+    });
+}
+
+void Window::doSizeChange(WPARAM wParam, int width, int height) {
+    if (bUserIsResizing) { return; }
+
+    switch (wParam) {
+    case SIZE_RESTORED:
+        doResize(width, height, false);
+        break;
+
+    case SIZE_MAXIMIZED:
+        doResize(width, height, true);
+        break;
+
+    default:
+        break;
+    }
+}
+
+void Window::beginUserResize() {
+    bUserIsResizing = true;
+}
+
+void Window::endUserResize() {
+    bUserIsResizing = false;
+    RECT rect = getClientCoords();
+    doResize(rect.right - rect.left, rect.bottom - rect.top, false);
 }
 
 // window getters
@@ -119,24 +155,26 @@ math::int2 Window::getSize() const {
     return math::int2{rect.right - rect.left, rect.bottom - rect.top};
 }
 
-RECT Window::getCoords() const {
+RECT Window::getWindowCoords() const {
     RECT rect;
     GetWindowRect(hWindow, &rect);
     return rect;
 }
 
+RECT Window::getClientCoords() const {
+    RECT rect;
+    GetClientRect(hWindow, &rect);
+    return rect;
+}
+
 void Window::enterFullscreen() {
     SetWindowLong(hWindow, GWL_STYLE, WS_POPUP | WS_VISIBLE);
-    SetWindowLong(hWindow, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_LAYERED);
+    ShowWindow(hWindow, SW_MAXIMIZE);
 }
 
-void Window::exitFullscreen() {
+void Window::exitFullscreen(RECT rect) {
     SetWindowLong(hWindow, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
-    SetWindowLong(hWindow, GWL_EXSTYLE, WS_EX_APPWINDOW);
-}
-
-void Window::moveWindow(RECT rect) {
-    SetWindowPos(hWindow, HWND_TOPMOST, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, 0);
+    SetWindowPos(hWindow, HWND_TOP, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_SHOWWINDOW);
 }
 
 // system api
@@ -166,16 +204,7 @@ Window *System::createWindow(const WindowCreateInfo& createInfo) {
 }
 
 RECT System::nearestDisplayCoords(Window *pWindow) {
-    RECT rect;
-    GetWindowRect(pWindow->getHandle(), &rect);
-
-    POINT pt = { rect.left, rect.top };
-    HMONITOR hMonitor = MonitorFromPoint(pt, MONITOR_DEFAULTTOPRIMARY);
-
-    MONITORINFO info = { sizeof(MONITORINFO) };
-    GetMonitorInfoA(hMonitor, &info);
-
-    return info.rcMonitor;
+    return getNearestMonitorCoords(pWindow->getHandle());
 }
 
 bool System::getEvent() {

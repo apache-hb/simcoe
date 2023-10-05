@@ -1,14 +1,21 @@
 #pragma once
 
+#include <atomic>
 #include <windows.h>
 
 #include "engine/math/math.h"
 
 namespace simcoe {
+    struct ResizeEvent {
+        int width;
+        int height;
+        bool bFullscreen;
+    };
+
     struct IWindowCallbacks {
         virtual ~IWindowCallbacks() = default;
 
-        virtual void onResize(int width, int height) { }
+        virtual void onResize(const ResizeEvent& event) { }
         virtual void onClose() { }
 
         virtual bool onEvent(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { return false; }
@@ -34,16 +41,22 @@ namespace simcoe {
 
         HWND getHandle() const;
         math::int2 getSize() const;
-        RECT getCoords() const;
+        RECT getWindowCoords() const;
+        RECT getClientCoords() const;
 
         void enterFullscreen();
-        void exitFullscreen();
-        void moveWindow(RECT rect);
+        void exitFullscreen(RECT rect);
 
         static LRESULT CALLBACK callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     private:
-        void endResize(UINT width, UINT height);
+        void doResize(int width, int height, bool fullscreen);
+        void doSizeChange(WPARAM wParam, int width, int height);
+
+        void beginUserResize();
+        void endUserResize();
+
+        bool bUserIsResizing = false;
 
         HWND hWindow;
         IWindowCallbacks *pCallbacks;

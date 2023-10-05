@@ -32,6 +32,7 @@ static simcoe::System *pSystem = nullptr;
 static simcoe::Window *pWindow = nullptr;
 static std::jthread *pRenderThread = nullptr;
 static render::Graph *pGraph = nullptr;
+static bool gFullscreen = false;
 
 using WorkItem = std::function<void()>;
 
@@ -45,10 +46,13 @@ struct GameWindow final : IWindowCallbacks {
         pSystem->quit();
     }
 
-    void onResize(int width, int height) override {
-        gWorkQueue.enqueue([width, height] {
-            if (pGraph != nullptr) pGraph->resizeDisplay(width, height);
-            logInfo("resize-display: {}x{}", width, height);
+    void onResize(const ResizeEvent& event) override {
+        gWorkQueue.enqueue([&, event] {
+            auto [width, height, fs] = event;
+
+            if (pGraph) pGraph->resizeDisplay(width, height, fs);
+            gFullscreen = fs;
+            logInfo("resize-display: {}x{} fs={}", width, height, fs);
         });
     }
 
@@ -66,8 +70,7 @@ struct GameGui final : graph::IGuiPass {
     int currentAdapter = 0;
     std::vector<const char*> adapterNames;
 
-    bool fullscreen = false;
-    RECT saveCoords = {};
+    RECT saveWindow = pWindow->getWindowCoords();
 
     void create() override {
         IGuiPass::create();
@@ -117,20 +120,23 @@ struct GameGui final : graph::IGuiPass {
         const auto& createInfo = ctx->getCreateInfo();
         ImGui::Text("present: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
         ImGui::Text("render: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
-        if (ImGui::Checkbox("fullscreen", &fullscreen)) {
-            gWorkQueue.enqueue([this] {
-                if (fullscreen) {
-                    saveCoords = pWindow->getCoords();
-                    RECT coords = pSystem->nearestDisplayCoords(pWindow);
+        if (ImGui::Checkbox("fullscreen", &gFullscreen)) {
+            gWorkQueue.enqueue([this, fs = gFullscreen] {
+                if (fs) {
+                    saveWindow = pWindow->getWindowCoords();
+                    RECT monitorCoords = pSystem->nearestDisplayCoords(pWindow);
+
                     pWindow->enterFullscreen();
-                    pWindow->moveWindow(coords);
+                    pGraph->resizeDisplay(monitorCoords.right - monitorCoords.left, monitorCoords.bottom - monitorCoords.top, true);
                 } else {
-                    pWindow->exitFullscreen();
-                    pWindow->moveWindow(saveCoords);
+                    pWindow->exitFullscreen(saveWindow);
+                    pGraph->resizeDisplay(saveWindow.right - saveWindow.left, saveWindow.bottom - saveWindow.top, false);
                 }
-                logInfo("set-fullscreen: {}", fullscreen);
             });
         }
+
+        ImGui::Checkbox("tearing", &ctx->bAllowTearing);
+        ImGui::Text("dxgi reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
 
         if (ImGui::SliderInt2("render size", renderSize, 64, 4096)) {
             gWorkQueue.enqueue([this] {

@@ -6,6 +6,50 @@ using namespace simcoe;
 using namespace simcoe::render;
 
 namespace editor::graph {
+    template<typename T>
+    struct IAnyResourceHandle : IResourceHandle {
+        using IResourceHandle::IResourceHandle;
+        virtual ~IAnyResourceHandle() = default;
+
+        void destroy() override {
+            delete pResource;
+        }
+
+        rhi::DeviceResource* getResource() const final override { return pResource; }
+        rhi::ResourceState getCurrentState() const final override { return currentState; }
+        void setCurrentState(rhi::ResourceState state) final override { currentState = state; }
+
+    protected:
+        T *getBuffer() const { return pResource; }
+        void setResource(T *pResource) { this->pResource = pResource; }
+
+    private:
+        T *pResource;
+        rhi::ResourceState currentState;
+    };
+
+    template<typename T>
+    struct IShaderResourceHandle : IAnyResourceHandle<T> {
+        using Super = IAnyResourceHandle<T>;
+        using Super::Super;
+        virtual ~IShaderResourceHandle() = default;
+
+        void destroy() override {
+            auto *pSrvHeap = this->ctx->getSrvHeap();
+            pSrvHeap->release(getSrvIndex());
+
+            Super::destroy();
+        }
+
+        ShaderResourceAlloc::Index getSrvIndex() const final override { return srvIndex; }
+
+    protected:
+        void setSrvIndex(ShaderResourceAlloc::Index index) { srvIndex = index; }
+
+    private:
+        ShaderResourceAlloc::Index srvIndex;
+    };
+
     using ITextureHandle = IShaderResourceHandle<rhi::TextureBuffer>;
     using IUniformHandle = IShaderResourceHandle<rhi::UniformBuffer>;
 
