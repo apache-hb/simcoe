@@ -165,6 +165,29 @@ struct GameGui final : graph::IGuiPass {
         }
 
         ImGui::End();
+
+        ImGui::Begin("render");
+
+        const auto& resources = pGraph->resources;
+        const auto& passes = pGraph->passes;
+
+        ImGui::Text("resources %zu", resources.size());
+        for (auto *pResource : resources) {
+            auto name = pResource->getName();
+            ImGui::BulletText("%s", name.data());
+        }
+
+        ImGui::Text("passes: %zu", passes.size());
+        for (auto *pPass : passes) {
+            auto name = pPass->getName();
+            ImGui::BulletText("%s", name.data());
+            for (auto *pAttachment : pPass->inputs) {
+                auto *pHandle = pAttachment->getHandle();
+                ImGui::BulletText("  %s (expected state: %s)", pHandle->getName().data(), stateToString(pAttachment->requiredState));
+            }
+        }
+
+        ImGui::End();
     }
 };
 
