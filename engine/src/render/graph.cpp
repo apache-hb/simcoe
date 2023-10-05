@@ -8,19 +8,9 @@ void Graph::resizeDisplay(UINT width, UINT height) {
     if (width == createInfo.displayWidth && height == createInfo.displayHeight)
         return;
 
-    lock = true;
-    std::lock_guard guard(renderLock);
-
-    ctx->waitForDirectQueue();
-    ctx->waitForCopyQueue();
-
-    destroyIf(StateDep::eDepDisplaySize);
-
-    ctx->changeDisplaySize(width, height);
-
-    createIf(StateDep::eDepDisplaySize);
-
-    lock = false;
+    changeData(StateDep::eDepDisplaySize, [=] {
+        ctx->changeDisplaySize(width, height);
+    });
 }
 
 void Graph::resizeRender(UINT width, UINT height) {
@@ -28,19 +18,9 @@ void Graph::resizeRender(UINT width, UINT height) {
     if (width == createInfo.renderWidth && height == createInfo.renderHeight)
         return;
 
-    lock = true;
-    std::lock_guard guard(renderLock);
-
-    ctx->waitForDirectQueue();
-    ctx->waitForCopyQueue();
-
-    destroyIf(StateDep::eDepRenderSize);
-
-    ctx->changeRenderSize(width, height);
-
-    createIf(StateDep::eDepRenderSize);
-
-    lock = false;
+    changeData(StateDep::eDepRenderSize, [=] {
+        ctx->changeRenderSize(width, height);
+    });
 }
 
 void Graph::changeBackBufferCount(UINT count) {
@@ -48,19 +28,9 @@ void Graph::changeBackBufferCount(UINT count) {
     if (count == createInfo.backBufferCount)
         return;
 
-    lock = true;
-    std::lock_guard guard(renderLock);
-
-    ctx->waitForDirectQueue();
-    ctx->waitForCopyQueue();
-
-    destroyIf(StateDep::eDepBackBufferCount);
-
-    ctx->changeBackBufferCount(count);
-
-    createIf(StateDep::eDepBackBufferCount);
-
-    lock = false;
+    changeData(StateDep::eDepBackBufferCount, [=] {
+        ctx->changeBackBufferCount(count);
+    });
 }
 
 void Graph::changeAdapter(UINT index) {
@@ -68,19 +38,9 @@ void Graph::changeAdapter(UINT index) {
     if (index == createInfo.adapterIndex)
         return;
 
-    lock = true;
-    std::lock_guard guard(renderLock);
-
-    ctx->waitForDirectQueue();
-    ctx->waitForCopyQueue();
-
-    destroyIf(StateDep::eDepDevice);
-
-    ctx->changeAdapter(index);
-
-    createIf(StateDep::eDepDevice);
-
-    lock = false;
+    changeData(StateDep::eDepDevice, [=] {
+        ctx->changeAdapter(index);
+    });
 }
 
 void Graph::execute() {

@@ -177,6 +177,21 @@ namespace simcoe::render {
 
         void executePass(IRenderPass *pPass);
 
+        template<typename F>
+        void changeData(StateDep dep, F&& func) {
+            lock = true;
+            std::lock_guard guard(renderLock);
+
+            ctx->waitForDirectQueue();
+            ctx->waitForCopyQueue();
+
+            destroyIf(dep);
+            func();
+            createIf(dep);
+
+            lock = false;
+        }
+
         void createIf(StateDep dep);
         void destroyIf(StateDep dep);
 
