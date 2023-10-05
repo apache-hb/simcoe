@@ -47,16 +47,18 @@ struct UNIFORM_ALIGN UniformData {
 };
 
 void UniformHandle::create() {
-    pResource = ctx->createUniformBuffer(sizeof(UniformData));
-    currentState = render::ResourceState::eShaderResource;
+    auto *pResource = ctx->createUniformBuffer(sizeof(UniformData));
     srvIndex = ctx->mapUniform(pResource, sizeof(UniformData));
+
+    setResource(pResource);
+    setCurrentState(render::ResourceState::eShaderResource);
 }
 
 void UniformHandle::destroy() {
     auto *pSrvHeap = ctx->getSrvHeap();
     pSrvHeap->release(srvIndex);
 
-    delete pResource;
+    delete getResource();
 }
 
 void UniformHandle::update(RenderContext *ctx) {
@@ -69,7 +71,7 @@ void UniformHandle::update(RenderContext *ctx) {
         .aspect = float(createInfo.renderHeight) / float(createInfo.renderWidth)
     };
 
-    pResource->write(&data, sizeof(UniformData));
+    getBuffer()->write(&data, sizeof(UniformData));
 }
 
 ScenePass::ScenePass(RenderContext *ctx, graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform)

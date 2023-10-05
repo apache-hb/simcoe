@@ -59,12 +59,14 @@ void SceneTargetHandle::create() {
         .format = render::PixelFormat::eRGBA8,
     };
 
-    pResource = ctx->createTextureRenderTarget(textureCreateInfo, kClearColour);
-    currentState = render::ResourceState::eShaderResource;
+    auto *pResource = ctx->createTextureRenderTarget(textureCreateInfo, kClearColour);
     rtvIndex = ctx->mapRenderTarget(pResource);
     srvIndex = ctx->mapTexture(pResource);
 
     pResource->setName("scene-target");
+
+    setResource(pResource);
+    setCurrentState(render::ResourceState::eShaderResource);
 }
 
 void SceneTargetHandle::destroy() {
@@ -72,7 +74,7 @@ void SceneTargetHandle::destroy() {
     auto *pSrvHeap = ctx->getSrvHeap();
     pRtvHeap->release(rtvIndex);
     pSrvHeap->release(srvIndex);
-    delete pResource;
+    delete getResource();
 }
 
 ///
@@ -95,9 +97,11 @@ void TextureHandle::create() {
         .format = render::PixelFormat::eRGBA8
     };
 
-    pResource = ctx->createTexture(textureInfo);
+    auto *pResource = ctx->createTexture(textureInfo);
     srvIndex = ctx->mapTexture(pResource);
-    currentState = render::ResourceState::eCopyDest;
+
+    setResource(pResource);
+    setCurrentState(render::ResourceState::eCopyDest);
 
     std::unique_ptr<render::UploadBuffer> pTextureStaging{ctx->createTextureUploadBuffer(textureInfo)};
 
@@ -115,5 +119,5 @@ void TextureHandle::destroy() {
     auto *pSrvHeap = ctx->getSrvHeap();
 
     pSrvHeap->release(srvIndex);
-    delete pResource;
+    delete getResource();
 }

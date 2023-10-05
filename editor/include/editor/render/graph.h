@@ -51,10 +51,15 @@ namespace editor {
         virtual ~ISingleResourceHandle() = default;
 
         render::DeviceResource* getResource() const final override { return pResource; }
+
         render::ResourceState getCurrentState() const final override { return currentState; }
         void setCurrentState(render::ResourceState state) final override { currentState = state; }
 
     protected:
+        T *getBuffer() const { return pResource; }
+        void setResource(T *pResource) { this->pResource = pResource; }
+
+    private:
         T *pResource;
         render::ResourceState currentState;
     };
