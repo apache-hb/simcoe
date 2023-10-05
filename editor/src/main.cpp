@@ -189,7 +189,7 @@ struct GameGui final : graph::IGuiPass {
             auto name = pPass->getName();
             ImGui::BulletText("%s", name.data());
             for (auto *pAttachment : pPass->inputs) {
-                auto *pHandle = pAttachment->getHandle();
+                auto *pHandle = pAttachment->getResourceHandle();
                 ImGui::BulletText("  %s (expected state: %s)", pHandle->getName().data(), stateToString(pAttachment->getRequiredState()));
             }
         }

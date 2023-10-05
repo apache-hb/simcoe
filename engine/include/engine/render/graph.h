@@ -60,30 +60,26 @@ namespace simcoe::render {
     };
 
     struct BasePassAttachment {
-        virtual ~BasePassAttachment() = default;
-        virtual IResourceHandle *getHandle() const = 0;
-
-        BasePassAttachment(rhi::ResourceState requiredState)
-            : requiredState(requiredState)
+        BasePassAttachment(IResourceHandle *pHandle, rhi::ResourceState requiredState)
+            : pHandle(pHandle)
+            , requiredState(requiredState)
         { }
 
+        IResourceHandle *getResourceHandle() const { return pHandle; }
         rhi::ResourceState getRequiredState() const { return requiredState; }
 
     private:
+        IResourceHandle *pHandle = nullptr;
         rhi::ResourceState requiredState;
     };
 
     template<typename T>
     struct PassAttachment : BasePassAttachment {
         PassAttachment(T *pHandle, rhi::ResourceState requiredState)
-            : BasePassAttachment(requiredState)
-            , pHandle(pHandle)
+            : BasePassAttachment(pHandle, requiredState)
         { }
 
-        T *getHandle() const override { return pHandle; }
-
-    private:
-        T *pHandle = nullptr;
+        T *getInner() const { return static_cast<T*>(getResourceHandle()); }
     };
 
     struct IRenderPass : IGraphObject {

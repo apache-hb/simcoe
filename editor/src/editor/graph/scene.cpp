@@ -124,9 +124,9 @@ void ScenePass::destroy() {
 }
 
 void ScenePass::execute() {
-    IResourceHandle *pTarget = pSceneTarget->getHandle();
-    IResourceHandle *pTexture = pTextureHandle->getHandle();
-    UniformHandle *pUniform = pUniformHandle->getHandle();
+    IResourceHandle *pTarget = pSceneTarget->getInner();
+    IResourceHandle *pTexture = pTextureHandle->getInner();
+    UniformHandle *pUniform = pUniformHandle->getInner();
 
     pUniform->update(ctx);
 

@@ -59,7 +59,7 @@ void IGuiPass::destroy() {
 
 void IGuiPass::execute() {
     auto *pCommands = ctx->getDirectCommands();
-    auto *pTarget = pHandle->getHandle();
+    auto *pTarget = pHandle->getInner();
 
     std::lock_guard guard(imguiLock);
 

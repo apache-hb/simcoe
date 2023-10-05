@@ -106,8 +106,8 @@ void PostPass::destroy() {
 }
 
 void PostPass::execute() {
-    IResourceHandle *pTarget = pSceneTarget->getHandle();
-    IResourceHandle *pRenderTarget = pBackBuffers->getHandle();
+    IResourceHandle *pTarget = pSceneTarget->getInner();
+    IResourceHandle *pRenderTarget = pBackBuffers->getInner();
 
     ctx->setPipeline(pPipeline);
     ctx->setDisplay(display);
