@@ -4,7 +4,7 @@
 
 namespace editor::graph {
     struct PostPass final : IRenderPass {
-        PostPass(RenderContext *ctx, graph::SceneTargetHandle *pSceneTarget, graph::SwapChainHandle *pBackBuffers);
+        PostPass(Context *ctx, graph::SceneTargetHandle *pSceneTarget, graph::SwapChainHandle *pBackBuffers);
 
         void create() override;
         void destroy() override;
@@ -22,7 +22,7 @@ namespace editor::graph {
     };
 
     struct PresentPass final : IRenderPass {
-        PresentPass(RenderContext *ctx, graph::SwapChainHandle *pBackBuffers);
+        PresentPass(Context *ctx, graph::SwapChainHandle *pBackBuffers);
 
         void create() override;
         void destroy() override;

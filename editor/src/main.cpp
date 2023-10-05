@@ -1,8 +1,7 @@
 #include "engine/engine.h"
 #include "engine/os/system.h"
 
-#include "editor/render/render.h"
-#include "editor/render/graph.h"
+#include "engine/render/graph.h"
 
 #include "editor/graph/assets.h"
 #include "editor/graph/post.h"
@@ -32,7 +31,7 @@ static constexpr auto kWindowHeight = 1080;
 static simcoe::System *pSystem = nullptr;
 static simcoe::Window *pWindow = nullptr;
 static std::jthread *pRenderThread = nullptr;
-static RenderGraph *pGraph = nullptr;
+static render::Graph *pGraph = nullptr;
 
 using WorkItem = std::function<void()>;
 
@@ -213,7 +212,7 @@ static void commonMain() {
     pWindow = pSystem->createWindow(windowCreateInfo);
     auto [realWidth, realHeight] = pWindow->getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
 
-    const editor::RenderCreateInfo renderCreateInfo = {
+    const render::RenderCreateInfo renderCreateInfo = {
         .hWindow = pWindow->getHandle(),
         .depot = depot,
 
@@ -235,11 +234,11 @@ static void commonMain() {
     });
 
     // move the render context into the render thread to prevent hangs on shutdown
-    editor::RenderContext *pContext = editor::RenderContext::create(renderCreateInfo);
+    render::Context *pContext = render::Context::create(renderCreateInfo);
     pRenderThread = new std::jthread([pContext](std::stop_token token) {
         simcoe::Region region("render thread started", "render thread stopped");
 
-        pGraph = new RenderGraph(pContext);
+        pGraph = new Graph(pContext);
 
         auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
         auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();

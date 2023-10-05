@@ -1,8 +1,9 @@
-#include "editor/render/graph.h"
+#include "engine/render/graph.h"
 
-using namespace editor;
+using namespace simcoe;
+using namespace simcoe::render;
 
-void RenderGraph::resizeDisplay(UINT width, UINT height) {
+void Graph::resizeDisplay(UINT width, UINT height) {
     const auto& createInfo = ctx->getCreateInfo();
     if (width == createInfo.displayWidth && height == createInfo.displayHeight)
         return;
@@ -22,7 +23,7 @@ void RenderGraph::resizeDisplay(UINT width, UINT height) {
     lock = false;
 }
 
-void RenderGraph::resizeRender(UINT width, UINT height) {
+void Graph::resizeRender(UINT width, UINT height) {
     const auto& createInfo = ctx->getCreateInfo();
     if (width == createInfo.renderWidth && height == createInfo.renderHeight)
         return;
@@ -42,7 +43,7 @@ void RenderGraph::resizeRender(UINT width, UINT height) {
     lock = false;
 }
 
-void RenderGraph::changeBackBufferCount(UINT count) {
+void Graph::changeBackBufferCount(UINT count) {
     const auto& createInfo = ctx->getCreateInfo();
     if (count == createInfo.backBufferCount)
         return;
@@ -62,7 +63,7 @@ void RenderGraph::changeBackBufferCount(UINT count) {
     lock = false;
 }
 
-void RenderGraph::changeAdapter(UINT index) {
+void Graph::changeAdapter(UINT index) {
     const auto& createInfo = ctx->getCreateInfo();
     if (index == createInfo.adapterIndex)
         return;
@@ -82,7 +83,7 @@ void RenderGraph::changeAdapter(UINT index) {
     lock = false;
 }
 
-void RenderGraph::execute() {
+void Graph::execute() {
     if (lock) { return; }
 
     std::lock_guard guard(renderLock);
@@ -99,7 +100,7 @@ void RenderGraph::execute() {
     ctx->waitForDirectQueue();
 }
 
-void RenderGraph::createIf(StateDep dep) {
+void Graph::createIf(StateDep dep) {
     for (IResourceHandle *pHandle : resources) {
         if (pHandle->dependsOn(dep)) pHandle->create();
     }
@@ -109,7 +110,7 @@ void RenderGraph::createIf(StateDep dep) {
     }
 }
 
-void RenderGraph::destroyIf(StateDep dep) {
+void Graph::destroyIf(StateDep dep) {
     for (IRenderPass *pPass : passes) {
         if (pPass->dependsOn(dep)) pPass->destroy();
     }
@@ -119,7 +120,7 @@ void RenderGraph::destroyIf(StateDep dep) {
     }
 }
 
-void RenderGraph::executePass(IRenderPass *pPass) {
+void Graph::executePass(IRenderPass *pPass) {
     for (const auto *pInput : pPass->inputs) {
         auto *pHandle = pInput->getHandle();
         auto requiredState = pInput->requiredState;

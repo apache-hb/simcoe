@@ -53,7 +53,7 @@ static constexpr rhi::Display createLetterBoxDisplay(UINT renderWidth, UINT rend
     return { viewport, scissor };
 }
 
-PostPass::PostPass(RenderContext *ctx, graph::SceneTargetHandle *pSceneTarget, graph::SwapChainHandle *pBackBuffers)
+PostPass::PostPass(Context *ctx, graph::SceneTargetHandle *pSceneTarget, graph::SwapChainHandle *pBackBuffers)
     : IRenderPass(ctx, "post", StateDep(eDepDisplaySize | eDepRenderSize))
     , pSceneTarget(addAttachment<graph::SceneTargetHandle>(pSceneTarget, rhi::ResourceState::eShaderResource))
     , pBackBuffers(addAttachment<graph::SwapChainHandle>(pBackBuffers, rhi::ResourceState::eRenderTarget))
@@ -123,7 +123,7 @@ void PostPass::execute() {
 /// present pass
 ///
 
-PresentPass::PresentPass(RenderContext *ctx, graph::SwapChainHandle *pBackBuffers)
+PresentPass::PresentPass(Context *ctx, graph::SwapChainHandle *pBackBuffers)
     : IRenderPass(ctx, "present")
     , pBackBuffers(addAttachment<graph::SwapChainHandle>(pBackBuffers, rhi::ResourceState::ePresent))
 { }

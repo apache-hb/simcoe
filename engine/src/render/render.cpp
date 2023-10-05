@@ -1,14 +1,15 @@
-#include "editor/render/render.h"
+#include "engine/render/render.h"
 
 #include "engine/engine.h"
 
-using namespace editor;
+using namespace simcoe;
+using namespace simcoe::render;
 
-RenderContext *RenderContext::create(const RenderCreateInfo& createInfo) {
-    return new RenderContext(createInfo);
+Context *Context::create(const RenderCreateInfo& createInfo) {
+    return new Context(createInfo);
 }
 
-RenderContext::~RenderContext() {
+Context::~Context() {
     destroyFrameData();
     destroyDisplayData();
     destroyHeaps();
@@ -18,7 +19,7 @@ RenderContext::~RenderContext() {
     delete pContext;
 }
 
-RenderContext::RenderContext(const RenderCreateInfo& createInfo) : createInfo(createInfo) {
+Context::Context(const RenderCreateInfo& createInfo) : createInfo(createInfo) {
     pContext = rhi::Context::create();
 
     createContextData();
@@ -29,18 +30,18 @@ RenderContext::RenderContext(const RenderCreateInfo& createInfo) : createInfo(cr
 }
 
 // create data that depends on the context
-void RenderContext::createContextData() {
+void Context::createContextData() {
     adapters = pContext->getAdapters();
 }
 
-void RenderContext::destroyContextData() {
+void Context::destroyContextData() {
     for (auto pAdapter : adapters) {
         delete pAdapter;
     }
 }
 
 // create data that depends on the device
-void RenderContext::createDeviceData() {
+void Context::createDeviceData() {
     rhi::Adapter* pAdapter = selectAdapter();
     pDevice = pAdapter->createDevice();
 
@@ -53,7 +54,7 @@ void RenderContext::createDeviceData() {
     pFence = pDevice->createFence();
 }
 
-void RenderContext::destroyDeviceData() {
+void Context::destroyDeviceData() {
     delete pFence;
 
     delete pCopyCommands;
@@ -65,7 +66,7 @@ void RenderContext::destroyDeviceData() {
 }
 
 // create data that depends on resolution
-void RenderContext::createDisplayData() {
+void Context::createDisplayData() {
     // create swapchain
     const rhi::DisplayQueueCreateInfo displayCreateInfo = {
         .hWindow = createInfo.hWindow,
@@ -77,12 +78,12 @@ void RenderContext::createDisplayData() {
     pDisplayQueue = pDirectQueue->createDisplayQueue(pContext, displayCreateInfo);
 }
 
-void RenderContext::destroyDisplayData() {
+void Context::destroyDisplayData() {
     delete pDisplayQueue;
 }
 
 // create data that relys on the number of backbuffers
-void RenderContext::createFrameData() {
+void Context::createFrameData() {
     frameIndex = pDisplayQueue->getFrameIndex();
     fullscreen = pDisplayQueue->isFullscreen();
 
@@ -94,7 +95,7 @@ void RenderContext::createFrameData() {
     pDirectCommands = pDevice->createCommands(rhi::CommandType::eDirect, frameData[frameIndex].pMemory);
 }
 
-void RenderContext::destroyFrameData() {
+void Context::destroyFrameData() {
     for (UINT i = 0; i < createInfo.backBufferCount; ++i) {
         delete frameData[i].pMemory;
     }
@@ -104,21 +105,21 @@ void RenderContext::destroyFrameData() {
     delete pDirectCommands;
 }
 
-void RenderContext::createHeaps() {
+void Context::createHeaps() {
     pRenderTargetAlloc = new RenderTargetAlloc(pDevice->createRenderTargetHeap(16), 16);
     pDepthStencilAlloc = new DepthStencilAlloc(pDevice->createDepthStencilHeap(16), 16);
 
     pDataAlloc = new ShaderResourceAlloc(pDevice->createShaderDataHeap(64), 64);
 }
 
-void RenderContext::destroyHeaps() {
+void Context::destroyHeaps() {
     delete pDataAlloc;
 
     delete pDepthStencilAlloc;
     delete pRenderTargetAlloc;
 }
 
-void RenderContext::changeDisplaySize(UINT width, UINT height) {
+void Context::changeDisplaySize(UINT width, UINT height) {
     destroyFrameData();
     createInfo.displayWidth = width;
     createInfo.displayHeight = height;
@@ -127,12 +128,12 @@ void RenderContext::changeDisplaySize(UINT width, UINT height) {
     createFrameData();
 }
 
-void RenderContext::changeRenderSize(UINT width, UINT height) {
+void Context::changeRenderSize(UINT width, UINT height) {
     createInfo.renderWidth = width;
     createInfo.renderHeight = height;
 }
 
-void RenderContext::changeBackBufferCount(UINT count) {
+void Context::changeBackBufferCount(UINT count) {
     destroyFrameData();
 
     createInfo.backBufferCount = count;
@@ -141,7 +142,7 @@ void RenderContext::changeBackBufferCount(UINT count) {
     createFrameData();
 }
 
-void RenderContext::changeAdapter(size_t index) {
+void Context::changeAdapter(size_t index) {
     destroyFrameData();
     destroyHeaps();
     destroyDisplayData();
@@ -155,25 +156,25 @@ void RenderContext::changeAdapter(size_t index) {
     createFrameData();
 }
 
-void RenderContext::beginRender() {
+void Context::beginRender() {
     frameIndex = pDisplayQueue->getFrameIndex();
 }
 
-void RenderContext::endRender() {
+void Context::endRender() {
     pDisplayQueue->present(!fullscreen);
 }
 
-void RenderContext::beginDirect() {
+void Context::beginDirect() {
     pDirectCommands->begin(frameData[frameIndex].pMemory);
     pDirectCommands->setHeap(pDataAlloc->pHeap);
 }
 
-void RenderContext::endDirect() {
+void Context::endDirect() {
     pDirectCommands->end();
     pDirectQueue->execute(pDirectCommands);
 }
 
-void RenderContext::waitForDirectQueue() {
+void Context::waitForDirectQueue() {
     size_t value = directFenceValue++;
     pDirectQueue->signal(pFence, value);
 
@@ -182,17 +183,17 @@ void RenderContext::waitForDirectQueue() {
     }
 }
 
-void RenderContext::beginCopy() {
+void Context::beginCopy() {
     pCopyCommands->begin(pCopyAllocator);
 }
 
-void RenderContext::endCopy() {
+void Context::endCopy() {
     pCopyCommands->end();
     pCopyQueue->execute(pCopyCommands);
     waitForCopyQueue();
 }
 
-void RenderContext::waitForCopyQueue() {
+void Context::waitForCopyQueue() {
     size_t value = copyFenceValue++;
     pCopyQueue->signal(pFence, value);
 

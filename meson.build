@@ -29,9 +29,13 @@ src = [
     # assets
     'engine/src/assets/assets.cpp',
 
-    # render
+    # rhi
     'engine/src/rhi/render.cpp',
     'engine/src/rhi/vendor.cpp',
+
+    # render graph
+    'engine/src/render/render.cpp',
+    'engine/src/render/graph.cpp'
 ]
 
 deps = [
@@ -86,10 +90,6 @@ src = [
     # dear imgui backends
     'editor/src/imgui/backends/imgui_impl_win32.cpp',
     'editor/src/imgui/backends/imgui_impl_dx12.cpp',
-
-    # render
-    'editor/src/editor/render/render.cpp',
-    'editor/src/editor/render/graph.cpp',
 
     # render graph objects
     'editor/src/editor/graph/assets.cpp',

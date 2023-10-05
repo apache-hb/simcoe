@@ -6,19 +6,19 @@
 
 namespace editor::graph {
     struct UniformHandle final : IUniformHandle {
-        UniformHandle(RenderContext *ctx)
+        UniformHandle(Context *ctx)
             : IUniformHandle(ctx, "uniform")
         { }
 
         void create() override;
 
-        void update(RenderContext *ctx);
+        void update(Context *ctx);
     private:
         simcoe::Timer timer;
     };
 
     struct ScenePass final : IRenderPass {
-        ScenePass(RenderContext *ctx, graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform);
+        ScenePass(Context *ctx, graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform);
 
         void create() override;
         void destroy() override;

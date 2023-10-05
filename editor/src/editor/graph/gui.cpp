@@ -11,7 +11,7 @@ namespace {
     std::recursive_mutex imguiLock;
 }
 
-IGuiPass::IGuiPass(RenderContext *ctx, IResourceHandle *pHandle)
+IGuiPass::IGuiPass(Context *ctx, IResourceHandle *pHandle)
     : IRenderPass(ctx, "imgui", eDepDisplaySize)
     , pHandle(addAttachment(pHandle, rhi::ResourceState::eRenderTarget))
 {

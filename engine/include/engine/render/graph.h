@@ -1,8 +1,8 @@
 #pragma once
 
-#include "editor/render/render.h"
+#include "engine/render/render.h"
 
-namespace editor {
+namespace simcoe::render {
     enum StateDep {
         eDepDevice = (1 << 0),
         eDepDisplaySize = (1 << 1),
@@ -13,7 +13,7 @@ namespace editor {
     struct IGraphObject {
         virtual ~IGraphObject() = default;
 
-        IGraphObject(RenderContext *ctx, std::string name, StateDep stateDeps = eDepDevice)
+        IGraphObject(Context *ctx, std::string name, StateDep stateDeps = eDepDevice)
             : ctx(ctx)
             , name(name)
             , stateDeps(StateDep(stateDeps | eDepDevice))
@@ -26,7 +26,7 @@ namespace editor {
         std::string_view getName() const { return name; }
 
     protected:
-        RenderContext *ctx;
+        Context *ctx;
 
     private:
         std::string name;
@@ -35,7 +35,7 @@ namespace editor {
 
     struct IResourceHandle : IGraphObject {
         virtual ~IResourceHandle() = default;
-        IResourceHandle(RenderContext *ctx, std::string name, StateDep stateDeps = eDepDevice)
+        IResourceHandle(Context *ctx, std::string name, StateDep stateDeps = eDepDevice)
             : IGraphObject(ctx, name, stateDeps)
         { }
 
@@ -118,7 +118,7 @@ namespace editor {
 
     struct IRenderPass : IGraphObject {
         virtual ~IRenderPass() = default;
-        IRenderPass(RenderContext *ctx, std::string name, StateDep stateDeps = eDepDevice)
+        IRenderPass(Context *ctx, std::string name, StateDep stateDeps = eDepDevice)
             : IGraphObject(ctx, name, stateDeps)
         { }
 
@@ -135,12 +135,12 @@ namespace editor {
         }
     };
 
-    struct RenderGraph {
-        RenderGraph(RenderContext *ctx)
+    struct Graph {
+        Graph(Context *ctx)
             : ctx(ctx)
         { }
 
-        ~RenderGraph() {
+        ~Graph() {
             destroyIf(eDepDevice); // everything depends on device
         }
 
@@ -183,7 +183,7 @@ namespace editor {
         std::atomic_bool lock;
         std::mutex renderLock;
 
-        RenderContext *ctx;
+        Context *ctx;
 
     public:
         // TODO: make private

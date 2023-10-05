@@ -54,7 +54,7 @@ void UniformHandle::create() {
     setCurrentState(rhi::ResourceState::eShaderResource);
 }
 
-void UniformHandle::update(RenderContext *ctx) {
+void UniformHandle::update(Context *ctx) {
     float time = timer.now();
     const auto& createInfo = ctx->getCreateInfo();
 
@@ -67,7 +67,7 @@ void UniformHandle::update(RenderContext *ctx) {
     getBuffer()->write(&data, sizeof(UniformData));
 }
 
-ScenePass::ScenePass(RenderContext *ctx, graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform)
+ScenePass::ScenePass(Context *ctx, graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform)
     : IRenderPass(ctx, "scene", eDepRenderSize)
     , pSceneTarget(addAttachment<graph::SceneTargetHandle>(pSceneTarget, rhi::ResourceState::eRenderTarget))
     , pTextureHandle(addAttachment<graph::TextureHandle>(pTexture, rhi::ResourceState::eShaderResource))

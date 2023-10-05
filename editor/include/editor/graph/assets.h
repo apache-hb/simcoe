@@ -1,13 +1,16 @@
 #pragma once
 
-#include "editor/render/graph.h"
+#include "engine/render/graph.h"
+
+using namespace simcoe;
+using namespace simcoe::render;
 
 namespace editor::graph {
     using ITextureHandle = IShaderResourceHandle<rhi::TextureBuffer>;
     using IUniformHandle = IShaderResourceHandle<rhi::UniformBuffer>;
 
     struct SwapChainHandle final : IResourceHandle {
-        SwapChainHandle(RenderContext *ctx)
+        SwapChainHandle(Context *ctx)
             : IResourceHandle(ctx, "swapchain.rtv", StateDep(eDepDisplaySize | eDepBackBufferCount))
         { }
 
@@ -30,7 +33,7 @@ namespace editor::graph {
     };
 
     struct SceneTargetHandle final : ITextureHandle {
-        SceneTargetHandle(RenderContext *ctx)
+        SceneTargetHandle(Context *ctx)
             : ITextureHandle(ctx, "texture.rtv", eDepRenderSize)
         { }
 
@@ -48,7 +51,7 @@ namespace editor::graph {
     };
 
     struct TextureHandle final : ITextureHandle {
-        TextureHandle(RenderContext *ctx, std::string name);
+        TextureHandle(Context *ctx, std::string name);
 
         void create() override;
 

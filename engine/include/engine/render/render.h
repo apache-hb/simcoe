@@ -4,12 +4,10 @@
 #include "engine/rhi/rhi.h"
 #include "engine/memory/bitmap.h"
 
-namespace editor {
-    using namespace simcoe;
-
+namespace simcoe::render {
     // forward declarations
 
-    struct RenderContext;
+    struct Context;
 
     // external api types
 
@@ -90,13 +88,13 @@ namespace editor {
         rhi::CommandMemory *pMemory;
     };
 
-    struct RenderContext {
+    struct Context {
         static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
         static constexpr math::float4 kBlackClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
 
-        static RenderContext *create(const RenderCreateInfo& createInfo);
+        static Context *create(const RenderCreateInfo& createInfo);
 
-        ~RenderContext();
+        ~Context();
 
         void flush();
 
@@ -242,7 +240,7 @@ namespace editor {
         }
 
     private:
-        RenderContext(const RenderCreateInfo& createInfo);
+        Context(const RenderCreateInfo& createInfo);
 
         // state selection
 
