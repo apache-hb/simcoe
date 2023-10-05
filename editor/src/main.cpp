@@ -96,12 +96,12 @@ struct GameGui final : graph::IGuiPass {
         adapterNames.clear();
     }
 
-    static constexpr const char *stateToString(render::ResourceState state) {
+    static constexpr const char *stateToString(rhi::ResourceState state) {
         switch (state) {
-        case render::ResourceState::ePresent: return "present";
-        case render::ResourceState::eRenderTarget: return "render-target";
-        case render::ResourceState::eShaderResource: return "shader-resource";
-        case render::ResourceState::eCopyDest: return "copy-dest";
+        case rhi::ResourceState::ePresent: return "present";
+        case rhi::ResourceState::eRenderTarget: return "render-target";
+        case rhi::ResourceState::eShaderResource: return "shader-resource";
+        case rhi::ResourceState::eCopyDest: return "copy-dest";
 
         default: return "unknown";
         }

@@ -1,4 +1,4 @@
-#include "engine/render/render.h"
+#include "engine/rhi/rhi.h"
 
 #include "engine/engine.h"
 
@@ -11,7 +11,7 @@
 using Microsoft::WRL::ComPtr;
 
 namespace math = simcoe::math;
-using namespace simcoe::render;
+using namespace simcoe::rhi;
 
 #define HR_CHECK(expr) \
     do { \

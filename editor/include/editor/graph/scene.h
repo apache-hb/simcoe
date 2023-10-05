@@ -29,11 +29,11 @@ namespace editor::graph {
         PassAttachment<graph::TextureHandle> *pTextureHandle;
         PassAttachment<graph::UniformHandle> *pUniformHandle;
 
-        render::Display display;
+        rhi::Display display;
 
-        render::PipelineState *pPipeline;
+        rhi::PipelineState *pPipeline;
 
-        render::VertexBuffer *pQuadVertexBuffer;
-        render::IndexBuffer *pQuadIndexBuffer;
+        rhi::VertexBuffer *pQuadVertexBuffer;
+        rhi::IndexBuffer *pQuadIndexBuffer;
     };
 }

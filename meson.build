@@ -30,8 +30,8 @@ src = [
     'engine/src/assets/assets.cpp',
 
     # render
-    'engine/src/render/render.cpp',
-    'engine/src/render/vendor.cpp',
+    'engine/src/rhi/render.cpp',
+    'engine/src/rhi/vendor.cpp',
 ]
 
 deps = [

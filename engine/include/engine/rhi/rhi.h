@@ -14,7 +14,7 @@
 
 #define UNIFORM_ALIGN alignas(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
 
-namespace simcoe::render {
+namespace simcoe::rhi {
     // forwards
 
     struct Context;

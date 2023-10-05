@@ -8,12 +8,12 @@ void SwapChainHandle::create() {
     targets.resize(createInfo.backBufferCount);
 
     for (UINT i = 0; i < createInfo.backBufferCount; i++) {
-        render::RenderTarget *pTarget = ctx->getRenderTarget(i);
+        rhi::RenderTarget *pTarget = ctx->getRenderTarget(i);
         RenderTargetAlloc::Index rtvIndex = ctx->mapRenderTarget(pTarget);
 
         pTarget->setName("swapchain-target-" + std::to_string(i));
 
-        targets[i] = { pTarget, rtvIndex, render::ResourceState::ePresent };
+        targets[i] = { pTarget, rtvIndex, rhi::ResourceState::ePresent };
     }
 }
 
@@ -29,15 +29,15 @@ void SwapChainHandle::destroy() {
     targets.clear();
 }
 
-render::ResourceState SwapChainHandle::getCurrentState() const {
+rhi::ResourceState SwapChainHandle::getCurrentState() const {
     return targets[ctx->getFrameIndex()].state;
 }
 
-void SwapChainHandle::setCurrentState(render::ResourceState state) {
+void SwapChainHandle::setCurrentState(rhi::ResourceState state) {
     targets[ctx->getFrameIndex()].state = state;
 }
 
-render::DeviceResource *SwapChainHandle::getResource() const {
+rhi::DeviceResource *SwapChainHandle::getResource() const {
     return targets[ctx->getFrameIndex()].pRenderTarget;
 }
 
@@ -53,10 +53,10 @@ RenderTargetAlloc::Index SwapChainHandle::getRtvIndex() const {
 void SceneTargetHandle::create() {
     const auto& createInfo = ctx->getCreateInfo();
 
-    const render::TextureInfo textureCreateInfo = {
+    const rhi::TextureInfo textureCreateInfo = {
         .width = createInfo.renderWidth,
         .height = createInfo.renderHeight,
-        .format = render::PixelFormat::eRGBA8,
+        .format = rhi::PixelFormat::eRGBA8,
     };
 
     auto *pResource = ctx->createTextureRenderTarget(textureCreateInfo, kClearColour);
@@ -65,7 +65,7 @@ void SceneTargetHandle::create() {
     pResource->setName("scene-target");
 
     setResource(pResource);
-    setCurrentState(render::ResourceState::eShaderResource);
+    setCurrentState(rhi::ResourceState::eShaderResource);
     setSrvIndex(ctx->mapTexture(pResource));
 }
 
@@ -90,20 +90,20 @@ void TextureHandle::create() {
     const auto& createInfo = ctx->getCreateInfo();
     assets::Image image = createInfo.depot.loadImage(name);
 
-    const render::TextureInfo textureInfo = {
+    const rhi::TextureInfo textureInfo = {
         .width = image.width,
         .height = image.height,
 
-        .format = render::PixelFormat::eRGBA8
+        .format = rhi::PixelFormat::eRGBA8
     };
 
     auto *pResource = ctx->createTexture(textureInfo);
 
     setResource(pResource);
     setSrvIndex(ctx->mapTexture(pResource));
-    setCurrentState(render::ResourceState::eCopyDest);
+    setCurrentState(rhi::ResourceState::eCopyDest);
 
-    std::unique_ptr<render::UploadBuffer> pTextureStaging{ctx->createTextureUploadBuffer(textureInfo)};
+    std::unique_ptr<rhi::UploadBuffer> pTextureStaging{ctx->createTextureUploadBuffer(textureInfo)};
 
     pResource->setName(name);
     pResource->setName("staging(" + name + ")");

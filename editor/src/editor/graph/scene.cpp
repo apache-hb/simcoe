@@ -9,15 +9,15 @@ using namespace editor::graph;
 /// create display helper functions
 ///
 
-constexpr render::Display createDisplay(UINT width, UINT height) {
-    render::Viewport viewport = {
+constexpr rhi::Display createDisplay(UINT width, UINT height) {
+    rhi::Viewport viewport = {
         .width = float(width),
         .height = float(height),
         .minDepth = 0.0f,
         .maxDepth = 1.0f
     };
 
-    render::Scissor scissor = {
+    rhi::Scissor scissor = {
         .right = LONG(width),
         .bottom = LONG(height)
     };
@@ -51,7 +51,7 @@ void UniformHandle::create() {
 
     setResource(pResource);
     setSrvIndex(ctx->mapUniform(pResource, sizeof(UniformData)));
-    setCurrentState(render::ResourceState::eShaderResource);
+    setCurrentState(rhi::ResourceState::eShaderResource);
 }
 
 void UniformHandle::update(RenderContext *ctx) {
@@ -69,9 +69,9 @@ void UniformHandle::update(RenderContext *ctx) {
 
 ScenePass::ScenePass(RenderContext *ctx, graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform)
     : IRenderPass(ctx, "scene", eDepRenderSize)
-    , pSceneTarget(addAttachment<graph::SceneTargetHandle>(pSceneTarget, render::ResourceState::eRenderTarget))
-    , pTextureHandle(addAttachment<graph::TextureHandle>(pTexture, render::ResourceState::eShaderResource))
-    , pUniformHandle(addAttachment<graph::UniformHandle>(pUniform, render::ResourceState::eShaderResource))
+    , pSceneTarget(addAttachment<graph::SceneTargetHandle>(pSceneTarget, rhi::ResourceState::eRenderTarget))
+    , pTextureHandle(addAttachment<graph::TextureHandle>(pTexture, rhi::ResourceState::eShaderResource))
+    , pUniformHandle(addAttachment<graph::UniformHandle>(pUniform, rhi::ResourceState::eShaderResource))
 { }
 
 void ScenePass::create() {
@@ -79,36 +79,36 @@ void ScenePass::create() {
     display = createDisplay(createInfo.renderWidth, createInfo.renderHeight);
 
     // create pipeline
-    const render::PipelineCreateInfo psoCreateInfo = {
+    const rhi::PipelineCreateInfo psoCreateInfo = {
         .vertexShader = createInfo.depot.loadBlob("quad.vs.cso"),
         .pixelShader = createInfo.depot.loadBlob("quad.ps.cso"),
 
         .attributes = {
-            { "POSITION", offsetof(Vertex, position), render::TypeFormat::eFloat3 },
-            { "TEXCOORD", offsetof(Vertex, uv), render::TypeFormat::eFloat2 }
+            { "POSITION", offsetof(Vertex, position), rhi::TypeFormat::eFloat3 },
+            { "TEXCOORD", offsetof(Vertex, uv), rhi::TypeFormat::eFloat2 }
         },
 
         .textureInputs = {
-            { render::InputVisibility::ePixel, 0, true }
+            { rhi::InputVisibility::ePixel, 0, true }
         },
 
         .uniformInputs = {
-            { render::InputVisibility::eVertex, 0, false }
+            { rhi::InputVisibility::eVertex, 0, false }
         },
 
         .samplers = {
-            { render::InputVisibility::ePixel, 0 }
+            { rhi::InputVisibility::ePixel, 0 }
         }
     };
 
     pPipeline = ctx->createPipelineState(psoCreateInfo);
 
     // create vertex data
-    std::unique_ptr<render::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(kQuadVerts.data(), kQuadVerts.size() * sizeof(Vertex))};
-    std::unique_ptr<render::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(kQuadIndices.data(), kQuadIndices.size() * sizeof(uint16_t))};
+    std::unique_ptr<rhi::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(kQuadVerts.data(), kQuadVerts.size() * sizeof(Vertex))};
+    std::unique_ptr<rhi::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(kQuadIndices.data(), kQuadIndices.size() * sizeof(uint16_t))};
 
     pQuadVertexBuffer = ctx->createVertexBuffer(kQuadVerts.size(), sizeof(Vertex));
-    pQuadIndexBuffer = ctx->createIndexBuffer(kQuadIndices.size(), render::TypeFormat::eUint16);
+    pQuadIndexBuffer = ctx->createIndexBuffer(kQuadIndices.size(), rhi::TypeFormat::eUint16);
 
     ctx->beginCopy();
     ctx->copyBuffer(pQuadVertexBuffer, pVertexStaging.get());

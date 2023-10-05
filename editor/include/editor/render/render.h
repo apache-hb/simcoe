@@ -1,7 +1,7 @@
 #pragma once
 
 #include "engine/assets/assets.h"
-#include "engine/render/render.h"
+#include "engine/rhi/rhi.h"
 #include "engine/memory/bitmap.h"
 
 namespace editor {
@@ -40,7 +40,7 @@ namespace editor {
     struct DescriptorAlloc {
         using Index = engine::BitMap::Index;
 
-        DescriptorAlloc(render::DescriptorHeap *pHeap, size_t size)
+        DescriptorAlloc(rhi::DescriptorHeap *pHeap, size_t size)
             : pHeap(pHeap)
             , mem(size)
         { }
@@ -66,15 +66,15 @@ namespace editor {
             mem.release(index);
         }
 
-        render::HostHeapOffset hostOffset(Index index) const {
+        rhi::HostHeapOffset hostOffset(Index index) const {
             return pHeap->hostOffset(size_t(index));
         }
 
-        render::DeviceHeapOffset deviceOffset(Index index) const {
+        rhi::DeviceHeapOffset deviceOffset(Index index) const {
             return pHeap->deviceOffset(size_t(index));
         }
 
-        render::DescriptorHeap *pHeap;
+        rhi::DescriptorHeap *pHeap;
         engine::BitMap mem;
     };
 
@@ -87,7 +87,7 @@ namespace editor {
     using DepthStencilAlloc = DescriptorAlloc<DepthStencilHeap>;
 
     struct FrameData {
-        render::CommandMemory *pMemory;
+        rhi::CommandMemory *pMemory;
     };
 
     struct RenderContext {
@@ -123,63 +123,63 @@ namespace editor {
         const RenderCreateInfo& getCreateInfo() const { return createInfo; }
         size_t getFrameIndex() const { return frameIndex; }
 
-        std::vector<render::Adapter*> &getAdapters() { return adapters; }
+        std::vector<rhi::Adapter*> &getAdapters() { return adapters; }
 
-        render::Device *getDevice() const { return pDevice; }
-        render::Commands *getDirectCommands() const { return pDirectCommands; }
+        rhi::Device *getDevice() const { return pDevice; }
+        rhi::Commands *getDirectCommands() const { return pDirectCommands; }
 
         ShaderResourceAlloc *getSrvHeap() { return pDataAlloc; }
         RenderTargetAlloc *getRtvHeap() { return pRenderTargetAlloc; }
 
-        render::RenderTarget *getRenderTarget(size_t index) { return pDisplayQueue->getRenderTarget(index); }
+        rhi::RenderTarget *getRenderTarget(size_t index) { return pDisplayQueue->getRenderTarget(index); }
 
         // create resources
-        render::TextureBuffer *createTextureRenderTarget(const render::TextureInfo& createInfo, const math::float4& clearColour) {
+        rhi::TextureBuffer *createTextureRenderTarget(const rhi::TextureInfo& createInfo, const math::float4& clearColour) {
             return pDevice->createTextureRenderTarget(createInfo, clearColour);
         }
 
-        render::UniformBuffer *createUniformBuffer(size_t size) {
+        rhi::UniformBuffer *createUniformBuffer(size_t size) {
             return pDevice->createUniformBuffer(size);
         }
 
-        render::PipelineState *createPipelineState(const render::PipelineCreateInfo& createInfo) {
+        rhi::PipelineState *createPipelineState(const rhi::PipelineCreateInfo& createInfo) {
             return pDevice->createPipelineState(createInfo);
         }
 
-        render::UploadBuffer *createUploadBuffer(const void *pData, size_t size) {
+        rhi::UploadBuffer *createUploadBuffer(const void *pData, size_t size) {
             return pDevice->createUploadBuffer(pData, size);
         }
 
-        render::IndexBuffer *createIndexBuffer(size_t length, render::TypeFormat format) {
+        rhi::IndexBuffer *createIndexBuffer(size_t length, rhi::TypeFormat format) {
             return pDevice->createIndexBuffer(length, format);
         }
 
-        render::VertexBuffer *createVertexBuffer(size_t length, size_t stride) {
+        rhi::VertexBuffer *createVertexBuffer(size_t length, size_t stride) {
             return pDevice->createVertexBuffer(length, stride);
         }
 
-        render::UploadBuffer *createTextureUploadBuffer(const render::TextureInfo& info) {
+        rhi::UploadBuffer *createTextureUploadBuffer(const rhi::TextureInfo& info) {
             return pDevice->createTextureUploadBuffer(info);
         }
 
-        render::TextureBuffer *createTexture(const render::TextureInfo& info) {
+        rhi::TextureBuffer *createTexture(const rhi::TextureInfo& info) {
             return pDevice->createTexture(info);
         }
 
         // heap allocators
-        RenderTargetAlloc::Index mapRenderTarget(render::DeviceResource *pResource) {
+        RenderTargetAlloc::Index mapRenderTarget(rhi::DeviceResource *pResource) {
             auto index = pRenderTargetAlloc->alloc();
             pDevice->mapRenderTarget(pRenderTargetAlloc->hostOffset(index), pResource);
             return index;
         }
 
-        ShaderResourceAlloc::Index mapTexture(render::TextureBuffer *pResource) {
+        ShaderResourceAlloc::Index mapTexture(rhi::TextureBuffer *pResource) {
             auto index = pDataAlloc->alloc();
             pDevice->mapTexture(pDataAlloc->hostOffset(index), pResource);
             return index;
         }
 
-        ShaderResourceAlloc::Index mapUniform(render::UniformBuffer *pBuffer, size_t size) {
+        ShaderResourceAlloc::Index mapUniform(rhi::UniformBuffer *pBuffer, size_t size) {
             auto index = pDataAlloc->alloc();
             pDevice->mapUniform(pDataAlloc->hostOffset(index), pBuffer, size);
             return index;
@@ -190,15 +190,15 @@ namespace editor {
         }
 
         // commands
-        void transition(render::DeviceResource *pResource, render::ResourceState from, render::ResourceState to) {
+        void transition(rhi::DeviceResource *pResource, rhi::ResourceState from, rhi::ResourceState to) {
             pDirectCommands->transition(pResource, from, to);
         }
 
-        void setDisplay(const render::Display& display) {
+        void setDisplay(const rhi::Display& display) {
             pDirectCommands->setDisplay(display);
         }
 
-        void setPipeline(render::PipelineState *pPipeline) {
+        void setPipeline(rhi::PipelineState *pPipeline) {
             pDirectCommands->setPipelineState(pPipeline);
         }
 
@@ -222,22 +222,22 @@ namespace editor {
             pDirectCommands->setShaderInput(pDataAlloc->deviceOffset(index), slot);
         }
 
-        void drawIndexBuffer(render::IndexBuffer *pBuffer, size_t count) {
+        void drawIndexBuffer(rhi::IndexBuffer *pBuffer, size_t count) {
             pDirectCommands->setIndexBuffer(pBuffer);
             pDirectCommands->drawIndexBuffer(count);
         }
 
-        void setVertexBuffer(render::VertexBuffer *pBuffer) {
+        void setVertexBuffer(rhi::VertexBuffer *pBuffer) {
             pDirectCommands->setVertexBuffer(pBuffer);
         }
 
         // copy commands
 
-        void copyTexture(render::TextureBuffer *pDst, render::UploadBuffer *pSrc, const render::TextureInfo& info, std::span<const std::byte> data) {
+        void copyTexture(rhi::TextureBuffer *pDst, rhi::UploadBuffer *pSrc, const rhi::TextureInfo& info, std::span<const std::byte> data) {
             pCopyCommands->copyTexture(pDst, pSrc, info, data);
         }
 
-        void copyBuffer(render::DeviceResource *pDst, render::UploadBuffer *pSrc) {
+        void copyBuffer(rhi::DeviceResource *pDst, rhi::UploadBuffer *pSrc) {
             pCopyCommands->copyBuffer(pDst, pSrc);
         }
 
@@ -246,7 +246,7 @@ namespace editor {
 
         // state selection
 
-        render::Adapter* selectAdapter() {
+        rhi::Adapter* selectAdapter() {
             return adapters[createInfo.adapterIndex];
         }
 
@@ -274,31 +274,31 @@ namespace editor {
 
         // device data
 
-        render::Context *pContext;
-        std::vector<render::Adapter*> adapters;
-        render::Device *pDevice;
+        rhi::Context *pContext;
+        std::vector<rhi::Adapter*> adapters;
+        rhi::Device *pDevice;
 
-        render::DeviceQueue *pDirectQueue;
-        render::Commands *pDirectCommands;
+        rhi::DeviceQueue *pDirectQueue;
+        rhi::Commands *pDirectCommands;
 
         // device copy data
 
-        render::DeviceQueue *pCopyQueue;
+        rhi::DeviceQueue *pCopyQueue;
 
-        render::CommandMemory *pCopyAllocator;
-        render::Commands *pCopyCommands;
+        rhi::CommandMemory *pCopyAllocator;
+        rhi::Commands *pCopyCommands;
 
         std::atomic_size_t copyFenceValue = 1;
 
         size_t frameIndex = 0;
         size_t directFenceValue = 1;
-        render::Fence *pFence;
+        rhi::Fence *pFence;
 
         std::vector<FrameData> frameData;
 
         // swapchain resolution dependant data
 
-        render::DisplayQueue *pDisplayQueue;
+        rhi::DisplayQueue *pDisplayQueue;
 
         // heaps
 

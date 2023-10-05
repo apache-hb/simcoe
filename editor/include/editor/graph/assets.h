@@ -3,8 +3,8 @@
 #include "editor/render/graph.h"
 
 namespace editor::graph {
-    using ITextureHandle = IShaderResourceHandle<render::TextureBuffer>;
-    using IUniformHandle = IShaderResourceHandle<render::UniformBuffer>;
+    using ITextureHandle = IShaderResourceHandle<rhi::TextureBuffer>;
+    using IUniformHandle = IShaderResourceHandle<rhi::UniformBuffer>;
 
     struct SwapChainHandle final : IResourceHandle {
         SwapChainHandle(RenderContext *ctx)
@@ -14,16 +14,16 @@ namespace editor::graph {
         void create() override;
         void destroy() override;
 
-        render::ResourceState getCurrentState() const override;
-        void setCurrentState(render::ResourceState state) override;
-        render::DeviceResource *getResource() const override;
+        rhi::ResourceState getCurrentState() const override;
+        void setCurrentState(rhi::ResourceState state) override;
+        rhi::DeviceResource *getResource() const override;
         RenderTargetAlloc::Index getRtvIndex() const override;
 
     private:
         struct RenderTarget {
-            render::RenderTarget *pRenderTarget;
+            rhi::RenderTarget *pRenderTarget;
             RenderTargetAlloc::Index rtvIndex;
-            render::ResourceState state;
+            rhi::ResourceState state;
         };
 
         std::vector<RenderTarget> targets;

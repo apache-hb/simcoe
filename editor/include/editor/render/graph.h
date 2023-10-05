@@ -39,10 +39,10 @@ namespace editor {
             : IGraphObject(ctx, name, stateDeps)
         { }
 
-        virtual render::DeviceResource* getResource() const = 0;
+        virtual rhi::DeviceResource* getResource() const = 0;
 
-        virtual render::ResourceState getCurrentState() const = 0;
-        virtual void setCurrentState(render::ResourceState state) = 0;
+        virtual rhi::ResourceState getCurrentState() const = 0;
+        virtual void setCurrentState(rhi::ResourceState state) = 0;
 
         virtual RenderTargetAlloc::Index getRtvIndex() const { throw std::runtime_error(std::format("resource {} does not have an rtv index", getName())); }
         virtual ShaderResourceAlloc::Index getSrvIndex() const { throw std::runtime_error(std::format("resource {} does not have an srv index", getName())); }
@@ -57,9 +57,9 @@ namespace editor {
             delete pResource;
         }
 
-        render::DeviceResource* getResource() const final override { return pResource; }
-        render::ResourceState getCurrentState() const final override { return currentState; }
-        void setCurrentState(render::ResourceState state) final override { currentState = state; }
+        rhi::DeviceResource* getResource() const final override { return pResource; }
+        rhi::ResourceState getCurrentState() const final override { return currentState; }
+        void setCurrentState(rhi::ResourceState state) final override { currentState = state; }
 
     protected:
         T *getBuffer() const { return pResource; }
@@ -67,7 +67,7 @@ namespace editor {
 
     private:
         T *pResource;
-        render::ResourceState currentState;
+        rhi::ResourceState currentState;
     };
 
     template<typename T>
@@ -96,16 +96,16 @@ namespace editor {
         virtual ~BasePassAttachment() = default;
         virtual IResourceHandle *getHandle() const = 0;
 
-        BasePassAttachment(render::ResourceState requiredState)
+        BasePassAttachment(rhi::ResourceState requiredState)
             : requiredState(requiredState)
         { }
 
-        render::ResourceState requiredState;
+        rhi::ResourceState requiredState;
     };
 
     template<typename T>
     struct PassAttachment : BasePassAttachment {
-        PassAttachment(T *pHandle, render::ResourceState requiredState)
+        PassAttachment(T *pHandle, rhi::ResourceState requiredState)
             : BasePassAttachment(requiredState)
             , pHandle(pHandle)
         { }
@@ -128,7 +128,7 @@ namespace editor {
 
     protected:
         template<typename T>
-        PassAttachment<T> *addAttachment(T *pHandle, render::ResourceState requiredState) {
+        PassAttachment<T> *addAttachment(T *pHandle, rhi::ResourceState requiredState) {
             auto *pResource = new PassAttachment<T>(pHandle, requiredState);
             inputs.push_back(pResource);
             return pResource;

@@ -1,10 +1,6 @@
 #pragma once
 
-#include "editor/render/graph.h"
-
 #include "editor/graph/assets.h"
-
-#include <array>
 
 namespace editor::graph {
     struct PostPass final : IRenderPass {
@@ -18,11 +14,11 @@ namespace editor::graph {
         PassAttachment<graph::SceneTargetHandle> *pSceneTarget;
         PassAttachment<graph::SwapChainHandle> *pBackBuffers;
 
-        render::Display display;
-        render::PipelineState *pPipeline;
+        rhi::Display display;
+        rhi::PipelineState *pPipeline;
 
-        render::VertexBuffer *pScreenQuadVerts;
-        render::IndexBuffer *pScreenQuadIndices;
+        rhi::VertexBuffer *pScreenQuadVerts;
+        rhi::IndexBuffer *pScreenQuadIndices;
     };
 
     struct PresentPass final : IRenderPass {

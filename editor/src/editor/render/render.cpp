@@ -19,7 +19,7 @@ RenderContext::~RenderContext() {
 }
 
 RenderContext::RenderContext(const RenderCreateInfo& createInfo) : createInfo(createInfo) {
-    pContext = render::Context::create();
+    pContext = rhi::Context::create();
 
     createContextData();
     createDeviceData();
@@ -41,14 +41,14 @@ void RenderContext::destroyContextData() {
 
 // create data that depends on the device
 void RenderContext::createDeviceData() {
-    render::Adapter* pAdapter = selectAdapter();
+    rhi::Adapter* pAdapter = selectAdapter();
     pDevice = pAdapter->createDevice();
 
-    pDirectQueue = pDevice->createQueue(render::CommandType::eDirect);
-    pCopyQueue = pDevice->createQueue(render::CommandType::eCopy);
+    pDirectQueue = pDevice->createQueue(rhi::CommandType::eDirect);
+    pCopyQueue = pDevice->createQueue(rhi::CommandType::eCopy);
 
-    pCopyAllocator = pDevice->createCommandMemory(render::CommandType::eCopy);
-    pCopyCommands = pDevice->createCommands(render::CommandType::eCopy, pCopyAllocator);
+    pCopyAllocator = pDevice->createCommandMemory(rhi::CommandType::eCopy);
+    pCopyCommands = pDevice->createCommands(rhi::CommandType::eCopy, pCopyAllocator);
 
     pFence = pDevice->createFence();
 }
@@ -67,7 +67,7 @@ void RenderContext::destroyDeviceData() {
 // create data that depends on resolution
 void RenderContext::createDisplayData() {
     // create swapchain
-    const render::DisplayQueueCreateInfo displayCreateInfo = {
+    const rhi::DisplayQueueCreateInfo displayCreateInfo = {
         .hWindow = createInfo.hWindow,
         .width = createInfo.displayWidth,
         .height = createInfo.displayHeight,
@@ -87,11 +87,11 @@ void RenderContext::createFrameData() {
     fullscreen = pDisplayQueue->isFullscreen();
 
     frameData.resize(createInfo.backBufferCount);
-    for (UINT i = 0; i < createInfo.backBufferCount; ++i) {
-        frameData[i] = { pDevice->createCommandMemory(render::CommandType::eDirect) };
+    for (UINT i = 0; i < createInfo.backBufferCount; i++) {
+        frameData[i] = { pDevice->createCommandMemory(rhi::CommandType::eDirect) };
     }
 
-    pDirectCommands = pDevice->createCommands(render::CommandType::eDirect, frameData[frameIndex].pMemory);
+    pDirectCommands = pDevice->createCommands(rhi::CommandType::eDirect, frameData[frameIndex].pMemory);
 }
 
 void RenderContext::destroyFrameData() {
