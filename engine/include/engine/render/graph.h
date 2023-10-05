@@ -44,8 +44,12 @@ namespace simcoe::render {
         virtual rhi::ResourceState getCurrentState() const = 0;
         virtual void setCurrentState(rhi::ResourceState state) = 0;
 
-        virtual RenderTargetAlloc::Index getRtvIndex() const { throw std::runtime_error(std::format("resource {} does not have an rtv index", getName())); }
-        virtual ShaderResourceAlloc::Index getSrvIndex() const { throw std::runtime_error(std::format("resource {} does not have an srv index", getName())); }
+        virtual RenderTargetAlloc::Index getRtvIndex() const {
+            throw std::runtime_error(std::format("resource {} does not have an rtv index", getName()));
+        }
+        virtual ShaderResourceAlloc::Index getSrvIndex() const {
+            throw std::runtime_error(std::format("resource {} does not have an srv index", getName()));
+        }
     };
 
     template<typename T>
