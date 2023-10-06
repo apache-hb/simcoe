@@ -87,6 +87,11 @@ namespace simcoe::render {
         }
 
     protected:
+        void destroy(Context *ctx) {
+            auto *pRtvHeap = ctx->getRtvHeap();
+            pRtvHeap->release(rtvIndex);
+        }
+
         void setRtvIndex(RenderTargetAlloc::Index index) { rtvIndex = index; }
 
     private:
@@ -107,6 +112,11 @@ namespace simcoe::render {
         }
 
     protected:
+        void destroy(Context *ctx) {
+            auto *pSrvHeap = ctx->getSrvHeap();
+            pSrvHeap->release(srvIndex);
+        }
+
         void setSrvIndex(ShaderResourceAlloc::Index index) { srvIndex = index; }
 
     private:

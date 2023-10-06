@@ -69,11 +69,9 @@ void SceneTargetHandle::create() {
 }
 
 void SceneTargetHandle::destroy() {
-    auto *pRtvHeap = ctx->getRtvHeap();
-    auto *pSrvHeap = ctx->getSrvHeap();
-    pRtvHeap->release(getRtvIndex());
-    pSrvHeap->release(getSrvIndex());
-    delete getResource();
+    ISingleSRVHandle::destroy(ctx);
+    ISingleRTVHandle::destroy(ctx);
+    ISingleResourceHandle::destroy();
 }
 
 ///
@@ -115,7 +113,6 @@ void TextureHandle::create() {
 }
 
 void TextureHandle::destroy() {
-    auto *pSrvHeap = ctx->getSrvHeap();
-    pSrvHeap->release(getSrvIndex());
-    delete getResource();
+    ISingleSRVHandle::destroy(ctx);
+    ISingleResourceHandle::destroy();
 }

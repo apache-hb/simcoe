@@ -22,8 +22,7 @@ namespace editor::graph {
         }
 
         void destroy() override {
-            auto *pSrvHeap = ctx->getSrvHeap();
-            pSrvHeap->release(getSrvIndex());
+            ISingleSRVHandle::destroy(ctx);
             delete getResource();
         }
 
