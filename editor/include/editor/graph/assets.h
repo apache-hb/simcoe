@@ -23,7 +23,7 @@ namespace editor::graph {
 
         void destroy() override {
             ISingleSRVHandle::destroy(ctx);
-            delete getResource();
+            ISingleResourceHandle::destroy();
         }
 
         void update(T *pData) {
