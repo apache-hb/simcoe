@@ -96,13 +96,16 @@ src = [
     'editor/src/editor/graph/post.cpp',
     'editor/src/editor/graph/scene.cpp',
     'editor/src/editor/graph/gui.cpp',
+    'editor/src/editor/graph/game.cpp',
 
     # shaders
     hlsl.process('data/shaders/quad.hlsl'),
     hlsl.process('data/shaders/blit.hlsl'),
+    hlsl.process('data/shaders/game.hlsl'),
 
     # assets
-    copy.process('data/images/uv-coords.png')
+    copy.process('data/images/uv-coords.png'),
+    copy.process('data/images/player.png'),
 ]
 
 executable('editor', src,

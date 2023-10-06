@@ -7,6 +7,7 @@
 #include "editor/graph/post.h"
 #include "editor/graph/scene.h"
 #include "editor/graph/gui.h"
+#include "editor/graph/game.h"
 
 #include "imgui/imgui.h"
 
@@ -33,6 +34,7 @@ static simcoe::Window *pWindow = nullptr;
 static std::jthread *pRenderThread = nullptr;
 static render::Graph *pGraph = nullptr;
 static bool gFullscreen = false;
+GameLevel gLevel;
 
 using WorkItem = std::function<void()>;
 
@@ -116,6 +118,18 @@ struct GameGui final : graph::IGuiPass {
 
     void content() override {
         ImGui::ShowDemoWindow();
+
+        ImGui::Begin("level");
+        ImGui::SliderFloat("player x", &gLevel.playerOffset.x, -1.f, 1.f);
+        ImGui::SliderFloat("player y", &gLevel.playerOffset.y, -1.f, 1.f);
+
+        float angle = gLevel.playerAngle * math::kRadToDeg<float>;
+        ImGui::SliderFloat("player angle", &angle, 0.f, 360.f);
+        gLevel.playerAngle = angle * math::kDegToRad<float>;
+
+        ImGui::SliderFloat("player scale", &gLevel.playerScale, 0.1f, 3.f);
+
+        ImGui::End();
 
         ImGui::Begin("debug");
         auto *pSrvHeap = ctx->getSrvHeap();
@@ -247,25 +261,34 @@ static void commonMain() {
         simcoe::Region region("render thread started", "render thread stopped");
 
         pGraph = new Graph(pContext);
+        try {
+            auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
+            auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
+            auto *pTexture = pGraph->addResource<graph::TextureHandle>("uv-coords.png");
+            auto *pUniform = pGraph->addResource<graph::SceneUniformHandle>();
 
-        auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
-        auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
-        auto *pTexture = pGraph->addResource<graph::TextureHandle>("uv-coords.png");
-        auto *pUniform = pGraph->addResource<graph::SceneUniformHandle>();
+            const graph::GameRenderInfo gameRenderConfig = {
+                .pPlayerTexture = pGraph->addResource<graph::TextureHandle>("player.png"),
+                .pPlayerUniform = pGraph->addResource<graph::GameUniformHandle>(),
+            };
 
-        pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pTexture, pUniform);
-        pGraph->addPass<graph::PostPass>(pSceneTarget->as<ISRVHandle>(), pBackBuffers->as<IRTVHandle>());
-        pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>());
-        pGraph->addPass<graph::PresentPass>(pBackBuffers->as<IRTVHandle>());
+            pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pTexture, pUniform);
+            pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), gameRenderConfig);
+            pGraph->addPass<graph::PostPass>(pSceneTarget->as<ISRVHandle>(), pBackBuffers->as<IRTVHandle>());
+            pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>());
+            pGraph->addPass<graph::PresentPass>(pBackBuffers->as<IRTVHandle>());
 
-        // TODO: if the render loop throws an exception, the program will std::terminate
-        // we should handle this case and restart the render loop
-        while (!token.stop_requested()) {
-            pGraph->execute();
+            // TODO: if the render loop throws an exception, the program will std::terminate
+            // we should handle this case and restart the render loop
+            while (!token.stop_requested()) {
+                pGraph->execute();
+            }
+
+            delete pGraph;
+            delete pContext;
+        } catch (std::runtime_error& err) {
+            simcoe::logError("render thread exception: {}", err.what());
         }
-
-        delete pGraph;
-        delete pContext;
     });
 
     while (pSystem->getEvent()) {

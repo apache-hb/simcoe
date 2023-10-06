@@ -8,10 +8,15 @@ using namespace simcoe::render;
 namespace editor::graph {
     using ITextureHandle = ISingleResourceHandle<rhi::TextureBuffer>;
 
+    struct Vertex {
+        math::float3 position;
+        math::float2 uv;
+    };
+
     template<typename T>
     struct IUniformHandle : ISingleResourceHandle<rhi::UniformBuffer>, ISingleSRVHandle {
-        IUniformHandle(Context *ctx, std::string name)
-            : ISingleResourceHandle(ctx, name)
+        IUniformHandle(Context *ctx, std::string name, StateDep stateDeps = eDepDevice)
+            : ISingleResourceHandle(ctx, name, stateDeps)
         { }
 
         void create() override {

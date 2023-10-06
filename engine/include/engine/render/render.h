@@ -25,13 +25,6 @@ namespace simcoe::render {
         UINT renderHeight;
     };
 
-    // shader data types
-
-    struct Vertex {
-        math::float3 position;
-        math::float2 uv;
-    };
-
     // helper types
 
     template<typename T>

@@ -94,6 +94,8 @@ void TextureHandle::create() {
         .format = rhi::PixelFormat::eRGBA8
     };
 
+    simcoe::logInfo("texture {} ({}x{})", name, image.width, image.height);
+
     auto *pResource = ctx->createTexture(textureInfo);
 
     setResource(pResource);

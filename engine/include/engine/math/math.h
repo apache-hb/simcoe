@@ -1,8 +1,15 @@
 #pragma once
 
 #include <cmath>
+#include <numbers>
 
 namespace simcoe::math {
+    template<typename T>
+    constexpr T kRadToDeg = T(180) / std::numbers::pi_v<T>;
+
+    template<typename T>
+    constexpr T kDegToRad = std::numbers::pi_v<T> / T(180);
+
     template <typename T>
     T clamp(T it, T low, T high) {
         if (it < low)
