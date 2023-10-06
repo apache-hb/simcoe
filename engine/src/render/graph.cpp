@@ -67,6 +67,10 @@ void Graph::execute() {
 }
 
 void Graph::createIf(StateDep dep) {
+    for (IGraphObject *pObject : objects) {
+        if (pObject->dependsOn(dep)) pObject->create();
+    }
+
     for (IResourceHandle *pHandle : resources) {
         if (pHandle->dependsOn(dep)) pHandle->create();
     }
@@ -83,6 +87,10 @@ void Graph::destroyIf(StateDep dep) {
 
     for (IResourceHandle *pHandle : resources) {
         if (pHandle->dependsOn(dep)) pHandle->destroy();
+    }
+
+    for (IGraphObject *pObject : objects) {
+        if (pObject->dependsOn(dep)) pObject->destroy();
     }
 }
 

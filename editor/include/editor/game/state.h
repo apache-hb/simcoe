@@ -1,15 +1,13 @@
 #pragma once
 
-#include "editor/graph/assets.h"
+#include "editor/game/object.h"
 
 namespace editor {
     struct GameLevel {
         math::float2 playerOffset;
         float playerAngle = 0.f;
         float playerScale = 1.f;
-    };
 
-    struct GameState {
-        void loadLevel(GameLevel level);
+        std::vector<StaticMesh> meshes;
     };
 }

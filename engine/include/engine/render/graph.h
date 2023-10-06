@@ -235,6 +235,13 @@ namespace simcoe::render {
             return new ResourceWrapper<T>(pHandle);
         }
 
+        template<typename T, typename... A>
+        T *addObject(A&&... args) {
+            T *pObject = new T(ctx, std::forward<A>(args)...);
+            objects.push_back(pObject);
+            return pObject;
+        }
+
         void setFullscreen(bool bFullscreen);
         void resizeDisplay(UINT width, UINT height);
         void resizeRender(UINT width, UINT height);
@@ -282,5 +289,6 @@ namespace simcoe::render {
         // TODO: make private
         std::vector<IRenderPass*> passes;
         std::vector<IResourceHandle*> resources;
+        std::vector<IGraphObject*> objects;
     };
 }

@@ -177,12 +177,12 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::Text("rtv heap: %zu", rtvAlloc.getSize());
         for (size_t i = 0; i < rtvAlloc.getSize(); i++) {
-            ImGui::BulletText("%zu: %s", i, rtvAlloc.test(engine::BitMap::Index(i)) ? "used" : "free");
+            ImGui::BulletText("%zu: %s", i, rtvAlloc.test(simcoe::BitMap::Index(i)) ? "used" : "free");
         }
 
         ImGui::Text("srv heap: %zu", pSrvHeap->mem.getSize());
         for (size_t i = 0; i < pSrvHeap->mem.getSize(); i++) {
-            ImGui::BulletText("%zu: %s", i, pSrvHeap->mem.test(engine::BitMap::Index(i)) ? "used" : "free");
+            ImGui::BulletText("%zu: %s", i, pSrvHeap->mem.test(simcoe::BitMap::Index(i)) ? "used" : "free");
         }
 
         ImGui::End();

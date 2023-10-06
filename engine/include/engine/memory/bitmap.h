@@ -2,7 +2,7 @@
 
 #include <memory>
 
-namespace engine {
+namespace simcoe {
     namespace detail {
         template<typename T, typename P>
         struct Storage {

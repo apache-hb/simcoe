@@ -9,7 +9,9 @@ namespace simcoe::input {
     };
 
     struct ISource {
+        virtual ~ISource() = default;
 
+        virtual void poll() = 0;
     };
 
     struct IListener {

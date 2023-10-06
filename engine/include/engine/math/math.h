@@ -3,6 +3,8 @@
 #include <cmath>
 #include <numbers>
 
+#include <DirectXMath.h>
+
 namespace simcoe::math {
     template<typename T>
     constexpr T kRadToDeg = T(180) / std::numbers::pi_v<T>;
@@ -568,6 +570,16 @@ namespace simcoe::math {
             auto r1 = Row::from(0, height, 0, 0);
             auto r2 = Row::from(0, 0, range, -1);
             auto r3 = Row::from(0, 0, range * nearLimit, 0);
+            return from(r0, r1, r2, r3);
+        }
+
+        static constexpr Mat4x4 orthographicRH(T width, T height, T nearLimit, T farLimit) {
+            auto range = 1 / (nearLimit - farLimit);
+
+            auto r0 = Row::from(2 / width, 0, 0, 0);
+            auto r1 = Row::from(0, 2 / height, 0, 0);
+            auto r2 = Row::from(0, 0, range, 0);
+            auto r3 = Row::from(0, 0, range * nearLimit, 1);
             return from(r0, r1, r2, r3);
         }
     };

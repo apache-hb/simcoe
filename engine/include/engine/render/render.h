@@ -29,11 +29,11 @@ namespace simcoe::render {
 
     template<typename T>
     struct DescriptorAlloc {
-        using Index = engine::BitMap::Index;
+        using Index = simcoe::BitMap::Index;
 
         DescriptorAlloc(rhi::DescriptorHeap *pHeap, size_t size)
             : pHeap(pHeap)
-            , mem(size)
+            , allocator(size)
         { }
 
         ~DescriptorAlloc() {
@@ -41,11 +41,11 @@ namespace simcoe::render {
         }
 
         void reset() {
-            mem.reset();
+            allocator.reset();
         }
 
         Index alloc() {
-            Index idx = mem.alloc();
+            Index idx = allocator.alloc();
             if (idx == Index::eInvalid) {
                 throw std::runtime_error("out of descriptor heap space");
             }
@@ -54,7 +54,7 @@ namespace simcoe::render {
         }
 
         void release(Index index) {
-            mem.release(index);
+            allocator.release(index);
         }
 
         rhi::HostHeapOffset hostOffset(Index index) const {
@@ -65,8 +65,9 @@ namespace simcoe::render {
             return pHeap->deviceOffset(size_t(index));
         }
 
+    private:
         rhi::DescriptorHeap *pHeap;
-        engine::BitMap mem;
+        simcoe::BitMap allocator;
     };
 
     struct RenderTargetHeap;
