@@ -251,12 +251,12 @@ static void commonMain() {
         auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
         auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
         auto *pTexture = pGraph->addResource<graph::TextureHandle>("uv-coords.png");
-        auto *pUniform = pGraph->addResource<graph::UniformHandle>();
+        auto *pUniform = pGraph->addResource<graph::SceneUniformHandle>();
 
-        pGraph->addPass<graph::ScenePass>(pSceneTarget, pTexture, pUniform);
-        pGraph->addPass<graph::PostPass>(pSceneTarget, pBackBuffers);
-        pGraph->addPass<GameGui>(pBackBuffers);
-        pGraph->addPass<graph::PresentPass>(pBackBuffers);
+        pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pTexture, pUniform);
+        pGraph->addPass<graph::PostPass>(pSceneTarget->as<ISRVHandle>(), pBackBuffers->as<IRTVHandle>());
+        pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>());
+        pGraph->addPass<graph::PresentPass>(pBackBuffers->as<IRTVHandle>());
 
         // TODO: if the render loop throws an exception, the program will std::terminate
         // we should handle this case and restart the render loop

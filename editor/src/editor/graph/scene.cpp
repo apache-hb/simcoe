@@ -39,22 +39,7 @@ static constexpr auto kQuadIndices = std::to_array<uint16_t>({
     1, 2, 3
 });
 
-struct UNIFORM_ALIGN UniformData {
-    math::float2 offset;
-
-    float angle;
-    float aspect;
-};
-
-void UniformHandle::create() {
-    auto *pResource = ctx->createUniformBuffer(sizeof(UniformData));
-
-    setResource(pResource);
-    setSrvIndex(ctx->mapUniform(pResource, sizeof(UniformData)));
-    setCurrentState(rhi::ResourceState::eShaderResource);
-}
-
-void UniformHandle::update(Context *ctx) {
+void SceneUniformHandle::update(Context *ctx) {
     float time = timer.now();
     const auto& createInfo = ctx->getCreateInfo();
 
@@ -67,11 +52,11 @@ void UniformHandle::update(Context *ctx) {
     getBuffer()->write(&data, sizeof(UniformData));
 }
 
-ScenePass::ScenePass(Context *ctx, graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform)
+ScenePass::ScenePass(Context *ctx, ResourceWrapper<IRTVHandle> *pSceneTarget, ResourceWrapper<TextureHandle> *pTexture, ResourceWrapper<SceneUniformHandle> *pUniform)
     : IRenderPass(ctx, "scene", eDepRenderSize)
-    , pSceneTarget(addAttachment<graph::SceneTargetHandle>(pSceneTarget, rhi::ResourceState::eRenderTarget))
-    , pTextureHandle(addAttachment<graph::TextureHandle>(pTexture, rhi::ResourceState::eShaderResource))
-    , pUniformHandle(addAttachment<graph::UniformHandle>(pUniform, rhi::ResourceState::eShaderResource))
+    , pSceneTarget(addAttachment(pSceneTarget, rhi::ResourceState::eRenderTarget))
+    , pTextureHandle(addAttachment(pTexture, rhi::ResourceState::eShaderResource))
+    , pUniformHandle(addAttachment(pUniform, rhi::ResourceState::eShaderResource))
 { }
 
 void ScenePass::create() {
@@ -124,9 +109,9 @@ void ScenePass::destroy() {
 }
 
 void ScenePass::execute() {
-    IResourceHandle *pTarget = pSceneTarget->getInner();
-    IResourceHandle *pTexture = pTextureHandle->getInner();
-    UniformHandle *pUniform = pUniformHandle->getInner();
+    IRTVHandle *pTarget = pSceneTarget->getInner();
+    ISRVHandle *pTexture = pTextureHandle->getInner();
+    SceneUniformHandle *pUniform = pUniformHandle->getInner();
 
     pUniform->update(ctx);
 

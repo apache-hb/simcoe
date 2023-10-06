@@ -60,19 +60,18 @@ void SceneTargetHandle::create() {
     };
 
     auto *pResource = ctx->createTextureRenderTarget(textureCreateInfo, kClearColour);
-    rtvIndex = ctx->mapRenderTarget(pResource);
-
     pResource->setName("scene-target");
 
     setResource(pResource);
     setCurrentState(rhi::ResourceState::eShaderResource);
     setSrvIndex(ctx->mapTexture(pResource));
+    setRtvIndex(ctx->mapRenderTarget(pResource));
 }
 
 void SceneTargetHandle::destroy() {
     auto *pRtvHeap = ctx->getRtvHeap();
     auto *pSrvHeap = ctx->getSrvHeap();
-    pRtvHeap->release(rtvIndex);
+    pRtvHeap->release(getRtvIndex());
     pSrvHeap->release(getSrvIndex());
     delete getResource();
 }
@@ -82,7 +81,7 @@ void SceneTargetHandle::destroy() {
 ///
 
 TextureHandle::TextureHandle(Context *ctx, std::string name)
-    : ITextureHandle(ctx, name)
+    : ISingleResourceHandle(ctx, name)
     , name(name)
 { }
 
@@ -113,4 +112,10 @@ void TextureHandle::create() {
     ctx->copyTexture(pResource, pTextureStaging.get(), textureInfo, image.data);
 
     ctx->endCopy();
+}
+
+void TextureHandle::destroy() {
+    auto *pSrvHeap = ctx->getSrvHeap();
+    pSrvHeap->release(getSrvIndex());
+    delete getResource();
 }

@@ -53,10 +53,10 @@ static constexpr rhi::Display createLetterBoxDisplay(UINT renderWidth, UINT rend
     return { viewport, scissor };
 }
 
-PostPass::PostPass(Context *ctx, graph::SceneTargetHandle *pSceneTarget, graph::SwapChainHandle *pBackBuffers)
+PostPass::PostPass(Context *ctx, ResourceWrapper<ISRVHandle> *pSceneTarget, ResourceWrapper<IRTVHandle> *pBackBuffers)
     : IRenderPass(ctx, "post", StateDep(eDepDisplaySize | eDepRenderSize))
-    , pSceneTarget(addAttachment<graph::SceneTargetHandle>(pSceneTarget, rhi::ResourceState::eShaderResource))
-    , pBackBuffers(addAttachment<graph::SwapChainHandle>(pBackBuffers, rhi::ResourceState::eRenderTarget))
+    , pSceneTarget(addAttachment(pSceneTarget, rhi::ResourceState::eShaderResource))
+    , pBackBuffers(addAttachment(pBackBuffers, rhi::ResourceState::eRenderTarget))
 { }
 
 void PostPass::create() {
@@ -106,8 +106,8 @@ void PostPass::destroy() {
 }
 
 void PostPass::execute() {
-    IResourceHandle *pTarget = pSceneTarget->getInner();
-    IResourceHandle *pRenderTarget = pBackBuffers->getInner();
+    ISRVHandle *pTarget = pSceneTarget->getInner();
+    IRTVHandle *pRenderTarget = pBackBuffers->getInner();
 
     ctx->setPipeline(pPipeline);
     ctx->setDisplay(display);
@@ -123,9 +123,9 @@ void PostPass::execute() {
 /// present pass
 ///
 
-PresentPass::PresentPass(Context *ctx, graph::SwapChainHandle *pBackBuffers)
+PresentPass::PresentPass(Context *ctx, ResourceWrapper<IRTVHandle> *pBackBuffers)
     : IRenderPass(ctx, "present")
-    , pBackBuffers(addAttachment<graph::SwapChainHandle>(pBackBuffers, rhi::ResourceState::ePresent))
+    , pBackBuffers(addAttachment(pBackBuffers, rhi::ResourceState::ePresent))
 { }
 
 void PresentPass::create() {

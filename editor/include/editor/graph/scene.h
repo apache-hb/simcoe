@@ -5,12 +5,17 @@
 #include "engine/os/system.h"
 
 namespace editor::graph {
-    struct UniformHandle final : IUniformHandle {
-        UniformHandle(Context *ctx)
+    struct UNIFORM_ALIGN UniformData {
+        math::float2 offset;
+
+        float angle;
+        float aspect;
+    };
+
+    struct SceneUniformHandle final : IUniformHandle<UniformData> {
+        SceneUniformHandle(Context *ctx)
             : IUniformHandle(ctx, "uniform")
         { }
-
-        void create() override;
 
         void update(Context *ctx);
     private:
@@ -18,16 +23,21 @@ namespace editor::graph {
     };
 
     struct ScenePass final : IRenderPass {
-        ScenePass(Context *ctx, graph::SceneTargetHandle *pSceneTarget, graph::TextureHandle *pTexture, graph::UniformHandle *pUniform);
+        ScenePass(
+            Context *ctx,
+            ResourceWrapper<IRTVHandle> *pSceneTarget,
+            ResourceWrapper<TextureHandle> *pTexture,
+            ResourceWrapper<SceneUniformHandle> *pUniform
+        );
 
         void create() override;
         void destroy() override;
         void execute() override;
 
     private:
-        PassAttachment<graph::SceneTargetHandle> *pSceneTarget;
-        PassAttachment<graph::TextureHandle> *pTextureHandle;
-        PassAttachment<graph::UniformHandle> *pUniformHandle;
+        PassAttachment<IRTVHandle> *pSceneTarget;
+        PassAttachment<TextureHandle> *pTextureHandle;
+        PassAttachment<SceneUniformHandle> *pUniformHandle;
 
         rhi::Display display;
 

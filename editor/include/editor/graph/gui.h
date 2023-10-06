@@ -4,7 +4,7 @@
 
 namespace editor::graph {
     struct IGuiPass : IRenderPass {
-        IGuiPass(Context *ctx, IResourceHandle *pHandle);
+        IGuiPass(Context *ctx, ResourceWrapper<IRTVHandle> *pHandle);
         ~IGuiPass();
 
         virtual void content() = 0;
@@ -17,7 +17,7 @@ namespace editor::graph {
         static LRESULT handleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
     private:
-        PassAttachment<IResourceHandle> *pHandle;
+        PassAttachment<IRTVHandle> *pHandle;
         ShaderResourceAlloc::Index guiUniformIndex;
     };
 }

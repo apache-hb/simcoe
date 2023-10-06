@@ -44,13 +44,33 @@ namespace simcoe::render {
 
         virtual rhi::ResourceState getCurrentState() const = 0;
         virtual void setCurrentState(rhi::ResourceState state) = 0;
+    };
 
-        virtual RenderTargetAlloc::Index getRtvIndex() const {
-            throw std::runtime_error(std::format("resource {} does not have an rtv index", getName()));
+    template<typename T>
+    struct ISingleResourceHandle : IResourceHandle {
+        static_assert(std::is_base_of_v<rhi::DeviceResource, T>);
+
+        virtual ~ISingleResourceHandle() = default;
+        ISingleResourceHandle(Context *ctx, std::string name, StateDep stateDeps = eDepDevice)
+            : IResourceHandle(ctx, name, stateDeps)
+        { }
+
+        void destroy() override {
+            delete pResource;
         }
-        virtual ShaderResourceAlloc::Index getSrvIndex() const {
-            throw std::runtime_error(std::format("resource {} does not have an srv index", getName()));
-        }
+
+        rhi::ResourceState getCurrentState() const final override { return currentState; }
+        void setCurrentState(rhi::ResourceState state) final override { currentState = state; }
+
+        rhi::DeviceResource* getResource() const final override { return pResource; }
+
+    protected:
+        void setResource(T *pResource) { this->pResource = pResource; }
+        T *getBuffer() const { return pResource; }
+
+    private:
+        T *pResource = nullptr;
+        rhi::ResourceState currentState;
     };
 
     struct IRTVHandle {
@@ -59,28 +79,105 @@ namespace simcoe::render {
         virtual RenderTargetAlloc::Index getRtvIndex() const = 0;
     };
 
-    struct BasePassAttachment {
-        BasePassAttachment(IResourceHandle *pHandle, rhi::ResourceState requiredState)
-            : pHandle(pHandle)
-            , requiredState(requiredState)
+    struct ISingleRTVHandle : IRTVHandle {
+        virtual ~ISingleRTVHandle() = default;
+
+        RenderTargetAlloc::Index getRtvIndex() const final override {
+            return rtvIndex;
+        }
+
+    protected:
+        void setRtvIndex(RenderTargetAlloc::Index index) { rtvIndex = index; }
+
+    private:
+        RenderTargetAlloc::Index rtvIndex;
+    };
+
+    struct ISRVHandle {
+        virtual ~ISRVHandle() = default;
+
+        virtual ShaderResourceAlloc::Index getSrvIndex() const = 0;
+    };
+
+    struct ISingleSRVHandle : ISRVHandle {
+        virtual ~ISingleSRVHandle() = default;
+
+        ShaderResourceAlloc::Index getSrvIndex() const final override {
+            return srvIndex;
+        }
+
+    protected:
+        void setSrvIndex(ShaderResourceAlloc::Index index) { srvIndex = index; }
+
+    private:
+        ShaderResourceAlloc::Index srvIndex;
+    };
+
+    ///
+    /// resources allocated by the graph
+    ///
+
+    struct BaseResourceWrapper {
+        BaseResourceWrapper(IResourceHandle *pResource)
+            : pResource(pResource)
         { }
 
-        IResourceHandle *getResourceHandle() const { return pHandle; }
+        IResourceHandle *getHandle() const { return pResource; }
+
+    private:
+        IResourceHandle *pResource = nullptr;
+    };
+
+    template<typename T>
+    struct ResourceWrapper final : BaseResourceWrapper {
+        template<typename O>
+        ResourceWrapper(O *pHandle)
+            : BaseResourceWrapper(pHandle)
+            , pHandle(pHandle)
+        { }
+
+        template<typename O>
+        ResourceWrapper<O> *as() const { return new ResourceWrapper<O>(pHandle); }
+
+        T *getInner() const { return static_cast<T*>(pHandle); }
+    private:
+        T *pHandle = nullptr;
+    };
+
+
+    ///
+    /// render pass attachments
+    ///
+
+    struct BasePassAttachment {
+        BasePassAttachment(rhi::ResourceState requiredState)
+            : requiredState(requiredState)
+        { }
+
+        virtual IResourceHandle *getResourceHandle() const = 0;
         rhi::ResourceState getRequiredState() const { return requiredState; }
 
     private:
-        IResourceHandle *pHandle = nullptr;
         rhi::ResourceState requiredState;
     };
 
     template<typename T>
-    struct PassAttachment : BasePassAttachment {
-        PassAttachment(T *pHandle, rhi::ResourceState requiredState)
-            : BasePassAttachment(pHandle, requiredState)
+    struct PassAttachment final : BasePassAttachment {
+        PassAttachment(ResourceWrapper<T> *pWrap, rhi::ResourceState requiredState)
+            : BasePassAttachment(requiredState)
+            , pWrap(pWrap)
         { }
 
-        T *getInner() const { return static_cast<T*>(getResourceHandle()); }
+        IResourceHandle *getResourceHandle() const override { return pWrap->getHandle(); }
+        T *getInner() const { return pWrap->getInner(); }
+
+    private:
+        ResourceWrapper<T> *pWrap = nullptr;
     };
+
+    ///
+    /// render passes
+    ///
 
     struct IRenderPass : IGraphObject {
         virtual ~IRenderPass() = default;
@@ -94,12 +191,16 @@ namespace simcoe::render {
 
     protected:
         template<typename T>
-        PassAttachment<T> *addAttachment(T *pHandle, rhi::ResourceState requiredState) {
+        PassAttachment<T> *addAttachment(ResourceWrapper<T> *pHandle, rhi::ResourceState requiredState) {
             auto *pResource = new PassAttachment<T>(pHandle, requiredState);
             inputs.push_back(pResource);
             return pResource;
         }
     };
+
+    ///
+    /// render graph
+    ///
 
     struct Graph {
         Graph(Context *ctx)
@@ -118,10 +219,10 @@ namespace simcoe::render {
         }
 
         template<typename T, typename... A>
-        T *addResource(A&&... args) {
+        ResourceWrapper<T> *addResource(A&&... args) {
             T *pHandle = new T(ctx, std::forward<A>(args)...);
             addResourceObject(pHandle);
-            return pHandle;
+            return new ResourceWrapper<T>(pHandle);
         }
 
         void setFullscreen(bool bFullscreen);

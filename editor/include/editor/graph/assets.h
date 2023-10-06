@@ -6,54 +6,33 @@ using namespace simcoe;
 using namespace simcoe::render;
 
 namespace editor::graph {
-    template<typename T>
-    struct IAnyResourceHandle : IResourceHandle {
-        using IResourceHandle::IResourceHandle;
-        virtual ~IAnyResourceHandle() = default;
+    using ITextureHandle = ISingleResourceHandle<rhi::TextureBuffer>;
 
-        void destroy() override {
-            delete pResource;
+    template<typename T>
+    struct IUniformHandle : ISingleResourceHandle<rhi::UniformBuffer>, ISingleSRVHandle {
+        IUniformHandle(Context *ctx, std::string name)
+            : ISingleResourceHandle(ctx, name)
+        { }
+
+        void create() override {
+            auto *pResource = ctx->createUniformBuffer(sizeof(T));
+            setResource(pResource);
+            setSrvIndex(ctx->mapUniform(pResource, sizeof(T)));
+            setCurrentState(rhi::ResourceState::eShaderResource);
         }
 
-        rhi::DeviceResource* getResource() const final override { return pResource; }
-        rhi::ResourceState getCurrentState() const final override { return currentState; }
-        void setCurrentState(rhi::ResourceState state) final override { currentState = state; }
-
-    protected:
-        T *getBuffer() const { return pResource; }
-        void setResource(T *pResource) { this->pResource = pResource; }
-
-    private:
-        T *pResource;
-        rhi::ResourceState currentState;
-    };
-
-    template<typename T>
-    struct IShaderResourceHandle : IAnyResourceHandle<T> {
-        using Super = IAnyResourceHandle<T>;
-        using Super::Super;
-        virtual ~IShaderResourceHandle() = default;
-
         void destroy() override {
-            auto *pSrvHeap = this->ctx->getSrvHeap();
+            auto *pSrvHeap = ctx->getSrvHeap();
             pSrvHeap->release(getSrvIndex());
-
-            Super::destroy();
+            delete getResource();
         }
 
-        ShaderResourceAlloc::Index getSrvIndex() const final override { return srvIndex; }
-
-    protected:
-        void setSrvIndex(ShaderResourceAlloc::Index index) { srvIndex = index; }
-
-    private:
-        ShaderResourceAlloc::Index srvIndex;
+        void update(T *pData) {
+            getBuffer()->write(pData, sizeof(T));
+        }
     };
 
-    using ITextureHandle = IShaderResourceHandle<rhi::TextureBuffer>;
-    using IUniformHandle = IShaderResourceHandle<rhi::UniformBuffer>;
-
-    struct SwapChainHandle final : IResourceHandle {
+    struct SwapChainHandle final : IResourceHandle, IRTVHandle {
         SwapChainHandle(Context *ctx)
             : IResourceHandle(ctx, "swapchain.rtv", StateDep(eDepDisplaySize | eDepBackBufferCount))
         { }
@@ -76,28 +55,22 @@ namespace editor::graph {
         std::vector<RenderTarget> targets;
     };
 
-    struct SceneTargetHandle final : ITextureHandle {
+    struct SceneTargetHandle final : ITextureHandle, ISingleSRVHandle, ISingleRTVHandle {
         SceneTargetHandle(Context *ctx)
-            : ITextureHandle(ctx, "texture.rtv", eDepRenderSize)
+            : ISingleResourceHandle(ctx, "texture.rtv", eDepRenderSize)
         { }
 
         static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
 
         void create() override;
         void destroy() override;
-
-        RenderTargetAlloc::Index getRtvIndex() const override {
-            return rtvIndex;
-        }
-
-    private:
-        RenderTargetAlloc::Index rtvIndex;
     };
 
-    struct TextureHandle final : ITextureHandle {
+    struct TextureHandle final : ITextureHandle, ISingleSRVHandle {
         TextureHandle(Context *ctx, std::string name);
 
         void create() override;
+        void destroy() override;
 
     private:
         std::string name;
