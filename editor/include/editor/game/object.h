@@ -10,7 +10,7 @@ namespace editor {
         math::float2 uv;
     };
 
-    struct ObjMesh : render::IMeshBufferHandle {
+    struct ObjMesh final : render::IMeshBufferHandle {
         ObjMesh(render::Context *ctx, std::string path, std::string basedir)
             : IMeshBufferHandle(ctx, path)
             , path(path)
@@ -33,5 +33,29 @@ namespace editor {
         size_t indexCount;
         rhi::VertexBuffer *pVertexBuffer;
         rhi::IndexBuffer *pIndexBuffer;
+    };
+
+    struct GltfVertex {
+        math::float3 position;
+        math::float2 uv;
+    };
+
+    struct GltfMesh final : render::IMeshBufferHandle {
+        GltfMesh(render::Context *ctx, std::string path)
+            : IMeshBufferHandle(ctx, path)
+            , path(path)
+        { }
+
+        void create() override;
+        void destroy() override;
+
+        size_t getIndexCount() const override;
+        std::vector<rhi::VertexAttribute> getVertexAttributes() const override;
+
+        rhi::IndexBuffer *getIndexBuffer() const override;
+        rhi::VertexBuffer *getVertexBuffer() const override;
+
+    private:
+        std::string path;
     };
 }

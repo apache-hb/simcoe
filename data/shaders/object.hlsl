@@ -1,6 +1,6 @@
 struct Input {
     float4 position : SV_POSITION;
-    float2 texCoord : TEXCOORD;
+    float2 uv : TEXCOORD;
 };
 
 cbuffer CameraBuffer : register(b0) {
@@ -22,10 +22,10 @@ float4 perspective(float4 position) {
 Input vsMain(float3 position : POSITION, float2 uv : TEXCOORD) {
     Input result;
     result.position = perspective(float4(position, 1.0f));
-    result.texCoord = uv;
+    result.uv = uv;
     return result;
 }
 
 float4 psMain(Input input) : SV_TARGET {
-    return gTexture.Sample(gSampler, input.texCoord);
+    return gTexture.Sample(gSampler, input.uv);
 }

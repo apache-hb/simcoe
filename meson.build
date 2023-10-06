@@ -64,6 +64,7 @@ engine = declare_dependency(
 
 moodycamel = subproject('atomic-queue').get_variable('queue')
 tinyobj = subproject('tinyobj').get_variable('tinyobj')
+fastgltf = subproject('fastgltf').get_variable('fastgltf')
 
 python3 = import('python').find_installation()
 
@@ -119,7 +120,7 @@ deps = [
     engine,
 
     # render
-    tinyobj,
+    tinyobj, fastgltf,
 
     # worker
     moodycamel,
