@@ -1,6 +1,6 @@
 #include "engine/memory/bitmap.h"
 
-using namespace engine;
+using namespace simcoe;
 
 // BitMap
 

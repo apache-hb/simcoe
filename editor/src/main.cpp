@@ -134,7 +134,8 @@ struct GameGui final : graph::IGuiPass {
         ImGui::Begin("debug");
         auto *pSrvHeap = ctx->getSrvHeap();
         auto *pRtvHeap = ctx->getRtvHeap();
-        auto& rtvAlloc = pRtvHeap->mem;
+        auto& rtvAlloc = pRtvHeap->allocator;
+        auto& srvAlloc = pSrvHeap->allocator;
 
         const auto& createInfo = ctx->getCreateInfo();
         ImGui::Text("present: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
@@ -180,9 +181,9 @@ struct GameGui final : graph::IGuiPass {
             ImGui::BulletText("%zu: %s", i, rtvAlloc.test(simcoe::BitMap::Index(i)) ? "used" : "free");
         }
 
-        ImGui::Text("srv heap: %zu", pSrvHeap->mem.getSize());
-        for (size_t i = 0; i < pSrvHeap->mem.getSize(); i++) {
-            ImGui::BulletText("%zu: %s", i, pSrvHeap->mem.test(simcoe::BitMap::Index(i)) ? "used" : "free");
+        ImGui::Text("srv heap: %zu", srvAlloc.getSize());
+        for (size_t i = 0; i < srvAlloc.getSize(); i++) {
+            ImGui::BulletText("%zu: %s", i, srvAlloc.test(simcoe::BitMap::Index(i)) ? "used" : "free");
         }
 
         ImGui::End();

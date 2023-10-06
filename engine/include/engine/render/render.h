@@ -65,7 +65,6 @@ namespace simcoe::render {
             return pHeap->deviceOffset(size_t(index));
         }
 
-    private:
         rhi::DescriptorHeap *pHeap;
         simcoe::BitMap allocator;
     };
