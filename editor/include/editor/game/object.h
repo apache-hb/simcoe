@@ -3,19 +3,35 @@
 #include "engine/render/assets.h"
 
 namespace editor {
-    namespace math = simcoe::math;
-    namespace render = simcoe::render;
+    using namespace simcoe;
 
-    struct UNIFORM_ALIGN StaticMeshInfo {
+    struct ObjVertex {
         math::float3 position;
-        math::float3 rotation;
-        math::float3 scale;
+        math::float2 uv;
     };
 
-    struct StaticMesh {
-        StaticMeshInfo info;
+    struct ObjMesh : render::IMeshBufferHandle {
+        ObjMesh(render::Context *ctx, std::string path, std::string basedir)
+            : IMeshBufferHandle(ctx, path)
+            , path(path)
+            , basedir(basedir)
+        { }
 
-        render::VertexBufferHandle vertexBuffer;
-        render::IndexBufferHandle indexBuffer;
+        void create() override;
+        void destroy() override;
+
+        size_t getIndexCount() const override { return indexCount; }
+        std::vector<rhi::VertexAttribute> getVertexAttributes() const override;
+
+        rhi::IndexBuffer *getIndexBuffer() const override { return pIndexBuffer; }
+        rhi::VertexBuffer *getVertexBuffer() const override { return pVertexBuffer; }
+
+    private:
+        std::string path;
+        std::string basedir;
+
+        size_t indexCount;
+        rhi::VertexBuffer *pVertexBuffer;
+        rhi::IndexBuffer *pIndexBuffer;
     };
 }

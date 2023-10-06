@@ -5,17 +5,27 @@
 #include "editor/game/state.h"
 
 namespace editor::graph {
-    struct UNIFORM_ALIGN GameUniformData {
-        math::float2 offset;
-        float angle;
-        float scale;
-
-        float aspect;
+    struct UNIFORM_ALIGN CameraUniform {
+        math::float4x4 model;
+        math::float4x4 view;
+        math::float4x4 projection;
     };
 
-    struct GameUniformHandle final : IUniformHandle<GameUniformData> {
-        GameUniformHandle(Context *ctx)
-            : IUniformHandle(ctx, "uniform", eDepRenderSize)
+    struct UNIFORM_ALIGN ObjectUniform {
+        math::float4x4 model;
+    };
+
+    struct CameraUniformHandle final : IUniformHandle<CameraUniform> {
+        CameraUniformHandle(Context *ctx)
+            : IUniformHandle(ctx, "uniform.camera", eDepRenderSize)
+        { }
+
+        void update(GameLevel *pLevel);
+    };
+
+    struct ObjectUniformHandle final : IUniformHandle<ObjectUniform> {
+        ObjectUniformHandle(Context *ctx)
+            : IUniformHandle(ctx, "uniform.object")
         { }
 
         void update(GameLevel *pLevel);
@@ -23,7 +33,9 @@ namespace editor::graph {
 
     struct GameRenderInfo {
         ResourceWrapper<TextureHandle> *pPlayerTexture;
-        ResourceWrapper<GameUniformHandle> *pPlayerUniform;
+        ResourceWrapper<CameraUniformHandle> *pCameraUniform;
+        ResourceWrapper<ObjectUniformHandle> *pPlayerUniform;
+        IMeshBufferHandle *pPlayerMesh;
     };
 
     struct GameLevelPass final : IRenderPass {
@@ -42,12 +54,12 @@ namespace editor::graph {
     private:
         PassAttachment<IRTVHandle> *pRenderTarget;
         PassAttachment<TextureHandle> *pPlayerTexture;
-        PassAttachment<GameUniformHandle> *pPlayerUniform;
+        PassAttachment<CameraUniformHandle> *pCameraUniform;
+        PassAttachment<ObjectUniformHandle> *pPlayerUniform;
+
+        IMeshBufferHandle *pPlayerMesh;
 
         rhi::PipelineState *pPipeline;
-
-        rhi::VertexBuffer *pQuadVertexBuffer;
-        rhi::IndexBuffer *pQuadIndexBuffer;
 
         GameLevel *pLevel;
     };

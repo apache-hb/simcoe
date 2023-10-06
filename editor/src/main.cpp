@@ -14,17 +14,10 @@
 #include "moodycamel/concurrentqueue.h"
 
 #include <functional>
+#include <array>
 
 using namespace simcoe;
 using namespace editor;
-
-#define ASSERT(expr) \
-    do { \
-        if (!(expr)) { \
-            simcoe::logError(#expr); \
-            std::abort(); \
-        } \
-    } while (false)
 
 static constexpr auto kWindowWidth = 1920;
 static constexpr auto kWindowHeight = 1080;
@@ -40,6 +33,84 @@ using WorkItem = std::function<void()>;
 
 moodycamel::ConcurrentQueue<WorkItem> gWorkQueue{64};
 static std::jthread *pWorkThread = nullptr;
+
+using graph::Vertex;
+
+struct CubeMesh final : ISingleMeshBufferHandle {
+    CubeMesh(Context *ctx)
+        : ISingleMeshBufferHandle(ctx, "mesh.cube")
+    { }
+
+    // z-up
+
+    static constexpr auto kCubeVerts = std::to_array<Vertex>({
+        // top
+        Vertex { { -1.f, -1.f, 1.f }, { 0.f, 0.f } }, // top back left
+        Vertex { { 1.f, -1.f, 1.f }, { 1.f, 0.f } }, // top back right
+        Vertex { { -1.f, 1.f, 1.f }, { 0.f, 1.f } }, // top front left
+        Vertex { { 1.f, 1.f, 1.f }, { 1.f, 1.f } }, // top front right
+
+        // bottom
+        Vertex { { -1.f, -1.f, -1.f }, { 0.f, 0.f } }, // bottom back left
+        Vertex { { 1.f, -1.f, -1.f }, { 1.f, 0.f } }, // bottom back right
+        Vertex { { -1.f, 1.f, -1.f }, { 0.f, 1.f } }, // bottom front left
+        Vertex { { 1.f, 1.f, -1.f }, { 1.f, 1.f } }, // bottom front right
+    });
+
+#define FACE(a, b, c, d) a, b, c, c, b, d
+
+    static constexpr auto kCubeIndices = std::to_array<uint16_t>({
+        // top face
+        FACE(0, 2, 1, 3),
+
+        // bottom face
+        FACE(4, 5, 6, 7),
+
+        // front face
+        FACE(2, 3, 6, 7),
+
+        // back face
+        FACE(0, 1, 4, 5),
+
+        // left face
+        FACE(0, 2, 4, 6),
+
+        // right face
+        FACE(1, 3, 5, 7)
+    });
+
+    size_t getIndexCount() const override {
+        return kCubeIndices.size();
+    }
+
+    std::vector<rhi::VertexAttribute> getVertexAttributes() const override {
+        return {
+            { "POSITION", offsetof(Vertex, position), rhi::TypeFormat::eFloat3 },
+            { "TEXCOORD", offsetof(Vertex, uv), rhi::TypeFormat::eFloat2 }
+        };
+    }
+
+    void create() override {
+        std::unique_ptr<rhi::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(kCubeVerts.data(), kCubeVerts.size() * sizeof(Vertex))};
+        std::unique_ptr<rhi::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(kCubeIndices.data(), kCubeIndices.size() * sizeof(uint16_t))};
+
+        auto *pVertexBuffer = ctx->createVertexBuffer(kCubeVerts.size(), sizeof(Vertex));
+        auto *pIndexBuffer = ctx->createIndexBuffer(kCubeIndices.size(), rhi::TypeFormat::eUint16);
+
+        ctx->beginCopy();
+        ctx->copyBuffer(pVertexBuffer, pVertexStaging.get());
+        ctx->copyBuffer(pIndexBuffer, pIndexStaging.get());
+        ctx->endCopy();
+
+        setIndexBuffer(pIndexBuffer);
+        setVertexBuffer(pVertexBuffer);
+    }
+
+    void destroy() override {
+        delete getIndexBuffer();
+        delete getVertexBuffer();
+    }
+};
 
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
@@ -120,14 +191,11 @@ struct GameGui final : graph::IGuiPass {
         ImGui::ShowDemoWindow();
 
         ImGui::Begin("level");
-        ImGui::SliderFloat("player x", &gLevel.playerOffset.x, -1.f, 1.f);
-        ImGui::SliderFloat("player y", &gLevel.playerOffset.y, -1.f, 1.f);
+        ImGui::SliderFloat3("player position", gLevel.playerPosition.data(), -1.f, 1.f);
+        ImGui::SliderFloat3("player rotation", gLevel.playerRotation.data(), -1.f, 1.f);
+        ImGui::SliderFloat3("player scale", gLevel.playerScale.data(), 0.1f, 3.f);
 
-        float angle = gLevel.playerAngle * math::kRadToDeg<float>;
-        ImGui::SliderFloat("player angle", &angle, 0.f, 360.f);
-        gLevel.playerAngle = angle * math::kDegToRad<float>;
-
-        ImGui::SliderFloat("player scale", &gLevel.playerScale, 0.1f, 3.f);
+        ImGui::SliderFloat3("camera position", gLevel.cameraPosition.data(), -10.f, 10.f);
 
         ImGui::End();
 
@@ -268,9 +336,13 @@ static void commonMain() {
             auto *pTexture = pGraph->addResource<graph::TextureHandle>("uv-coords.png");
             auto *pUniform = pGraph->addResource<graph::SceneUniformHandle>();
 
+            auto *pPlayerMesh = pGraph->addObject<ObjMesh>("G:\\untitled.obj", "G:\\");
+
             const graph::GameRenderInfo gameRenderConfig = {
-                .pPlayerTexture = pGraph->addResource<graph::TextureHandle>("player.png"),
-                .pPlayerUniform = pGraph->addResource<graph::GameUniformHandle>(),
+                .pPlayerTexture =  pTexture, //pGraph->addResource<graph::TextureHandle>("player.png"),
+                .pCameraUniform = pGraph->addResource<graph::CameraUniformHandle>(),
+                .pPlayerUniform = pGraph->addResource<graph::ObjectUniformHandle>(),
+                .pPlayerMesh = pPlayerMesh
             };
 
             pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pTexture, pUniform);

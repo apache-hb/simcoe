@@ -4,38 +4,40 @@
 
 using namespace editor;
 using namespace editor::graph;
+using namespace simcoe::math;
 
-static constexpr auto kQuadVerts = std::to_array<Vertex>({
-    Vertex{ { 0.1f, -0.1f, 0.0f }, { 0.f, 0.f } }, // top left
-    Vertex{ { 0.1f, 0.1f, 0.0f }, { 1.f, 0.f } }, // top right
-    Vertex{ { -0.1f, -0.1f, 0.0f }, { 0.f, 1.f } }, // bottom left
-    Vertex{ { -0.1f, 0.1f, 0.0f }, { 1.f, 1.f } } // bottom right
-});
+constexpr auto kUpVector = float3::from(0.f, 0.f, 1.f); // z-up
 
-static constexpr auto kQuadIndices = std::to_array<uint16_t>({
-    0, 2, 1,
-    1, 2, 3
-});
-
-void GameUniformHandle::update(GameLevel *pLevel) {
+void CameraUniformHandle::update(GameLevel *pLevel) {
     const auto& createInfo = ctx->getCreateInfo();
-    float aspect = float(createInfo.renderHeight) / float(createInfo.renderWidth);
+    float width = float(createInfo.renderWidth);
+    float height = float(createInfo.renderHeight);
 
-    GameUniformData data = {
-        .offset = pLevel->playerOffset,
-        .angle = pLevel->playerAngle,
-        .scale = pLevel->playerScale,
-        .aspect = aspect
+    float4x4 view = float4x4::lookAtRH(pLevel->cameraPosition, float3::zero(), kUpVector).transpose();
+    float4x4 projection = float4x4::perspectiveRH(pLevel->fov * kDegToRad<float>, height / width, 0.1f, 1000.f).transpose();
+
+    CameraUniform data = {
+        .model = float4x4::identity(),
+        .view = view,
+        .projection = projection
     };
 
     IUniformHandle::update(&data);
 }
 
+void ObjectUniformHandle::update(GameLevel *pLevel) {
+    ObjectUniform data = { .model = float4x4::identity() };
+
+    IUniformHandle::update(&data);
+}
+
 GameLevelPass::GameLevelPass(Context *ctx, GameLevel *pLevel, ResourceWrapper<IRTVHandle> *pRenderTarget, GameRenderInfo info)
-    : IRenderPass(ctx, "game.2d")
+    : IRenderPass(ctx, "game.level")
     , pRenderTarget(addAttachment(pRenderTarget, rhi::ResourceState::eRenderTarget))
     , pPlayerTexture(addAttachment(info.pPlayerTexture, rhi::ResourceState::eShaderResource))
+    , pCameraUniform(addAttachment(info.pCameraUniform, rhi::ResourceState::eShaderResource))
     , pPlayerUniform(addAttachment(info.pPlayerUniform, rhi::ResourceState::eShaderResource))
+    , pPlayerMesh(info.pPlayerMesh)
     , pLevel(pLevel)
 { }
 
@@ -43,13 +45,10 @@ void GameLevelPass::create() {
     const auto &createInfo = ctx->getCreateInfo();
     // create pipeline
     const rhi::PipelineCreateInfo psoCreateInfo = {
-        .vertexShader = createInfo.depot.loadBlob("game.vs.cso"),
-        .pixelShader = createInfo.depot.loadBlob("game.ps.cso"),
+        .vertexShader = createInfo.depot.loadBlob("object.vs.cso"),
+        .pixelShader = createInfo.depot.loadBlob("object.ps.cso"),
 
-        .attributes = {
-            { "POSITION", offsetof(Vertex, position), rhi::TypeFormat::eFloat3 },
-            { "TEXCOORD", offsetof(Vertex, uv), rhi::TypeFormat::eFloat2 }
-        },
+        .attributes = pPlayerMesh->getVertexAttributes(),
 
         .textureInputs = {
             { rhi::InputVisibility::ePixel, 0, true }
@@ -65,41 +64,28 @@ void GameLevelPass::create() {
     };
 
     pPipeline = ctx->createPipelineState(psoCreateInfo);
-
-    // create vertex data
-    std::unique_ptr<rhi::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(kQuadVerts.data(), kQuadVerts.size() * sizeof(Vertex))};
-    std::unique_ptr<rhi::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(kQuadIndices.data(), kQuadIndices.size() * sizeof(uint16_t))};
-
-    pQuadVertexBuffer = ctx->createVertexBuffer(kQuadVerts.size(), sizeof(Vertex));
-    pQuadIndexBuffer = ctx->createIndexBuffer(kQuadIndices.size(), rhi::TypeFormat::eUint16);
-
-    ctx->beginCopy();
-    ctx->copyBuffer(pQuadVertexBuffer, pVertexStaging.get());
-    ctx->copyBuffer(pQuadIndexBuffer, pIndexStaging.get());
-    ctx->endCopy();
 }
 
 void GameLevelPass::destroy() {
     delete pPipeline;
-
-    delete pQuadVertexBuffer;
-    delete pQuadIndexBuffer;
 }
 
 void GameLevelPass::execute() {
     IRTVHandle *pTarget = pRenderTarget->getInner();
     ISRVHandle *pTexture = pPlayerTexture->getInner();
-    GameUniformHandle *pUniform = pPlayerUniform->getInner();
+    CameraUniformHandle *pCamera = pCameraUniform->getInner();
+    ObjectUniformHandle *pUniform = pPlayerUniform->getInner();
+
+    pCamera->update(pLevel);
+    pUniform->update(pLevel);
 
     ctx->setRenderTarget(pTarget->getRtvIndex());
 
     ctx->setPipeline(pPipeline);
 
     ctx->setShaderInput(pTexture->getSrvIndex(), 0);
-    ctx->setShaderInput(pUniform->getSrvIndex(), 1);
+    ctx->setShaderInput(pCamera->getSrvIndex(), 1); // set camera uniform
 
-    pUniform->update(pLevel);
-
-    ctx->setVertexBuffer(pQuadVertexBuffer);
-    ctx->drawIndexBuffer(pQuadIndexBuffer, kQuadIndices.size());
+    ctx->setVertexBuffer(pPlayerMesh->getVertexBuffer());
+    ctx->drawIndexBuffer(pPlayerMesh->getIndexBuffer(), pPlayerMesh->getIndexCount());
 }

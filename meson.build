@@ -63,6 +63,7 @@ engine = declare_dependency(
 ###
 
 moodycamel = subproject('atomic-queue').get_variable('queue')
+tinyobj = subproject('tinyobj').get_variable('tinyobj')
 
 python3 = import('python').find_installation()
 
@@ -99,18 +100,33 @@ src = [
     'editor/src/editor/graph/gui.cpp',
     'editor/src/editor/graph/game.cpp',
 
+    # game objects
+    'editor/src/editor/game/obj.cpp',
+
     # shaders
     hlsl.process('data/shaders/quad.hlsl'),
     hlsl.process('data/shaders/blit.hlsl'),
     hlsl.process('data/shaders/game.hlsl'),
+    hlsl.process('data/shaders/object.hlsl'),
 
     # assets
     copy.process('data/images/uv-coords.png'),
     copy.process('data/images/player.png'),
 ]
 
+deps = [
+    # general
+    engine,
+
+    # render
+    tinyobj,
+
+    # worker
+    moodycamel,
+]
+
 executable('editor', src,
-    dependencies : [ engine, moodycamel ],
+    dependencies : deps,
     include_directories : [ 'editor/include' ]
 )
 

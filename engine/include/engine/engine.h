@@ -36,3 +36,11 @@ namespace simcoe {
         std::wstring widen(std::string_view str);
     }
 }
+
+#define ASSERT(expr) \
+    do { \
+        if (!(expr)) { \
+            simcoe::logError("assert failed: {}", #expr); \
+            throw std::runtime_error(#expr); \
+        } \
+    } while (0)

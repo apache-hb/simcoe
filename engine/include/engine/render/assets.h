@@ -3,30 +3,41 @@
 #include "engine/render/graph.h"
 
 namespace simcoe::render {
-    template<typename T>
-    struct IBufferHandle : IGraphObject {
+    struct IMeshBufferHandle : IGraphObject {
+        using IGraphObject::IGraphObject;
+        virtual size_t getIndexCount() const = 0;
+
+        virtual rhi::VertexBuffer *getVertexBuffer() const = 0;
+        virtual rhi::IndexBuffer *getIndexBuffer() const = 0;
+
+        virtual std::vector<rhi::VertexAttribute> getVertexAttributes() const = 0;
+    };
+
+    struct ISingleMeshBufferHandle : IMeshBufferHandle {
+        using IMeshBufferHandle::IMeshBufferHandle;
         void destroy() override {
-            delete pBuffer;
+            delete pVertexBuffer;
+            delete pIndexBuffer;
         }
 
-        T *getBuffer() const { return pBuffer; }
+        rhi::VertexBuffer *getVertexBuffer() const override {
+            return pVertexBuffer;
+        }
+
+        rhi::IndexBuffer *getIndexBuffer() const override {
+            return pIndexBuffer;
+        }
 
     protected:
-        void setBuffer(T *pBuffer) { this->pBuffer = pBuffer; }
+        void setVertexBuffer(rhi::VertexBuffer *pBuffer) {
+            pVertexBuffer = pBuffer;
+        }
 
+        void setIndexBuffer(rhi::IndexBuffer *pBuffer) {
+            pIndexBuffer = pBuffer;
+        }
     private:
-        T *pBuffer = nullptr;
-    };
-
-    struct VertexBufferHandle final : IBufferHandle<rhi::VertexBuffer> {
-        void create() override {
-
-        }
-    };
-
-    struct IndexBufferHandle final : IBufferHandle<rhi::IndexBuffer> {
-        void create() override {
-
-        }
+        rhi::VertexBuffer *pVertexBuffer;
+        rhi::IndexBuffer *pIndexBuffer;
     };
 }

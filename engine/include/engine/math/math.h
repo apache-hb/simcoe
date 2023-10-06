@@ -3,7 +3,7 @@
 #include <cmath>
 #include <numbers>
 
-#include <DirectXMath.h>
+#include "engine/engine.h"
 
 namespace simcoe::math {
     template<typename T>
@@ -149,6 +149,10 @@ namespace simcoe::math {
             return x == other.x && y == other.y && z == other.z;
         }
 
+        static constexpr Vec3 zero() {
+            return from(0, 0, 0);
+        }
+
         static constexpr Vec3 from(T x, T y, T z) {
             return { x, y, z };
         }
@@ -217,6 +221,8 @@ namespace simcoe::math {
         constexpr Vec3 operator+=(const Vec3& it) {
             return *this = *this + it;
         }
+
+        constexpr T *data() { return &x; } // TODO: this is UB
     };
 
     template<typename T>
@@ -421,6 +427,10 @@ namespace simcoe::math {
         /// scaling related functions
         ///
 
+        static constexpr Mat4x4 scaling(const Row3& scale) {
+            return scaling(scale.x, scale.y, scale.z);
+        }
+
         static constexpr Mat4x4 scaling(T x, T y, T z) {
             auto row0 = Row::from(x, 0, 0, 0);
             auto row1 = Row::from(0, y, 0, 0);
@@ -429,7 +439,7 @@ namespace simcoe::math {
             return from(row0, row1, row2, row3);
         }
 
-        constexpr Row3 scale() const {
+        constexpr Row3 getScale() const {
             return Row3::from(at(0, 0), at(1, 1), at(2, 2));
         }
 
@@ -443,6 +453,10 @@ namespace simcoe::math {
         /// translation related functions
         ///
 
+        static constexpr Mat4x4 translation(const Row3& translation) {
+            return Mat4x4::translation(translation.x, translation.y, translation.z);
+        }
+
         static constexpr Mat4x4 translation(T x, T y, T z) {
             auto row0 = Row::from(1, 0, 0, x);
             auto row1 = Row::from(0, 1, 0, y);
@@ -451,7 +465,7 @@ namespace simcoe::math {
             return from(row0, row1, row2, row3);
         }
 
-        constexpr Row3 translation() const {
+        constexpr Row3 getTranslation() const {
             return Row3::from(at(0, 3), at(1, 3), at(2, 3));
         }
 

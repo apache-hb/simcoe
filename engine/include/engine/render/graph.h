@@ -238,7 +238,7 @@ namespace simcoe::render {
         template<typename T, typename... A>
         T *addObject(A&&... args) {
             T *pObject = new T(ctx, std::forward<A>(args)...);
-            objects.push_back(pObject);
+            addGraphObject(pObject);
             return pObject;
         }
 
@@ -258,6 +258,11 @@ namespace simcoe::render {
         void addPassObject(IRenderPass *pPass) {
             pPass->create();
             passes.push_back(pPass);
+        }
+
+        void addGraphObject(IGraphObject *pObject) {
+            pObject->create();
+            objects.push_back(pObject);
         }
 
         void executePass(IRenderPass *pPass);
