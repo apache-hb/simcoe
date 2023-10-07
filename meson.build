@@ -103,6 +103,7 @@ src = [
 
     # game objects
     'editor/src/editor/game/obj.cpp',
+    'editor/src/editor/game/gltf.cpp',
 
     # shaders
     hlsl.process('data/shaders/quad.hlsl'),

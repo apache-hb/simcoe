@@ -300,7 +300,7 @@ namespace fastgltf {
 	 * Helper type in order to allow building a visitor out of multiple lambdas within a call to
 	 * std::visit
 	 */
-	template<class... Ts> 
+	template<class... Ts>
 	struct visitor : Ts... {
 		using Ts::operator()...;
 	};
