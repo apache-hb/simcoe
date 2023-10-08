@@ -9,8 +9,8 @@ using namespace editor::graph;
 
 static constexpr math::float4 kBlackClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
 
-static constexpr float x = 0.9f;
-static constexpr float y = 0.9f;
+static constexpr float x = 1.f;
+static constexpr float y = 1.f;
 
 static constexpr auto kScreenQuad = std::to_array<Vertex>({
     { { -x, y, 0.0f }, { 0.0f, 0.0f } },
@@ -25,9 +25,6 @@ static constexpr auto kScreenQuadIndices = std::to_array<uint16_t>({
 });
 
 static rhi::Display createLetterBoxDisplay(UINT renderWidth, UINT renderHeight, UINT displayWidth, UINT displayHeight) {
-    simcoe::logInfo("render size: {}x{}", renderWidth, renderHeight);
-    simcoe::logInfo("display size: {}x{}", displayWidth, displayHeight);
-
     auto widthRatio = float(renderWidth) / displayWidth;
     auto heightRatio = float(renderHeight) / displayHeight;
 
@@ -35,9 +32,9 @@ static rhi::Display createLetterBoxDisplay(UINT renderWidth, UINT renderHeight, 
     float y = 1.f;
 
     if (widthRatio < heightRatio) {
-        y = widthRatio / heightRatio;
+        x = widthRatio / heightRatio;
     } else {
-        x = heightRatio / widthRatio;
+        y = heightRatio / widthRatio;
     }
 
     rhi::Viewport viewport = {

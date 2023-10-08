@@ -135,7 +135,11 @@ executable('editor', src,
 ### client
 ###
 
-executable('client', 'client/src/main.cpp',
+src = [
+    'client/src/main.cpp'
+]
+
+executable('client', src,
     dependencies : engine,
     include_directories : [ 'client/include' ]
 )

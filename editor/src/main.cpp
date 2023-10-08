@@ -312,7 +312,7 @@ static void commonMain() {
 
     const simcoe::WindowCreateInfo windowCreateInfo = {
         .title = "simcoe",
-        .style = simcoe::WindowStyle::eBorderlessMoveable,
+        .style = simcoe::WindowStyle::eWindowed,
 
         .width = kWindowWidth,
         .height = kWindowHeight,

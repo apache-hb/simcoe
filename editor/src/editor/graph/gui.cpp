@@ -69,15 +69,6 @@ namespace {
                 ImGui::EndMenu();
             }
 
-            // align the close button to the right of the window
-            auto& style = ImGui::GetStyle();
-            ImVec2 closeButtonPos(ImGui::GetWindowWidth() - (style.FramePadding.x * 2) - ImGui::GetFontSize(), 0.f);
-
-            // TODO: icky
-            if (ImGui::CloseButton(ImGui::GetID("CloseEditor"), closeButtonPos)) {
-                PostQuitMessage(0);
-            }
-
             ImGui::EndMenuBar();
         }
 
