@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/render/render.h"
+#include <unordered_map>
 
 namespace simcoe::render {
     struct Graph;
@@ -41,8 +42,12 @@ namespace simcoe::render {
 
         virtual rhi::DeviceResource* getResource() const = 0;
 
-        virtual rhi::ResourceState getCurrentState() const = 0;
-        virtual void setCurrentState(rhi::ResourceState state) = 0;
+        rhi::ResourceState getCurrentState() const;
+        void setCurrentState(rhi::ResourceState state);
+
+    protected:
+        rhi::ResourceState getResourceState(rhi::DeviceResource *pResource) const;
+        void setResourceState(rhi::DeviceResource *pResource, rhi::ResourceState state);
     };
 
     template<typename T>
@@ -58,9 +63,6 @@ namespace simcoe::render {
             delete pResource;
         }
 
-        rhi::ResourceState getCurrentState() const final override { return currentState; }
-        void setCurrentState(rhi::ResourceState state) final override { currentState = state; }
-
         rhi::DeviceResource* getResource() const final override { return pResource; }
 
     protected:
@@ -69,7 +71,6 @@ namespace simcoe::render {
 
     private:
         T *pResource = nullptr;
-        rhi::ResourceState currentState;
     };
 
     struct IRTVHandle {
@@ -292,6 +293,18 @@ namespace simcoe::render {
 
         std::atomic_bool lock;
         std::mutex renderLock;
+
+    public:
+        void setResourceState(rhi::DeviceResource *pResource, rhi::ResourceState state) {
+            resourceStates[pResource] = state;
+        }
+
+        rhi::ResourceState getResourceState(rhi::DeviceResource *pResource) const {
+            return resourceStates.at(pResource);
+        }
+
+    private:
+        std::unordered_map<rhi::DeviceResource*, rhi::ResourceState> resourceStates;
 
     public:
         Context *ctx;

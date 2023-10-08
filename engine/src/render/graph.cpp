@@ -3,12 +3,42 @@
 using namespace simcoe;
 using namespace simcoe::render;
 
+///
+/// graph object
+///
+
 IGraphObject::IGraphObject(Graph *graph, std::string name, StateDep stateDeps)
     : graph(graph)
     , ctx(graph->ctx)
     , name(name)
     , stateDeps(StateDep(stateDeps | eDepDevice))
 { }
+
+///
+/// resource handle
+///
+
+rhi::ResourceState IResourceHandle::getCurrentState() const {
+    return getResourceState(getResource());
+}
+
+void IResourceHandle::setCurrentState(rhi::ResourceState state) {
+    setResourceState(getResource(), state);
+}
+
+rhi::ResourceState IResourceHandle::getResourceState(rhi::DeviceResource *pResource) const {
+    ASSERTF(pResource != nullptr, "resource missing in {}", getName());
+    return graph->getResourceState(getResource());
+}
+
+void IResourceHandle::setResourceState(rhi::DeviceResource *pResource, rhi::ResourceState state) {
+    ASSERTF(pResource != nullptr, "resource missing in {}", getName());
+    graph->setResourceState(pResource, state);
+}
+
+///
+/// graph
+///
 
 void Graph::setFullscreen(bool bFullscreen) {
     changeData(StateDep::eNone, [=] {
@@ -104,12 +134,13 @@ void Graph::destroyIf(StateDep dep) {
 void Graph::executePass(IRenderPass *pPass) {
     for (const auto *pInput : pPass->inputs) {
         auto *pHandle = pInput->getResourceHandle();
+        rhi::DeviceResource *pResource = pHandle->getResource();
         auto requiredState = pInput->getRequiredState();
-        auto currentState = pHandle->getCurrentState();
+        auto currentState = getResourceState(pResource);
 
         if (currentState != requiredState) {
-            ctx->transition(pHandle->getResource(), currentState, requiredState);
-            pHandle->setCurrentState(requiredState);
+            ctx->transition(pResource, currentState, requiredState);
+            setResourceState(pResource, requiredState);
         }
     }
 

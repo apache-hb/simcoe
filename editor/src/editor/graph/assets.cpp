@@ -11,9 +11,11 @@ void SwapChainHandle::create() {
         rhi::RenderTarget *pTarget = ctx->getRenderTarget(i);
         RenderTargetAlloc::Index rtvIndex = ctx->mapRenderTarget(pTarget);
 
+        setResourceState(pTarget, rhi::ResourceState::ePresent);
+
         pTarget->setName("swapchain-target-" + std::to_string(i));
 
-        targets[i] = { pTarget, rtvIndex, rhi::ResourceState::ePresent };
+        targets[i] = { pTarget, rtvIndex };
     }
 }
 
@@ -29,14 +31,6 @@ void SwapChainHandle::destroy() {
     targets.clear();
 }
 
-rhi::ResourceState SwapChainHandle::getCurrentState() const {
-    return targets[ctx->getFrameIndex()].state;
-}
-
-void SwapChainHandle::setCurrentState(rhi::ResourceState state) {
-    targets[ctx->getFrameIndex()].state = state;
-}
-
 rhi::DeviceResource *SwapChainHandle::getResource() const {
     return targets[ctx->getFrameIndex()].pRenderTarget;
 }
@@ -44,7 +38,6 @@ rhi::DeviceResource *SwapChainHandle::getResource() const {
 RenderTargetAlloc::Index SwapChainHandle::getRtvIndex() const {
     return targets[ctx->getFrameIndex()].rtvIndex;
 }
-
 
 ///
 /// scene target handle

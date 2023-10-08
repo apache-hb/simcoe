@@ -44,8 +44,6 @@ namespace editor::graph {
         void create() override;
         void destroy() override;
 
-        rhi::ResourceState getCurrentState() const override;
-        void setCurrentState(rhi::ResourceState state) override;
         rhi::DeviceResource *getResource() const override;
         RenderTargetAlloc::Index getRtvIndex() const override;
 
@@ -53,7 +51,6 @@ namespace editor::graph {
         struct RenderTarget {
             rhi::RenderTarget *pRenderTarget;
             RenderTargetAlloc::Index rtvIndex;
-            rhi::ResourceState state;
         };
 
         std::vector<RenderTarget> targets;
