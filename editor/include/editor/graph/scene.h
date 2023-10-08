@@ -13,18 +13,18 @@ namespace editor::graph {
     };
 
     struct SceneUniformHandle final : IUniformHandle<UniformData> {
-        SceneUniformHandle(Context *ctx)
+        SceneUniformHandle(Graph *ctx)
             : IUniformHandle(ctx, "uniform")
         { }
 
-        void update(Context *ctx);
+        void update();
     private:
         simcoe::Timer timer;
     };
 
     struct ScenePass final : IRenderPass {
         ScenePass(
-            Context *ctx,
+            Graph *ctx,
             ResourceWrapper<IRTVHandle> *pSceneTarget,
             ResourceWrapper<TextureHandle> *pTexture,
             ResourceWrapper<SceneUniformHandle> *pUniform

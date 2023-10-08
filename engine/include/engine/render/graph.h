@@ -3,6 +3,8 @@
 #include "engine/render/render.h"
 
 namespace simcoe::render {
+    struct Graph;
+
     enum StateDep {
         eNone = 0,
         eDepDevice = (1 << 0),
@@ -14,11 +16,7 @@ namespace simcoe::render {
     struct IGraphObject {
         virtual ~IGraphObject() = default;
 
-        IGraphObject(Context *ctx, std::string name, StateDep stateDeps = eDepDevice)
-            : ctx(ctx)
-            , name(name)
-            , stateDeps(StateDep(stateDeps | eDepDevice))
-        { }
+        IGraphObject(Graph *graph, std::string name, StateDep stateDeps = eDepDevice);
 
         virtual void create() = 0;
         virtual void destroy() = 0;
@@ -27,6 +25,7 @@ namespace simcoe::render {
         std::string_view getName() const { return name; }
 
     protected:
+        Graph *graph;
         Context *ctx;
 
     private:
@@ -36,7 +35,7 @@ namespace simcoe::render {
 
     struct IResourceHandle : IGraphObject {
         virtual ~IResourceHandle() = default;
-        IResourceHandle(Context *ctx, std::string name, StateDep stateDeps = eDepDevice)
+        IResourceHandle(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
             : IGraphObject(ctx, name, stateDeps)
         { }
 
@@ -51,7 +50,7 @@ namespace simcoe::render {
         static_assert(std::is_base_of_v<rhi::DeviceResource, T>);
 
         virtual ~ISingleResourceHandle() = default;
-        ISingleResourceHandle(Context *ctx, std::string name, StateDep stateDeps = eDepDevice)
+        ISingleResourceHandle(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
             : IResourceHandle(ctx, name, stateDeps)
         { }
 
@@ -191,7 +190,7 @@ namespace simcoe::render {
 
     struct IRenderPass : IGraphObject {
         virtual ~IRenderPass() = default;
-        IRenderPass(Context *ctx, std::string name, StateDep stateDeps = eDepDevice)
+        IRenderPass(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
             : IGraphObject(ctx, name, stateDeps)
         { }
 
@@ -223,21 +222,27 @@ namespace simcoe::render {
 
         template<typename T, typename... A>
         T *addPass(A&&... args) {
-            T *pPass = new T(ctx, std::forward<A>(args)...);
+            static_assert(std::is_base_of_v<IRenderPass, T>);
+
+            T *pPass = new T(this, std::forward<A>(args)...);
             addPassObject(pPass);
             return pPass;
         }
 
         template<typename T, typename... A>
         ResourceWrapper<T> *addResource(A&&... args) {
-            T *pHandle = new T(ctx, std::forward<A>(args)...);
+            static_assert(std::is_base_of_v<IResourceHandle, T>);
+
+            T *pHandle = new T(this, std::forward<A>(args)...);
             addResourceObject(pHandle);
             return new ResourceWrapper<T>(pHandle);
         }
 
         template<typename T, typename... A>
         T *addObject(A&&... args) {
-            T *pObject = new T(ctx, std::forward<A>(args)...);
+            static_assert(std::is_base_of_v<IGraphObject, T>);
+
+            T *pObject = new T(this, std::forward<A>(args)...);
             addGraphObject(pObject);
             return pObject;
         }
@@ -288,9 +293,9 @@ namespace simcoe::render {
         std::atomic_bool lock;
         std::mutex renderLock;
 
+    public:
         Context *ctx;
 
-    public:
         // TODO: make private
         std::vector<IRenderPass*> passes;
         std::vector<IResourceHandle*> resources;

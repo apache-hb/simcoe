@@ -15,7 +15,7 @@ namespace editor::graph {
 
     template<typename T>
     struct IUniformHandle : ISingleResourceHandle<rhi::UniformBuffer>, ISingleSRVHandle {
-        IUniformHandle(Context *ctx, std::string name, StateDep stateDeps = eDepDevice)
+        IUniformHandle(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
             : ISingleResourceHandle(ctx, name, stateDeps)
         { }
 
@@ -37,7 +37,7 @@ namespace editor::graph {
     };
 
     struct SwapChainHandle final : IResourceHandle, IRTVHandle {
-        SwapChainHandle(Context *ctx)
+        SwapChainHandle(Graph *ctx)
             : IResourceHandle(ctx, "swapchain.rtv", StateDep(eDepDisplaySize | eDepBackBufferCount))
         { }
 
@@ -60,7 +60,7 @@ namespace editor::graph {
     };
 
     struct SceneTargetHandle final : ITextureHandle, ISingleSRVHandle, ISingleRTVHandle {
-        SceneTargetHandle(Context *ctx)
+        SceneTargetHandle(Graph *ctx)
             : ISingleResourceHandle(ctx, "texture.rtv", eDepRenderSize)
         { }
 
@@ -71,7 +71,7 @@ namespace editor::graph {
     };
 
     struct TextureHandle final : ITextureHandle, ISingleSRVHandle {
-        TextureHandle(Context *ctx, std::string name);
+        TextureHandle(Graph *ctx, std::string name);
 
         void create() override;
         void destroy() override;

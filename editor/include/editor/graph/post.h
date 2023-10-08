@@ -5,7 +5,7 @@
 namespace editor::graph {
     struct PostPass final : IRenderPass {
         PostPass(
-            Context *ctx,
+            Graph *ctx,
             ResourceWrapper<ISRVHandle> *pSceneTarget,
             ResourceWrapper<IRTVHandle> *pBackBuffers
         );
@@ -27,7 +27,7 @@ namespace editor::graph {
 
     struct PresentPass final : IRenderPass {
         PresentPass(
-            Context *ctx,
+            Graph *ctx,
             ResourceWrapper<IRTVHandle> *pBackBuffers
         );
 

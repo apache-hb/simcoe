@@ -4,7 +4,7 @@
 
 namespace editor::graph {
     struct IGuiPass : IRenderPass {
-        IGuiPass(Context *ctx, ResourceWrapper<IRTVHandle> *pHandle);
+        IGuiPass(Graph *ctx, ResourceWrapper<IRTVHandle> *pHandle);
         ~IGuiPass();
 
         virtual void content() = 0;

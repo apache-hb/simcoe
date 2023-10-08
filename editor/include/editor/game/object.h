@@ -11,7 +11,7 @@ namespace editor {
     };
 
     struct ObjMesh final : render::IMeshBufferHandle {
-        ObjMesh(render::Context *ctx, std::string path, std::string basedir)
+        ObjMesh(render::Graph *ctx, std::string path, std::string basedir)
             : IMeshBufferHandle(ctx, path)
             , path(path)
             , basedir(basedir)
@@ -41,7 +41,7 @@ namespace editor {
     };
 
     struct GltfMesh final : render::IMeshBufferHandle {
-        GltfMesh(render::Context *ctx, std::string path)
+        GltfMesh(render::Graph *ctx, std::string path)
             : IMeshBufferHandle(ctx, path)
             , path(path)
         { }

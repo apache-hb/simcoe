@@ -39,7 +39,7 @@ static constexpr auto kQuadIndices = std::to_array<uint16_t>({
     1, 2, 3
 });
 
-void SceneUniformHandle::update(Context *ctx) {
+void SceneUniformHandle::update() {
     float time = timer.now();
     const auto& createInfo = ctx->getCreateInfo();
 
@@ -52,7 +52,7 @@ void SceneUniformHandle::update(Context *ctx) {
     getBuffer()->write(&data, sizeof(UniformData));
 }
 
-ScenePass::ScenePass(Context *ctx, ResourceWrapper<IRTVHandle> *pSceneTarget, ResourceWrapper<TextureHandle> *pTexture, ResourceWrapper<SceneUniformHandle> *pUniform)
+ScenePass::ScenePass(Graph *ctx, ResourceWrapper<IRTVHandle> *pSceneTarget, ResourceWrapper<TextureHandle> *pTexture, ResourceWrapper<SceneUniformHandle> *pUniform)
     : IRenderPass(ctx, "scene", eDepRenderSize)
     , pSceneTarget(addAttachment(pSceneTarget, rhi::ResourceState::eRenderTarget))
     , pTextureHandle(addAttachment(pTexture, rhi::ResourceState::eShaderResource))
@@ -113,7 +113,7 @@ void ScenePass::execute() {
     ISRVHandle *pTexture = pTextureHandle->getInner();
     SceneUniformHandle *pUniform = pUniformHandle->getInner();
 
-    pUniform->update(ctx);
+    pUniform->update();
 
     ctx->setPipeline(pPipeline);
     ctx->setDisplay(display);

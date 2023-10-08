@@ -78,7 +78,7 @@ void SceneTargetHandle::destroy() {
 /// texture handle
 ///
 
-TextureHandle::TextureHandle(Context *ctx, std::string name)
+TextureHandle::TextureHandle(Graph *ctx, std::string name)
     : ISingleResourceHandle(ctx, name)
     , name(name)
 { }

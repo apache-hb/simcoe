@@ -3,6 +3,13 @@
 using namespace simcoe;
 using namespace simcoe::render;
 
+IGraphObject::IGraphObject(Graph *graph, std::string name, StateDep stateDeps)
+    : graph(graph)
+    , ctx(graph->ctx)
+    , name(name)
+    , stateDeps(StateDep(stateDeps | eDepDevice))
+{ }
+
 void Graph::setFullscreen(bool bFullscreen) {
     changeData(StateDep::eNone, [=] {
         ctx->changeFullscreen(bFullscreen);

@@ -38,7 +38,7 @@ static std::jthread *pWorkThread = nullptr;
 using graph::Vertex;
 
 struct CubeMesh final : ISingleMeshBufferHandle {
-    CubeMesh(Context *ctx)
+    CubeMesh(Graph *ctx)
         : ISingleMeshBufferHandle(ctx, "mesh.cube")
     { }
 
@@ -153,7 +153,7 @@ struct GameGui final : graph::IGuiPass {
 
     PassAttachment<ISRVHandle> *pSceneSource = nullptr;
 
-    GameGui(Context *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
+    GameGui(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
         : IGuiPass(ctx, pRenderTarget)
         , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eShaderResource))
     { }

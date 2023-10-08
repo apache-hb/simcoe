@@ -16,7 +16,7 @@ namespace editor::graph {
     };
 
     struct CameraUniformHandle final : IUniformHandle<CameraUniform> {
-        CameraUniformHandle(Context *ctx)
+        CameraUniformHandle(Graph *ctx)
             : IUniformHandle(ctx, "uniform.camera", eDepRenderSize)
         { }
 
@@ -24,7 +24,7 @@ namespace editor::graph {
     };
 
     struct ObjectUniformHandle final : IUniformHandle<ObjectUniform> {
-        ObjectUniformHandle(Context *ctx)
+        ObjectUniformHandle(Graph *ctx)
             : IUniformHandle(ctx, "uniform.object")
         { }
 
@@ -40,7 +40,7 @@ namespace editor::graph {
 
     struct GameLevelPass final : IRenderPass {
         GameLevelPass(
-            Context *ctx,
+            Graph *ctx,
             GameLevel *pLevel,
             ResourceWrapper<IRTVHandle> *pRenderTarget,
             GameRenderInfo info

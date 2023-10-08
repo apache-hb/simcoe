@@ -76,7 +76,7 @@ namespace {
     }
 }
 
-IGuiPass::IGuiPass(Context *ctx, ResourceWrapper<IRTVHandle> *pHandle)
+IGuiPass::IGuiPass(Graph *ctx, ResourceWrapper<IRTVHandle> *pHandle)
     : IRenderPass(ctx, "imgui", eDepDisplaySize)
     , pHandle(addAttachment(pHandle, rhi::ResourceState::eRenderTarget))
 {

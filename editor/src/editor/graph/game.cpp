@@ -32,7 +32,7 @@ void ObjectUniformHandle::update(GameLevel *pLevel) {
     IUniformHandle::update(&data);
 }
 
-GameLevelPass::GameLevelPass(Context *ctx, GameLevel *pLevel, ResourceWrapper<IRTVHandle> *pRenderTarget, GameRenderInfo info)
+GameLevelPass::GameLevelPass(Graph *ctx, GameLevel *pLevel, ResourceWrapper<IRTVHandle> *pRenderTarget, GameRenderInfo info)
     : IRenderPass(ctx, "game.level")
     , pRenderTarget(addAttachment(pRenderTarget, rhi::ResourceState::eRenderTarget))
     , pPlayerTexture(addAttachment(info.pPlayerTexture, rhi::ResourceState::eShaderResource))
