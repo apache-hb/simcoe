@@ -37,6 +37,14 @@ namespace simcoe {
     }
 }
 
+#define ASSERTF(expr, ...) \
+    do { \
+        if (!(expr)) { \
+            simcoe::logError("assert: {}. {}", #expr, std::format(__VA_ARGS__)); \
+            throw std::runtime_error(#expr); \
+        } \
+    } while (0)
+
 #define ASSERT(expr) \
     do { \
         if (!(expr)) { \
