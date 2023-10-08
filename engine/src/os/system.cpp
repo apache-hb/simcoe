@@ -15,7 +15,8 @@ namespace {
     constexpr DWORD getStyle(WindowStyle style) {
         switch (style) {
         case WindowStyle::eWindowed: return WS_OVERLAPPEDWINDOW;
-        case WindowStyle::eBorderless: return WS_POPUP;
+        case WindowStyle::eBorderlessFixed: return WS_POPUP;
+        case WindowStyle::eBorderlessMoveable: return WS_POPUP | WS_THICKFRAME;
         default: throw std::runtime_error("invalid window style");
         }
     }
@@ -178,7 +179,6 @@ RECT Window::getClientCoords() const {
 }
 
 void Window::enterFullscreen() {
-    logInfo("enter fullscreen");
     sendCommand(this, [](Window *pWindow) {
         pWindow->bIgnoreNextResize = true;
     });
@@ -186,8 +186,12 @@ void Window::enterFullscreen() {
 }
 
 void Window::exitFullscreen() {
-    logInfo("exit fullscreen");
     ShowWindow(hWindow, SW_RESTORE);
+}
+
+void Window::setStyle(WindowStyle style) {
+    SetWindowLongPtr(hWindow, GWL_STYLE, getStyle(style));
+    //SetWindowPos(hWindow, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
 }
 
 // system api

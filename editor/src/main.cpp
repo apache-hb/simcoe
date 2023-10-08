@@ -27,6 +27,7 @@ static simcoe::Window *pWindow = nullptr;
 static std::jthread *pRenderThread = nullptr;
 static render::Graph *pGraph = nullptr;
 static bool gFullscreen = false;
+
 GameLevel gLevel;
 
 using WorkItem = std::function<void()>;
@@ -150,6 +151,13 @@ struct GameGui final : graph::IGuiPass {
     int currentAdapter = 0;
     std::vector<const char*> adapterNames;
 
+    PassAttachment<ISRVHandle> *pSceneSource = nullptr;
+
+    GameGui(Context *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
+        : IGuiPass(ctx, pRenderTarget)
+        , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eShaderResource))
+    { }
+
     void create() override {
         IGuiPass::create();
 
@@ -187,8 +195,20 @@ struct GameGui final : graph::IGuiPass {
         }
     }
 
+    bool sceneIsOpen = true;
+
     void content() override {
         ImGui::ShowDemoWindow();
+
+        if (ImGui::Begin("scene", &sceneIsOpen)) {
+            ISRVHandle *pHandle = pSceneSource->getInner();
+            auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getSrvIndex());
+            const auto &createInfo = ctx->getCreateInfo();
+            float aspect = float(createInfo.renderWidth) / createInfo.renderHeight;
+            ImGui::Image((ImTextureID)offset, { 256 * aspect, 256 });
+        }
+
+        ImGui::End();
 
         ImGui::Begin("level");
         ImGui::SliderFloat3("player position", gLevel.playerPosition.data(), -1.f, 1.f);
@@ -292,7 +312,7 @@ static void commonMain() {
 
     const simcoe::WindowCreateInfo windowCreateInfo = {
         .title = "simcoe",
-        .style = simcoe::WindowStyle::eWindowed,
+        .style = simcoe::WindowStyle::eBorderlessMoveable,
 
         .width = kWindowWidth,
         .height = kWindowHeight,
@@ -348,7 +368,7 @@ static void commonMain() {
             pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pTexture, pUniform);
             pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), gameRenderConfig);
             pGraph->addPass<graph::PostPass>(pSceneTarget->as<ISRVHandle>(), pBackBuffers->as<IRTVHandle>());
-            pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>());
+            pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<graph::PresentPass>(pBackBuffers->as<IRTVHandle>());
 
             // TODO: if the render loop throws an exception, the program will std::terminate

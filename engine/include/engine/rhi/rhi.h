@@ -13,6 +13,7 @@
 #include <dxgidebug.h>
 
 #define UNIFORM_ALIGN alignas(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
+#define UNIFORM_STRUCT struct UNIFORM_ALIGN
 
 namespace simcoe::rhi {
     // forwards

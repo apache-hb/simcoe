@@ -13,8 +13,10 @@ void CameraUniformHandle::update(GameLevel *pLevel) {
     float width = float(createInfo.renderWidth);
     float height = float(createInfo.renderHeight);
 
-    float4x4 view = float4x4::lookAtRH(pLevel->cameraPosition, float3::zero(), kUpVector).transpose();
-    float4x4 projection = float4x4::perspectiveRH(pLevel->fov * kDegToRad<float>, height / width, 0.1f, 1000.f).transpose();
+    const auto forwards = float3::from(1.f, 0.f, 0.f);
+
+    float4x4 view = float4x4::lookToRH(pLevel->cameraPosition, forwards, kUpVector).transpose();
+    float4x4 projection = float4x4::perspectiveRH(pLevel->fov * kDegToRad<float>, width / height, 0.1f, 1000.f).transpose();
 
     CameraUniform data = {
         .model = float4x4::identity(),

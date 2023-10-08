@@ -9,19 +9,25 @@ using namespace editor::graph;
 
 static constexpr math::float4 kBlackClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
 
+static constexpr float x = 0.9f;
+static constexpr float y = 0.9f;
+
 static constexpr auto kScreenQuad = std::to_array<Vertex>({
-    Vertex{ { 1.f, -1.f, 0.0f }, { 0.f, 0.f } }, // top left
-    Vertex{ { 1.f, 1.f, 0.0f }, { 1.f, 0.f } }, // top right
-    Vertex{ { -1.f, -1.f, 0.0f }, { 0.f, 1.f } }, // bottom left
-    Vertex{ { -1.f, 1.f, 0.0f }, { 1.f, 1.f } } // bottom right
+    { { -x, y, 0.0f }, { 0.0f, 0.0f } },
+    { { x, y, 0.0f }, { 1.0f, 0.0f } },
+    { { x, -y, 0.0f }, { 1.0f, 1.0f } },
+    { { -x, -y, 0.0f }, { 0.0f, 1.0f } }
 });
 
 static constexpr auto kScreenQuadIndices = std::to_array<uint16_t>({
-    0, 2, 1,
-    1, 2, 3
+    0, 1, 2,
+    0, 2, 3
 });
 
-static constexpr rhi::Display createLetterBoxDisplay(UINT renderWidth, UINT renderHeight, UINT displayWidth, UINT displayHeight) {
+static rhi::Display createLetterBoxDisplay(UINT renderWidth, UINT renderHeight, UINT displayWidth, UINT displayHeight) {
+    simcoe::logInfo("render size: {}x{}", renderWidth, renderHeight);
+    simcoe::logInfo("display size: {}x{}", displayWidth, displayHeight);
+
     auto widthRatio = float(renderWidth) / displayWidth;
     auto heightRatio = float(renderHeight) / displayHeight;
 
@@ -29,9 +35,9 @@ static constexpr rhi::Display createLetterBoxDisplay(UINT renderWidth, UINT rend
     float y = 1.f;
 
     if (widthRatio < heightRatio) {
-        x = widthRatio / heightRatio;
+        y = widthRatio / heightRatio;
     } else {
-        y = heightRatio / widthRatio;
+        x = heightRatio / widthRatio;
     }
 
     rhi::Viewport viewport = {

@@ -108,7 +108,6 @@ src = [
     # shaders
     hlsl.process('data/shaders/quad.hlsl'),
     hlsl.process('data/shaders/blit.hlsl'),
-    hlsl.process('data/shaders/game.hlsl'),
     hlsl.process('data/shaders/object.hlsl'),
 
     # assets

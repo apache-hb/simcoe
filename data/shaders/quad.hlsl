@@ -24,7 +24,7 @@ float2 rotatePoint(float2 position, float2 origin) {
 Input vsMain(float3 position : POSITION, float2 uv : TEXCOORD) {
     float2 rotated = rotatePoint(position.xy, float2(0.f, 0.f)) + offset;
     Input result;
-    result.position = float4(rotated.x, rotated.y * aspect, 0.f, 1.0f);
+    result.position = float4(rotated.x * aspect, rotated.y, 0.f, 1.0f);
     result.uv = uv;
     return result;
 }

@@ -23,7 +23,8 @@ namespace simcoe {
 
     enum class WindowStyle {
         eWindowed,
-        eBorderless
+        eBorderlessMoveable,
+        eBorderlessFixed
     };
 
     struct WindowCreateInfo {
@@ -46,6 +47,8 @@ namespace simcoe {
 
         void enterFullscreen();
         void exitFullscreen();
+
+        void setStyle(WindowStyle style);
 
         static LRESULT CALLBACK callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
