@@ -66,7 +66,7 @@ moodycamel = subproject('atomic-queue').get_variable('queue')
 tinyobj = subproject('tinyobj').get_variable('tinyobj')
 fastgltf = subproject('fastgltf').get_variable('fastgltf')
 
-python3 = import('python').find_installation()
+python3 = find_program('python3')
 
 script_dir = meson.current_source_dir()/'data/scripts'
 
