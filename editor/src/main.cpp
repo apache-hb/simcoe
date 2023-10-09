@@ -356,7 +356,7 @@ static void commonMain() {
             auto *pTexture = pGraph->addResource<graph::TextureHandle>("uv-coords.png");
             auto *pUniform = pGraph->addResource<graph::SceneUniformHandle>();
 
-            auto *pPlayerMesh = pGraph->addObject<ObjMesh>("G:\\untitled.obj", "G:\\");
+            auto *pPlayerMesh = pGraph->addObject<ObjMesh>("G:\\untitled.obj");
 
             const graph::GameRenderInfo gameRenderConfig = {
                 .pPlayerTexture =  pTexture, //pGraph->addResource<graph::TextureHandle>("player.png"),

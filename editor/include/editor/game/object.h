@@ -11,10 +11,9 @@ namespace editor {
     };
 
     struct ObjMesh final : render::IMeshBufferHandle {
-        ObjMesh(render::Graph *ctx, std::string path, std::string basedir)
-            : IMeshBufferHandle(ctx, path)
+        ObjMesh(render::Graph *ctx, std::filesystem::path path)
+            : IMeshBufferHandle(ctx, path.string())
             , path(path)
-            , basedir(basedir)
         { }
 
         void create() override;
@@ -27,8 +26,7 @@ namespace editor {
         rhi::VertexBuffer *getVertexBuffer() const override { return pVertexBuffer; }
 
     private:
-        std::string path;
-        std::string basedir;
+        std::filesystem::path path;
 
         size_t indexCount;
         rhi::VertexBuffer *pVertexBuffer;
