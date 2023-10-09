@@ -1,6 +1,8 @@
 project('stb', 'c')
 
-libstb = library('stb', 'src/stb_image.c',
+src = [ 'src/stb_image.c', 'src/stb_truetype.c' ]
+
+libstb = library('stb', src,
     include_directories : [ 'include' ]
 )
 
