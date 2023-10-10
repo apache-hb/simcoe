@@ -37,9 +37,7 @@ namespace editor::graph {
     };
 
     struct SwapChainHandle final : IResourceHandle, IRTVHandle {
-        SwapChainHandle(Graph *ctx)
-            : IResourceHandle(ctx, "swapchain.rtv", StateDep(eDepDisplaySize | eDepBackBufferCount))
-        { }
+        SwapChainHandle(Graph *ctx);
 
         void create() override;
         void destroy() override;
@@ -57,9 +55,7 @@ namespace editor::graph {
     };
 
     struct SceneTargetHandle final : ITextureHandle, ISingleSRVHandle, ISingleRTVHandle {
-        SceneTargetHandle(Graph *ctx)
-            : ISingleResourceHandle(ctx, "texture.rtv", eDepRenderSize)
-        { }
+        SceneTargetHandle(Graph *ctx);
 
         static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
 

@@ -3,6 +3,15 @@
 using namespace editor;
 using namespace editor::graph;
 
+static constexpr math::float4 kRenderClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
+static constexpr math::float4 kSceneClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
+
+SwapChainHandle::SwapChainHandle(Graph *ctx)
+    : IResourceHandle(ctx, "swapchain.rtv", StateDep(eDepDisplaySize | eDepBackBufferCount))
+{
+    setClearColour(kRenderClearColour);
+}
+
 void SwapChainHandle::create() {
     const auto &createInfo = ctx->getCreateInfo();
     targets.resize(createInfo.backBufferCount);
@@ -42,6 +51,12 @@ RenderTargetAlloc::Index SwapChainHandle::getRtvIndex() const {
 ///
 /// scene target handle
 ///
+
+SceneTargetHandle::SceneTargetHandle(Graph *ctx)
+    : ISingleResourceHandle(ctx, "scene.srv.rtv", eDepRenderSize)
+{
+    setClearColour(kSceneClearColour);
+}
 
 void SceneTargetHandle::create() {
     const auto& createInfo = ctx->getCreateInfo();

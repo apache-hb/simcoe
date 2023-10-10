@@ -81,6 +81,15 @@ namespace simcoe::render {
         virtual ~IRTVHandle() = default;
 
         virtual RenderTargetAlloc::Index getRtvIndex() const = 0;
+
+
+        math::float4 getClearColour() const { return clearColour; }
+
+    protected:
+        void setClearColour(math::float4 clearColour) { this->clearColour = clearColour; }
+
+    private:
+        math::float4 clearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
     };
 
     struct ISingleRTVHandle : IRTVHandle {
@@ -232,6 +241,8 @@ namespace simcoe::render {
             : IGraphObject(ctx, name, stateDeps)
         { }
 
+        virtual void executePass() { execute(); }
+
         virtual void execute() = 0;
 
         std::vector<BasePassAttachment*> inputs;
@@ -250,6 +261,8 @@ namespace simcoe::render {
         IRenderPass(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
             : ICommandPass(ctx, name, stateDeps)
         { }
+
+        void executePass() override;
 
         IRTVHandle *getRenderTarget() const { return pRenderTarget->getInner(); }
 
@@ -313,10 +326,10 @@ namespace simcoe::render {
         ///
 
         void execute();
+        IRTVHandle *pCurrentRenderTarget = nullptr;
 
     private:
         void executePass(ICommandPass *pPass);
-        IRTVHandle *pCurrentRenderTarget = nullptr;
 
         ///
         /// state management

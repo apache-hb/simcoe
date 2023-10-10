@@ -37,6 +37,24 @@ void IResourceHandle::setResourceState(rhi::DeviceResource *pResource, rhi::Reso
 }
 
 ///
+/// render pass
+///
+
+void IRenderPass::executePass() {
+    ASSERTF(pRenderTarget != nullptr, "no render target set for pass {}", getName());
+
+    IRTVHandle *pNewTarget = pRenderTarget->getInner();
+    IRTVHandle *pCurrentTarget = graph->pCurrentRenderTarget;
+
+    if (pNewTarget != pCurrentTarget) {
+        ctx->setRenderTarget(pNewTarget->getRtvIndex(), pNewTarget->getClearColour());
+        graph->pCurrentRenderTarget = pNewTarget;
+    }
+
+    execute();
+}
+
+///
 /// graph
 ///
 
@@ -145,5 +163,5 @@ void Graph::executePass(ICommandPass *pPass) {
         }
     }
 
-    pPass->execute();
+    pPass->executePass();
 }

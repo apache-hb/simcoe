@@ -24,7 +24,7 @@ namespace editor::graph {
         rhi::IndexBuffer *pScreenQuadIndices;
     };
 
-    struct PresentPass final : IRenderPass {
+    struct PresentPass final : ICommandPass {
         PresentPass(Graph *ctx, ResourceWrapper<SwapChainHandle> *pBackBuffers);
 
         void create() override;

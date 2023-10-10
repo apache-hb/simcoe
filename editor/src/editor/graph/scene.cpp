@@ -25,8 +25,6 @@ constexpr rhi::Display createDisplay(UINT width, UINT height) {
     return { viewport, scissor };
 }
 
-static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
-
 static constexpr auto kQuadVerts = std::to_array<Vertex>({
     Vertex{ { 0.5f, -0.5f, 0.0f }, { 0.f, 0.f } }, // top left
     Vertex{ { 0.5f, 0.5f, 0.0f }, { 1.f, 0.f } }, // top right
@@ -113,7 +111,6 @@ void ScenePass::destroy() {
 }
 
 void ScenePass::execute() {
-    IRTVHandle *pTarget = getRenderTarget();
     ISRVHandle *pTexture = pTextureHandle->getInner();
     SceneUniformHandle *pUniform = pUniformHandle->getInner();
 
@@ -121,7 +118,6 @@ void ScenePass::execute() {
 
     ctx->setPipeline(pPipeline);
     ctx->setDisplay(display);
-    ctx->setRenderTarget(pTarget->getRtvIndex(), kClearColour);
 
     ctx->setShaderInput(pTexture->getSrvIndex(), pPipeline->getTextureInput("tex"));
     ctx->setShaderInput(pUniform->getSrvIndex(), pPipeline->getUniformInput("object"));

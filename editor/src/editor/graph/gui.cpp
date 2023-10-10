@@ -123,7 +123,6 @@ void IGuiPass::destroy() {
 
 void IGuiPass::execute() {
     rhi::Commands *pCommands = ctx->getDirectCommands();
-    IRTVHandle *pTarget = getRenderTarget();
 
     std::lock_guard guard(imguiLock);
 
@@ -136,7 +135,6 @@ void IGuiPass::execute() {
 
     ImGui::Render();
 
-    ctx->setRenderTarget(pTarget->getRtvIndex());
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), pCommands->getCommandList());
 }
 

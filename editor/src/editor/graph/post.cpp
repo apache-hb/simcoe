@@ -7,8 +7,6 @@
 using namespace editor;
 using namespace editor::graph;
 
-static constexpr math::float4 kBlackClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
-
 static constexpr float x = 1.f;
 static constexpr float y = 1.f;
 
@@ -113,12 +111,9 @@ void PostPass::destroy() {
 
 void PostPass::execute() {
     ISRVHandle *pSource = pSceneSource->getInner();
-    IRTVHandle *pRenderTarget = getRenderTarget();
 
     ctx->setPipeline(pPipeline);
     ctx->setDisplay(display);
-
-    ctx->setRenderTarget(pRenderTarget->getRtvIndex(), kBlackClearColour);
 
     ctx->setShaderInput(pSource->getSrvIndex(), pPipeline->getTextureInput("source"));
     ctx->setVertexBuffer(pScreenQuadVerts);
@@ -130,7 +125,7 @@ void PostPass::execute() {
 ///
 
 PresentPass::PresentPass(Graph *ctx, ResourceWrapper<SwapChainHandle> *pBackBuffers)
-    : IRenderPass(ctx, "present")
+    : ICommandPass(ctx, "present")
     , pBackBuffers(addAttachment(pBackBuffers, rhi::ResourceState::ePresent))
 { }
 
@@ -145,4 +140,3 @@ void PresentPass::destroy() {
 void PresentPass::execute() {
 
 }
-
