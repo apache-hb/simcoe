@@ -77,12 +77,14 @@ void PostPass::create() {
         },
 
         .textureInputs = {
-            { rhi::InputVisibility::ePixel, 0, false },
+            { "tex", rhi::InputVisibility::ePixel, 0, false },
         },
 
         .samplers = {
             { rhi::InputVisibility::ePixel, 0 }
-        }
+        },
+
+        .rtvFormat = ctx->getSwapChainFormat()
     };
 
     pPipeline = ctx->createPipelineState(psoCreateInfo);
@@ -117,7 +119,7 @@ void PostPass::execute() {
 
     ctx->setRenderTarget(pRenderTarget->getRtvIndex(), kBlackClearColour);
 
-    ctx->setShaderInput(pTarget->getSrvIndex(), 0);
+    ctx->setShaderInput(pTarget->getSrvIndex(), pPipeline->getTextureInput("tex"));
     ctx->setVertexBuffer(pScreenQuadVerts);
     ctx->drawIndexBuffer(pScreenQuadIndices, kScreenQuadIndices.size());
 }

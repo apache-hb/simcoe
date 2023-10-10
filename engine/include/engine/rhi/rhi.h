@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <span>
+#include <unordered_map>
 
 #include <directx/d3d12.h>
 #include <dxgi1_6.h>
@@ -32,6 +33,7 @@ namespace simcoe::rhi {
     struct VertexBuffer;
     struct IndexBuffer;
     struct TextureBuffer;
+    struct DepthBuffer;
     struct UploadBuffer;
     struct UniformBuffer;
 
@@ -137,13 +139,21 @@ namespace simcoe::rhi {
     // device
 
     enum struct TypeFormat {
+        eNone,
+
         eUint16,
         eUint32,
 
+        eDepth32,
+
         eFloat2,
         eFloat3,
-        eFloat4
+        eFloat4,
+
+        eRGBA8
     };
+
+    DXGI_FORMAT getTypeFormat(TypeFormat format);
 
     enum struct InputVisibility {
         ePixel,
@@ -154,6 +164,7 @@ namespace simcoe::rhi {
         ePresent,
         eRenderTarget,
         eShaderResource,
+        eDepthWrite,
         eCopyDest
     };
 
@@ -164,6 +175,7 @@ namespace simcoe::rhi {
     };
 
     struct InputSlot {
+        std::string_view name;
         InputVisibility visibility;
         size_t reg;
         bool isStatic;
@@ -184,17 +196,16 @@ namespace simcoe::rhi {
         std::vector<InputSlot> uniformInputs;
 
         std::vector<SamplerSlot> samplers;
-    };
 
-    enum struct PixelFormat {
-        eRGBA8
+        TypeFormat rtvFormat;
+        TypeFormat dsvFormat = TypeFormat::eNone;
     };
 
     struct TextureInfo {
         size_t width;
         size_t height;
 
-        PixelFormat format;
+        TypeFormat format;
     };
 
     enum struct CommandType {
@@ -220,6 +231,7 @@ namespace simcoe::rhi {
 
         VertexBuffer *createVertexBuffer(size_t length, size_t stride);
         IndexBuffer *createIndexBuffer(size_t length, TypeFormat fmt);
+        DepthBuffer *createDepthStencil(const TextureInfo& createInfo);
         UniformBuffer *createUniformBuffer(size_t length);
 
         TextureBuffer *createTextureRenderTarget(const TextureInfo& createInfo, const math::float4& clearColour);
@@ -230,7 +242,8 @@ namespace simcoe::rhi {
 
         // resource management
 
-        void mapRenderTarget(HostHeapOffset handle, DeviceResource *pTarget);
+        void mapRenderTarget(HostHeapOffset handle, DeviceResource *pTarget, rhi::TypeFormat format);
+        void mapDepthStencil(HostHeapOffset handle, DepthBuffer *pTarget, rhi::TypeFormat format);
         void mapUniform(HostHeapOffset handle, UniformBuffer *pUniform, size_t size);
         void mapTexture(HostHeapOffset handle, TextureBuffer *pTexture);
 
@@ -263,6 +276,7 @@ namespace simcoe::rhi {
         UINT height;
 
         UINT bufferCount;
+        rhi::TypeFormat format;
     };
 
     struct DisplayQueue {
@@ -361,13 +375,17 @@ namespace simcoe::rhi {
 
         void transition(DeviceResource *pTarget, ResourceState from, ResourceState to);
         void clearRenderTarget(HostHeapOffset handle, math::float4 colour);
+        void clearDepthStencil(HostHeapOffset handle, float depth, UINT8 stencil);
 
         void setDisplay(const Display& display);
         void setPipelineState(PipelineState *pState);
         void setHeap(DescriptorHeap *pHeap);
+
         void setShaderInput(DeviceHeapOffset handle, UINT reg);
+
         void setRenderTarget(HostHeapOffset handle);
         void setRenderTarget(HostHeapOffset rtvHandle, HostHeapOffset dsvHandle);
+
         void setVertexBuffer(VertexBuffer *pBuffer);
         void setIndexBuffer(IndexBuffer *pBuffer);
 
@@ -390,20 +408,37 @@ namespace simcoe::rhi {
     };
 
     struct PipelineState {
+        using IndexMap = std::unordered_map<std::string_view, UINT>;
         // module interface
-        static PipelineState *create(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState);
+        static PipelineState *create(
+            ID3D12RootSignature *pRootSignature,
+            ID3D12PipelineState *pState,
+            IndexMap textureInputs,
+            IndexMap uniformInputs
+        );
         ~PipelineState();
 
         ID3D12RootSignature *getRootSignature() { return pRootSignature; }
         ID3D12PipelineState *getState() { return pState; }
+
+        UINT getTextureInput(std::string_view name) { return textureInputs.at(name); }
+        UINT getUniformInput(std::string_view name) { return uniformInputs.at(name); }
+
+        void setName(std::string_view name);
+
     private:
-        PipelineState(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState)
+        PipelineState(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState, IndexMap textureInputs, IndexMap uniformInputs)
             : pRootSignature(pRootSignature)
             , pState(pState)
+            , textureInputs(textureInputs)
+            , uniformInputs(uniformInputs)
         { }
 
         ID3D12RootSignature *pRootSignature;
         ID3D12PipelineState *pState;
+
+        IndexMap textureInputs;
+        IndexMap uniformInputs;
     };
 
     // any resource
@@ -460,6 +495,11 @@ namespace simcoe::rhi {
     struct UploadBuffer : DeviceResource {
         using DeviceResource::DeviceResource;
         static UploadBuffer *create(ID3D12Resource *pResource);
+    };
+
+    struct DepthBuffer : DeviceResource {
+        using DeviceResource::DeviceResource;
+        static DepthBuffer *create(ID3D12Resource *pResource);
     };
 
     struct UniformBuffer : DeviceResource {

@@ -19,9 +19,11 @@ for target in targets.split(','):
     entry = f'{target}Main'
     target_model = f'{target}_{shader_model}'
     output_name = f'{output}.{target}.cso'
-    args = [dxc, '-T' + target_model, '-E' + entry, '-Fo' + output_name, '-WX']
+    args = [ dxc, '-T' + target_model, '-E' + entry, '-Fo' + output_name, '-WX', '-Ges', '-no-legacy-cbuf-layout' ]
     if debug:
         args += [ '-Zi', '-DDEBUG=1', '-Qembed_debug' ]
+    else:
+        args += [ '-O3' ]
     args += [ file ]
 
     print(' '.join(args))

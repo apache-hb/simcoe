@@ -44,6 +44,7 @@ static D3D12_RESOURCE_STATES getResourceState(ResourceState state) {
     case ResourceState::ePresent: return D3D12_RESOURCE_STATE_PRESENT;
     case ResourceState::eRenderTarget: return D3D12_RESOURCE_STATE_RENDER_TARGET;
     case ResourceState::eShaderResource: return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    case ResourceState::eDepthWrite: return D3D12_RESOURCE_STATE_DEPTH_WRITE;
     case ResourceState::eCopyDest: return D3D12_RESOURCE_STATE_COPY_DEST;
     default: throw std::runtime_error("invalid resource state");
     }
@@ -57,22 +58,21 @@ static D3D12_COMMAND_LIST_TYPE getCommandType(CommandType type) {
     }
 }
 
-static DXGI_FORMAT getTypeFormat(TypeFormat fmt) {
+DXGI_FORMAT simcoe::rhi::getTypeFormat(TypeFormat fmt) {
     switch (fmt) {
+    case TypeFormat::eNone: return DXGI_FORMAT_UNKNOWN;
+
+    case TypeFormat::eDepth32: return DXGI_FORMAT_D32_FLOAT;
+
     case TypeFormat::eUint16: return DXGI_FORMAT_R16_UINT;
     case TypeFormat::eUint32: return DXGI_FORMAT_R32_UINT;
 
     case TypeFormat::eFloat2: return DXGI_FORMAT_R32G32_FLOAT;
     case TypeFormat::eFloat3: return DXGI_FORMAT_R32G32B32_FLOAT;
     case TypeFormat::eFloat4: return DXGI_FORMAT_R32G32B32A32_FLOAT;
-    default: throw std::runtime_error("invalid type format");
-    }
-}
 
-static DXGI_FORMAT getPixelTypeFormat(PixelFormat fmt) {
-    switch (fmt) {
-    case PixelFormat::eRGBA8: return DXGI_FORMAT_R8G8B8A8_UNORM;
-    default: throw std::runtime_error("invalid pixel format");
+    case TypeFormat::eRGBA8: return DXGI_FORMAT_R8G8B8A8_UNORM;
+    default: throw std::runtime_error("invalid type format");
     }
 }
 
@@ -87,9 +87,9 @@ static size_t getByteSize(TypeFormat fmt) {
     }
 }
 
-static size_t getPixelByteSize(PixelFormat fmt) {
+static size_t getPixelByteSize(TypeFormat fmt) {
     switch (fmt) {
-    case PixelFormat::eRGBA8: return 4;
+    case TypeFormat::eRGBA8: return 4;
     default: throw std::runtime_error("invalid pixel format");
     }
 }
@@ -102,8 +102,9 @@ static D3D12_SHADER_VISIBILITY getVisibility(InputVisibility visibility) {
     }
 }
 
-static void setName(ID3D12Object *pObject, LPCWSTR name) {
-    pObject->SetName(name);
+static void setName(ID3D12Object *pObject, std::string_view name) {
+    std::wstring it = simcoe::util::widen(name);
+    pObject->SetName(it.c_str());
 }
 
 const char *severityToString(D3D12_MESSAGE_SEVERITY severity) {
@@ -185,6 +186,10 @@ void Commands::transition(DeviceResource *pTarget, ResourceState from, ResourceS
 
 void Commands::clearRenderTarget(HostHeapOffset handle, math::float4 colour) {
     get()->ClearRenderTargetView(hostHandle(handle), colour.data(), 0, nullptr);
+}
+
+void Commands::clearDepthStencil(HostHeapOffset handle, float depth, UINT8 stencil) {
+    get()->ClearDepthStencilView(hostHandle(handle), D3D12_CLEAR_FLAG_DEPTH, depth, stencil, 0, nullptr);
 }
 
 void Commands::setDisplay(const Display& display) {
@@ -302,7 +307,7 @@ DisplayQueue *DeviceQueue::createDisplayQueue(Context *pContext, const DisplayQu
     DXGI_SWAP_CHAIN_DESC1 desc = {
         .Width = createInfo.width,
         .Height = createInfo.height,
-        .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+        .Format = getTypeFormat(createInfo.format),
         .SampleDesc = { .Count = 1 },
         .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
         .BufferCount = createInfo.bufferCount,
@@ -448,17 +453,25 @@ DescriptorHeap *Device::createDepthStencilHeap(UINT count) {
 
 static CD3DX12_DESCRIPTOR_RANGE1 createRange(D3D12_DESCRIPTOR_RANGE_TYPE type, const InputSlot& slot) {
     CD3DX12_DESCRIPTOR_RANGE1 range;
-    range.Init(type, 1, slot.reg, 0, slot.isStatic ? D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC : D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+    auto dataFlag = slot.isStatic ? D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC : D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE;
+    range.Init(type, 1, slot.reg, 0, dataFlag, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND);
     return range;
 }
 
 PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo) {
+    PipelineState::IndexMap textureIndices;
+    PipelineState::IndexMap uniformIndices;
+
     // create root parameters
     std::vector<D3D12_ROOT_PARAMETER1> parameters;
+    auto addParam = [&](const D3D12_ROOT_PARAMETER1& param) {
+        parameters.push_back(param);
+        return parameters.size() - 1;
+    };
 
     // first check texture inputs
     size_t textureInputs = createInfo.textureInputs.size();
-    auto *pTextureRanges = new D3D12_DESCRIPTOR_RANGE1[textureInputs];
+    std::unique_ptr<D3D12_DESCRIPTOR_RANGE1[]> pTextureRanges{new D3D12_DESCRIPTOR_RANGE1[textureInputs]};
     for (size_t i = 0; i < textureInputs; i++) {
         const auto& input = createInfo.textureInputs[i];
 
@@ -469,12 +482,12 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
             1, &pTextureRanges[i],
             getVisibility(input.visibility)
         );
-        parameters.push_back(parameter);
+        textureIndices[input.name] = addParam(parameter);
     }
 
     // then uniforms
     size_t uniformInputs = createInfo.uniformInputs.size();
-    auto *pUniformRanges = new D3D12_DESCRIPTOR_RANGE1[uniformInputs];
+    std::unique_ptr<D3D12_DESCRIPTOR_RANGE1[]> pUniformRanges{new D3D12_DESCRIPTOR_RANGE1[uniformInputs]};
     for (size_t i = 0; i < uniformInputs; i++) {
         const auto& input = createInfo.uniformInputs[i];
 
@@ -485,7 +498,7 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
             1, &pUniformRanges[i],
             getVisibility(input.visibility)
         );
-        parameters.push_back(parameter);
+        uniformIndices[input.name] = addParam(parameter);
     }
 
     // create samplers
@@ -562,14 +575,15 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
         .InputLayout = { attributes.data(), UINT(attributes.size()) },
         .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
         .NumRenderTargets = 1,
-        .RTVFormats = { DXGI_FORMAT_R8G8B8A8_UNORM },
+        .RTVFormats = { getTypeFormat(createInfo.rtvFormat) },
+        .DSVFormat = getTypeFormat(createInfo.dsvFormat),
         .SampleDesc = { .Count = 1 },
     };
 
     ID3D12PipelineState *pPipeline = nullptr;
     HR_CHECK(get()->CreateGraphicsPipelineState(&pipelineDesc, IID_PPV_ARGS(&pPipeline)));
 
-    return PipelineState::create(pSignature, pPipeline);
+    return PipelineState::create(pSignature, pPipeline, textureIndices, uniformIndices);
 }
 
 Fence *Device::createFence() {
@@ -629,6 +643,36 @@ IndexBuffer *Device::createIndexBuffer(size_t length, TypeFormat fmt) {
     return IndexBuffer::create(pResource, view);
 }
 
+DepthBuffer *Device::createDepthStencil(const TextureInfo& createInfo) {
+    DXGI_FORMAT format = getTypeFormat(createInfo.format);
+    D3D12_CLEAR_VALUE clear = {
+        .Format = format,
+        .DepthStencil = { 1.0f, 0 },
+    };
+
+    ID3D12Resource *pResource = nullptr;
+
+    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    D3D12_RESOURCE_DESC desc = {
+        .Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+        .Width = UINT(createInfo.width),
+        .Height = UINT(createInfo.height),
+        .DepthOrArraySize = 1,
+        .MipLevels = 1,
+        .Format = format,
+        .SampleDesc = { .Count = 1 },
+        .Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL,
+    };
+
+    HR_CHECK(get()->CreateCommittedResource(
+        &heap, D3D12_HEAP_FLAG_NONE, &desc,
+        D3D12_RESOURCE_STATE_DEPTH_WRITE,
+        &clear, IID_PPV_ARGS(&pResource)
+    ));
+
+    return DepthBuffer::create(pResource);
+}
+
 UniformBuffer *Device::createUniformBuffer(size_t length) {
     ID3D12Resource *pResource = nullptr;
 
@@ -649,7 +693,7 @@ UniformBuffer *Device::createUniformBuffer(size_t length) {
 }
 
 TextureBuffer *Device::createTextureRenderTarget(const TextureInfo& createInfo, const math::float4& clearColour) {
-    DXGI_FORMAT format = getPixelTypeFormat(createInfo.format);
+    DXGI_FORMAT format = getTypeFormat(createInfo.format);
     D3D12_CLEAR_VALUE clear = {
         .Format = format,
         .Color = { clearColour.x, clearColour.y, clearColour.z, clearColour.w },
@@ -683,7 +727,7 @@ TextureBuffer *Device::createTexture(const TextureInfo& createInfo) {
 
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Tex2D(
-        getPixelTypeFormat(createInfo.format),
+        getTypeFormat(createInfo.format),
         UINT(createInfo.width), UINT(createInfo.height)
     );
 
@@ -731,13 +775,22 @@ UploadBuffer *Device::createTextureUploadBuffer(const TextureInfo& createInfo) {
     return UploadBuffer::create(pResource);
 }
 
-void Device::mapRenderTarget(HostHeapOffset handle, DeviceResource *pTarget) {
+void Device::mapRenderTarget(HostHeapOffset handle, DeviceResource *pTarget, rhi::TypeFormat format) {
     D3D12_RENDER_TARGET_VIEW_DESC desc = {
-        .Format = DXGI_FORMAT_R8G8B8A8_UNORM, // todo: this doesnt account for pixel format
+        .Format = getTypeFormat(format),
         .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
     };
 
     get()->CreateRenderTargetView(pTarget->getResource(), &desc, hostHandle(handle));
+}
+
+void Device::mapDepthStencil(HostHeapOffset handle, DepthBuffer *pTarget, rhi::TypeFormat format) {
+    D3D12_DEPTH_STENCIL_VIEW_DESC desc = {
+        .Format = getTypeFormat(format),
+        .ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D,
+    };
+
+    get()->CreateDepthStencilView(pTarget->getResource(), &desc, hostHandle(handle));
 }
 
 void Device::mapUniform(HostHeapOffset handle, UniformBuffer *pUniform, size_t size) {
@@ -873,11 +926,13 @@ DescriptorHeap *DescriptorHeap::create(ID3D12DescriptorHeap *pHeap, UINT descrip
 
 // pipeline state
 
-PipelineState *PipelineState::create(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState) {
-    setName(pRootSignature, L"RootSignature");
-    setName(pState, L"PipelineState");
+void PipelineState::setName(std::string_view name) {
+    ::setName(pRootSignature, std::format("{}.root", name));
+    ::setName(pState, std::format("{}.state", name));
+}
 
-    return new PipelineState(pRootSignature, pState);
+PipelineState *PipelineState::create(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState, IndexMap textureInputs, IndexMap uniformInputs) {
+    return new PipelineState(pRootSignature, pState, textureInputs, uniformInputs);
 }
 
 PipelineState::~PipelineState() {
@@ -889,6 +944,12 @@ PipelineState::~PipelineState() {
 
 RenderTarget *RenderTarget::create(ID3D12Resource *pResource) {
     return new RenderTarget(pResource);
+}
+
+// depth buffer
+
+DepthBuffer *DepthBuffer::create(ID3D12Resource *pResource) {
+    return new DepthBuffer(pResource);
 }
 
 // vertex buffer

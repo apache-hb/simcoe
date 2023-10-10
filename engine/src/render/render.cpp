@@ -73,6 +73,7 @@ void Context::createDisplayData() {
         .width = createInfo.displayWidth,
         .height = createInfo.displayHeight,
         .bufferCount = createInfo.backBufferCount,
+        .format = getSwapChainFormat()
     };
 
     pDisplayQueue = pDirectQueue->createDisplayQueue(pContext, displayCreateInfo);

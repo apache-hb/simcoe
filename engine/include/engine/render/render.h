@@ -122,12 +122,19 @@ namespace simcoe::render {
 
         ShaderResourceAlloc *getSrvHeap() { return pDataAlloc; }
         RenderTargetAlloc *getRtvHeap() { return pRenderTargetAlloc; }
+        DepthStencilAlloc *getDsvHeap() { return pDepthStencilAlloc; }
 
         rhi::RenderTarget *getRenderTarget(size_t index) { return pDisplayQueue->getRenderTarget(index); }
+        rhi::TypeFormat getSwapChainFormat() const { return rhi::TypeFormat::eRGBA8; }
+        rhi::TypeFormat getDepthFormat() const { return rhi::TypeFormat::eDepth32; }
 
         // create resources
         rhi::TextureBuffer *createTextureRenderTarget(const rhi::TextureInfo& createInfo, const math::float4& clearColour) {
             return pDevice->createTextureRenderTarget(createInfo, clearColour);
+        }
+
+        rhi::DepthBuffer *createDepthStencil(const rhi::TextureInfo& createInfo) {
+            return pDevice->createDepthStencil(createInfo);
         }
 
         rhi::UniformBuffer *createUniformBuffer(size_t size) {
@@ -161,7 +168,7 @@ namespace simcoe::render {
         // heap allocators
         RenderTargetAlloc::Index mapRenderTarget(rhi::DeviceResource *pResource) {
             auto index = pRenderTargetAlloc->alloc();
-            pDevice->mapRenderTarget(pRenderTargetAlloc->hostOffset(index), pResource);
+            pDevice->mapRenderTarget(pRenderTargetAlloc->hostOffset(index), pResource, getSwapChainFormat());
             return index;
         }
 
@@ -181,6 +188,12 @@ namespace simcoe::render {
             return pDataAlloc->alloc();
         }
 
+        DepthStencilAlloc::Index mapDepth(rhi::DepthBuffer *pResource) {
+            auto index = pDepthStencilAlloc->alloc();
+            pDevice->mapDepthStencil(pDepthStencilAlloc->hostOffset(index), pResource, getDepthFormat());
+            return index;
+        }
+
         // commands
         void transition(rhi::DeviceResource *pResource, rhi::ResourceState from, rhi::ResourceState to) {
             pDirectCommands->transition(pResource, from, to);
@@ -198,9 +211,33 @@ namespace simcoe::render {
             if (currentRenderTarget == index) return;
             currentRenderTarget = index;
 
-            auto host = pRenderTargetAlloc->hostOffset(index);
-            pDirectCommands->setRenderTarget(host);
-            pDirectCommands->clearRenderTarget(host, clear);
+            auto rtvHost = pRenderTargetAlloc->hostOffset(index);
+            pDirectCommands->setRenderTarget(rtvHost);
+            pDirectCommands->clearRenderTarget(rtvHost, clear);
+        }
+
+        void setRenderTarget(RenderTargetAlloc::Index rtvIndex, DepthStencilAlloc::Index dsvIndex, const math::float4& clear) {
+            if (currentRenderTarget == rtvIndex) return;
+            currentRenderTarget = rtvIndex;
+
+            auto rtvHost = pRenderTargetAlloc->hostOffset(rtvIndex);
+            auto dsvHost = pDepthStencilAlloc->hostOffset(dsvIndex);
+            pDirectCommands->setRenderTarget(rtvHost, dsvHost);
+            pDirectCommands->clearRenderTarget(rtvHost, clear);
+            pDirectCommands->clearDepthStencil(dsvHost, 1.0f, 0);
+        }
+
+        void setRenderTarget(RenderTargetAlloc::Index rtvIndex, DepthStencilAlloc::Index dsvIndex) {
+            if (currentRenderTarget == rtvIndex) return;
+            currentRenderTarget = rtvIndex;
+
+            auto rtvHost = pRenderTargetAlloc->hostOffset(rtvIndex);
+            auto dsvHost = pDepthStencilAlloc->hostOffset(dsvIndex);
+            pDirectCommands->setRenderTarget(rtvHost, dsvHost);
+        }
+
+        void clearDepthStencil(DepthStencilAlloc::Index index, float depth, uint8_t stencil) {
+            pDirectCommands->clearDepthStencil(pDepthStencilAlloc->hostOffset(index), depth, stencil);
         }
 
         void setRenderTarget(RenderTargetAlloc::Index index) {
@@ -221,6 +258,14 @@ namespace simcoe::render {
 
         void setVertexBuffer(rhi::VertexBuffer *pBuffer) {
             pDirectCommands->setVertexBuffer(pBuffer);
+        }
+
+        void setIndexBuffer(rhi::IndexBuffer *pBuffer) {
+            pDirectCommands->setIndexBuffer(pBuffer);
+        }
+
+        void drawIndexed(size_t count) {
+            pDirectCommands->drawIndexBuffer(count);
         }
 
         // copy commands

@@ -4,9 +4,12 @@ struct Input {
 };
 
 cbuffer CameraBuffer : register(b0) {
-    float4x4 model;
     float4x4 view;
     float4x4 projection;
+};
+
+cbuffer ObjectBuffer : register(b1) {
+    float4x4 model;
 };
 
 Texture2D gTexture : register(t0);
@@ -14,7 +17,7 @@ SamplerState gSampler : register(s0);
 
 float4 perspective(float4 position) {
     float4 result = mul(position, model);
-    result = mul(position, view);
+    result = mul(result, view);
     result = mul(result, projection);
     return result;
 }

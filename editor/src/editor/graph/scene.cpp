@@ -74,16 +74,19 @@ void ScenePass::create() {
         },
 
         .textureInputs = {
-            { rhi::InputVisibility::ePixel, 0, true }
+            { "tex", rhi::InputVisibility::ePixel, 0, true }
         },
 
         .uniformInputs = {
-            { rhi::InputVisibility::eVertex, 0, false }
+            { "object", rhi::InputVisibility::eVertex, 0, false }
         },
 
         .samplers = {
             { rhi::InputVisibility::ePixel, 0 }
-        }
+        },
+
+        .rtvFormat = ctx->getSwapChainFormat(),
+        .dsvFormat = ctx->getDepthFormat()
     };
 
     pPipeline = ctx->createPipelineState(psoCreateInfo);
@@ -119,8 +122,8 @@ void ScenePass::execute() {
     ctx->setDisplay(display);
     ctx->setRenderTarget(pTarget->getRtvIndex(), kClearColour);
 
-    ctx->setShaderInput(pTexture->getSrvIndex(), 0);
-    ctx->setShaderInput(pUniform->getSrvIndex(), 1);
+    ctx->setShaderInput(pTexture->getSrvIndex(), pPipeline->getTextureInput("tex"));
+    ctx->setShaderInput(pUniform->getSrvIndex(), pPipeline->getUniformInput("object"));
 
     ctx->setVertexBuffer(pQuadVertexBuffer);
     ctx->drawIndexBuffer(pQuadIndexBuffer, kQuadIndices.size());

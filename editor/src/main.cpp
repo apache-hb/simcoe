@@ -30,6 +30,12 @@ static bool gFullscreen = false;
 
 GameLevel gLevel;
 
+static void addObject(std::string name) {
+    gLevel.objects.push_back({
+        .name = name
+    });
+}
+
 using WorkItem = std::function<void()>;
 
 moodycamel::ConcurrentQueue<WorkItem> gWorkQueue{64};
@@ -190,6 +196,7 @@ struct GameGui final : graph::IGuiPass {
         case rhi::ResourceState::eRenderTarget: return "render-target";
         case rhi::ResourceState::eShaderResource: return "shader-resource";
         case rhi::ResourceState::eCopyDest: return "copy-dest";
+        case rhi::ResourceState::eDepthWrite: return "depth-write";
 
         default: return "unknown";
         }
@@ -211,9 +218,20 @@ struct GameGui final : graph::IGuiPass {
         ImGui::End();
 
         ImGui::Begin("level");
-        ImGui::SliderFloat3("player position", gLevel.playerPosition.data(), -1.f, 1.f);
-        ImGui::SliderFloat3("player rotation", gLevel.playerRotation.data(), -1.f, 1.f);
-        ImGui::SliderFloat3("player scale", gLevel.playerScale.data(), 0.1f, 3.f);
+        for (size_t i = 0; i < gLevel.objects.size(); i++) {
+            auto& object = gLevel.objects[i];
+            ImGui::PushID(i);
+
+            ImGui::BulletText("%s", object.name.data());
+
+            ImGui::SliderFloat3("position", object.position.data(), -10.f, 10.f);
+            ImGui::SliderFloat3("rotation", object.rotation.data(), -1.f, 1.f);
+            ImGui::SliderFloat3("scale", object.scale.data(), 0.1f, 10.f);
+
+            ImGui::PopID();
+        }
+
+        ImGui::Separator();
 
         ImGui::SliderFloat3("camera position", gLevel.cameraPosition.data(), -10.f, 10.f);
 
@@ -241,7 +259,7 @@ struct GameGui final : graph::IGuiPass {
         }
 
         ImGui::Checkbox("tearing", &ctx->bAllowTearing);
-        ImGui::Text("dxgi reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
+        ImGui::Text("DXGI reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
 
         if (ImGui::SliderInt2("render size", renderSize, 64, 4096)) {
             gWorkQueue.enqueue([this] {
@@ -293,7 +311,7 @@ struct GameGui final : graph::IGuiPass {
             ImGui::BulletText("%s", name.data());
             for (auto *pAttachment : pPass->inputs) {
                 auto *pHandle = pAttachment->getResourceHandle();
-                ImGui::BulletText("  %s (expected state: %s)", pHandle->getName().data(), stateToString(pAttachment->getRequiredState()));
+                ImGui::BulletText("  %s (expected: %s)", pHandle->getName().data(), stateToString(pAttachment->getRequiredState()));
             }
         }
 
@@ -344,6 +362,9 @@ static void commonMain() {
         simcoe::logInfo("work thread stopped");
     });
 
+    addObject("jeff");
+    addObject("bob");
+
     // move the render context into the render thread to prevent hangs on shutdown
     render::Context *pContext = render::Context::create(renderCreateInfo);
     pRenderThread = new std::jthread([pContext](std::stop_token token) {
@@ -353,6 +374,7 @@ static void commonMain() {
         try {
             auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
             auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
+            auto *pDepthTarget = pGraph->addResource<graph::DepthTargetHandle>();
             auto *pTexture = pGraph->addResource<graph::TextureHandle>("uv-coords.png");
             auto *pUniform = pGraph->addResource<graph::SceneUniformHandle>();
 
@@ -361,12 +383,11 @@ static void commonMain() {
             const graph::GameRenderInfo gameRenderConfig = {
                 .pPlayerTexture =  pTexture, //pGraph->addResource<graph::TextureHandle>("player.png"),
                 .pCameraUniform = pGraph->addResource<graph::CameraUniformHandle>(),
-                .pPlayerUniform = pGraph->addResource<graph::ObjectUniformHandle>(),
                 .pPlayerMesh = pPlayerMesh
             };
 
             pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pTexture, pUniform);
-            pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), gameRenderConfig);
+            pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>(), gameRenderConfig);
             pGraph->addPass<graph::PostPass>(pSceneTarget->as<ISRVHandle>(), pBackBuffers->as<IRTVHandle>());
             pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<graph::PresentPass>(pBackBuffers->as<IRTVHandle>());

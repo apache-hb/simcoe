@@ -67,6 +67,15 @@ namespace editor::graph {
         void destroy() override;
     };
 
+    struct DepthTargetHandle final : ISingleResourceHandle<rhi::DepthBuffer>, ISingleDSVHandle {
+        DepthTargetHandle(Graph *ctx)
+            : ISingleResourceHandle(ctx, "depth.dsv", eDepRenderSize)
+        { }
+
+        void create() override;
+        void destroy() override;
+    };
+
     struct TextureHandle final : ITextureHandle, ISingleSRVHandle {
         TextureHandle(Graph *ctx, std::string name);
 

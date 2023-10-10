@@ -475,52 +475,41 @@ namespace simcoe::math {
             at(2, 3) = translation.z;
         }
 
-        static constexpr Mat4x4 rotation(T angle, const Row3& axis) {
-            auto c = std::cos(angle);
-            auto s = std::sin(angle);
-            auto t = 1 - c;
+        static constexpr Mat4x4 rotation(const Row3& rotation) {
+            auto& [pitch, yaw, roll] = rotation;
+            const T cp = std::cos(pitch);
+            const T sp = std::sin(pitch);
 
-            auto x = axis.x;
-            auto y = axis.y;
-            auto z = axis.z;
+            const T cy = std::cos(yaw);
+            const T sy = std::sin(yaw);
 
-            auto xy = x * y;
-            auto xz = x * z;
-            auto yz = y * z;
+            const T cr = std::cos(roll);
+            const T sr = std::sin(roll);
 
-            auto xs = x * s;
-            auto ys = y * s;
-            auto zs = z * s;
-
-            auto row0 = Row::from(
-                t * x * x + c,
-                xy * t + zs,
-                xz * t - ys,
+            auto r0 = Row::from(
+                cr * cy + sr * sp * sy,
+                sr * cp,
+                sr * sp * cy - cr * sy,
                 0
             );
 
-            auto row1 = Row::from(
-                xy * t - zs,
-                t * y * y + c,
-                yz * t + xs,
+            auto r1 = Row::from(
+                cr * sp * sy - sr * cy,
+                cr * cp,
+                sr * sy + cr * sp * cy,
                 0
             );
 
-            auto row2 = Row::from(
-                xz * t + ys,
-                yz * t - xs,
-                t * z * z + c,
+            auto r2 = Row::from(
+                cp * sy,
+                -sp,
+                cp * cy,
                 0
             );
 
-            auto row3 = Row::from(
-                0,
-                0,
-                0,
-                1
-            );
+            auto r3 = Row::from(0, 0, 0, 1);
 
-            return from(row0, row1, row2, row3);
+            return from(r0, r1, r2, r3);
         }
 
         constexpr Mat4x4 transpose() const {

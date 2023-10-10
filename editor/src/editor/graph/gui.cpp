@@ -103,7 +103,7 @@ void IGuiPass::create() {
     ImGui_ImplWin32_Init(createInfo.hWindow);
     ImGui_ImplDX12_Init(ctx->getDevice()->getDevice(),
         createInfo.backBufferCount,
-        DXGI_FORMAT_R8G8B8A8_UNORM,
+        rhi::getTypeFormat(ctx->getSwapChainFormat()),
         pHeap->pHeap->getHeap(),
         D3D12_CPU_DESCRIPTOR_HANDLE { size_t(pHeap->hostOffset(guiUniformIndex)) },
         D3D12_GPU_DESCRIPTOR_HANDLE { size_t(pHeap->deviceOffset(guiUniformIndex)) }

@@ -73,6 +73,10 @@ namespace simcoe::render {
         T *pResource = nullptr;
     };
 
+    ///
+    /// rtv handles
+    ///
+
     struct IRTVHandle {
         virtual ~IRTVHandle() = default;
 
@@ -97,6 +101,37 @@ namespace simcoe::render {
     private:
         RenderTargetAlloc::Index rtvIndex;
     };
+
+    ///
+    /// dsv handles
+    ///
+
+    struct IDSVHandle {
+        virtual ~IDSVHandle() = default;
+
+        virtual DepthStencilAlloc::Index getDsvIndex() const = 0;
+    };
+
+    struct ISingleDSVHandle : IDSVHandle {
+        virtual ~ISingleDSVHandle() = default;
+
+        DepthStencilAlloc::Index getDsvIndex() const final override {
+            return dsvIndex;
+        }
+    protected:
+        void destroy(Context *ctx) {
+            auto *pDsvHeap = ctx->getDsvHeap();
+            pDsvHeap->release(dsvIndex);
+        }
+
+        void setDsvIndex(DepthStencilAlloc::Index index) { dsvIndex = index; }
+    private:
+        DepthStencilAlloc::Index dsvIndex;
+    };
+
+    ///
+    /// srv handles
+    ///
 
     struct ISRVHandle {
         virtual ~ISRVHandle() = default;
@@ -206,6 +241,10 @@ namespace simcoe::render {
             inputs.push_back(pResource);
             return pResource;
         }
+
+    private:
+        IRTVHandle *pRenderTarget = nullptr;
+        IDSVHandle *pDepthTarget = nullptr;
     };
 
     ///

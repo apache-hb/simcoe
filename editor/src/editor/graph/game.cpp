@@ -18,7 +18,6 @@ void CameraUniformHandle::update(GameLevel *pLevel) {
     float4x4 projection = float4x4::perspectiveRH(pLevel->fov * kDegToRad<float>, width / height, 0.1f, 1000.f).transpose();
 
     CameraUniform data = {
-        .model = float4x4::identity(),
         .view = view,
         .projection = projection
     };
@@ -26,21 +25,33 @@ void CameraUniformHandle::update(GameLevel *pLevel) {
     IUniformHandle::update(&data);
 }
 
-void ObjectUniformHandle::update(GameLevel *pLevel) {
-    ObjectUniform data = { .model = float4x4::identity() };
+void ObjectUniformHandle::update(GameLevel *pLevel, size_t index) {
+    const auto &object = pLevel->objects[index];
+
+    float4x4 model = float4x4::identity();
+    model *= float4x4::translation(object.position);
+    model *= float4x4::rotation(object.rotation);
+    model *= float4x4::scaling(object.scale);
+
+    ObjectUniform data = { .model = model };
 
     IUniformHandle::update(&data);
 }
 
-GameLevelPass::GameLevelPass(Graph *ctx, GameLevel *pLevel, ResourceWrapper<IRTVHandle> *pRenderTarget, GameRenderInfo info)
+GameLevelPass::GameLevelPass(Graph *ctx, GameLevel *pLevel, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<IDSVHandle> *pDepthTarget, GameRenderInfo info)
     : IRenderPass(ctx, "game.level")
     , pRenderTarget(addAttachment(pRenderTarget, rhi::ResourceState::eRenderTarget))
+    , pDepthTarget(addAttachment(pDepthTarget, rhi::ResourceState::eDepthWrite))
     , pPlayerTexture(addAttachment(info.pPlayerTexture, rhi::ResourceState::eShaderResource))
     , pCameraUniform(addAttachment(info.pCameraUniform, rhi::ResourceState::eShaderResource))
-    , pPlayerUniform(addAttachment(info.pPlayerUniform, rhi::ResourceState::eShaderResource))
     , pPlayerMesh(info.pPlayerMesh)
     , pLevel(pLevel)
-{ }
+{
+    for (auto &object : pLevel->objects) {
+        auto *pUniform = graph->addResource<ObjectUniformHandle>(object.name);
+        objectUniforms.push_back(addAttachment(pUniform, rhi::ResourceState::eShaderResource));
+    }
+}
 
 void GameLevelPass::create() {
     const auto &createInfo = ctx->getCreateInfo();
@@ -52,19 +63,24 @@ void GameLevelPass::create() {
         .attributes = pPlayerMesh->getVertexAttributes(),
 
         .textureInputs = {
-            { rhi::InputVisibility::ePixel, 0, true }
+            { "tex", rhi::InputVisibility::ePixel, 0, true }
         },
 
         .uniformInputs = {
-            { rhi::InputVisibility::eVertex, 0, false }
+            { "camera", rhi::InputVisibility::eVertex, 0, false },
+            { "object", rhi::InputVisibility::eVertex, 1, false }
         },
 
         .samplers = {
             { rhi::InputVisibility::ePixel, 0 }
-        }
+        },
+
+        .rtvFormat = ctx->getSwapChainFormat(),
+        .dsvFormat = ctx->getDepthFormat()
     };
 
     pPipeline = ctx->createPipelineState(psoCreateInfo);
+    pPipeline->setName("pso.game");
 }
 
 void GameLevelPass::destroy() {
@@ -73,20 +89,33 @@ void GameLevelPass::destroy() {
 
 void GameLevelPass::execute() {
     IRTVHandle *pTarget = pRenderTarget->getInner();
+    IDSVHandle *pDepth = pDepthTarget->getInner();
     ISRVHandle *pTexture = pPlayerTexture->getInner();
     CameraUniformHandle *pCamera = pCameraUniform->getInner();
-    ObjectUniformHandle *pUniform = pPlayerUniform->getInner();
 
     pCamera->update(pLevel);
-    pUniform->update(pLevel);
 
-    ctx->setRenderTarget(pTarget->getRtvIndex());
+    ctx->setRenderTarget(pTarget->getRtvIndex(), pDepth->getDsvIndex());
+    ctx->clearDepthStencil(pDepth->getDsvIndex(), 1.f, 0);
 
     ctx->setPipeline(pPipeline);
 
-    ctx->setShaderInput(pTexture->getSrvIndex(), 0);
-    ctx->setShaderInput(pCamera->getSrvIndex(), 1); // set camera uniform
+    UINT texIndex = pPipeline->getTextureInput("tex");
+    UINT cameraIndex = pPipeline->getUniformInput("camera");
+    UINT objectIndex = pPipeline->getUniformInput("object");
+
+    ctx->setShaderInput(pTexture->getSrvIndex(), texIndex);
+    ctx->setShaderInput(pCamera->getSrvIndex(), cameraIndex); // set camera uniform
 
     ctx->setVertexBuffer(pPlayerMesh->getVertexBuffer());
-    ctx->drawIndexBuffer(pPlayerMesh->getIndexBuffer(), pPlayerMesh->getIndexCount());
+    ctx->setIndexBuffer(pPlayerMesh->getIndexBuffer());
+
+    for (size_t i = 0; i < objectUniforms.size(); i++) {
+        auto *pUniformHandle = objectUniforms[i];
+        auto *pUniform = pUniformHandle->getInner();
+
+        pUniform->update(pLevel, i);
+        ctx->setShaderInput(pUniform->getSrvIndex(), objectIndex); // set object uniform
+        ctx->drawIndexed(pPlayerMesh->getIndexCount());
+    }
 }

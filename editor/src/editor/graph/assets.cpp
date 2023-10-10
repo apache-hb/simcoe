@@ -49,7 +49,7 @@ void SceneTargetHandle::create() {
     const rhi::TextureInfo textureCreateInfo = {
         .width = createInfo.renderWidth,
         .height = createInfo.renderHeight,
-        .format = rhi::PixelFormat::eRGBA8,
+        .format = rhi::TypeFormat::eRGBA8,
     };
 
     auto *pResource = ctx->createTextureRenderTarget(textureCreateInfo, kClearColour);
@@ -64,6 +64,32 @@ void SceneTargetHandle::create() {
 void SceneTargetHandle::destroy() {
     ISingleSRVHandle::destroy(ctx);
     ISingleRTVHandle::destroy(ctx);
+    ISingleResourceHandle::destroy();
+}
+
+///
+/// depth handle
+///
+
+void DepthTargetHandle::create() {
+    const auto& createInfo = ctx->getCreateInfo();
+
+    const rhi::TextureInfo textureCreateInfo = {
+        .width = createInfo.renderWidth,
+        .height = createInfo.renderHeight,
+        .format = rhi::TypeFormat::eDepth32,
+    };
+
+    auto *pResource = ctx->createDepthStencil(textureCreateInfo);
+    pResource->setName("depth-target");
+
+    setResource(pResource);
+    setCurrentState(rhi::ResourceState::eDepthWrite);
+    setDsvIndex(ctx->mapDepth(pResource));
+}
+
+void DepthTargetHandle::destroy() {
+    ISingleDSVHandle::destroy(ctx);
     ISingleResourceHandle::destroy();
 }
 
@@ -84,7 +110,7 @@ void TextureHandle::create() {
         .width = image.width,
         .height = image.height,
 
-        .format = rhi::PixelFormat::eRGBA8
+        .format = rhi::TypeFormat::eRGBA8
     };
 
     simcoe::logInfo("texture {} ({}x{})", name, image.width, image.height);
@@ -98,7 +124,7 @@ void TextureHandle::create() {
     std::unique_ptr<rhi::UploadBuffer> pTextureStaging{ctx->createTextureUploadBuffer(textureInfo)};
 
     pResource->setName(name);
-    pResource->setName("staging(" + name + ")");
+    pTextureStaging->setName("staging(" + name + ")");
 
     ctx->beginCopy();
 

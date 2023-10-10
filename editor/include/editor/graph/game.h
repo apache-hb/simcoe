@@ -6,7 +6,6 @@
 
 namespace editor::graph {
     struct UNIFORM_ALIGN CameraUniform {
-        math::float4x4 model;
         math::float4x4 view;
         math::float4x4 projection;
     };
@@ -24,17 +23,16 @@ namespace editor::graph {
     };
 
     struct ObjectUniformHandle final : IUniformHandle<ObjectUniform> {
-        ObjectUniformHandle(Graph *ctx)
-            : IUniformHandle(ctx, "uniform.object")
+        ObjectUniformHandle(Graph *ctx, std::string name)
+            : IUniformHandle(ctx, std::format("uniform.object.{}", name))
         { }
 
-        void update(GameLevel *pLevel);
+        void update(GameLevel *pLevel, size_t index);
     };
 
     struct GameRenderInfo {
         ResourceWrapper<TextureHandle> *pPlayerTexture;
         ResourceWrapper<CameraUniformHandle> *pCameraUniform;
-        ResourceWrapper<ObjectUniformHandle> *pPlayerUniform;
         IMeshBufferHandle *pPlayerMesh;
     };
 
@@ -43,6 +41,7 @@ namespace editor::graph {
             Graph *ctx,
             GameLevel *pLevel,
             ResourceWrapper<IRTVHandle> *pRenderTarget,
+            ResourceWrapper<IDSVHandle> *pDepthTarget,
             GameRenderInfo info
         );
 
@@ -53,9 +52,11 @@ namespace editor::graph {
 
     private:
         PassAttachment<IRTVHandle> *pRenderTarget;
+        PassAttachment<IDSVHandle> *pDepthTarget;
         PassAttachment<TextureHandle> *pPlayerTexture;
         PassAttachment<CameraUniformHandle> *pCameraUniform;
-        PassAttachment<ObjectUniformHandle> *pPlayerUniform;
+
+        std::vector<PassAttachment<ObjectUniformHandle>*> objectUniforms;
 
         IMeshBufferHandle *pPlayerMesh;
 
