@@ -198,6 +198,8 @@ namespace simcoe::rhi {
         std::vector<SamplerSlot> samplers;
 
         TypeFormat rtvFormat;
+
+        bool depthEnable = false;
         TypeFormat dsvFormat = TypeFormat::eNone;
     };
 

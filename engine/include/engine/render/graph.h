@@ -265,14 +265,20 @@ namespace simcoe::render {
         void executePass() override;
 
         IRTVHandle *getRenderTarget() const { return pRenderTarget->getInner(); }
+        IDSVHandle *getDepthStencil() const { return pDepthStencil->getInner(); }
 
     protected:
         void setRenderTargetHandle(ResourceWrapper<IRTVHandle> *pHandle) {
             this->pRenderTarget = addAttachment(pHandle, rhi::ResourceState::eRenderTarget);
         }
 
+        void setDepthStencilHandle(ResourceWrapper<IDSVHandle> *pHandle) {
+            this->pDepthStencil = addAttachment(pHandle, rhi::ResourceState::eDepthWrite);
+        }
+
     private:
         PassAttachment<IRTVHandle> *pRenderTarget = nullptr;
+        PassAttachment<IDSVHandle> *pDepthStencil = nullptr;
     };
 
     ///

@@ -207,30 +207,16 @@ namespace simcoe::render {
             pDirectCommands->setPipelineState(pPipeline);
         }
 
-        void setRenderTarget(RenderTargetAlloc::Index index, const math::float4& clear) {
+        // render and depth commands
+
+        void setRenderTarget(RenderTargetAlloc::Index index) {
             if (currentRenderTarget == index) return;
             currentRenderTarget = index;
 
-            auto rtvHost = pRenderTargetAlloc->hostOffset(index);
-            pDirectCommands->setRenderTarget(rtvHost);
-            pDirectCommands->clearRenderTarget(rtvHost, clear);
+            pDirectCommands->setRenderTarget(pRenderTargetAlloc->hostOffset(index));
         }
 
-        void setRenderTarget(RenderTargetAlloc::Index rtvIndex, DepthStencilAlloc::Index dsvIndex, const math::float4& clear) {
-            if (currentRenderTarget == rtvIndex) return;
-            currentRenderTarget = rtvIndex;
-
-            auto rtvHost = pRenderTargetAlloc->hostOffset(rtvIndex);
-            auto dsvHost = pDepthStencilAlloc->hostOffset(dsvIndex);
-            pDirectCommands->setRenderTarget(rtvHost, dsvHost);
-            pDirectCommands->clearRenderTarget(rtvHost, clear);
-            pDirectCommands->clearDepthStencil(dsvHost, 1.0f, 0);
-        }
-
-        void setRenderTarget(RenderTargetAlloc::Index rtvIndex, DepthStencilAlloc::Index dsvIndex) {
-            if (currentRenderTarget == rtvIndex) return;
-            currentRenderTarget = rtvIndex;
-
+        void setRenderAndDepth(RenderTargetAlloc::Index rtvIndex, DepthStencilAlloc::Index dsvIndex) {
             auto rtvHost = pRenderTargetAlloc->hostOffset(rtvIndex);
             auto dsvHost = pDepthStencilAlloc->hostOffset(dsvIndex);
             pDirectCommands->setRenderTarget(rtvHost, dsvHost);
@@ -240,12 +226,11 @@ namespace simcoe::render {
             pDirectCommands->clearDepthStencil(pDepthStencilAlloc->hostOffset(index), depth, stencil);
         }
 
-        void setRenderTarget(RenderTargetAlloc::Index index) {
-            if (currentRenderTarget == index) return;
-            currentRenderTarget = index;
-
-            pDirectCommands->setRenderTarget(pRenderTargetAlloc->hostOffset(index));
+        void clearRenderTarget(RenderTargetAlloc::Index index, const math::float4& clear) {
+            pDirectCommands->clearRenderTarget(pRenderTargetAlloc->hostOffset(index), clear);
         }
+
+        // pipeline commands
 
         void setShaderInput(ShaderResourceAlloc::Index index, UINT slot) {
             pDirectCommands->setShaderInput(pDataAlloc->deviceOffset(index), slot);

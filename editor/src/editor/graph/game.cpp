@@ -47,6 +47,7 @@ GameLevelPass::GameLevelPass(Graph *ctx, GameLevel *pLevel, ResourceWrapper<IRTV
     , pLevel(pLevel)
 {
     setRenderTargetHandle(pRenderTarget);
+    setDepthStencilHandle(pDepthTarget);
 
     for (auto &object : pLevel->objects) {
         auto *pUniform = graph->addResource<ObjectUniformHandle>(object.name);
@@ -77,6 +78,7 @@ void GameLevelPass::create() {
         },
 
         .rtvFormat = ctx->getSwapChainFormat(),
+        .depthEnable = true,
         .dsvFormat = ctx->getDepthFormat()
     };
 
@@ -89,13 +91,13 @@ void GameLevelPass::destroy() {
 }
 
 void GameLevelPass::execute() {
-    IDSVHandle *pDepth = pDepthTarget->getInner();
+    //IDSVHandle *pDepth = pDepthTarget->getInner();
     ISRVHandle *pTexture = pPlayerTexture->getInner();
     CameraUniformHandle *pCamera = pCameraUniform->getInner();
 
     pCamera->update(pLevel);
 
-    ctx->clearDepthStencil(pDepth->getDsvIndex(), 1.f, 0);
+    //ctx->clearDepthStencil(pDepth->getDsvIndex(), 1.f, 0);
 
     ctx->setPipeline(pPipeline);
 

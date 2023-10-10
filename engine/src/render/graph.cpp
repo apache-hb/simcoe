@@ -42,13 +42,26 @@ void IResourceHandle::setResourceState(rhi::DeviceResource *pResource, rhi::Reso
 
 void IRenderPass::executePass() {
     ASSERTF(pRenderTarget != nullptr, "no render target set for pass {}", getName());
-
     IRTVHandle *pNewTarget = pRenderTarget->getInner();
+    auto rtvIndex = pNewTarget->getRtvIndex();
+    auto newClear = pNewTarget->getClearColour();
+
     IRTVHandle *pCurrentTarget = graph->pCurrentRenderTarget;
 
-    if (pNewTarget != pCurrentTarget) {
-        ctx->setRenderTarget(pNewTarget->getRtvIndex(), pNewTarget->getClearColour());
-        graph->pCurrentRenderTarget = pNewTarget;
+    if (pDepthStencil != nullptr) {
+        IDSVHandle *pDepth = pDepthStencil->getInner();
+        auto dsvIndex = pDepth->getDsvIndex();
+
+        ctx->setRenderAndDepth(rtvIndex, dsvIndex);
+        ctx->clearDepthStencil(dsvIndex, 1.f, 0);
+        ctx->clearRenderTarget(rtvIndex, newClear);
+
+    } else {
+        if (pNewTarget != pCurrentTarget) {
+            ctx->setRenderTarget(rtvIndex);
+            ctx->clearRenderTarget(rtvIndex, newClear);
+            graph->pCurrentRenderTarget = pNewTarget;
+        }
     }
 
     execute();

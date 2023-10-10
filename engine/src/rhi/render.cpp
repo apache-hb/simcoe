@@ -562,6 +562,10 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
     const auto& vs = createInfo.vertexShader;
     const auto& ps = createInfo.pixelShader;
 
+    D3D12_DEPTH_STENCIL_DESC dsvDesc = createInfo.depthEnable
+        ? CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT)
+        : D3D12_DEPTH_STENCIL_DESC{ .DepthEnable = false, .StencilEnable = false };
+
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineDesc = {
         .pRootSignature = pSignature,
         .VS = CD3DX12_SHADER_BYTECODE(vs.data(), vs.size()),
@@ -571,7 +575,7 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
         .SampleMask = UINT_MAX,
 
         .RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT),
-        .DepthStencilState = { .DepthEnable = false, .StencilEnable = false },
+        .DepthStencilState = dsvDesc,
         .InputLayout = { attributes.data(), UINT(attributes.size()) },
         .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
         .NumRenderTargets = 1,
