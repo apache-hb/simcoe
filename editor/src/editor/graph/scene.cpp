@@ -85,7 +85,8 @@ void ScenePass::create() {
         },
 
         .rtvFormat = ctx->getSwapChainFormat(),
-        .dsvFormat = ctx->getDepthFormat()
+
+        .depthEnable = false
     };
 
     pPipeline = ctx->createPipelineState(psoCreateInfo);

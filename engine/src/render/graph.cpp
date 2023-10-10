@@ -54,7 +54,11 @@ void IRenderPass::executePass() {
 
         ctx->setRenderAndDepth(rtvIndex, dsvIndex);
         ctx->clearDepthStencil(dsvIndex, 1.f, 0);
-        ctx->clearRenderTarget(rtvIndex, newClear);
+
+        if (pNewTarget != pCurrentTarget) {
+            ctx->clearRenderTarget(rtvIndex, newClear);
+            graph->pCurrentRenderTarget = pNewTarget;
+        }
 
     } else {
         if (pNewTarget != pCurrentTarget) {
