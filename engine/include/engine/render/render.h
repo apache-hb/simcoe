@@ -81,6 +81,9 @@ namespace simcoe::render {
         rhi::CommandMemory *pMemory;
     };
 
+    ///
+    /// render context, not thread safe
+    ///
     struct Context {
         static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
         static constexpr math::float4 kBlackClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -88,8 +91,6 @@ namespace simcoe::render {
         static Context *create(const RenderCreateInfo& createInfo);
 
         ~Context();
-
-        void flush();
 
         void beginDirect();
         void endDirect();
@@ -345,7 +346,7 @@ namespace simcoe::render {
         // state
     public:
         // modifiable state
-        bool bAllowTearing = false;
+        std::atomic_bool bAllowTearing = false;
 
         // info
         bool bReportedFullscreen = false;

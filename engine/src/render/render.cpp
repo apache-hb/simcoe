@@ -137,10 +137,11 @@ void Context::changeFullscreen(bool bFullscreen) {
 
 void Context::changeDisplaySize(UINT width, UINT height) {
     destroyFrameData();
+
     createInfo.displayWidth = width;
     createInfo.displayHeight = height;
-
     pDisplayQueue->resizeBuffers(createInfo.backBufferCount, width, height);
+
     createFrameData();
 }
 
@@ -153,8 +154,8 @@ void Context::changeBackBufferCount(UINT count) {
     destroyFrameData();
 
     createInfo.backBufferCount = count;
-
     pDisplayQueue->resizeBuffers(count, createInfo.displayWidth, createInfo.displayHeight);
+
     createFrameData();
 }
 

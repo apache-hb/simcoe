@@ -76,7 +76,7 @@ void IRenderPass::executePass() {
 ///
 
 void Graph::setFullscreen(bool bFullscreen) {
-    changeData(StateDep::eDepNone, [=] {
+    changeData(StateDep::eDepDisplaySize, [=] {
         ctx->changeFullscreen(bFullscreen);
     });
 }

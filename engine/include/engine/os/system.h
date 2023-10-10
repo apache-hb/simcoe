@@ -15,7 +15,6 @@ namespace simcoe {
         virtual ~IWindowCallbacks() = default;
 
         virtual void onResize(const ResizeEvent& event) { }
-        virtual void onFullscreen(bool bFullscreen) { }
         virtual void onClose() { }
 
         virtual bool onEvent(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { return false; }

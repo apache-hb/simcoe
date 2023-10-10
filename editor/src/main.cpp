@@ -135,14 +135,6 @@ struct GameWindow final : IWindowCallbacks {
         });
     }
 
-    void onFullscreen(bool bFullscreen) override {
-        gWorkQueue.enqueue([bFullscreen] {
-            if (pGraph) pGraph->setFullscreen(bFullscreen);
-            gFullscreen = bFullscreen;
-            logInfo("set-fullscreen: {}", bFullscreen);
-        });
-    }
-
     bool onEvent(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) override {
         return graph::IGuiPass::handleMsg(hWnd, uMsg, wParam, lParam);
     }
@@ -247,37 +239,40 @@ struct GameGui final : graph::IGuiPass {
         ImGui::Text("present: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
         ImGui::Text("render: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
         if (ImGui::Checkbox("fullscreen", &gFullscreen)) {
-            gWorkQueue.enqueue([this, fs = gFullscreen] {
+            gWorkQueue.enqueue([fs = gFullscreen] {
                 if (fs) {
-                    graph->setFullscreen(true);
-                    pWindow->enterFullscreen();
+                    pGraph->setFullscreen(true);
+                    //pWindow->enterFullscreen();
                 } else {
-                    graph->setFullscreen(false);
-                    pWindow->exitFullscreen();
+                    pGraph->setFullscreen(false);
+                    //pWindow->exitFullscreen();
                 }
             });
         }
 
-        ImGui::Checkbox("tearing", &ctx->bAllowTearing);
+        bool bTearing = ctx->bAllowTearing;
+        ImGui::Checkbox("tearing", &bTearing);
+        ctx->bAllowTearing = bTearing;
+
         ImGui::Text("DXGI reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
 
         if (ImGui::SliderInt2("render size", renderSize, 64, 4096)) {
             gWorkQueue.enqueue([this] {
-                graph->resizeRender(renderSize[0], renderSize[1]);
+                pGraph->resizeRender(renderSize[0], renderSize[1]);
                 logInfo("resize-render: {}x{}", renderSize[0], renderSize[1]);
             });
         }
 
         if (ImGui::SliderInt("backbuffer count", &backBufferCount, 2, 8)) {
             gWorkQueue.enqueue([this] {
-                graph->changeBackBufferCount(backBufferCount);
+                pGraph->changeBackBufferCount(backBufferCount);
                 logInfo("change-backbuffer-count: {}", backBufferCount);
             });
         }
 
         if (ImGui::Combo("device", &currentAdapter, adapterNames.data(), adapterNames.size())) {
             gWorkQueue.enqueue([this] {
-                graph->changeAdapter(currentAdapter);
+                pGraph->changeAdapter(currentAdapter);
                 logInfo("change-adapter: {}", currentAdapter);
             });
         }
@@ -365,6 +360,7 @@ static void commonMain() {
         while (!token.stop_requested()) {
             WorkItem item;
             if (gWorkQueue.try_dequeue(item)) {
+                simcoe::logInfo("work message");
                 item();
             }
         }
@@ -415,6 +411,7 @@ static void commonMain() {
                     pGraph->resumeFromFault();
                 } catch (...) {
                     simcoe::logError("unknown thread exception");
+                    break;
                 }
             }
 
