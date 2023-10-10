@@ -331,6 +331,8 @@ namespace simcoe::rhi {
 
         IDXGISwapChain4 *pSwapChain;
         bool tearing;
+
+        std::atomic_size_t failedFrames = 0;
     };
 
     // queue

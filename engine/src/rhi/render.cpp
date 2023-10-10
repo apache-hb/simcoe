@@ -16,9 +16,8 @@ using namespace simcoe::rhi;
 
 #define HR_CHECK(expr) \
     do { \
-        HRESULT hr = (expr); \
-        if (FAILED(hr)) { \
-            simcoe::logError(#expr); \
+        if (HRESULT hr = (expr); FAILED(hr)) { \
+            simcoe::logError("expr: {}. ({})", #expr, simcoe::getErrorName(hr)); \
             throw std::runtime_error(#expr); \
         } \
     } while (false)
@@ -140,9 +139,6 @@ static void debugCallback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERIT
     const char *categoryStr = categoryToString(category);
     const char *severityStr = severityToString(severity);
 
-    auto threadName = simcoe::getThreadName();
-
-    simcoe::logInfo("thread: {}", threadName);
     switch (severity) {
     case D3D12_MESSAGE_SEVERITY_CORRUPTION:
     case D3D12_MESSAGE_SEVERITY_ERROR:
@@ -162,8 +158,6 @@ static void debugCallback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERIT
         simcoe::logInfo("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
         break;
     }
-
-    simcoe::logInfo("done");
 }
 
 // commands
@@ -325,15 +319,12 @@ DisplayQueue *DeviceQueue::createDisplayQueue(Context *pContext, const DisplayQu
         .Flags = tearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u
     };
 
-    IDXGISwapChain1 *pSwapChain1 = nullptr;
+    ComPtr<IDXGISwapChain1> pSwapChain1 = nullptr;
     HR_CHECK(pFactory->CreateSwapChainForHwnd(getQueue(), createInfo.hWindow, &desc, nullptr, nullptr, &pSwapChain1));
-    HR_CHECK(pFactory->MakeWindowAssociation(createInfo.hWindow, DXGI_MWA_NO_ALT_ENTER));
+    //HR_CHECK(pFactory->MakeWindowAssociation(createInfo.hWindow, DXGI_MWA_NO_ALT_ENTER));
 
     IDXGISwapChain4 *pSwapChain = nullptr;
     HR_CHECK(pSwapChain1->QueryInterface(IID_PPV_ARGS(&pSwapChain)));
-
-    // release the swap chain 1 interface
-    pSwapChain1->Release();
 
     return DisplayQueue::create(pSwapChain, tearing);
 }
@@ -376,7 +367,24 @@ RenderTarget *DisplayQueue::getRenderTarget(UINT index) {
 void DisplayQueue::present(bool allowTearing) {
     UINT flags = (tearing && allowTearing) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
 
-    HR_CHECK(pSwapChain->Present(0, flags));
+    // TODO: this is a little hacky but works well enough for now
+    // without this its impossible to enter fullscreen because of race conditions
+    // l0
+    // t1 -> lock the context. begin fullscreen (this makes presenting fail)
+    // t2 -> the begin fullscreen message makes a thread signal a window resize to the message thread
+    // t1 -> unlock context. the swapchain has been resized but with the wrong size
+    // ... a present may happen here ...
+    // t2 -> the message thread resizes the swapchain to the correct size, presents now work
+    if (HRESULT hr = (pSwapChain->Present(0, flags)); FAILED(hr)) {
+        failedFrames += 1; // count consecutive failed frames
+    } else {
+        failedFrames = 0;
+    }
+
+    if (failedFrames > 3) {
+        simcoe::logError("too many failed frames, exiting");
+        throw std::runtime_error("too many failed frames");
+    }
 }
 
 DisplayQueue *DisplayQueue::create(IDXGISwapChain4 *pSwapChain, bool tearing) {

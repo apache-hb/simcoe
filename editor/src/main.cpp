@@ -37,9 +37,22 @@ static void addObject(std::string name) {
 }
 
 using WorkItem = std::function<void()>;
+struct WorkMessage {
+    std::string_view name;
+    WorkItem item;
+};
 
-moodycamel::ConcurrentQueue<WorkItem> gWorkQueue{64};
+moodycamel::ConcurrentQueue<WorkMessage> gWorkQueue{64};
 static std::jthread *pWorkThread = nullptr;
+
+static void addWork(std::string_view name, WorkItem item) {
+    WorkMessage message = {
+        .name = name,
+        .item = item
+    };
+
+    gWorkQueue.enqueue(message);
+}
 
 using graph::Vertex;
 
@@ -127,7 +140,7 @@ struct GameWindow final : IWindowCallbacks {
     }
 
     void onResize(const ResizeEvent& event) override {
-        gWorkQueue.enqueue([&, event] {
+        addWork("resize-display", [&, event] {
             auto [width, height] = event;
 
             if (pGraph) pGraph->resizeDisplay(width, height);
@@ -239,7 +252,7 @@ struct GameGui final : graph::IGuiPass {
         ImGui::Text("present: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
         ImGui::Text("render: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
         if (ImGui::Checkbox("fullscreen", &gFullscreen)) {
-            gWorkQueue.enqueue([fs = gFullscreen] {
+            addWork("change-fullscreen", [fs = gFullscreen] {
                 if (fs) {
                     pGraph->setFullscreen(true);
                     //pWindow->enterFullscreen();
@@ -257,21 +270,21 @@ struct GameGui final : graph::IGuiPass {
         ImGui::Text("DXGI reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
 
         if (ImGui::SliderInt2("render size", renderSize, 64, 4096)) {
-            gWorkQueue.enqueue([this] {
+            addWork("resize-render", [this] {
                 pGraph->resizeRender(renderSize[0], renderSize[1]);
                 logInfo("resize-render: {}x{}", renderSize[0], renderSize[1]);
             });
         }
 
         if (ImGui::SliderInt("backbuffer count", &backBufferCount, 2, 8)) {
-            gWorkQueue.enqueue([this] {
+            addWork("change-backbuffers", [this] {
                 pGraph->changeBackBufferCount(backBufferCount);
                 logInfo("change-backbuffer-count: {}", backBufferCount);
             });
         }
 
         if (ImGui::Combo("device", &currentAdapter, adapterNames.data(), adapterNames.size())) {
-            gWorkQueue.enqueue([this] {
+            addWork("change-adapter", [this] {
                 pGraph->changeAdapter(currentAdapter);
                 logInfo("change-adapter: {}", currentAdapter);
             });
@@ -358,10 +371,11 @@ static void commonMain() {
         setThreadName("work");
 
         while (!token.stop_requested()) {
-            WorkItem item;
+            WorkMessage item;
             if (gWorkQueue.try_dequeue(item)) {
-                simcoe::logInfo("work message");
-                item();
+                simcoe::logInfo("work message {}", item.name);
+                item.item();
+                simcoe::logInfo("work message {} complete", item.name);
             }
         }
         simcoe::logInfo("work thread stopped");

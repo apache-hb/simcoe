@@ -202,6 +202,8 @@ System::System(HINSTANCE hInstance, int nCmdShow)
     : hInstance(hInstance)
     , nCmdShow(nCmdShow)
 {
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
     const WNDCLASSA cls = {
         .style = CS_HREDRAW | CS_VREDRAW,
         .lpfnWndProc = Window::callback,
