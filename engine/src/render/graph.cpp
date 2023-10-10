@@ -95,7 +95,7 @@ void Graph::execute() {
     ctx->beginRender();
     ctx->beginDirect();
 
-    for (IRenderPass *pPass : passes) {
+    for (ICommandPass *pPass : passes) {
         executePass(pPass);
     }
 
@@ -113,13 +113,13 @@ void Graph::createIf(StateDep dep) {
         if (pHandle->dependsOn(dep)) pHandle->create();
     }
 
-    for (IRenderPass *pPass : passes) {
+    for (ICommandPass *pPass : passes) {
         if (pPass->dependsOn(dep)) pPass->create();
     }
 }
 
 void Graph::destroyIf(StateDep dep) {
-    for (IRenderPass *pPass : passes) {
+    for (ICommandPass *pPass : passes) {
         if (pPass->dependsOn(dep)) pPass->destroy();
     }
 
@@ -132,7 +132,7 @@ void Graph::destroyIf(StateDep dep) {
     }
 }
 
-void Graph::executePass(IRenderPass *pPass) {
+void Graph::executePass(ICommandPass *pPass) {
     for (const auto *pInput : pPass->inputs) {
         auto *pHandle = pInput->getResourceHandle();
         rhi::DeviceResource *pResource = pHandle->getResource();

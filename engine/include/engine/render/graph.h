@@ -182,13 +182,15 @@ namespace simcoe::render {
         { }
 
         template<typename O>
-        ResourceWrapper<O> *as() const { return new ResourceWrapper<O>(pHandle); }
+        ResourceWrapper<O> *as() const {
+            static_assert(std::is_base_of_v<O, T>);
+            return new ResourceWrapper<O>(pHandle);
+        }
 
         T *getInner() const { return static_cast<T*>(pHandle); }
     private:
         T *pHandle = nullptr;
     };
-
 
     ///
     /// render pass attachments
@@ -224,17 +226,15 @@ namespace simcoe::render {
     /// render passes
     ///
 
-    struct IRenderPass : IGraphObject {
-        virtual ~IRenderPass() = default;
-        IRenderPass(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
+    struct ICommandPass : IGraphObject {
+        virtual ~ICommandPass() = default;
+        ICommandPass(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
             : IGraphObject(ctx, name, stateDeps)
         { }
 
         virtual void execute() = 0;
 
         std::vector<BasePassAttachment*> inputs;
-
-        IRTVHandle *getRenderTarget() const { return pRenderTarget->getInner(); }
 
     protected:
         template<typename T>
@@ -243,7 +243,17 @@ namespace simcoe::render {
             inputs.push_back(pResource);
             return pResource;
         }
+    };
 
+    struct IRenderPass : ICommandPass {
+        virtual ~IRenderPass() = default;
+        IRenderPass(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
+            : ICommandPass(ctx, name, stateDeps)
+        { }
+
+        IRTVHandle *getRenderTarget() const { return pRenderTarget->getInner(); }
+
+    protected:
         void setRenderTargetHandle(ResourceWrapper<IRTVHandle> *pHandle) {
             this->pRenderTarget = addAttachment(pHandle, rhi::ResourceState::eRenderTarget);
         }
@@ -267,7 +277,7 @@ namespace simcoe::render {
 
         template<typename T, typename... A>
         T *addPass(A&&... args) {
-            static_assert(std::is_base_of_v<IRenderPass, T>);
+            static_assert(std::is_base_of_v<ICommandPass, T>);
 
             T *pPass = new T(this, std::forward<A>(args)...);
             addPassObject(pPass);
@@ -305,7 +315,7 @@ namespace simcoe::render {
         void execute();
 
     private:
-        void executePass(IRenderPass *pPass);
+        void executePass(ICommandPass *pPass);
         IRTVHandle *pCurrentRenderTarget = nullptr;
 
         ///
@@ -317,7 +327,7 @@ namespace simcoe::render {
             resources.push_back(pHandle);
         }
 
-        void addPassObject(IRenderPass *pPass) {
+        void addPassObject(ICommandPass *pPass) {
             pPass->create();
             passes.push_back(pPass);
         }
@@ -364,7 +374,7 @@ namespace simcoe::render {
         Context *ctx;
 
         // TODO: make private
-        std::vector<IRenderPass*> passes;
+        std::vector<ICommandPass*> passes;
         std::vector<IResourceHandle*> resources;
         std::vector<IGraphObject*> objects;
     };
