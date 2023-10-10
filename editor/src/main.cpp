@@ -357,7 +357,7 @@ static void commonMain() {
         .hWindow = pWindow->getHandle(),
         .depot = depot,
 
-        .adapterIndex = 0,
+        .adapterIndex = 1,
         .backBufferCount = 2,
 
         .displayWidth = realWidth,
@@ -396,20 +396,20 @@ static void commonMain() {
             pGraph = new Graph(pContext);
             auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
             auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
-            auto *pDepthTarget = pGraph->addResource<graph::DepthTargetHandle>();
+            //auto *pDepthTarget = pGraph->addResource<graph::DepthTargetHandle>();
             auto *pTexture = pGraph->addResource<graph::TextureHandle>("uv-coords.png");
-            auto *pUniform = pGraph->addResource<graph::SceneUniformHandle>();
+            //auto *pUniform = pGraph->addResource<graph::SceneUniformHandle>();
 
-            auto *pPlayerMesh = pGraph->addObject<ObjMesh>("G:\\untitled.obj");
+            //auto *pPlayerMesh = pGraph->addObject<ObjMesh>("G:\\untitled.obj");
 
-            const graph::GameRenderInfo gameRenderConfig = {
-                .pPlayerTexture =  pTexture, //pGraph->addResource<graph::TextureHandle>("player.png"),
-                .pCameraUniform = pGraph->addResource<graph::CameraUniformHandle>(),
-                .pPlayerMesh = pPlayerMesh
-            };
+            // const graph::GameRenderInfo gameRenderConfig = {
+            //     .pPlayerTexture =  pTexture, //pGraph->addResource<graph::TextureHandle>("player.png"),
+            //     .pCameraUniform = pGraph->addResource<graph::CameraUniformHandle>(),
+            //     .pPlayerMesh = pPlayerMesh
+            // };
 
-            pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pTexture, pUniform);
-            pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>(), gameRenderConfig);
+            //pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pTexture, pUniform);
+            //pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>(), gameRenderConfig);
             pGraph->addPass<graph::PostPass>(pSceneTarget->as<ISRVHandle>(), pBackBuffers->as<IRTVHandle>());
             pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<graph::PresentPass>(pBackBuffers);

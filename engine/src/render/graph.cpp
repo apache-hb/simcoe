@@ -145,6 +145,7 @@ bool Graph::execute() {
 
     ctx->endDirect();
     ctx->endRender();
+    simcoe::logInfo("frame {} complete", ctx->getFrameIndex());
     ctx->waitForDirectQueue();
 
     return true;
@@ -192,4 +193,27 @@ void Graph::executePass(ICommandPass *pPass) {
     }
 
     pPass->executePass();
+}
+
+
+///
+/// state managment
+///
+
+void Graph::addResourceObject(IResourceHandle *pHandle) {
+    std::lock_guard guard(renderLock);
+    pHandle->create();
+    resources.push_back(pHandle);
+}
+
+void Graph::addPassObject(ICommandPass *pPass) {
+    std::lock_guard guard(renderLock);
+    pPass->create();
+    passes.push_back(pPass);
+}
+
+void Graph::addGraphObject(IGraphObject *pObject) {
+    std::lock_guard guard(renderLock);
+    pObject->create();
+    objects.push_back(pObject);
 }

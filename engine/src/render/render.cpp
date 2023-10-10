@@ -48,23 +48,27 @@ void Context::createDeviceData() {
     pDevice = pAdapter->createDevice(deviceFlags);
 
     pDirectQueue = pDevice->createQueue(rhi::CommandType::eDirect);
+    pDirectFence = pDevice->createFence();
+
     pCopyQueue = pDevice->createQueue(rhi::CommandType::eCopy);
+    pCopyFence = pDevice->createFence();
 
     pCopyAllocator = pDevice->createCommandMemory(rhi::CommandType::eCopy);
     pCopyCommands = pDevice->createCommands(rhi::CommandType::eCopy, pCopyAllocator);
 
-    pFence = pDevice->createFence();
 
     pDevice->setName("simcoe.device");
     pDirectQueue->setName("simcoe.direct-queue");
     pCopyQueue->setName("simcoe.copy-queue");
     pCopyAllocator->setName("simcoe.copy-allocator");
     pCopyCommands->setName("simcoe.copy-commands");
-    pFence->setName("simcoe.fence");
+    pDirectFence->setName("simcoe.direct-fence");
+    pCopyFence->setName("simcoe.copy-fence");
 }
 
 void Context::destroyDeviceData() {
-    delete pFence;
+    delete pDirectFence;
+    delete pCopyFence;
 
     delete pCopyCommands;
     delete pCopyAllocator;
@@ -99,7 +103,10 @@ void Context::createFrameData() {
 
     frameData.resize(createInfo.backBufferCount);
     for (UINT i = 0; i < createInfo.backBufferCount; i++) {
-        frameData[i] = { pDevice->createCommandMemory(rhi::CommandType::eDirect) };
+        rhi::CommandMemory *pMemory = pDevice->createCommandMemory(rhi::CommandType::eDirect);
+        pMemory->setName("simcoe.frame-" + std::to_string(i));
+
+        frameData[i] = { pMemory };
     }
 
     pDirectCommands = pDevice->createCommands(rhi::CommandType::eDirect, frameData[frameIndex].pMemory);
@@ -214,10 +221,10 @@ void Context::endDirect() {
 
 void Context::waitForDirectQueue() {
     size_t value = directFenceValue++;
-    pDirectQueue->signal(pFence, value);
+    pDirectQueue->signal(pDirectFence, value);
 
-    if (pFence->getValue() < value) {
-        pFence->wait(value);
+    if (pDirectFence->getValue() <= value) {
+        pDirectFence->wait(value);
     }
 }
 
@@ -233,9 +240,9 @@ void Context::endCopy() {
 
 void Context::waitForCopyQueue() {
     size_t value = copyFenceValue++;
-    pCopyQueue->signal(pFence, value);
+    pCopyQueue->signal(pCopyFence, value);
 
-    if (pFence->getValue() <= value) {
-        pFence->wait(value);
+    if (pCopyFence->getValue() <= value) {
+        pCopyFence->wait(value);
     }
 }

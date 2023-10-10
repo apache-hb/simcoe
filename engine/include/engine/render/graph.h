@@ -350,28 +350,19 @@ namespace simcoe::render {
         /// state management
         ///
 
-        void addResourceObject(IResourceHandle *pHandle) {
-            pHandle->create();
-            resources.push_back(pHandle);
-        }
-
-        void addPassObject(ICommandPass *pPass) {
-            pPass->create();
-            passes.push_back(pPass);
-        }
-
-        void addGraphObject(IGraphObject *pObject) {
-            pObject->create();
-            objects.push_back(pObject);
-        }
+        void addResourceObject(IResourceHandle *pHandle);
+        void addPassObject(ICommandPass *pPass);
+        void addGraphObject(IGraphObject *pObject);
 
         template<typename F>
         void changeData(StateDep dep, F&& func) {
             lock = true;
             std::lock_guard guard(renderLock);
 
+            simcoe::logInfo("changing data");
             ctx->waitForDirectQueue();
             ctx->waitForCopyQueue();
+            simcoe::logInfo("data changed");
 
             destroyIf(dep);
             func();

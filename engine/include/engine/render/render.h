@@ -321,15 +321,18 @@ namespace simcoe::render {
         // device copy data
 
         rhi::DeviceQueue *pCopyQueue;
+        rhi::Fence *pCopyFence;
+        std::atomic_size_t copyFenceValue = 1;
 
         rhi::CommandMemory *pCopyAllocator;
         rhi::Commands *pCopyCommands;
 
-        std::atomic_size_t copyFenceValue = 1;
+
+        // frame data
 
         size_t frameIndex = 0;
         size_t directFenceValue = 1;
-        rhi::Fence *pFence;
+        rhi::Fence *pDirectFence;
 
         std::vector<FrameData> frameData;
 

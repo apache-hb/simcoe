@@ -419,6 +419,7 @@ static void ImGui_ImplDX12_CreateFontsTexture()
         ID3D12Resource* uploadBuffer = nullptr;
         HRESULT hr = bd->pd3dDevice->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &desc,
             D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
+        uploadBuffer->SetName(L"ImGui_ImplDX12 uploadBuffer");
         IM_ASSERT(SUCCEEDED(hr));
 
         void* mapped = nullptr;
@@ -466,14 +467,17 @@ static void ImGui_ImplDX12_CreateFontsTexture()
 
         ID3D12CommandQueue* cmdQueue = nullptr;
         hr = bd->pd3dDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&cmdQueue));
+        cmdQueue->SetName(L"ImGui_ImplDX12 CmdQueue");
         IM_ASSERT(SUCCEEDED(hr));
 
         ID3D12CommandAllocator* cmdAlloc = nullptr;
         hr = bd->pd3dDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAlloc));
+        cmdAlloc->SetName(L"ImGui_ImplDX12 CmdAlloc");
         IM_ASSERT(SUCCEEDED(hr));
 
         ID3D12GraphicsCommandList* cmdList = nullptr;
         hr = bd->pd3dDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAlloc, nullptr, IID_PPV_ARGS(&cmdList));
+        cmdList->SetName(L"ImGui_ImplDX12 CmdList");
         IM_ASSERT(SUCCEEDED(hr));
 
         cmdList->CopyTextureRegion(&dstLocation, 0, 0, 0, &srcLocation, nullptr);
