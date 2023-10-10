@@ -6,8 +6,8 @@ namespace editor::graph {
     struct PostPass final : IRenderPass {
         PostPass(
             Graph *ctx,
-            ResourceWrapper<ISRVHandle> *pSceneTarget,
-            ResourceWrapper<IRTVHandle> *pBackBuffers
+            ResourceWrapper<ISRVHandle> *pSceneSource,
+            ResourceWrapper<IRTVHandle> *pRenderTarget
         );
 
         void create() override;
@@ -15,8 +15,7 @@ namespace editor::graph {
         void execute() override;
 
     private:
-        PassAttachment<ISRVHandle> *pSceneTarget;
-        PassAttachment<IRTVHandle> *pBackBuffers;
+        PassAttachment<ISRVHandle> *pSceneSource;
 
         rhi::Display display;
         rhi::PipelineState *pPipeline;
@@ -26,16 +25,13 @@ namespace editor::graph {
     };
 
     struct PresentPass final : IRenderPass {
-        PresentPass(
-            Graph *ctx,
-            ResourceWrapper<IRTVHandle> *pBackBuffers
-        );
+        PresentPass(Graph *ctx, ResourceWrapper<SwapChainHandle> *pBackBuffers);
 
         void create() override;
         void destroy() override;
         void execute() override;
 
     private:
-        PassAttachment<IRTVHandle> *pBackBuffers;
+        PassAttachment<SwapChainHandle> *pBackBuffers;
     };
 }

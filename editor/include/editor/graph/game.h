@@ -51,7 +51,6 @@ namespace editor::graph {
         void execute() override;
 
     private:
-        PassAttachment<IRTVHandle> *pRenderTarget;
         PassAttachment<IDSVHandle> *pDepthTarget;
         PassAttachment<TextureHandle> *pPlayerTexture;
         PassAttachment<CameraUniformHandle> *pCameraUniform;

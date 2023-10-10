@@ -17,7 +17,6 @@ namespace editor::graph {
         static LRESULT handleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
     private:
-        PassAttachment<IRTVHandle> *pHandle;
         ShaderResourceAlloc::Index guiUniformIndex;
     };
 }

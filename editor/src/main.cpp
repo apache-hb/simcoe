@@ -390,7 +390,7 @@ static void commonMain() {
             pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>(), gameRenderConfig);
             pGraph->addPass<graph::PostPass>(pSceneTarget->as<ISRVHandle>(), pBackBuffers->as<IRTVHandle>());
             pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
-            pGraph->addPass<graph::PresentPass>(pBackBuffers->as<IRTVHandle>());
+            pGraph->addPass<graph::PresentPass>(pBackBuffers);
 
             // TODO: if the render loop throws an exception, the program will std::terminate
             // we should handle this case and restart the render loop

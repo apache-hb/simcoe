@@ -90,6 +90,7 @@ void Graph::execute() {
     if (lock) { return; }
 
     std::lock_guard guard(renderLock);
+    pCurrentRenderTarget = nullptr;
 
     ctx->beginRender();
     ctx->beginDirect();

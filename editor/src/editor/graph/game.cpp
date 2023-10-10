@@ -40,13 +40,14 @@ void ObjectUniformHandle::update(GameLevel *pLevel, size_t index) {
 
 GameLevelPass::GameLevelPass(Graph *ctx, GameLevel *pLevel, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<IDSVHandle> *pDepthTarget, GameRenderInfo info)
     : IRenderPass(ctx, "game.level")
-    , pRenderTarget(addAttachment(pRenderTarget, rhi::ResourceState::eRenderTarget))
     , pDepthTarget(addAttachment(pDepthTarget, rhi::ResourceState::eDepthWrite))
     , pPlayerTexture(addAttachment(info.pPlayerTexture, rhi::ResourceState::eShaderResource))
     , pCameraUniform(addAttachment(info.pCameraUniform, rhi::ResourceState::eShaderResource))
     , pPlayerMesh(info.pPlayerMesh)
     , pLevel(pLevel)
 {
+    setRenderTargetHandle(pRenderTarget);
+
     for (auto &object : pLevel->objects) {
         auto *pUniform = graph->addResource<ObjectUniformHandle>(object.name);
         objectUniforms.push_back(addAttachment(pUniform, rhi::ResourceState::eShaderResource));
@@ -88,7 +89,7 @@ void GameLevelPass::destroy() {
 }
 
 void GameLevelPass::execute() {
-    IRTVHandle *pTarget = pRenderTarget->getInner();
+    IRTVHandle *pTarget = getRenderTarget();
     IDSVHandle *pDepth = pDepthTarget->getInner();
     ISRVHandle *pTexture = pPlayerTexture->getInner();
     CameraUniformHandle *pCamera = pCameraUniform->getInner();

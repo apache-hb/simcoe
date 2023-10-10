@@ -234,6 +234,8 @@ namespace simcoe::render {
 
         std::vector<BasePassAttachment*> inputs;
 
+        IRTVHandle *getRenderTarget() const { return pRenderTarget->getInner(); }
+
     protected:
         template<typename T>
         PassAttachment<T> *addAttachment(ResourceWrapper<T> *pHandle, rhi::ResourceState requiredState) {
@@ -242,9 +244,12 @@ namespace simcoe::render {
             return pResource;
         }
 
+        void setRenderTargetHandle(ResourceWrapper<IRTVHandle> *pHandle) {
+            this->pRenderTarget = addAttachment(pHandle, rhi::ResourceState::eRenderTarget);
+        }
+
     private:
-        IRTVHandle *pRenderTarget = nullptr;
-        IDSVHandle *pDepthTarget = nullptr;
+        PassAttachment<IRTVHandle> *pRenderTarget = nullptr;
     };
 
     ///
@@ -293,8 +298,20 @@ namespace simcoe::render {
         void changeBackBufferCount(UINT count);
         void changeAdapter(UINT index);
 
+        ///
+        /// pass execution
+        ///
+
         void execute();
+
     private:
+        void executePass(IRenderPass *pPass);
+        IRTVHandle *pCurrentRenderTarget = nullptr;
+
+        ///
+        /// state management
+        ///
+
         void addResourceObject(IResourceHandle *pHandle) {
             pHandle->create();
             resources.push_back(pHandle);
@@ -309,8 +326,6 @@ namespace simcoe::render {
             pObject->create();
             objects.push_back(pObject);
         }
-
-        void executePass(IRenderPass *pPass);
 
         template<typename F>
         void changeData(StateDep dep, F&& func) {

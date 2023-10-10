@@ -52,12 +52,13 @@ void SceneUniformHandle::update() {
     getBuffer()->write(&data, sizeof(UniformData));
 }
 
-ScenePass::ScenePass(Graph *ctx, ResourceWrapper<IRTVHandle> *pSceneTarget, ResourceWrapper<TextureHandle> *pTexture, ResourceWrapper<SceneUniformHandle> *pUniform)
+ScenePass::ScenePass(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<TextureHandle> *pTexture, ResourceWrapper<SceneUniformHandle> *pUniform)
     : IRenderPass(ctx, "scene", eDepRenderSize)
-    , pSceneTarget(addAttachment(pSceneTarget, rhi::ResourceState::eRenderTarget))
     , pTextureHandle(addAttachment(pTexture, rhi::ResourceState::eShaderResource))
     , pUniformHandle(addAttachment(pUniform, rhi::ResourceState::eShaderResource))
-{ }
+{
+    setRenderTargetHandle(pRenderTarget);
+}
 
 void ScenePass::create() {
     const auto& createInfo = ctx->getCreateInfo();
@@ -112,7 +113,7 @@ void ScenePass::destroy() {
 }
 
 void ScenePass::execute() {
-    IRTVHandle *pTarget = pSceneTarget->getInner();
+    IRTVHandle *pTarget = getRenderTarget();
     ISRVHandle *pTexture = pTextureHandle->getInner();
     SceneUniformHandle *pUniform = pUniformHandle->getInner();
 

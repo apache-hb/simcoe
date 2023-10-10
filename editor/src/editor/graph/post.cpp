@@ -56,11 +56,12 @@ static rhi::Display createLetterBoxDisplay(UINT renderWidth, UINT renderHeight, 
     return { viewport, scissor };
 }
 
-PostPass::PostPass(Graph *ctx, ResourceWrapper<ISRVHandle> *pSceneTarget, ResourceWrapper<IRTVHandle> *pBackBuffers)
+PostPass::PostPass(Graph *ctx, ResourceWrapper<ISRVHandle> *pSceneSource, ResourceWrapper<IRTVHandle> *pRenderTarget)
     : IRenderPass(ctx, "post", StateDep(eDepDisplaySize | eDepRenderSize))
-    , pSceneTarget(addAttachment(pSceneTarget, rhi::ResourceState::eShaderResource))
-    , pBackBuffers(addAttachment(pBackBuffers, rhi::ResourceState::eRenderTarget))
-{ }
+    , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eShaderResource))
+{
+    setRenderTargetHandle(pRenderTarget);
+}
 
 void PostPass::create() {
     const auto& createInfo = ctx->getCreateInfo();
@@ -77,7 +78,7 @@ void PostPass::create() {
         },
 
         .textureInputs = {
-            { "tex", rhi::InputVisibility::ePixel, 0, false },
+            { "source", rhi::InputVisibility::ePixel, 0, false },
         },
 
         .samplers = {
@@ -111,15 +112,15 @@ void PostPass::destroy() {
 }
 
 void PostPass::execute() {
-    ISRVHandle *pTarget = pSceneTarget->getInner();
-    IRTVHandle *pRenderTarget = pBackBuffers->getInner();
+    ISRVHandle *pSource = pSceneSource->getInner();
+    IRTVHandle *pRenderTarget = getRenderTarget();
 
     ctx->setPipeline(pPipeline);
     ctx->setDisplay(display);
 
     ctx->setRenderTarget(pRenderTarget->getRtvIndex(), kBlackClearColour);
 
-    ctx->setShaderInput(pTarget->getSrvIndex(), pPipeline->getTextureInput("tex"));
+    ctx->setShaderInput(pSource->getSrvIndex(), pPipeline->getTextureInput("source"));
     ctx->setVertexBuffer(pScreenQuadVerts);
     ctx->drawIndexBuffer(pScreenQuadIndices, kScreenQuadIndices.size());
 }
@@ -128,7 +129,7 @@ void PostPass::execute() {
 /// present pass
 ///
 
-PresentPass::PresentPass(Graph *ctx, ResourceWrapper<IRTVHandle> *pBackBuffers)
+PresentPass::PresentPass(Graph *ctx, ResourceWrapper<SwapChainHandle> *pBackBuffers)
     : IRenderPass(ctx, "present")
     , pBackBuffers(addAttachment(pBackBuffers, rhi::ResourceState::ePresent))
 { }

@@ -25,7 +25,7 @@ namespace editor::graph {
     struct ScenePass final : IRenderPass {
         ScenePass(
             Graph *ctx,
-            ResourceWrapper<IRTVHandle> *pSceneTarget,
+            ResourceWrapper<IRTVHandle> *pRenderTarget,
             ResourceWrapper<TextureHandle> *pTexture,
             ResourceWrapper<SceneUniformHandle> *pUniform
         );
@@ -35,7 +35,6 @@ namespace editor::graph {
         void execute() override;
 
     private:
-        PassAttachment<IRTVHandle> *pSceneTarget;
         PassAttachment<TextureHandle> *pTextureHandle;
         PassAttachment<SceneUniformHandle> *pUniformHandle;
 

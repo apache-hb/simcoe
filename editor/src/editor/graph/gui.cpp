@@ -78,8 +78,8 @@ namespace {
 
 IGuiPass::IGuiPass(Graph *ctx, ResourceWrapper<IRTVHandle> *pHandle)
     : IRenderPass(ctx, "imgui", eDepDisplaySize)
-    , pHandle(addAttachment(pHandle, rhi::ResourceState::eRenderTarget))
 {
+    setRenderTargetHandle(pHandle);
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
@@ -122,8 +122,8 @@ void IGuiPass::destroy() {
 }
 
 void IGuiPass::execute() {
-    auto *pCommands = ctx->getDirectCommands();
-    auto *pTarget = pHandle->getInner();
+    rhi::Commands *pCommands = ctx->getDirectCommands();
+    IRTVHandle *pTarget = getRenderTarget();
 
     std::lock_guard guard(imguiLock);
 
