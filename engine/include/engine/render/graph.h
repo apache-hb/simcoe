@@ -7,7 +7,7 @@ namespace simcoe::render {
     struct Graph;
 
     enum StateDep {
-        eNone = 0,
+        eDepNone = 0,
         eDepDevice = (1 << 0),
         eDepDisplaySize = (1 << 1),
         eDepRenderSize = (1 << 2),
@@ -66,10 +66,17 @@ namespace simcoe::render {
         rhi::DeviceResource* getResource() const final override { return pResource; }
 
     protected:
-        void setResource(T *pResource) { this->pResource = pResource; }
+        void setResource(T *pResource) {
+            this->pResource = pResource;
+            setResourceName(getName());
+        }
+
         T *getBuffer() const { return pResource; }
 
     private:
+        void setResourceName(std::string_view name) {
+            pResource->setName(name);
+        }
         T *pResource = nullptr;
     };
 

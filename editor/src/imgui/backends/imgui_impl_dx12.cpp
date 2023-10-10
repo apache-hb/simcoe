@@ -396,6 +396,7 @@ static void ImGui_ImplDX12_CreateFontsTexture()
         ID3D12Resource* pTexture = nullptr;
         bd->pd3dDevice->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &desc,
             D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&pTexture));
+        pTexture->SetName(L"ImGui_ImplDX12 pFontTextureResource");
 
         UINT uploadPitch = (width * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1u) & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1u);
         UINT uploadSize = height * uploadPitch;
@@ -452,6 +453,7 @@ static void ImGui_ImplDX12_CreateFontsTexture()
 
         ID3D12Fence* fence = nullptr;
         hr = bd->pd3dDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+        fence->SetName(L"ImGui_ImplDX12 Fence");
         IM_ASSERT(SUCCEEDED(hr));
 
         HANDLE event = CreateEvent(0, 0, 0, 0);
@@ -607,6 +609,7 @@ bool    ImGui_ImplDX12_CreateDeviceObjects()
             return false;
 
         bd->pd3dDevice->CreateRootSignature(0, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(&bd->pRootSignature));
+        bd->pRootSignature->SetName(L"ImGui_ImplDX12 pRootSignature");
         blob->Release();
     }
 
@@ -743,6 +746,7 @@ bool    ImGui_ImplDX12_CreateDeviceObjects()
     }
 
     HRESULT result_pipeline_state = bd->pd3dDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&bd->pPipelineState));
+    bd->pPipelineState->SetName(L"ImGui_ImplDX12 pPipelineState");
     vertexShaderBlob->Release();
     pixelShaderBlob->Release();
     if (result_pipeline_state != S_OK)

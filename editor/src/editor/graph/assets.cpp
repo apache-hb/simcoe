@@ -96,8 +96,6 @@ void DepthTargetHandle::create() {
     };
 
     auto *pResource = ctx->createDepthStencil(textureCreateInfo);
-    pResource->setName("depth-target");
-
     setResource(pResource);
     setCurrentState(rhi::ResourceState::eDepthWrite);
     setDsvIndex(ctx->mapDepth(pResource));

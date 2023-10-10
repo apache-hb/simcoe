@@ -87,12 +87,19 @@ void PostPass::create() {
     };
 
     pPipeline = ctx->createPipelineState(psoCreateInfo);
+    pPipeline->setName("pso.post");
 
     std::unique_ptr<rhi::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(kScreenQuad.data(), kScreenQuad.size() * sizeof(Vertex))};
     std::unique_ptr<rhi::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(kScreenQuadIndices.data(), kScreenQuadIndices.size() * sizeof(uint16_t))};
 
     pScreenQuadVerts = ctx->createVertexBuffer(kScreenQuad.size(), sizeof(Vertex));
     pScreenQuadIndices = ctx->createIndexBuffer(kScreenQuadIndices.size(), rhi::TypeFormat::eUint16);
+
+    pVertexStaging->setName("vbo-staging.screen");
+    pIndexStaging->setName("ibo-staging.screen");
+
+    pScreenQuadVerts->setName("vbo.screen");
+    pScreenQuadIndices->setName("ibo.screen");
 
     ctx->beginCopy();
 

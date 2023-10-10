@@ -52,6 +52,13 @@ void Context::createDeviceData() {
     pCopyCommands = pDevice->createCommands(rhi::CommandType::eCopy, pCopyAllocator);
 
     pFence = pDevice->createFence();
+
+    pDevice->setName("simcoe.device");
+    pDirectQueue->setName("simcoe.direct-queue");
+    pCopyQueue->setName("simcoe.copy-queue");
+    pCopyAllocator->setName("simcoe.copy-allocator");
+    pCopyCommands->setName("simcoe.copy-commands");
+    pFence->setName("simcoe.fence");
 }
 
 void Context::destroyDeviceData() {

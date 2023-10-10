@@ -94,4 +94,6 @@ namespace simcoe {
 
         MSG msg;
     };
+
+    void setThreadName(const char *name);
 }

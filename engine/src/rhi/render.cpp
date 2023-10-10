@@ -596,6 +596,7 @@ Fence *Device::createFence() {
 
     HANDLE hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     if (!hEvent) {
+        pFence->Release();
         return nullptr;
     }
 

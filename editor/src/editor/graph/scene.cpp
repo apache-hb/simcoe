@@ -90,6 +90,7 @@ void ScenePass::create() {
     };
 
     pPipeline = ctx->createPipelineState(psoCreateInfo);
+    pPipeline->setName("pso.scene");
 
     // create vertex data
     std::unique_ptr<rhi::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(kQuadVerts.data(), kQuadVerts.size() * sizeof(Vertex))};
@@ -97,6 +98,12 @@ void ScenePass::create() {
 
     pQuadVertexBuffer = ctx->createVertexBuffer(kQuadVerts.size(), sizeof(Vertex));
     pQuadIndexBuffer = ctx->createIndexBuffer(kQuadIndices.size(), rhi::TypeFormat::eUint16);
+
+    pVertexStaging->setName("vbo-staging.quad");
+    pIndexStaging->setName("ibo-staging.quad");
+
+    pQuadVertexBuffer->setName("vbo.quad");
+    pQuadIndexBuffer->setName("ibo.quad");
 
     ctx->beginCopy();
     ctx->copyBuffer(pQuadVertexBuffer, pVertexStaging.get());

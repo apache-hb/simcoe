@@ -1,5 +1,6 @@
 #include "engine/os/system.h"
 
+#include <intsafe.h>
 #include <stdexcept>
 
 #include "engine/engine.h"
@@ -235,4 +236,42 @@ void System::dispatchEvent() {
 
 void System::quit() {
     PostQuitMessage(0);
+}
+
+///
+/// the depths of windows engineers insanity knows no bounds
+///
+
+#pragma pack(push, 8)
+typedef struct tagTHREADNAME_INFO {
+    DWORD dwType;
+    LPCSTR szName;
+    DWORD dwThreadID;
+    DWORD dwFlags;
+} THREADNAME_INFO;
+#pragma pack(pop)
+
+static constexpr DWORD dwMagicBullshit = 0x406D1388;
+
+static void setThreadDesc(const char *name) {
+    auto wide = util::widen(name);
+    SetThreadDescription(GetCurrentThread(), wide.c_str());
+}
+
+void simcoe::setThreadName(const char *name) {
+    // set name for PIX
+    setThreadDesc(name);
+
+    /// set debugger name
+    THREADNAME_INFO info = {
+        .dwType = 0x1000,
+        .szName = name,
+        .dwThreadID = DWORD_MAX,
+        .dwFlags = 0
+    };
+
+    __try {
+        RaiseException(dwMagicBullshit, 0, sizeof(info) / sizeof(DWORD), reinterpret_cast<ULONG_PTR *>(&info));
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
 }
