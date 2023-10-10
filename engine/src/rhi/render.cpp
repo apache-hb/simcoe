@@ -384,6 +384,7 @@ DisplayQueue *DisplayQueue::create(IDXGISwapChain4 *pSwapChain, bool tearing) {
 }
 
 DisplayQueue::~DisplayQueue() {
+    setFullscreenState(false);
     pSwapChain->Release();
 }
 
