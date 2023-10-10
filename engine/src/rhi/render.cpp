@@ -76,6 +76,17 @@ DXGI_FORMAT simcoe::rhi::getTypeFormat(TypeFormat fmt) {
     }
 }
 
+std::string_view simcoe::rhi::toString(ResourceState state) {
+    switch (state) {
+    case ResourceState::ePresent: return "present";
+    case ResourceState::eRenderTarget: return "render-target";
+    case ResourceState::eShaderResource: return "shader-resource";
+    case ResourceState::eDepthWrite: return "depth-write";
+    case ResourceState::eCopyDest: return "copy-dest";
+    default: return "unknown";
+    }
+}
+
 static size_t getByteSize(TypeFormat fmt) {
     switch (fmt) {
     case TypeFormat::eUint16: return sizeof(uint16_t);
@@ -186,6 +197,26 @@ void Commands::transition(DeviceResource *pTarget, ResourceState from, ResourceS
     };
 
     get()->ResourceBarrier(1, &barrier);
+}
+
+void Commands::transition(std::span<const Transition> transitions) {
+    std::vector<D3D12_RESOURCE_BARRIER> barriers;
+    for (const auto& [pResource, before, after] : transitions) {
+        D3D12_RESOURCE_BARRIER barrier = {
+            .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+            .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+            .Transition = {
+                .pResource = pResource->getResource(),
+                .Subresource = 0,
+                .StateBefore = getResourceState(before),
+                .StateAfter = getResourceState(after),
+            },
+        };
+
+        barriers.push_back(barrier);
+    }
+
+    get()->ResourceBarrier(UINT(barriers.size()), barriers.data());
 }
 
 void Commands::clearRenderTarget(HostHeapOffset handle, math::float4 colour) {
@@ -375,10 +406,17 @@ void DisplayQueue::present(bool allowTearing) {
     // t1 -> unlock context. the swapchain has been resized but with the wrong size
     // ... a present may happen here ...
     // t2 -> the message thread resizes the swapchain to the correct size, presents now work
-    if (HRESULT hr = (pSwapChain->Present(0, flags)); FAILED(hr)) {
+    if (HRESULT hr = (pSwapChain->Present(0, flags)); hr == DXGI_ERROR_INVALID_CALL) {
         failedFrames += 1; // count consecutive failed frames
-    } else {
+        simcoe::logError("consecutive failed presents: {}", failedFrames.load());
+    } else if (hr == DXGI_ERROR_DEVICE_REMOVED) {
+        simcoe::logInfo("device removed, cannot present");
+        throw std::runtime_error("device removed");
+    } else if (SUCCEEDED(hr)) {
         failedFrames = 0;
+    } else {
+        failedFrames += 1; // count consecutive failed frames
+        simcoe::logInfo("present failed: {}", simcoe::getErrorName(hr));
     }
 
     if (failedFrames > 3) {
@@ -392,7 +430,7 @@ DisplayQueue *DisplayQueue::create(IDXGISwapChain4 *pSwapChain, bool tearing) {
 }
 
 DisplayQueue::~DisplayQueue() {
-    setFullscreenState(false);
+    //setFullscreenState(false);
     pSwapChain->Release();
 }
 
@@ -411,9 +449,9 @@ void Device::remove() {
 
 void Device::reportFaultInfo() {
     HRESULT hr = get()->GetDeviceRemovedReason();
+    simcoe::logInfo("device removed reason: {}", getErrorName(hr));
 
     if (!(createFlags & eCreateExtendedInfo)) {
-        simcoe::logInfo("device removed (hr={:x})", unsigned(hr));
         return;
     }
 
@@ -1013,6 +1051,13 @@ std::vector<Adapter*> Context::getAdapters() {
     }
 
     return adapters;
+}
+
+Adapter *Context::getWarpAdapter() {
+    IDXGIAdapter1 *pAdapter = nullptr;
+    HR_CHECK(pFactory->EnumWarpAdapter(IID_PPV_ARGS(&pAdapter)));
+
+    return Adapter::create(pAdapter);
 }
 
 static IDXGIDebug1 *getDebugInterface() {

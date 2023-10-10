@@ -97,6 +97,8 @@ namespace simcoe::rhi {
 
         std::vector<Adapter*> getAdapters();
 
+        Adapter *getWarpAdapter();
+
         // module interface
 
         static Context *create(CreateFlags flags);
@@ -176,6 +178,8 @@ namespace simcoe::rhi {
         eDepthWrite,
         eCopyDest
     };
+
+    std::string_view toString(ResourceState state);
 
     struct VertexAttribute {
         std::string_view name;
@@ -395,6 +399,12 @@ namespace simcoe::rhi {
         Scissor scissor;
     };
 
+    struct Transition {
+        DeviceResource *pResource;
+        ResourceState before;
+        ResourceState after;
+    };
+
     struct Commands : Object<ID3D12GraphicsCommandList> {
         // public interface
 
@@ -402,6 +412,8 @@ namespace simcoe::rhi {
         void end();
 
         void transition(DeviceResource *pTarget, ResourceState from, ResourceState to);
+        void transition(std::span<const Transition> transitions);
+
         void clearRenderTarget(HostHeapOffset handle, math::float4 colour);
         void clearDepthStencil(HostHeapOffset handle, float depth, UINT8 stencil);
 

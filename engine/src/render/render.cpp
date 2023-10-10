@@ -56,7 +56,6 @@ void Context::createDeviceData() {
     pCopyAllocator = pDevice->createCommandMemory(rhi::CommandType::eCopy);
     pCopyCommands = pDevice->createCommands(rhi::CommandType::eCopy, pCopyAllocator);
 
-
     pDevice->setName("simcoe.device");
     pDirectQueue->setName("simcoe.direct-queue");
     pCopyQueue->setName("simcoe.copy-queue");
@@ -206,7 +205,7 @@ void Context::beginRender() {
 }
 
 void Context::endRender() {
-    pDisplayQueue->present(bAllowTearing);
+    pDisplayQueue->present(bReportedFullscreen ? false : bAllowTearing.load());
 }
 
 void Context::beginDirect() {

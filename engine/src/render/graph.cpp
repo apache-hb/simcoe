@@ -60,12 +60,10 @@ void IRenderPass::executePass() {
             graph->pCurrentRenderTarget = pNewTarget;
         }
 
-    } else {
-        if (pNewTarget != pCurrentTarget) {
-            ctx->setRenderTarget(rtvIndex);
-            ctx->clearRenderTarget(rtvIndex, newClear);
-            graph->pCurrentRenderTarget = pNewTarget;
-        }
+    } else if (pNewTarget != pCurrentTarget) {
+        ctx->setRenderTarget(rtvIndex);
+        ctx->clearRenderTarget(rtvIndex, newClear);
+        graph->pCurrentRenderTarget = pNewTarget;
     }
 
     execute();
@@ -145,7 +143,6 @@ bool Graph::execute() {
 
     ctx->endDirect();
     ctx->endRender();
-    simcoe::logInfo("frame {} complete", ctx->getFrameIndex());
     ctx->waitForDirectQueue();
 
     return true;
@@ -180,6 +177,7 @@ void Graph::destroyIf(StateDep dep) {
 }
 
 void Graph::executePass(ICommandPass *pPass) {
+    std::vector<rhi::Transition> barriers;
     for (const auto *pInput : pPass->inputs) {
         auto *pHandle = pInput->getResourceHandle();
         rhi::DeviceResource *pResource = pHandle->getResource();
@@ -187,14 +185,17 @@ void Graph::executePass(ICommandPass *pPass) {
         auto currentState = getResourceState(pResource);
 
         if (currentState != requiredState) {
-            ctx->transition(pResource, currentState, requiredState);
+            barriers.push_back({ pResource, currentState, requiredState });
             setResourceState(pResource, requiredState);
         }
     }
 
+    if (!barriers.empty()) {
+        ctx->transition(barriers);
+    }
+
     pPass->executePass();
 }
-
 
 ///
 /// state managment

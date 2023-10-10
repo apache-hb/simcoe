@@ -195,18 +195,6 @@ struct GameGui final : graph::IGuiPass {
         adapterNames.clear();
     }
 
-    static constexpr const char *stateToString(rhi::ResourceState state) {
-        switch (state) {
-        case rhi::ResourceState::ePresent: return "present";
-        case rhi::ResourceState::eRenderTarget: return "render-target";
-        case rhi::ResourceState::eShaderResource: return "shader-resource";
-        case rhi::ResourceState::eCopyDest: return "copy-dest";
-        case rhi::ResourceState::eDepthWrite: return "depth-write";
-
-        default: return "unknown";
-        }
-    }
-
     bool sceneIsOpen = true;
 
     void content() override {
@@ -323,7 +311,7 @@ struct GameGui final : graph::IGuiPass {
             ImGui::BulletText("%s", name.data());
             for (auto *pAttachment : pPass->inputs) {
                 auto *pHandle = pAttachment->getResourceHandle();
-                ImGui::BulletText("  %s (expected: %s)", pHandle->getName().data(), stateToString(pAttachment->getRequiredState()));
+                ImGui::BulletText("  %s (expected: %s)", pHandle->getName().data(), toString(pAttachment->getRequiredState()).data());
             }
         }
 
@@ -357,7 +345,7 @@ static void commonMain() {
         .hWindow = pWindow->getHandle(),
         .depot = depot,
 
-        .adapterIndex = 1,
+        .adapterIndex = 0,
         .backBufferCount = 2,
 
         .displayWidth = realWidth,
@@ -373,9 +361,7 @@ static void commonMain() {
         while (!token.stop_requested()) {
             WorkMessage item;
             if (gWorkQueue.try_dequeue(item)) {
-                simcoe::logInfo("work message {}", item.name);
                 item.item();
-                simcoe::logInfo("work message {} complete", item.name);
             }
         }
         simcoe::logInfo("work thread stopped");
@@ -396,21 +382,19 @@ static void commonMain() {
             pGraph = new Graph(pContext);
             auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
             auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
-            //auto *pDepthTarget = pGraph->addResource<graph::DepthTargetHandle>();
+            auto *pDepthTarget = pGraph->addResource<graph::DepthTargetHandle>();
             auto *pTexture = pGraph->addResource<graph::TextureHandle>("uv-coords.png");
-            //auto *pUniform = pGraph->addResource<graph::SceneUniformHandle>();
+            auto *pUniform = pGraph->addResource<graph::SceneUniformHandle>();
 
-            //auto *pPlayerMesh = pGraph->addObject<ObjMesh>("G:\\untitled.obj");
+            const graph::GameRenderInfo gameRenderConfig = {
+                .pPlayerTexture =  pGraph->addResource<graph::TextureHandle>("player.png"),
+                .pCameraUniform = pGraph->addResource<graph::CameraUniformHandle>(),
+                .pPlayerMesh = pGraph->addObject<ObjMesh>("G:\\untitled.obj")
+            };
 
-            // const graph::GameRenderInfo gameRenderConfig = {
-            //     .pPlayerTexture =  pTexture, //pGraph->addResource<graph::TextureHandle>("player.png"),
-            //     .pCameraUniform = pGraph->addResource<graph::CameraUniformHandle>(),
-            //     .pPlayerMesh = pPlayerMesh
-            // };
-
-            //pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pTexture, pUniform);
-            //pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>(), gameRenderConfig);
-            pGraph->addPass<graph::PostPass>(pSceneTarget->as<ISRVHandle>(), pBackBuffers->as<IRTVHandle>());
+            pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pTexture, pUniform);
+            pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>(), gameRenderConfig);
+            pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<graph::PresentPass>(pBackBuffers);
 
@@ -420,11 +404,10 @@ static void commonMain() {
                 try {
                     pGraph->execute();
                 } catch (std::runtime_error& err) {
-                    simcoe::logError("render thread exception: {}", err.what());
-                    simcoe::logInfo("attempting to resume render thread");
+                    simcoe::logError("render thread exception: {}. attempting to resume", err.what());
                     pGraph->resumeFromFault();
                 } catch (...) {
-                    simcoe::logError("unknown thread exception");
+                    simcoe::logError("unknown thread exception. exiting");
                     break;
                 }
             }

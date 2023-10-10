@@ -359,10 +359,8 @@ namespace simcoe::render {
             lock = true;
             std::lock_guard guard(renderLock);
 
-            simcoe::logInfo("changing data");
             ctx->waitForDirectQueue();
             ctx->waitForCopyQueue();
-            simcoe::logInfo("data changed");
 
             destroyIf(dep);
             func();

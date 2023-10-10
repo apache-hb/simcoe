@@ -13,6 +13,7 @@
 # assets
 !*.png
 !data/libs/agility/*
+!data/libs/warp/*
 !data/config/*
 
 # dont ignore readme and build files

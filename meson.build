@@ -113,6 +113,10 @@ src = [
     # assets
     copy.process('data/images/uv-coords.png'),
     copy.process('data/images/player.png'),
+
+    # libraries
+    copy.process('data/libs/warp/d3d10warp.dll'),
+    copy.process('data/libs/warp/d3d10warp.pdb'),
 ]
 
 deps = [

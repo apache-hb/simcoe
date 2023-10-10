@@ -207,6 +207,10 @@ namespace simcoe::render {
             pDirectCommands->transition(pResource, from, to);
         }
 
+        void transition(std::span<const rhi::Transition> transitions) {
+            pDirectCommands->transition(transitions);
+        }
+
         void setDisplay(const rhi::Display& display) {
             pDirectCommands->setDisplay(display);
         }

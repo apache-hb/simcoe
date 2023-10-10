@@ -54,7 +54,7 @@ static rhi::Display createLetterBoxDisplay(UINT renderWidth, UINT renderHeight, 
     return { viewport, scissor };
 }
 
-PostPass::PostPass(Graph *ctx, ResourceWrapper<ISRVHandle> *pSceneSource, ResourceWrapper<IRTVHandle> *pRenderTarget)
+PostPass::PostPass(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
     : IRenderPass(ctx, "post", StateDep(eDepDisplaySize | eDepRenderSize))
     , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eShaderResource))
 {

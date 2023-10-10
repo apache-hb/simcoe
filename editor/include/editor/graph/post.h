@@ -6,8 +6,8 @@ namespace editor::graph {
     struct PostPass final : IRenderPass {
         PostPass(
             Graph *ctx,
-            ResourceWrapper<ISRVHandle> *pSceneSource,
-            ResourceWrapper<IRTVHandle> *pRenderTarget
+            ResourceWrapper<IRTVHandle> *pRenderTarget,
+            ResourceWrapper<ISRVHandle> *pSceneSource
         );
 
         void create() override;
