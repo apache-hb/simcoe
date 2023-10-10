@@ -111,6 +111,13 @@ namespace simcoe::render {
         void changeBackBufferCount(UINT count);
         void changeAdapter(size_t index);
 
+        void removeDevice() {
+            pDevice->remove();
+        }
+
+        void resumeFromFault();
+        void reportFaultInfo();
+
         // getters
         const RenderCreateInfo& getCreateInfo() const { return createInfo; }
         size_t getFrameIndex() const { return frameIndex; }
@@ -269,7 +276,14 @@ namespace simcoe::render {
         // state selection
 
         rhi::Adapter* selectAdapter() {
-            return adapters[createInfo.adapterIndex];
+            if (createInfo.adapterIndex >= adapters.size()) {
+                createInfo.adapterIndex = 0;
+            }
+
+            auto *pAdapter = adapters[createInfo.adapterIndex];
+            auto info = pAdapter->getInfo();
+            simcoe::logInfo("selected adapter: {}", info.name);
+            return pAdapter;
         }
 
         // create data that depends on the context

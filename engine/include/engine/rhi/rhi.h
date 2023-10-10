@@ -83,14 +83,23 @@ namespace simcoe::rhi {
         T *pObject;
     };
 
+    enum CreateFlags {
+        eCreateNone = 0,
+        eCreateDebug = (1 << 0),
+        eCreateInfoQueue = (1 << 1),
+        eCreateExtendedInfo = (1 << 2)
+    };
+
     struct Context {
         // public interface
+
+        void reportLiveObjects();
 
         std::vector<Adapter*> getAdapters();
 
         // module interface
 
-        static Context *create();
+        static Context *create(CreateFlags flags);
         ~Context();
 
         IDXGIFactory6 *getFactory() { return pFactory; }
@@ -118,7 +127,7 @@ namespace simcoe::rhi {
     };
 
     struct Adapter {
-        Device *createDevice();
+        Device *createDevice(CreateFlags flags);
         AdapterInfo getInfo();
 
         static Adapter *create(IDXGIAdapter1 *pAdapter);
@@ -218,6 +227,9 @@ namespace simcoe::rhi {
     struct Device : Object<ID3D12Device4> {
         // public interface
 
+        void remove();
+        void reportFaultInfo();
+
         DeviceQueue *createQueue(CommandType type);
         Commands *createCommands(CommandType type, CommandMemory *pMemory);
         CommandMemory *createCommandMemory(CommandType type);
@@ -251,21 +263,33 @@ namespace simcoe::rhi {
 
         // module interface
 
-        static Device *create(IDXGIAdapter4 *pAdapter);
+        static Device *create(IDXGIAdapter4 *pAdapter, CreateFlags flags);
         ~Device();
 
         ID3D12Device4 *getDevice() { return Object::get(); }
 
     private:
-        Device(ID3D12Device4 *pDevice, ID3D12InfoQueue1 *pInfoQueue, DWORD cookie, D3D_ROOT_SIGNATURE_VERSION version)
+        Device(ID3D12Device4 *pDevice,
+               ID3D12Debug *pDebug,
+               ID3D12InfoQueue1 *pInfoQueue, DWORD cookie,
+               CreateFlags createFlags,
+               D3D_ROOT_SIGNATURE_VERSION version)
             : Object(pDevice)
+            , pDebug(pDebug)
             , pInfoQueue(pInfoQueue)
             , cookie(cookie)
+            , createFlags(createFlags)
             , rootSignatureVersion(version)
         { }
 
+        // eCreateDebug
+        ID3D12Debug *pDebug;
+
+        // eCreateInfoQueue
         ID3D12InfoQueue1 *pInfoQueue;
         DWORD cookie;
+
+        CreateFlags createFlags;
         D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion;
     };
 

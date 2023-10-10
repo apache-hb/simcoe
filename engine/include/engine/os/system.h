@@ -95,5 +95,8 @@ namespace simcoe {
         MSG msg;
     };
 
+    std::string getErrorName(HRESULT hr);
+
     void setThreadName(const char *name);
+    std::string getThreadName();
 }

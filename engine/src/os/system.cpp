@@ -1,6 +1,7 @@
 #include "engine/os/system.h"
 
 #include <intsafe.h>
+#include <comdef.h>
 #include <stdexcept>
 
 #include "engine/engine.h"
@@ -238,6 +239,11 @@ void System::quit() {
     PostQuitMessage(0);
 }
 
+std::string simcoe::getErrorName(HRESULT hr) {
+    _com_error err(hr);
+    return err.ErrorMessage();
+}
+
 ///
 /// the depths of windows engineers insanity knows no bounds
 ///
@@ -274,4 +280,19 @@ void simcoe::setThreadName(const char *name) {
         RaiseException(dwMagicBullshit, 0, sizeof(info) / sizeof(DWORD), reinterpret_cast<ULONG_PTR *>(&info));
     } __except (EXCEPTION_EXECUTE_HANDLER) {
     }
+}
+
+std::string simcoe::getThreadName() {
+    // get name for PIX
+    PWSTR wide;
+    if (HRESULT hr = GetThreadDescription(GetCurrentThread(), &wide); SUCCEEDED(hr)) {
+        auto result = util::narrow(wide);
+        LocalFree(wide);
+
+        if (result.length() > 0) {
+            return std::format("tid(0x{:x}) `{}`", GetCurrentThreadId(), result);
+        }
+    }
+
+    return std::format("tid(0x{:x})", GetCurrentThreadId());
 }

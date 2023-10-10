@@ -247,12 +247,12 @@ struct GameGui final : graph::IGuiPass {
         ImGui::Text("present: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
         ImGui::Text("render: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
         if (ImGui::Checkbox("fullscreen", &gFullscreen)) {
-            gWorkQueue.enqueue([fs = gFullscreen] {
+            gWorkQueue.enqueue([this, fs = gFullscreen] {
                 if (fs) {
-                    pGraph->setFullscreen(true);
+                    graph->setFullscreen(true);
                     pWindow->enterFullscreen();
                 } else {
-                    pGraph->setFullscreen(false);
+                    graph->setFullscreen(false);
                     pWindow->exitFullscreen();
                 }
             });
@@ -263,23 +263,27 @@ struct GameGui final : graph::IGuiPass {
 
         if (ImGui::SliderInt2("render size", renderSize, 64, 4096)) {
             gWorkQueue.enqueue([this] {
-                pGraph->resizeRender(renderSize[0], renderSize[1]);
+                graph->resizeRender(renderSize[0], renderSize[1]);
                 logInfo("resize-render: {}x{}", renderSize[0], renderSize[1]);
             });
         }
 
         if (ImGui::SliderInt("backbuffer count", &backBufferCount, 2, 8)) {
             gWorkQueue.enqueue([this] {
-                pGraph->changeBackBufferCount(backBufferCount);
+                graph->changeBackBufferCount(backBufferCount);
                 logInfo("change-backbuffer-count: {}", backBufferCount);
             });
         }
 
         if (ImGui::Combo("device", &currentAdapter, adapterNames.data(), adapterNames.size())) {
             gWorkQueue.enqueue([this] {
-                pGraph->changeAdapter(currentAdapter);
+                graph->changeAdapter(currentAdapter);
                 logInfo("change-adapter: {}", currentAdapter);
             });
+        }
+
+        if (ImGui::Button("Remove Device")) {
+            ctx->removeDevice();
         }
 
         ImGui::Text("rtv heap: %zu", rtvAlloc.getSize());
@@ -296,8 +300,8 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::Begin("render");
 
-        const auto& resources = pGraph->resources;
-        const auto& passes = pGraph->passes;
+        const auto& resources = graph->resources;
+        const auto& passes = graph->passes;
 
         ImGui::Text("resources %zu", resources.size());
         for (auto *pResource : resources) {
@@ -345,6 +349,9 @@ static void commonMain() {
         .hWindow = pWindow->getHandle(),
         .depot = depot,
 
+        .adapterIndex = 0,
+        .backBufferCount = 2,
+
         .displayWidth = realWidth,
         .displayHeight = realHeight,
 
@@ -353,6 +360,8 @@ static void commonMain() {
     };
 
     pWorkThread = new std::jthread([](std::stop_token token) {
+        setThreadName("work");
+
         while (!token.stop_requested()) {
             WorkItem item;
             if (gWorkQueue.try_dequeue(item)) {
@@ -368,10 +377,13 @@ static void commonMain() {
     // move the render context into the render thread to prevent hangs on shutdown
     render::Context *pContext = render::Context::create(renderCreateInfo);
     pRenderThread = new std::jthread([pContext](std::stop_token token) {
+        setThreadName("render");
+
         simcoe::Region region("render thread started", "render thread stopped");
 
-        pGraph = new Graph(pContext);
+        // TODO: this is a little stupid
         try {
+            pGraph = new Graph(pContext);
             auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
             auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
             auto *pDepthTarget = pGraph->addResource<graph::DepthTargetHandle>();
@@ -395,13 +407,21 @@ static void commonMain() {
             // TODO: if the render loop throws an exception, the program will std::terminate
             // we should handle this case and restart the render loop
             while (!token.stop_requested()) {
-                pGraph->execute();
+                try {
+                    pGraph->execute();
+                } catch (std::runtime_error& err) {
+                    simcoe::logError("render thread exception: {}", err.what());
+                    simcoe::logInfo("attempting to resume render thread");
+                    pGraph->resumeFromFault();
+                } catch (...) {
+                    simcoe::logError("unknown thread exception");
+                }
             }
 
             delete pGraph;
             delete pContext;
         } catch (std::runtime_error& err) {
-            simcoe::logError("render thread exception: {}", err.what());
+            simcoe::logError("render thread exception during startup: {}", err.what());
         }
     });
 

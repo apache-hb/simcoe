@@ -334,11 +334,13 @@ namespace simcoe::render {
         void changeBackBufferCount(UINT count);
         void changeAdapter(UINT index);
 
+        void resumeFromFault();
+
         ///
         /// pass execution
         ///
 
-        void execute();
+        bool execute();
         IRTVHandle *pCurrentRenderTarget = nullptr;
 
     private:

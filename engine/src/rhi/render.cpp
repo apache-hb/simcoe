@@ -1,5 +1,6 @@
 #include "engine/rhi/rhi.h"
 
+#include "engine/os/system.h"
 #include "engine/engine.h"
 
 #include <directx/d3dx12.h>
@@ -139,21 +140,30 @@ static void debugCallback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERIT
     const char *categoryStr = categoryToString(category);
     const char *severityStr = severityToString(severity);
 
+    auto threadName = simcoe::getThreadName();
+
+    simcoe::logInfo("thread: {}", threadName);
     switch (severity) {
     case D3D12_MESSAGE_SEVERITY_CORRUPTION:
     case D3D12_MESSAGE_SEVERITY_ERROR:
         simcoe::logError("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
         break;
+
     case D3D12_MESSAGE_SEVERITY_WARNING:
         simcoe::logWarn("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
         break;
 
-    default:
     case D3D12_MESSAGE_SEVERITY_INFO:
     case D3D12_MESSAGE_SEVERITY_MESSAGE:
         simcoe::logInfo("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
-        return;
+        break;
+
+    default:
+        simcoe::logInfo("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
+        break;
     }
+
+    simcoe::logInfo("done");
 }
 
 // commands
@@ -161,12 +171,12 @@ static void debugCallback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERIT
 void Commands::begin(CommandMemory *pMemory) {
     ID3D12CommandAllocator *pAllocator = pMemory->getAllocator();
 
-    pAllocator->Reset();
-    get()->Reset(pAllocator, nullptr);
+    HR_CHECK(pAllocator->Reset());
+    HR_CHECK(get()->Reset(pAllocator, nullptr));
 }
 
 void Commands::end() {
-    get()->Close();
+    HR_CHECK(get()->Close());
 }
 
 void Commands::transition(DeviceResource *pTarget, ResourceState from, ResourceState to) {
@@ -289,7 +299,7 @@ CommandMemory *CommandMemory::create(ID3D12CommandAllocator *pAllocator) {
 // device queue
 
 void DeviceQueue::signal(Fence *pFence, size_t value) {
-    get()->Signal(pFence->getFence(), value);
+    HR_CHECK(get()->Signal(pFence->getFence(), value));
 }
 
 void DeviceQueue::execute(Commands *pCommands) {
@@ -366,7 +376,7 @@ RenderTarget *DisplayQueue::getRenderTarget(UINT index) {
 void DisplayQueue::present(bool allowTearing) {
     UINT flags = (tearing && allowTearing) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
 
-    pSwapChain->Present(0, flags);
+    HR_CHECK(pSwapChain->Present(0, flags));
 }
 
 DisplayQueue *DisplayQueue::create(IDXGISwapChain4 *pSwapChain, bool tearing) {
@@ -378,6 +388,60 @@ DisplayQueue::~DisplayQueue() {
 }
 
 // device
+
+void Device::remove() {
+    ID3D12Device5 *pDevice5 = nullptr;
+    if (HRESULT hr = get()->QueryInterface(IID_PPV_ARGS(&pDevice5)); SUCCEEDED(hr)) {
+        simcoe::logInfo("removing device");
+        pDevice5->RemoveDevice();
+        pDevice5->Release();
+    } else {
+        simcoe::logWarn("failed to retrieve ID3D12Device5 interface (hr={:x})", unsigned(hr));
+    }
+}
+
+void Device::reportFaultInfo() {
+    HRESULT hr = get()->GetDeviceRemovedReason();
+
+    if (!(createFlags & eCreateExtendedInfo)) {
+        simcoe::logInfo("device removed (hr={:x})", unsigned(hr));
+        return;
+    }
+
+    ComPtr<ID3D12DeviceRemovedExtendedData> pData = nullptr;
+    if (HRESULT hr = get()->QueryInterface(IID_PPV_ARGS(&pData)); FAILED(hr)) {
+        simcoe::logWarn("failed to retrieve ID3D12DeviceRemovedExtendedData interface ({})", getErrorName(hr));
+        return;
+    }
+
+    D3D12_DRED_AUTO_BREADCRUMBS_OUTPUT breadOutput = {};
+
+    if (HRESULT hr = pData->GetAutoBreadcrumbsOutput(&breadOutput); FAILED(hr)) {
+        simcoe::logWarn("failed to retrieve auto breadcrumbs ({})", getErrorName(hr));
+        return;
+    }
+
+    simcoe::logInfo("auto breadcrumbs:");
+    const D3D12_AUTO_BREADCRUMB_NODE *pNode = breadOutput.pHeadAutoBreadcrumbNode;
+    while (pNode != nullptr) {
+        simcoe::logInfo("  objects: (queue={}, list={})", pNode->pCommandQueueDebugNameA, pNode->pCommandListDebugNameA);
+        simcoe::logInfo("  count: {}", pNode->BreadcrumbCount);
+        for (UINT32 i = 0; i < pNode->BreadcrumbCount; i++) {
+            const D3D12_AUTO_BREADCRUMB_OP &op = pNode->pCommandHistory[i];
+            simcoe::logInfo("    op[{}]: {}", int(op));
+        }
+        pNode = pNode->pNext;
+    }
+
+    D3D12_DRED_PAGE_FAULT_OUTPUT faultOutput = {};
+
+    if (HRESULT hr = pData->GetPageFaultAllocationOutput(&faultOutput); FAILED(hr)) {
+        simcoe::logWarn("failed to retrieve page fault allocation ({})", getErrorName(hr));
+        return;
+    }
+
+    simcoe::logInfo("page fault at 0x{:X}", faultOutput.PageFaultVA);
+}
 
 DeviceQueue *Device::createQueue(CommandType type) {
     ID3D12CommandQueue *pQueue = nullptr;
@@ -818,8 +882,9 @@ void Device::mapTexture(HostHeapOffset handle, TextureBuffer *pTexture) {
     get()->CreateShaderResourceView(pTexture->getResource(), &desc, hostHandle(handle));
 }
 
-Device *Device::create(IDXGIAdapter4 *pAdapter) {
+static ID3D12Debug *getDeviceDebugInterface() {
     ID3D12Debug *pDebug = nullptr;
+
     if (HRESULT hr = D3D12GetDebugInterface(IID_PPV_ARGS(&pDebug)); SUCCEEDED(hr)) {
         simcoe::logInfo("enabling d3d12 debug layer");
         pDebug->EnableDebugLayer();
@@ -827,29 +892,71 @@ Device *Device::create(IDXGIAdapter4 *pAdapter) {
         simcoe::logWarn("failed to enable d3d12 debug layer");
     }
 
+    return pDebug;
+}
+
+static ID3D12InfoQueue1 *getDeviceInfoQueue(DWORD *pCookie, ID3D12Device *pDevice) {
+    ID3D12InfoQueue1 *pInfoQueue = nullptr;
+
+    if (HRESULT hr = pDevice->QueryInterface(IID_PPV_ARGS(&pInfoQueue)); SUCCEEDED(hr)) {
+        simcoe::logInfo("enabling d3d12 info queue");
+        HR_CHECK(pInfoQueue->RegisterMessageCallback(debugCallback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, pCookie));
+    } else {
+        simcoe::logWarn("failed to enable d3d12 info queue");
+    }
+
+    return pInfoQueue;
+}
+
+static void setupDred() {
+    ID3D12DeviceRemovedExtendedDataSettings *pSettings = nullptr;
+
+    if (HRESULT hr = D3D12GetDebugInterface(IID_PPV_ARGS(&pSettings)); SUCCEEDED(hr)) {
+        simcoe::logInfo("enabling d3d12 device removed extended data");
+        pSettings->SetAutoBreadcrumbsEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
+        pSettings->SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
+        pSettings->Release();
+    } else {
+        simcoe::logWarn("failed to enable d3d12 device removed extended data");
+    }
+}
+
+Device *Device::create(IDXGIAdapter4 *pAdapter, CreateFlags flags) {
+    if (flags & eCreateExtendedInfo) {
+        setupDred();
+    }
+
+    ID3D12Debug *pDebug = nullptr;
+    if (flags & eCreateDebug) {
+        pDebug = getDeviceDebugInterface();
+    }
+
     ID3D12Device4 *pDevice = nullptr;
     HR_CHECK(D3D12CreateDevice(pAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pDevice)));
 
     DWORD cookie = DWORD_MAX;
     ID3D12InfoQueue1 *pInfoQueue = nullptr;
-    if (HRESULT hr = pDevice->QueryInterface(IID_PPV_ARGS(&pInfoQueue)); SUCCEEDED(hr)) {
-        simcoe::logInfo("enabling d3d12 info queue");
-        HR_CHECK(pInfoQueue->RegisterMessageCallback(debugCallback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, &cookie));
-    } else {
-        simcoe::logWarn("failed to enable d3d12 info queue");
+    if (flags & eCreateInfoQueue) {
+        pInfoQueue = getDeviceInfoQueue(&cookie, pDevice);
     }
 
-    return new Device(pDevice, pInfoQueue, cookie, getRootSigVersion(pDevice));
+    return new Device(pDevice, pDebug, pInfoQueue, cookie, flags, getRootSigVersion(pDevice));
 }
 
 Device::~Device() {
-    if (pInfoQueue) { pInfoQueue->Release(); }
+    if (pInfoQueue) {
+        pInfoQueue->Release();
+    }
+
+    if (pDebug) {
+        pDebug->Release();
+    }
 }
 
 // adapter
 
-Device *Adapter::createDevice() {
-    return Device::create(pAdapter);
+Device *Adapter::createDevice(CreateFlags flags) {
+    return Device::create(pAdapter, flags);
 }
 
 AdapterInfo Adapter::getInfo() {
@@ -868,6 +975,8 @@ Adapter *Adapter::create(IDXGIAdapter1 *pAdapter) {
     DXGI_ADAPTER_DESC1 desc;
     HR_CHECK(pAdapter4->GetDesc1(&desc));
 
+    pAdapter->Release();
+
     return new Adapter(pAdapter4, desc);
 }
 
@@ -876,6 +985,15 @@ Adapter::~Adapter() {
 }
 
 // context
+
+void Context::reportLiveObjects() {
+    if (pDebug != nullptr) {
+        logInfo("reporting dxgi live objects");
+        pDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
+    } else {
+        logWarn("cannot report dxgi live objects");
+    }
+}
 
 std::vector<Adapter*> Context::getAdapters() {
     std::vector<Adapter*> adapters;
@@ -888,12 +1006,9 @@ std::vector<Adapter*> Context::getAdapters() {
     return adapters;
 }
 
-Context *Context::create() {
-    UINT flags = DXGI_CREATE_FACTORY_DEBUG;
-    IDXGIFactory6 *pFactory = nullptr;
-    HR_CHECK(CreateDXGIFactory2(flags, IID_PPV_ARGS(&pFactory)));
-
+static IDXGIDebug1 *getDebugInterface() {
     IDXGIDebug1 *pDebug = nullptr;
+
     if (HRESULT hr = DXGIGetDebugInterface1(0, IID_PPV_ARGS(&pDebug)); SUCCEEDED(hr)) {
         simcoe::logInfo("enabling dxgi debug layer");
         pDebug->EnableLeakTrackingForThread();
@@ -901,18 +1016,33 @@ Context *Context::create() {
         simcoe::logWarn("failed to enable dxgi debug layer");
     }
 
+    return pDebug;
+}
+
+Context *Context::create(CreateFlags flags) {
+    UINT factoryFlags = 0;
+    if (flags & eCreateDebug) {
+        factoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
+    }
+
+    IDXGIFactory6 *pFactory = nullptr;
+    HR_CHECK(CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&pFactory)));
+
+    IDXGIDebug1 *pDebug = nullptr;
+    if (flags & eCreateDebug) {
+        pDebug = getDebugInterface();
+    } else {
+        simcoe::logInfo("dxgi debug layer not enabled");
+    }
+
     return new Context(pFactory, pDebug);
 }
 
 Context::~Context() {
     pFactory->Release();
-    if (pDebug != nullptr) {
-        logInfo("reporting dxgi live objects");
-        pDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
-        pDebug->Release();
-    } else {
-        logWarn("cannot report dxgi live objects");
-    }
+    reportLiveObjects();
+
+    if (pDebug) { pDebug->Release(); }
 }
 
 // descriptor heap

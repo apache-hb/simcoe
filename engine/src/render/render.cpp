@@ -20,7 +20,7 @@ Context::~Context() {
 }
 
 Context::Context(const RenderCreateInfo& createInfo) : createInfo(createInfo) {
-    pContext = rhi::Context::create();
+    pContext = rhi::Context::create(rhi::eCreateDebug);
 
     createContextData();
     createDeviceData();
@@ -32,6 +32,7 @@ Context::Context(const RenderCreateInfo& createInfo) : createInfo(createInfo) {
 // create data that depends on the context
 void Context::createContextData() {
     adapters = pContext->getAdapters();
+    simcoe::logInfo("found {} adapters, selecting adapter #{}", adapters.size(), createInfo.adapterIndex + 1);
 }
 
 void Context::destroyContextData() {
@@ -43,7 +44,8 @@ void Context::destroyContextData() {
 // create data that depends on the device
 void Context::createDeviceData() {
     rhi::Adapter* pAdapter = selectAdapter();
-    pDevice = pAdapter->createDevice();
+    rhi::CreateFlags deviceFlags = rhi::CreateFlags(rhi::eCreateDebug | rhi::eCreateInfoQueue | rhi::eCreateExtendedInfo);
+    pDevice = pAdapter->createDevice(deviceFlags);
 
     pDirectQueue = pDevice->createQueue(rhi::CommandType::eDirect);
     pCopyQueue = pDevice->createQueue(rhi::CommandType::eCopy);
@@ -170,12 +172,33 @@ void Context::changeAdapter(size_t index) {
     createFrameData();
 }
 
+void Context::resumeFromFault() {
+    destroyFrameData();
+    destroyHeaps();
+    destroyDisplayData();
+    destroyDeviceData();
+    destroyContextData();
+
+    // device may have been removed, get a new list of devices
+    pContext->reportLiveObjects();
+
+    createContextData();
+    createDeviceData();
+    createDisplayData();
+    createHeaps();
+    createFrameData();
+}
+
+void Context::reportFaultInfo() {
+    pDevice->reportFaultInfo();
+}
+
 void Context::beginRender() {
     frameIndex = pDisplayQueue->getFrameIndex();
 }
 
 void Context::endRender() {
-    pDisplayQueue->present(false);
+    pDisplayQueue->present(bAllowTearing);
 }
 
 void Context::beginDirect() {

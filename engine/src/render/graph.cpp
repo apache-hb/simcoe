@@ -121,8 +121,17 @@ void Graph::changeAdapter(UINT index) {
     });
 }
 
-void Graph::execute() {
-    if (lock) { return; }
+void Graph::resumeFromFault() {
+    simcoe::logInfo("resuming from fault");
+    ctx->reportFaultInfo();
+
+    changeData(StateDep::eDepDevice, [=] {
+        ctx->resumeFromFault();
+    });
+}
+
+bool Graph::execute() {
+    if (lock) { return false; }
 
     std::lock_guard guard(renderLock);
     pCurrentRenderTarget = nullptr;
@@ -137,6 +146,8 @@ void Graph::execute() {
     ctx->endDirect();
     ctx->endRender();
     ctx->waitForDirectQueue();
+
+    return true;
 }
 
 void Graph::createIf(StateDep dep) {
