@@ -8,8 +8,10 @@
 using namespace simcoe;
 
 std::vector<ILogSink*> gSinks;
+std::mutex lock;
 
 static void innerLog(std::string_view prefix, std::string_view msg) {
+    std::lock_guard guard(lock);
     std::cout << prefix << ": " << msg << std::endl;
     for (auto sink : gSinks) {
         sink->accept(std::format("{}: {}", prefix, msg));

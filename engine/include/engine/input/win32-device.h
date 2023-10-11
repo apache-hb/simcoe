@@ -20,16 +20,23 @@ namespace simcoe::input {
     };
 
     struct Win32Mouse final : ISource {
-        Win32Mouse(bool bEnabled);
+        Win32Mouse(Window *pWindow, bool bEnabled);
 
         bool poll(State& state) override;
 
         void captureInput(bool bShouldCapture);
-        void update(Window *pWindow);
 
     private:
+        void update();
+
+        void updateMouseAbsolute(math::int2 mousePoint);
+
+        Window *pWindow;
+
         math::int2 mouseOrigin = {};
         math::int2 mouseAbsolute = {};
+
+        size_t totalEventsToSend = 0; ///< index of the last mouse move event
 
         bool bMouseCaptured = false; ///< is the mouse captured (locked to the center of the screen)
         bool bMouseEnabled = false; ///< is the mouse enabled (should we read from it)

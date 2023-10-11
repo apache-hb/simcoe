@@ -37,6 +37,21 @@ namespace simcoe {
         std::string_view stop;
     };
 
+    struct ReportOnce {
+        template<typename F>
+        void operator()(F&& func) {
+            if (!bReported.test_and_set()) {
+                func();
+            }
+        }
+
+        void reset() {
+            bReported.clear();
+        }
+    private:
+        std::atomic_flag bReported = ATOMIC_FLAG_INIT;
+    };
+
     namespace util {
         std::string narrow(std::wstring_view wstr);
         std::wstring widen(std::string_view str);

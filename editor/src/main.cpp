@@ -45,7 +45,7 @@ static std::atomic_bool gRunning = true;
 
 static input::Win32Keyboard *pKeyboard = nullptr;
 static input::Win32Mouse *pMouse = nullptr;
-static input::XInputGamepad *pGamepad = nullptr;
+//static input::XInputGamepad *pGamepad0 = nullptr;
 static input::GameInput *pGameInput = nullptr;
 static input::Manager *pInput = nullptr;
 
@@ -100,11 +100,9 @@ struct FileLogger final : ILogSink {
 
 struct GuiLogger final : ILogSink {
     void accept(std::string_view message) override {
-        std::lock_guard guard(mutex);
         buffer.push_back(std::string(message));
     }
 
-    std::mutex mutex;
     std::vector<std::string> buffer;
 };
 
@@ -545,13 +543,6 @@ static void commonMain(const std::filesystem::path& path) {
     assets::Assets depot = { assets };
     simcoe::logInfo("depot: {}", assets.string());
 
-    pInput = new input::Manager();
-    pInput->addSource(pKeyboard = new input::Win32Keyboard());
-    pInput->addSource(pMouse = new input::Win32Mouse(true));
-    pInput->addSource(pGamepad = new input::XInputGamepad(0));
-    pInput->addSource(pGameInput = new input::GameInput());
-    pInput->addClient(&gInputClient);
-
     const simcoe::WindowCreateInfo windowCreateInfo = {
         .title = "simcoe",
         .style = simcoe::WindowStyle::eWindowed,
@@ -564,6 +555,13 @@ static void commonMain(const std::filesystem::path& path) {
 
     pWindow = pSystem->createWindow(windowCreateInfo);
     auto [realWidth, realHeight] = pWindow->getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
+
+    pInput = new input::Manager();
+    pInput->addSource(pKeyboard = new input::Win32Keyboard());
+    pInput->addSource(pMouse = new input::Win32Mouse(pWindow, true));
+    //pInput->addSource(pGamepad0 = new input::XInputGamepad(0));
+    pInput->addSource(pGameInput = new input::GameInput());
+    pInput->addClient(&gInputClient);
 
     const render::RenderCreateInfo renderCreateInfo = {
         .hWindow = pWindow->getHandle(),
@@ -667,7 +665,6 @@ static void commonMain(const std::filesystem::path& path) {
 
     while (pSystem->getEvent()) {
         pSystem->dispatchEvent();
-        pMouse->update(pWindow);
         if (!gRunning) {
             break;
         }

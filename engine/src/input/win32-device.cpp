@@ -204,32 +204,50 @@ namespace {
     }
 }
 
-Win32Mouse::Win32Mouse(bool bEnabled)
+Win32Mouse::Win32Mouse(Window *pWindow, bool bEnabled)
     : ISource(DeviceTags::eWin32)
+    , pWindow(pWindow)
     , bMouseEnabled(bEnabled)
 { }
 
 bool Win32Mouse::poll(State& state) {
+    if (!bMouseEnabled) {
+        return false;
+    }
+
+    update();
+
+    bool bDirty = false;
+    if (totalEventsToSend > 0) {
+        totalEventsToSend -= 1;
+        bDirty = true;
+    }
+
     state.axes[Axis::eMouseX] = float(mouseAbsolute.x - mouseOrigin.x);
     state.axes[Axis::eMouseY] = float(mouseAbsolute.y - mouseOrigin.y);
 
-    return mouseAbsolute != mouseOrigin;
+    return bDirty;
 }
 
-void Win32Mouse::update(Window *pWindow) {
-    if (!bMouseEnabled) {
-        mouseAbsolute = mouseOrigin;
-        return;
-    }
-
+void Win32Mouse::update() {
+    auto cursor = getCursorPoint();
     if (bMouseCaptured) {
         auto center = getWindowCenter(pWindow);
-        mouseAbsolute = getCursorPoint();
+
         mouseOrigin = center;
+        updateMouseAbsolute(cursor);
 
         SetCursorPos(center.x, center.y);
     } else {
-        mouseOrigin = mouseAbsolute;
-        mouseAbsolute = getCursorPoint();
+        mouseOrigin = mouseAbsolute; // our origin is the last absolute position
+        updateMouseAbsolute(cursor);
     }
+}
+
+void Win32Mouse::updateMouseAbsolute(math::int2 mousePoint) {
+    if (mousePoint != mouseAbsolute) {
+        totalEventsToSend = 2; // we need to send at least 2 events to make sure the mouse delta returns to 0,0
+    }
+
+    mouseAbsolute = mousePoint;
 }
