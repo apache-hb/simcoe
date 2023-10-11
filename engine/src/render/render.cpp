@@ -2,6 +2,8 @@
 
 #include "engine/engine.h"
 
+#include <DirectXMath.h>
+
 using namespace simcoe;
 using namespace simcoe::render;
 

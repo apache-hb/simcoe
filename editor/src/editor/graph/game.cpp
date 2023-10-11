@@ -14,8 +14,9 @@ void CameraUniformHandle::update(GameLevel *pLevel) {
     float width = float(createInfo.renderWidth);
     float height = float(createInfo.renderHeight);
 
-    float4x4 view = float4x4::lookToRH(pLevel->cameraPosition, kForwardVector, kUpVector).transpose();
-    float4x4 projection = float4x4::perspectiveRH(pLevel->fov * kDegToRad<float>, width / height, 0.1f, 1000.f).transpose();
+    float4x4 view = float4x4::lookAtRH(pLevel->cameraPosition, kForwardVector, kUpVector).transpose();
+    //float4x4 projection = float4x4::perspectiveRH(pLevel->fov * kDegToRad<float>, width / height, 0.1f, 1000.f).transpose();
+    float4x4 projection = float4x4::orthographicRH(width, height, 0.1f, 1000.f).transpose();
 
     CameraUniform data = {
         .view = view,

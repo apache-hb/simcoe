@@ -1,13 +1,23 @@
 #include "engine/engine.h"
 
 #include <iostream>
+#include <vector>
 
 #include <windows.h>
 
 using namespace simcoe;
 
+std::vector<ILogSink*> gSinks;
+
 static void innerLog(std::string_view prefix, std::string_view msg) {
     std::cout << prefix << ": " << msg << std::endl;
+    for (auto sink : gSinks) {
+        sink->accept(std::format("{}: {}", prefix, msg));
+    }
+}
+
+void simcoe::addSink(ILogSink* sink) {
+    gSinks.push_back(sink);
 }
 
 void simcoe::logInfo(std::string_view msg) {

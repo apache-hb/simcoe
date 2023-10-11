@@ -4,6 +4,12 @@
 #include <format>
 
 namespace simcoe {
+    struct ILogSink {
+        virtual void accept(std::string_view message) = 0;
+    };
+
+    void addSink(ILogSink* sink);
+
     void logInfo(std::string_view msg);
     void logWarn(std::string_view msg);
     void logError(std::string_view msg);

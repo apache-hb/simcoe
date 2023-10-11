@@ -18,6 +18,9 @@
 
 #include <functional>
 #include <array>
+#include <fstream>
+
+#include "XGame.h"
 
 using namespace simcoe;
 using namespace editor;
@@ -457,14 +460,28 @@ struct GdkInit {
     }
 };
 
+using CommandLine = std::vector<std::string>;
+
+CommandLine getCommandLine() {
+    CommandLine args;
+
+    int argc;
+    auto **argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+
+    for (int i = 0; i < argc; i++) {
+        args.push_back(simcoe::util::narrow(argv[i]));
+    }
+
+    LocalFree(argv);
+    return args;
+}
+
 ///
 /// entry point
 ///
 
 static void commonMain() {
     GdkInit gdkInit;
-
-    std::this_thread::sleep_for(std::chrono::seconds(4));
 
     char winPath[1024];
     GetModuleFileNameA(nullptr, winPath, sizeof(winPath));
@@ -585,7 +602,23 @@ static void commonMain() {
     }
 }
 
+struct FileLogger final : ILogSink {
+    FileLogger()
+        : file("game.log")
+    { }
+
+    void accept(std::string_view message) override {
+        file << message << std::endl;
+    }
+
+    std::ofstream file;
+};
+
+FileLogger gLogger;
+
 static int innerMain() try {
+    simcoe::addSink(&gLogger);
+
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
     simcoe::logInfo("startup");
     commonMain();

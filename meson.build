@@ -7,6 +7,12 @@ project('simcoe', 'cpp',
 )
 
 ###
+### config
+###
+
+is_release = get_option('buildtype').startswith('release')
+
+###
 ### deps
 ###
 
@@ -138,8 +144,8 @@ src = [
     hlsl.process('data/shaders/object.hlsl'),
 
     # assets
-    copy.process('data/images/uv-coords.png'),
-    copy.process('data/images/player.png'),
+    copy.process('data/images/assets/uv-coords.png'),
+    copy.process('data/images/assets/player.png'),
 
     # libraries
     copy.process('data/libs/warp/d3d10warp.dll'),
@@ -152,6 +158,7 @@ src = [
     copy.process('data/images/store/logo44x44.png'),
     copy.process('data/images/store/logo100x100.png'),
     copy.process('data/images/store/logo150x150.png'),
+    copy.process('data/images/store/logo480x480.png'),
     copy.process('data/images/store/splash.png'),
 ]
 
@@ -169,7 +176,7 @@ deps = [
 executable('editor', src,
     dependencies : deps,
     include_directories : [ 'editor/include' ],
-    gui_app : true
+    gui_app : is_release
 )
 
 ###
@@ -184,3 +191,8 @@ executable('client', src,
     dependencies : engine,
     include_directories : [ 'client/include' ]
 )
+
+if is_release
+    # makepkg pack /f data/config/layout.xml /lt /d build /nogameos /pc /pd game
+    # wdapp install game\32190Simcoe.Swarm1983_1.0.0.0_x64__7vy8vpnrb1vvr.msixvc /bootstrapper
+endif
