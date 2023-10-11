@@ -2,9 +2,9 @@
 #   define DEVICE(ID, NAME)
 #endif
 
-DEVICE(eDeviceWin32, "input.device.win32")
-DEVICE(eDeviceXInput, "input.device.xinput")
-DEVICE(eDeviceGameInput, "input.device.gameinput")
+DEVICE(eWin32, "input.device.win32")
+DEVICE(eXInput, "input.device.xinput")
+DEVICE(eGameInput, "input.device.gameinput")
 
 #undef DEVICE
 

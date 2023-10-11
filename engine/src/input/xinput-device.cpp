@@ -75,7 +75,7 @@ namespace {
 }
 
 XInputGamepad::XInputGamepad(DWORD dwIndex)
-    : ISource(DeviceType::eDeviceXInput)
+    : ISource(DeviceType::eXInput)
     , dwIndex(dwIndex)
 { }
 

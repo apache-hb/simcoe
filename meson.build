@@ -11,6 +11,7 @@ project('simcoe', 'cpp',
 
 directx = subproject('directx').get_variable('directx')
 xinput = subproject('xinput').get_variable('xinput')
+gameinput = subproject('gameinput').get_variable('gameinput')
 stb = subproject('stb').get_variable('stb')
 
 ###
@@ -28,6 +29,7 @@ src = [
     'engine/src/input/input.cpp',
     'engine/src/input/win32-device.cpp',
     'engine/src/input/xinput-device.cpp',
+    'engine/src/input/gameinput-device.cpp',
 
     # memory
     'engine/src/memory/bitmap.cpp',
@@ -42,12 +44,20 @@ src = [
     # render graph
     'engine/src/render/render.cpp',
     'engine/src/render/graph.cpp',
-    'engine/src/render/assets.cpp'
+    'engine/src/render/assets.cpp',
+
+    # vendor
+    'vendor/src/microsoft/gdk.cpp'
+]
+
+inc = [
+    'engine/include',
+    'vendor/include'
 ]
 
 deps = [
     # input
-    xinput,
+    xinput, gameinput,
 
     # assets
     stb,
@@ -57,13 +67,13 @@ deps = [
 ]
 
 libengine = library('engine', src,
-    include_directories : [ 'engine/include' ],
+    include_directories : inc,
     dependencies : deps
 )
 
 engine = declare_dependency(
     link_with : libengine,
-    include_directories : [ 'engine/include' ],
+    include_directories : inc,
     dependencies : deps
 )
 
@@ -126,6 +136,9 @@ src = [
     # libraries
     copy.process('data/libs/warp/d3d10warp.dll'),
     copy.process('data/libs/warp/d3d10warp.pdb'),
+
+    # config
+    copy.process('data/config/MicrosoftGame.Config')
 ]
 
 deps = [

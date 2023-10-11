@@ -2,6 +2,7 @@
 #include "engine/os/system.h"
 
 #include "engine/input/xinput-device.h"
+#include "engine/input/gameinput-device.h"
 
 #include "engine/render/graph.h"
 
@@ -21,6 +22,8 @@
 using namespace simcoe;
 using namespace editor;
 
+namespace gdk = microsoft::gdk;
+
 static constexpr auto kWindowWidth = 1920;
 static constexpr auto kWindowHeight = 1080;
 
@@ -30,8 +33,9 @@ static std::jthread *pRenderThread = nullptr;
 static render::Graph *pGraph = nullptr;
 static bool gFullscreen = false;
 
-static input::XInputGamepad *pGamepad0 = new input::XInputGamepad(0);
 static input::Manager *pInput = nullptr;
+
+std::string gGdkFailureReason;
 
 GameLevel gLevel;
 
@@ -396,18 +400,73 @@ struct GameGui final : graph::IGuiPass {
         }
 
         ImGui::End();
+
+        drawGdkInfo();
+    }
+
+    static void drawGdkInfo() {
+        ImGui::Begin("GDK");
+        if (!gdk::enabled()) {
+            ImGui::Text("GDK init failed: %s", gGdkFailureReason.c_str());
+            ImGui::End();
+            return;
+        }
+
+        auto info = gdk::getAnalyticsInfo();
+        auto id = gdk::getConsoleId();
+        const auto& features = gdk::getFeatures();
+
+        auto [osMajor, osMinor, osBuild, osRevision] = info.osVersion;
+        ImGui::Text("os: %u.%u.%u - %u", osMajor, osMinor, osBuild, osRevision);
+        auto [hostMajor, hostMinor, hostBuild, hostRevision] = info.hostingOsVersion;
+        ImGui::Text("host: %u.%u.%u - %u", hostMajor, hostMinor, hostBuild, hostRevision);
+        ImGui::Text("family: %s", info.family);
+        ImGui::Text("form: %s", info.form);
+        ImGui::Text("id: %s", id.data());
+
+        ImGui::SeparatorText("features");
+
+        if (ImGui::BeginTable("features", 2)) {
+            ImGui::TableNextColumn();
+            ImGui::Text("name");
+            ImGui::TableNextColumn();
+            ImGui::Text("enabled");
+
+            for (const auto& [name, enabled] : features) {
+                ImGui::TableNextColumn();
+                ImGui::Text("%s", name.data());
+                ImGui::TableNextColumn();
+                ImGui::Text("%s", enabled ? "true" : "false");
+            }
+            ImGui::EndTable();
+        }
+
+        ImGui::End();
     }
 };
 
 static GameWindow gWindowCallbacks;
+
+struct GdkInit {
+    GdkInit() {
+       gGdkFailureReason = gdk::init();
+    }
+
+    ~GdkInit() {
+        gdk::deinit();
+    }
+};
 
 ///
 /// entry point
 ///
 
 static void commonMain() {
+    GdkInit gdkInit;
+
     assets::Assets depot = { std::filesystem::current_path() / "build" / "editor.exe.p" };
-    pInput = new input::Manager(pGamepad0);
+    pInput = new input::Manager(new input::XInputGamepad(0));
+    pInput->addSource(new input::GameInput());
     pInput->addClient(&gInputClient);
 
     const simcoe::WindowCreateInfo windowCreateInfo = {
