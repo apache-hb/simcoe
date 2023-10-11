@@ -1,0 +1,8 @@
+<Package>
+  <Chunk Id="1000" Marker="Launch">
+    <FileGroup DestinationPath="." SourcePath="." Include="MicrosoftGame.Config" />
+    <FileGroup DestinationPath="." SourcePath="." Include="editor.exe" />
+    <FileGroup DestinationPath=".\editor.exe.p" SourcePath=".\editor.exe.p" Include="*.cso" />
+    <FileGroup DestinationPath=".\editor.exe.p" SourcePath=".\editor.exe.p" Include="*.png" />
+  </Chunk>
+</Package>

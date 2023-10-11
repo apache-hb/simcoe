@@ -59,7 +59,7 @@ std::string gdk::init() {
 
     size_t size = gConsoleId.size();
     HR_CHECK(XSystemGetConsoleId(gConsoleId.size(), gConsoleId.data(), &size));
-    gConsoleId[size] = '\0';
+    gConsoleId[size - 1] = '\0';
 
     CHECK_FEATURE(XAccessibility);
     CHECK_FEATURE(XAppCapture);

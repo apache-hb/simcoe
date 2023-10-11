@@ -12,8 +12,7 @@ namespace simcoe::input {
         bool poll(State& state) override;
 
     private:
-        IGameInput *pInput;
-
-        IGameInputDevice *pDevice;
+        IGameInput *pInput = nullptr;
+        IGameInputDevice *pDevice = nullptr;
     };
 }

@@ -1,7 +1,8 @@
 project('simcoe', 'cpp',
     default_options : [
         'cpp_std=c++20',
-        'default_library=static'
+        'default_library=static',
+        'b_vscrt=static_from_buildtype'
     ]
 )
 
@@ -99,6 +100,13 @@ copy = generator(python3,
     arguments : [ script_dir/'copy-asset.py', '@INPUT@', '@OUTPUT@' ]
 )
 
+custom_target('config',
+    output : 'MicrosoftGame.Config',
+    input : 'data/config/MicrosoftGame.Config',
+    command : [ python3, script_dir/'copy-asset.py', '@INPUT@', '@OUTPUT@' ],
+    build_by_default : true
+)
+
 src = [
     'editor/src/main.cpp',
 
@@ -138,7 +146,13 @@ src = [
     copy.process('data/libs/warp/d3d10warp.pdb'),
 
     # config
-    copy.process('data/config/MicrosoftGame.Config')
+    copy.process('data/config/MicrosoftGame.Config'),
+
+    # gdk assets
+    copy.process('data/images/store/logo44x44.png'),
+    copy.process('data/images/store/logo100x100.png'),
+    copy.process('data/images/store/logo150x150.png'),
+    copy.process('data/images/store/splash.png'),
 ]
 
 deps = [
@@ -154,7 +168,8 @@ deps = [
 
 executable('editor', src,
     dependencies : deps,
-    include_directories : [ 'editor/include' ]
+    include_directories : [ 'editor/include' ],
+    gui_app : true
 )
 
 ###

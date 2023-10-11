@@ -464,7 +464,19 @@ struct GdkInit {
 static void commonMain() {
     GdkInit gdkInit;
 
-    assets::Assets depot = { std::filesystem::current_path() / "build" / "editor.exe.p" };
+    std::this_thread::sleep_for(std::chrono::seconds(4));
+
+    char winPath[1024];
+    GetModuleFileNameA(nullptr, winPath, sizeof(winPath));
+
+    simcoe::logInfo("exe: {}", winPath);
+
+    std::filesystem::path exePath = winPath;
+
+    auto path = exePath.parent_path() / "editor.exe.p";
+    assets::Assets depot = { path };
+    simcoe::logInfo("depot: {}", path.string());
+
     pInput = new input::Manager(new input::XInputGamepad(0));
     pInput->addSource(new input::GameInput());
     pInput->addClient(&gInputClient);
