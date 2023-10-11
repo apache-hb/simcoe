@@ -94,6 +94,11 @@ void Context::createDisplayData() {
 }
 
 void Context::destroyDisplayData() {
+    // the display queue cannot be destroyed in fullscreen mode
+    if (bReportedFullscreen) {
+        pDisplayQueue->setFullscreenState(false);
+    }
+
     delete pDisplayQueue;
 }
 

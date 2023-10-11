@@ -27,7 +27,7 @@ namespace {
     gdk::FeatureArray gFeatures = {};
 
     XSystemAnalyticsInfo gInfo = {};
-    std::array<char, XSystemConsoleIdBytes> gConsoleId = {};
+    std::array<char, XSystemConsoleIdBytes + 1> gConsoleId = {};
 
     std::string gdkErrorString(HRESULT hr) {
         switch (hr) {
@@ -59,7 +59,7 @@ std::string gdk::init() {
 
     size_t size = gConsoleId.size();
     HR_CHECK(XSystemGetConsoleId(gConsoleId.size(), gConsoleId.data(), &size));
-    gConsoleId[size - 1] = '\0';
+    gConsoleId[size] = '\0';
 
     CHECK_FEATURE(XAccessibility);
     CHECK_FEATURE(XAppCapture);

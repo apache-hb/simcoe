@@ -328,6 +328,12 @@ namespace simcoe::render {
             return pObject;
         }
 
+        // getters
+
+        Context *getContext() const { return ctx; }
+
+        // setters
+
         void setFullscreen(bool bFullscreen);
         void resizeDisplay(UINT width, UINT height);
         void resizeRender(UINT width, UINT height);
@@ -387,8 +393,9 @@ namespace simcoe::render {
     private:
         std::unordered_map<rhi::DeviceResource*, rhi::ResourceState> resourceStates;
 
-    public:
         Context *ctx;
+
+    public:
 
         // TODO: make private
         std::vector<ICommandPass*> passes;

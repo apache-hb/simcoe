@@ -9,7 +9,7 @@ using namespace simcoe::render;
 
 IGraphObject::IGraphObject(Graph *graph, std::string name, StateDep stateDeps)
     : graph(graph)
-    , ctx(graph->ctx)
+    , ctx(graph->getContext())
     , name(name)
     , stateDeps(StateDep(stateDeps | eDepDevice))
 { }

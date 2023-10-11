@@ -76,12 +76,23 @@ namespace editor {
     /// game level
     ///
 
+    struct Transform {
+        math::float3 position;
+        math::float3 rotation;
+        math::float3 scale;
+    };
+
     struct GameObject {
         std::string name;
 
         math::float3 position = { 0.0f, 0.0f, 0.0f };
         math::float3 rotation = { 0.0f, 0.0f, 0.0f }; // rotate around z-axis
         math::float3 scale = { 1.f, 1.f, 1.f };
+    };
+
+    struct PlayerObject : GameObject {
+        size_t lives = 3;
+        size_t maxLives = 5;
     };
 
     struct GameLevel {

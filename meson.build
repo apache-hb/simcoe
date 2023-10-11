@@ -94,7 +94,8 @@ fastgltf = subproject('fastgltf').get_variable('fastgltf')
 
 python3 = find_program('python3')
 
-script_dir = meson.current_source_dir()/'data/scripts'
+data_dir = meson.current_source_dir()/'data'
+script_dir = data_dir/'scripts'
 
 hlsl = generator(python3,
     output : [ '@BASENAME@.ps.cso', '@BASENAME@.vs.cso' ],
@@ -137,6 +138,9 @@ src = [
     # game objects
     'editor/src/editor/game/obj.cpp',
     'editor/src/editor/game/gltf.cpp',
+
+    # game debug
+    'editor/src/editor/debug/gui.cpp',
 
     # shaders
     hlsl.process('data/shaders/quad.hlsl'),
@@ -193,6 +197,7 @@ executable('client', src,
 )
 
 if is_release
+    layout = data_dir/'config/layout.xml'
     # makepkg pack /f data/config/layout.xml /lt /d build /nogameos /pc /pd game
     # wdapp install game\32190Simcoe.Swarm1983_1.0.0.0_x64__7vy8vpnrb1vvr.msixvc /bootstrapper
 endif

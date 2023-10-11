@@ -12,6 +12,8 @@
 #include "editor/graph/gui.h"
 #include "editor/graph/game.h"
 
+#include "editor/debug/gui.h"
+
 #include "imgui/imgui.h"
 
 #include "moodycamel/concurrentqueue.h"
@@ -19,8 +21,6 @@
 #include <functional>
 #include <array>
 #include <fstream>
-
-#include "XGame.h"
 
 using namespace simcoe;
 using namespace editor;
@@ -35,6 +35,7 @@ static simcoe::Window *pWindow = nullptr;
 static std::jthread *pRenderThread = nullptr;
 static render::Graph *pGraph = nullptr;
 static bool gFullscreen = false;
+static std::atomic_bool gRunning = true;
 
 static input::Manager *pInput = nullptr;
 
@@ -77,83 +78,30 @@ static void addWork(std::string_view name, WorkItem item) {
     gWorkQueue.enqueue(message);
 }
 
-using graph::Vertex;
-
-struct CubeMesh final : ISingleMeshBufferHandle {
-    CubeMesh(Graph *ctx)
-        : ISingleMeshBufferHandle(ctx, "mesh.cube")
+struct FileLogger final : ILogSink {
+    FileLogger()
+        : file("game.log")
     { }
 
-    // z-up
-
-    static constexpr auto kCubeVerts = std::to_array<Vertex>({
-        // top
-        Vertex { { -1.f, -1.f, 1.f }, { 0.f, 0.f } }, // top back left
-        Vertex { { 1.f, -1.f, 1.f }, { 1.f, 0.f } }, // top back right
-        Vertex { { -1.f, 1.f, 1.f }, { 0.f, 1.f } }, // top front left
-        Vertex { { 1.f, 1.f, 1.f }, { 1.f, 1.f } }, // top front right
-
-        // bottom
-        Vertex { { -1.f, -1.f, -1.f }, { 0.f, 0.f } }, // bottom back left
-        Vertex { { 1.f, -1.f, -1.f }, { 1.f, 0.f } }, // bottom back right
-        Vertex { { -1.f, 1.f, -1.f }, { 0.f, 1.f } }, // bottom front left
-        Vertex { { 1.f, 1.f, -1.f }, { 1.f, 1.f } }, // bottom front right
-    });
-
-#define FACE(a, b, c, d) a, b, c, c, b, d
-
-    static constexpr auto kCubeIndices = std::to_array<uint16_t>({
-        // top face
-        FACE(0, 2, 1, 3),
-
-        // bottom face
-        FACE(4, 5, 6, 7),
-
-        // front face
-        FACE(2, 3, 6, 7),
-
-        // back face
-        FACE(0, 1, 4, 5),
-
-        // left face
-        FACE(0, 2, 4, 6),
-
-        // right face
-        FACE(1, 3, 5, 7)
-    });
-
-    size_t getIndexCount() const override {
-        return kCubeIndices.size();
+    void accept(std::string_view message) override {
+        file << message << std::endl;
     }
 
-    std::vector<rhi::VertexAttribute> getVertexAttributes() const override {
-        return {
-            { "POSITION", offsetof(Vertex, position), rhi::TypeFormat::eFloat3 },
-            { "TEXCOORD", offsetof(Vertex, uv), rhi::TypeFormat::eFloat2 }
-        };
-    }
-
-    void create() override {
-        std::unique_ptr<rhi::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(kCubeVerts.data(), kCubeVerts.size() * sizeof(Vertex))};
-        std::unique_ptr<rhi::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(kCubeIndices.data(), kCubeIndices.size() * sizeof(uint16_t))};
-
-        auto *pVertexBuffer = ctx->createVertexBuffer(kCubeVerts.size(), sizeof(Vertex));
-        auto *pIndexBuffer = ctx->createIndexBuffer(kCubeIndices.size(), rhi::TypeFormat::eUint16);
-
-        ctx->beginCopy();
-        ctx->copyBuffer(pVertexBuffer, pVertexStaging.get());
-        ctx->copyBuffer(pIndexBuffer, pIndexStaging.get());
-        ctx->endCopy();
-
-        setIndexBuffer(pIndexBuffer);
-        setVertexBuffer(pVertexBuffer);
-    }
-
-    void destroy() override {
-        delete getIndexBuffer();
-        delete getVertexBuffer();
-    }
+    std::ofstream file;
 };
+
+struct GuiLogger final : ILogSink {
+    void accept(std::string_view message) override {
+        std::lock_guard guard(mutex);
+        buffer.push_back(std::string(message));
+    }
+
+    std::mutex mutex;
+    std::vector<std::string> buffer;
+};
+
+GuiLogger gGuiLogger;
+FileLogger gFileLogger;
 
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
@@ -296,7 +244,7 @@ struct GameGui final : graph::IGuiPass {
     void content() override {
         ImGui::ShowDemoWindow();
 
-        if (ImGui::Begin("scene", &sceneIsOpen)) {
+        if (ImGui::Begin("Scene", &sceneIsOpen)) {
             ISRVHandle *pHandle = pSceneSource->getInner();
             auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getSrvIndex());
             const auto &createInfo = ctx->getCreateInfo();
@@ -306,7 +254,8 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::End();
 
-        ImGui::Begin("level");
+        ImGui::Begin("Game Objects");
+
         for (size_t i = 0; i < gLevel.objects.size(); i++) {
             auto& object = gLevel.objects[i];
             ImGui::PushID(i);
@@ -324,149 +273,127 @@ struct GameGui final : graph::IGuiPass {
 
         gInputClient.debugDraw();
 
-        ImGui::Begin("debug");
-        auto *pSrvHeap = ctx->getSrvHeap();
-        auto *pRtvHeap = ctx->getRtvHeap();
-        auto& rtvAlloc = pRtvHeap->allocator;
-        auto& srvAlloc = pSrvHeap->allocator;
+        debug::showDebugGui(pGraph);
+        showRenderSettings();
+        showCameraInfo();
+        showGdkInfo();
+        showLogInfo();
+    }
 
-        const auto& createInfo = ctx->getCreateInfo();
-        ImGui::Text("present: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
-        ImGui::Text("render: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
-        if (ImGui::Checkbox("fullscreen", &gFullscreen)) {
-            addWork("change-fullscreen", [fs = gFullscreen] {
-                if (fs) {
-                    pGraph->setFullscreen(true);
-                    //pWindow->enterFullscreen();
-                } else {
-                    pGraph->setFullscreen(false);
-                    //pWindow->exitFullscreen();
+    void showRenderSettings() {
+        if (ImGui::Begin("Render Settings")) {
+            const auto& createInfo = ctx->getCreateInfo();
+            ImGui::Text("present: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
+            ImGui::Text("render: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
+            if (ImGui::Checkbox("fullscreen", &gFullscreen)) {
+                addWork("change-fullscreen", [fs = gFullscreen] {
+                    if (fs) {
+                        pGraph->setFullscreen(true);
+                        //pWindow->enterFullscreen();
+                    } else {
+                        pGraph->setFullscreen(false);
+                        //pWindow->exitFullscreen();
+                    }
+                });
+            }
+
+            bool bTearing = ctx->bAllowTearing;
+            ImGui::Checkbox("tearing", &bTearing);
+            ctx->bAllowTearing = bTearing;
+
+            ImGui::Text("DXGI reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
+
+            if (ImGui::SliderInt2("render size", renderSize, 64, 4096)) {
+                addWork("resize-render", [this] {
+                    pGraph->resizeRender(renderSize[0], renderSize[1]);
+                    logInfo("resize-render: {}x{}", renderSize[0], renderSize[1]);
+                });
+            }
+
+            if (ImGui::SliderInt("backbuffer count", &backBufferCount, 2, 8)) {
+                addWork("change-backbuffers", [this] {
+                    pGraph->changeBackBufferCount(backBufferCount);
+                    logInfo("change-backbuffer-count: {}", backBufferCount);
+                });
+            }
+
+            if (ImGui::Combo("device", &currentAdapter, adapterNames.data(), adapterNames.size())) {
+                addWork("change-adapter", [this] {
+                    pGraph->changeAdapter(currentAdapter);
+                    logInfo("change-adapter: {}", currentAdapter);
+                });
+            }
+
+            if (ImGui::Button("Remove Device")) {
+                ctx->removeDevice();
+            }
+        }
+
+        ImGui::End();
+    }
+
+    static void showLogInfo() {
+        if (ImGui::Begin("Logs")) {
+            for (const auto& message : gGuiLogger.buffer) {
+                ImGui::Text("%s", message.data());
+            }
+        }
+
+        ImGui::End();
+    }
+
+    static void showCameraInfo() {
+        if (ImGui::Begin("Camera")) {
+            ImGui::SliderFloat3("position", gLevel.cameraPosition.data(), -10.f, 10.f);
+            ImGui::SliderFloat3("rotation", gLevel.cameraRotation.data(), -1.f, 1.f);
+
+            if (ImGui::Combo("projection", &gCurrentProjection, kProjectionNames, std::size(kProjectionNames))) {
+                gLevel.pProjection = gProjections[gCurrentProjection];
+            }
+
+            ImGui::SliderFloat("fov", &gLevel.fov, 45.f, 120.f);
+        }
+
+        ImGui::End();
+    }
+
+    static void showGdkInfo() {
+        if (ImGui::Begin("GDK")) {
+            if (!gdk::enabled()) {
+                ImGui::Text("GDK init failed: %s", gGdkFailureReason.c_str());
+                ImGui::End();
+                return;
+            }
+
+            auto info = gdk::getAnalyticsInfo();
+            auto id = gdk::getConsoleId();
+            const auto& features = gdk::getFeatures();
+
+            auto [osMajor, osMinor, osBuild, osRevision] = info.osVersion;
+            ImGui::Text("os: %u.%u.%u - %u", osMajor, osMinor, osBuild, osRevision);
+            auto [hostMajor, hostMinor, hostBuild, hostRevision] = info.hostingOsVersion;
+            ImGui::Text("host: %u.%u.%u - %u", hostMajor, hostMinor, hostBuild, hostRevision);
+            ImGui::Text("family: %s", info.family);
+            ImGui::Text("form: %s", info.form);
+            ImGui::Text("id: %s", id.data());
+
+            ImGui::SeparatorText("features");
+
+            if (ImGui::BeginTable("features", 2)) {
+                ImGui::TableNextColumn();
+                ImGui::Text("name");
+                ImGui::TableNextColumn();
+                ImGui::Text("enabled");
+
+                for (const auto& [name, enabled] : features) {
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%s", name.data());
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%s", enabled ? "true" : "false");
                 }
-            });
-        }
-
-        bool bTearing = ctx->bAllowTearing;
-        ImGui::Checkbox("tearing", &bTearing);
-        ctx->bAllowTearing = bTearing;
-
-        ImGui::Text("DXGI reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
-
-        if (ImGui::SliderInt2("render size", renderSize, 64, 4096)) {
-            addWork("resize-render", [this] {
-                pGraph->resizeRender(renderSize[0], renderSize[1]);
-                logInfo("resize-render: {}x{}", renderSize[0], renderSize[1]);
-            });
-        }
-
-        if (ImGui::SliderInt("backbuffer count", &backBufferCount, 2, 8)) {
-            addWork("change-backbuffers", [this] {
-                pGraph->changeBackBufferCount(backBufferCount);
-                logInfo("change-backbuffer-count: {}", backBufferCount);
-            });
-        }
-
-        if (ImGui::Combo("device", &currentAdapter, adapterNames.data(), adapterNames.size())) {
-            addWork("change-adapter", [this] {
-                pGraph->changeAdapter(currentAdapter);
-                logInfo("change-adapter: {}", currentAdapter);
-            });
-        }
-
-        if (ImGui::Button("Remove Device")) {
-            ctx->removeDevice();
-        }
-
-        ImGui::Text("rtv heap: %zu", rtvAlloc.getSize());
-        for (size_t i = 0; i < rtvAlloc.getSize(); i++) {
-            ImGui::BulletText("%zu: %s", i, rtvAlloc.test(simcoe::BitMap::Index(i)) ? "used" : "free");
-        }
-
-        ImGui::Text("srv heap: %zu", srvAlloc.getSize());
-        for (size_t i = 0; i < srvAlloc.getSize(); i++) {
-            ImGui::BulletText("%zu: %s", i, srvAlloc.test(simcoe::BitMap::Index(i)) ? "used" : "free");
-        }
-
-        ImGui::End();
-
-        ImGui::Begin("render");
-
-        const auto& resources = graph->resources;
-        const auto& passes = graph->passes;
-
-        ImGui::Text("resources %zu", resources.size());
-        for (auto *pResource : resources) {
-            auto name = pResource->getName();
-            ImGui::BulletText("%s", name.data());
-        }
-
-        ImGui::Text("passes: %zu", passes.size());
-        for (auto *pPass : passes) {
-            auto name = pPass->getName();
-            ImGui::BulletText("%s", name.data());
-            for (auto *pAttachment : pPass->inputs) {
-                auto *pHandle = pAttachment->getResourceHandle();
-                ImGui::BulletText("  %s (expected: %s)", pHandle->getName().data(), toString(pAttachment->getRequiredState()).data());
+                ImGui::EndTable();
             }
         }
-
-        ImGui::End();
-
-        drawCameraInfo();
-        drawGdkInfo();
-    }
-
-    static void drawCameraInfo() {
-        ImGui::Begin("camera");
-
-        ImGui::SliderFloat3("position", gLevel.cameraPosition.data(), -10.f, 10.f);
-        ImGui::SliderFloat3("rotation", gLevel.cameraRotation.data(), -1.f, 1.f);
-
-        if (ImGui::Combo("projection", &gCurrentProjection, kProjectionNames, std::size(kProjectionNames))) {
-            gLevel.pProjection = gProjections[gCurrentProjection];
-        }
-
-        ImGui::SliderFloat("fov", &gLevel.fov, 45.f, 120.f);
-
-        ImGui::End();
-    }
-
-    static void drawGdkInfo() {
-        ImGui::Begin("GDK");
-        if (!gdk::enabled()) {
-            ImGui::Text("GDK init failed: %s", gGdkFailureReason.c_str());
-            ImGui::End();
-            return;
-        }
-
-        auto info = gdk::getAnalyticsInfo();
-        auto id = gdk::getConsoleId();
-        const auto& features = gdk::getFeatures();
-
-        auto [osMajor, osMinor, osBuild, osRevision] = info.osVersion;
-        ImGui::Text("os: %u.%u.%u - %u", osMajor, osMinor, osBuild, osRevision);
-        auto [hostMajor, hostMinor, hostBuild, hostRevision] = info.hostingOsVersion;
-        ImGui::Text("host: %u.%u.%u - %u", hostMajor, hostMinor, hostBuild, hostRevision);
-        ImGui::Text("family: %s", info.family);
-        ImGui::Text("form: %s", info.form);
-        ImGui::Text("id: %s", id.data());
-
-        ImGui::SeparatorText("features");
-
-        if (ImGui::BeginTable("features", 2)) {
-            ImGui::TableNextColumn();
-            ImGui::Text("name");
-            ImGui::TableNextColumn();
-            ImGui::Text("enabled");
-
-            for (const auto& [name, enabled] : features) {
-                ImGui::TableNextColumn();
-                ImGui::Text("%s", name.data());
-                ImGui::TableNextColumn();
-                ImGui::Text("%s", enabled ? "true" : "false");
-            }
-            ImGui::EndTable();
-        }
-
         ImGui::End();
     }
 };
@@ -569,8 +496,11 @@ static void commonMain() {
     render::Context *pContext = render::Context::create(renderCreateInfo);
     pRenderThread = new std::jthread([pContext](std::stop_token token) {
         setThreadName("render");
+        size_t faultCount = 0;
+        size_t faultLimit = 3;
 
         simcoe::Region region("render thread started", "render thread stopped");
+        simcoe::logInfo("render fault limit: {} faults", faultLimit);
 
         // TODO: this is a little stupid
         try {
@@ -599,7 +529,14 @@ static void commonMain() {
                 try {
                     pGraph->execute();
                 } catch (std::runtime_error& err) {
-                    simcoe::logError("render thread exception: {}. attempting to resume", err.what());
+                    faultCount += 1;
+                    simcoe::logError("render fault. {} total fault{}", faultCount, faultCount > 1 ? "s" : "");
+                    if (faultCount > faultLimit) {
+                        simcoe::logError("render thread fault limit reached. exiting");
+                        break;
+                    }
+
+                    simcoe::logError("exception: {}. attempting to resume", err.what());
                     pGraph->resumeFromFault();
                 } catch (...) {
                     simcoe::logError("unknown thread exception. exiting");
@@ -612,6 +549,8 @@ static void commonMain() {
         } catch (std::runtime_error& err) {
             simcoe::logError("render thread exception during startup: {}", err.what());
         }
+
+        gRunning = false;
     });
 
     std::jthread inputThread([](auto token) {
@@ -624,25 +563,15 @@ static void commonMain() {
 
     while (pSystem->getEvent()) {
         pSystem->dispatchEvent();
+        if (!gRunning) {
+            break;
+        }
     }
 }
 
-struct FileLogger final : ILogSink {
-    FileLogger()
-        : file("game.log")
-    { }
-
-    void accept(std::string_view message) override {
-        file << message << std::endl;
-    }
-
-    std::ofstream file;
-};
-
-FileLogger gLogger;
-
 static int innerMain() try {
-    simcoe::addSink(&gLogger);
+    simcoe::addSink(&gFileLogger);
+    simcoe::addSink(&gGuiLogger);
 
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
     simcoe::logInfo("startup");
