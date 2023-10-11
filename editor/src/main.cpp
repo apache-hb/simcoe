@@ -1,6 +1,7 @@
 #include "engine/engine.h"
 #include "engine/os/system.h"
 
+#include "engine/input/win32-device.h"
 #include "engine/input/xinput-device.h"
 #include "engine/input/gameinput-device.h"
 
@@ -15,6 +16,7 @@
 #include "editor/debug/gui.h"
 
 #include "imgui/imgui.h"
+#include "imfiles/imfilebrowser.h"
 
 #include "moodycamel/concurrentqueue.h"
 
@@ -30,6 +32,8 @@ namespace gdk = microsoft::gdk;
 static constexpr auto kWindowWidth = 1920;
 static constexpr auto kWindowHeight = 1080;
 
+/// rendering
+
 static simcoe::System *pSystem = nullptr;
 static simcoe::Window *pWindow = nullptr;
 static std::jthread *pRenderThread = nullptr;
@@ -37,6 +41,12 @@ static render::Graph *pGraph = nullptr;
 static bool gFullscreen = false;
 static std::atomic_bool gRunning = true;
 
+/// input
+
+static input::Win32Keyboard *pKeyboard = nullptr;
+static input::Win32Mouse *pMouse = nullptr;
+static input::XInputGamepad *pGamepad = nullptr;
+static input::GameInput *pGameInput = nullptr;
 static input::Manager *pInput = nullptr;
 
 ///
@@ -55,9 +65,7 @@ std::string gGdkFailureReason;
 GameLevel gLevel;
 
 static void addObject(std::string name) {
-    gLevel.objects.push_back({
-        .name = name
-    });
+    gLevel.objects.push_back(new EnemyObject(name));
 }
 
 using WorkItem = std::function<void()>;
@@ -120,6 +128,7 @@ struct GameWindow final : IWindowCallbacks {
     }
 
     bool onEvent(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) override {
+        pKeyboard->handleMsg(uMsg, wParam, lParam);
         return graph::IGuiPass::handleMsg(hWnd, uMsg, wParam, lParam);
     }
 };
@@ -135,42 +144,43 @@ struct GameInputClient final : input::IClient {
     void debugDraw() {
         auto state = readState();
 
-        ImGui::Begin("input");
-        ImGui::Text("updates: %zu", updates.load());
-        ImGui::Text("device: %s", input::toString(state.device).data());
-        ImGui::SeparatorText("buttons");
+        if (ImGui::Begin("Input")) {
+            ImGui::Text("updates: %zu", updates.load());
+            ImGui::Text("device: %s", input::toString(state.device).data());
+            ImGui::SeparatorText("buttons");
 
-        if (ImGui::BeginTable("buttons", 2, kTableFlags)) {
-            ImGui::TableNextColumn();
-            ImGui::Text("button");
-            ImGui::TableNextColumn();
-            ImGui::Text("state");
+            if (ImGui::BeginTable("buttons", 2, kTableFlags)) {
+                ImGui::TableNextColumn();
+                ImGui::Text("button");
+                ImGui::TableNextColumn();
+                ImGui::Text("state");
 
-            for (size_t i = 0; i < state.buttons.size(); i++) {
-                ImGui::TableNextColumn();
-                ImGui::Text("%s", input::toString(input::Button(i)).data());
-                ImGui::TableNextColumn();
-                ImGui::Text("%zu", state.buttons[i]);
+                for (size_t i = 0; i < state.buttons.size(); i++) {
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%s", input::toString(input::Button(i)).data());
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%zu", state.buttons[i]);
+                }
+
+                ImGui::EndTable();
             }
 
-            ImGui::EndTable();
-        }
-
-        ImGui::SeparatorText("axes");
-        if (ImGui::BeginTable("axes", 2, kTableFlags)) {
-            ImGui::TableNextColumn();
-            ImGui::Text("axis");
-            ImGui::TableNextColumn();
-            ImGui::Text("value");
-
-            for (size_t i = 0; i < state.axes.size(); i++) {
+            ImGui::SeparatorText("axes");
+            if (ImGui::BeginTable("axes", 2, kTableFlags)) {
                 ImGui::TableNextColumn();
-                ImGui::Text("%s", input::toString(input::Axis(i)).data());
+                ImGui::Text("axis");
                 ImGui::TableNextColumn();
-                ImGui::Text("%f", state.axes[i]);
+                ImGui::Text("value");
+
+                for (size_t i = 0; i < state.axes.size(); i++) {
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%s", input::toString(input::Axis(i)).data());
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%f", state.axes[i]);
+                }
+
+                ImGui::EndTable();
             }
-
-            ImGui::EndTable();
         }
 
         ImGui::End();
@@ -205,6 +215,8 @@ struct GameGui final : graph::IGuiPass {
 
     int currentAdapter = 0;
     std::vector<const char*> adapterNames;
+
+    ImGui::FileBrowser fileBrowser;
 
     PassAttachment<ISRVHandle> *pSceneSource = nullptr;
 
@@ -241,7 +253,11 @@ struct GameGui final : graph::IGuiPass {
 
     bool sceneIsOpen = true;
 
+    char objectName[256] = { 0 };
+
     void content() override {
+        showDockSpace();
+
         ImGui::ShowDemoWindow();
 
         if (ImGui::Begin("Scene", &sceneIsOpen)) {
@@ -257,16 +273,29 @@ struct GameGui final : graph::IGuiPass {
         ImGui::Begin("Game Objects");
 
         for (size_t i = 0; i < gLevel.objects.size(); i++) {
-            auto& object = gLevel.objects[i];
+            auto *pObject = gLevel.objects[i];
             ImGui::PushID(i);
 
-            ImGui::BulletText("%s", object.name.data());
+            ImGui::BulletText("%s", pObject->name.data());
 
-            ImGui::SliderFloat3("position", object.position.data(), -10.f, 10.f);
-            ImGui::SliderFloat3("rotation", object.rotation.data(), -1.f, 1.f);
-            ImGui::SliderFloat3("scale", object.scale.data(), 0.1f, 10.f);
+            ImGui::SliderFloat3("position", pObject->position.data(), -10.f, 10.f);
+            ImGui::SliderFloat3("rotation", pObject->rotation.data(), -1.f, 1.f);
+            ImGui::SliderFloat3("scale", pObject->scale.data(), 0.1f, 10.f);
 
             ImGui::PopID();
+        }
+
+        ImGui::SeparatorText("Add Object");
+
+        ImGui::InputText("name", objectName, std::size(objectName));
+
+        if (ImGui::Button("Add Object")) {
+            if (std::strlen(objectName) > 0) {
+                addObject(objectName);
+                objectName[0] = '\0';
+            } else {
+                logWarn("cannot add object with no name");
+            }
         }
 
         ImGui::End();
@@ -278,6 +307,85 @@ struct GameGui final : graph::IGuiPass {
         showCameraInfo();
         showGdkInfo();
         showLogInfo();
+        showFilePicker();
+    }
+
+    static constexpr ImGuiDockNodeFlags kDockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
+
+    static constexpr ImGuiWindowFlags kWindowFlags = ImGuiWindowFlags_MenuBar
+                                            | ImGuiWindowFlags_NoCollapse
+                                            | ImGuiWindowFlags_NoMove
+                                            | ImGuiWindowFlags_NoResize
+                                            | ImGuiWindowFlags_NoTitleBar
+                                            | ImGuiWindowFlags_NoBackground
+                                            | ImGuiWindowFlags_NoBringToFrontOnFocus
+                                            | ImGuiWindowFlags_NoNavFocus
+                                            | ImGuiWindowFlags_NoDocking;
+
+    void showDockSpace() {
+        const ImGuiViewport *pViewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(pViewport->WorkPos);
+        ImGui::SetNextWindowSize(pViewport->WorkSize);
+        ImGui::SetNextWindowViewport(pViewport->ID);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
+
+        ImGui::Begin("Editor", nullptr, kWindowFlags);
+
+        ImGui::PopStyleVar(3);
+
+        ImGuiID id = ImGui::GetID("EditorDock");
+        ImGui::DockSpace(id, ImVec2(0.f, 0.f), kDockFlags);
+
+        if (ImGui::BeginMenuBar()) {
+            ImGui::Text("Editor");
+            ImGui::Separator();
+
+            if (ImGui::BeginMenu("File")) {
+                ImGui::MenuItem("Save");
+                if (ImGui::MenuItem("Open")) {
+                    fileBrowser.SetTitle("Open OBJ File");
+                    fileBrowser.SetTypeFilters({ ".obj" });
+                    fileBrowser.Open();
+                }
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("Style")) {
+                if (ImGui::MenuItem("Classic")) {
+                    ImGui::StyleColorsClassic();
+                }
+
+                if (ImGui::MenuItem("Dark")) {
+                    ImGui::StyleColorsDark();
+                }
+
+                if (ImGui::MenuItem("Light")) {
+                    ImGui::StyleColorsLight();
+                }
+
+                ImGui::EndMenu();
+            }
+
+            ImGui::EndMenuBar();
+        }
+
+        ImGui::End();
+    }
+
+    void showFilePicker() {
+        fileBrowser.Display();
+
+        if (fileBrowser.HasSelected()) {
+            auto path = fileBrowser.GetSelected();
+            simcoe::logInfo("selected: {}", path.string());
+            fileBrowser.ClearSelected();
+
+            addWork("load-obj", [path] {
+                auto *pMesh = pGraph->addObject<ObjMesh>(path);
+            });
+        }
     }
 
     void showRenderSettings() {
@@ -430,22 +538,18 @@ CommandLine getCommandLine() {
 /// entry point
 ///
 
-static void commonMain() {
+static void commonMain(const std::filesystem::path& path) {
     GdkInit gdkInit;
 
-    char winPath[1024];
-    GetModuleFileNameA(nullptr, winPath, sizeof(winPath));
+    auto assets = path / "editor.exe.p";
+    assets::Assets depot = { assets };
+    simcoe::logInfo("depot: {}", assets.string());
 
-    simcoe::logInfo("exe: {}", winPath);
-
-    std::filesystem::path exePath = winPath;
-
-    auto path = exePath.parent_path() / "editor.exe.p";
-    assets::Assets depot = { path };
-    simcoe::logInfo("depot: {}", path.string());
-
-    pInput = new input::Manager(new input::XInputGamepad(0));
-    pInput->addSource(new input::GameInput());
+    pInput = new input::Manager();
+    pInput->addSource(pKeyboard = new input::Win32Keyboard());
+    pInput->addSource(pMouse = new input::Win32Mouse(true));
+    pInput->addSource(pGamepad = new input::XInputGamepad(0));
+    pInput->addSource(pGameInput = new input::GameInput());
     pInput->addClient(&gInputClient);
 
     const simcoe::WindowCreateInfo windowCreateInfo = {
@@ -563,6 +667,7 @@ static void commonMain() {
 
     while (pSystem->getEvent()) {
         pSystem->dispatchEvent();
+        pMouse->update(pWindow);
         if (!gRunning) {
             break;
         }
@@ -570,12 +675,19 @@ static void commonMain() {
 }
 
 static int innerMain() try {
+    setThreadName("main");
     simcoe::addSink(&gFileLogger);
     simcoe::addSink(&gGuiLogger);
 
+    char gamePath[1024];
+    GetModuleFileNameA(nullptr, gamePath, sizeof(gamePath));
+    std::filesystem::path gameDir = gamePath;
+
+    simcoe::logInfo("exe: {}", gamePath);
+
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
     simcoe::logInfo("startup");
-    commonMain();
+    commonMain(gameDir.parent_path());
     simcoe::logInfo("shutdown");
 
     return 0;

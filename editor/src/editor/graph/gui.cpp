@@ -14,66 +14,6 @@ namespace {
     constexpr ImGuiConfigFlags kConfig = ImGuiConfigFlags_DockingEnable
                                        | ImGuiConfigFlags_NavEnableKeyboard;
                                        //| ImGuiConfigFlags_NavEnableGamepad;
-
-    constexpr ImGuiDockNodeFlags kDockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
-
-    constexpr ImGuiWindowFlags kWindowFlags = ImGuiWindowFlags_MenuBar
-                                            | ImGuiWindowFlags_NoCollapse
-                                            | ImGuiWindowFlags_NoMove
-                                            | ImGuiWindowFlags_NoResize
-                                            | ImGuiWindowFlags_NoTitleBar
-                                            | ImGuiWindowFlags_NoBackground
-                                            | ImGuiWindowFlags_NoBringToFrontOnFocus
-                                            | ImGuiWindowFlags_NoNavFocus
-                                            | ImGuiWindowFlags_NoDocking;
-
-    void drawDock() {
-        const auto *viewport = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(viewport->WorkPos);
-        ImGui::SetNextWindowSize(viewport->WorkSize);
-        ImGui::SetNextWindowViewport(viewport->ID);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
-
-        ImGui::Begin("Editor", nullptr, kWindowFlags);
-
-        ImGui::PopStyleVar(3);
-
-        ImGuiID id = ImGui::GetID("EditorDock");
-        ImGui::DockSpace(id, ImVec2(0.f, 0.f), kDockFlags);
-
-        if (ImGui::BeginMenuBar()) {
-            ImGui::Text("Editor");
-            ImGui::Separator();
-
-            if (ImGui::BeginMenu("File")) {
-                ImGui::MenuItem("Save");
-                ImGui::MenuItem("Open");
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("Style")) {
-                if (ImGui::MenuItem("Classic")) {
-                    ImGui::StyleColorsClassic();
-                }
-
-                if (ImGui::MenuItem("Dark")) {
-                    ImGui::StyleColorsDark();
-                }
-
-                if (ImGui::MenuItem("Light")) {
-                    ImGui::StyleColorsLight();
-                }
-
-                ImGui::EndMenu();
-            }
-
-            ImGui::EndMenuBar();
-        }
-
-        ImGui::End();
-    }
 }
 
 IGuiPass::IGuiPass(Graph *ctx, ResourceWrapper<IRTVHandle> *pHandle)
@@ -130,7 +70,6 @@ void IGuiPass::execute() {
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    drawDock();
     content();
 
     ImGui::Render();

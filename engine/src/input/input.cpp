@@ -32,15 +32,15 @@ std::string_view input::toString(Axis axis) {
 ///
 
 void Manager::poll() {
-    bool dirty = false;
+    bool bDirty = false;
     for (ISource *pSource : sources) {
         if (pSource->poll(state)) {
-            dirty = true;
+            bDirty = true;
             state.device = pSource->getDeviceType();
         }
     }
 
-    if (!dirty) { return; }
+    if (!bDirty) { return; }
 
     for (IClient *pClient : clients) {
         pClient->onInput(state);

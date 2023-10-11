@@ -82,21 +82,35 @@ namespace editor {
         math::float3 scale;
     };
 
-    struct GameObject {
+    struct IGameObject {
+        IGameObject(std::string name)
+            : name(name)
+        { }
+
         std::string name;
+        size_t meshIndex = SIZE_MAX;
 
         math::float3 position = { 0.0f, 0.0f, 0.0f };
         math::float3 rotation = { 0.0f, 0.0f, 0.0f }; // rotate around z-axis
         math::float3 scale = { 1.f, 1.f, 1.f };
     };
 
-    struct PlayerObject : GameObject {
+    struct EnemyObject : IGameObject {
+        EnemyObject(std::string name)
+            : IGameObject(name)
+        { }
+
+        size_t health = 3;
+        size_t maxHealth = 5;
+    };
+
+    struct PlayerObject : IGameObject {
         size_t lives = 3;
         size_t maxLives = 5;
     };
 
     struct GameLevel {
-        std::vector<GameObject> objects;
+        std::vector<IGameObject*> objects;
 
         math::float3 cameraPosition = { 5.0f, 5.0f, 5.0f };
         math::float3 cameraRotation = { 1.0f, 0.0f, 0.0f };

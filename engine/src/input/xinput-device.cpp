@@ -13,20 +13,20 @@ namespace {
     bool setStickAxis(float& dstX, float& dstY, float stickX, float stickY, float deadzone) {
         bool bInDeadzone = sqrtf(stickX * stickX + stickY * stickY) < deadzone;
 
-        bool dirty = false;
+        bool bDirty = false;
 
         if (bInDeadzone) {
             if (dstX != 0.f) {
                 dstX = 0.f;
-                dirty = true;
+                bDirty = true;
             }
 
             if (dstY != 0.f) {
                 dstY = 0.f;
-                dirty = true;
+                bDirty = true;
             }
 
-            return dirty;
+            return bDirty;
         }
 
         dstX = stickX / SHRT_MAX;
@@ -88,19 +88,19 @@ bool XInputGamepad::poll(State& state) {
 
     XINPUT_GAMEPAD xPad = xState.Gamepad;
 
-    bool dirty = false;
+    bool bDirty = false;
 
-    dirty |= setStickAxis(state.axes[Axis::eGamepadLeftX], state.axes[Axis::eGamepadLeftY], xPad.sThumbLX, xPad.sThumbLY, kLeftDeadzone);
-    dirty |= setStickAxis(state.axes[Axis::eGamepadRightX], state.axes[Axis::eGamepadRightY], xPad.sThumbRX, xPad.sThumbRY, kRightDeadzone);
+    bDirty |= setStickAxis(state.axes[Axis::eGamepadLeftX], state.axes[Axis::eGamepadLeftY], xPad.sThumbLX, xPad.sThumbLY, kLeftDeadzone);
+    bDirty |= setStickAxis(state.axes[Axis::eGamepadRightX], state.axes[Axis::eGamepadRightY], xPad.sThumbRX, xPad.sThumbRY, kRightDeadzone);
 
-    dirty |= setTriggerRatio(state.axes[Axis::eGamepadLeftTrigger], xPad.bLeftTrigger, kTriggerDeadzone);
-    dirty |= setTriggerRatio(state.axes[Axis::eGamepadRightTrigger], xPad.bRightTrigger, kTriggerDeadzone);
+    bDirty |= setTriggerRatio(state.axes[Axis::eGamepadLeftTrigger], xPad.bLeftTrigger, kTriggerDeadzone);
+    bDirty |= setTriggerRatio(state.axes[Axis::eGamepadRightTrigger], xPad.bRightTrigger, kTriggerDeadzone);
 
     for (const auto [slot, mask] : kGamepadButtons) {
-        dirty |= updateButton(state, slot, mask, xPad.wButtons);
+        bDirty |= updateButton(state, slot, mask, xPad.wButtons);
     }
 
-    return dirty;
+    return bDirty;
 }
 
 bool XInputGamepad::updateButton(State& result, Button button, WORD mask, WORD state) {
@@ -111,7 +111,10 @@ bool XInputGamepad::updateButton(State& result, Button button, WORD mask, WORD s
         return detail::update(result.buttons[button], size_t(0));
     }
 
-    if (result.buttons[button] != 0) { return false; }
+    // if the button is already pressed theres no need to press it again
+    if (result.buttons[button] != 0) {
+        return false;
+    }
 
     return detail::update(result.buttons[button], keyPressIndex++);
 }

@@ -68,10 +68,6 @@ namespace simcoe::input {
     // manages aggregating input from multiple sources
     // and distributing it to clients
     struct Manager {
-        Manager(ISource *pSource) {
-            addSource(pSource);
-        }
-
         void poll();
 
         void addSource(ISource *pSource) {

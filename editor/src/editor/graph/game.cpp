@@ -29,12 +29,12 @@ void CameraUniformHandle::update(GameLevel *pLevel) {
 }
 
 void ObjectUniformHandle::update(GameLevel *pLevel, size_t index) {
-    const auto &object = pLevel->objects[index];
+    const auto *pObject = pLevel->objects[index];
 
     float4x4 model = float4x4::identity();
-    model *= float4x4::translation(object.position);
-    model *= float4x4::rotation(object.rotation);
-    model *= float4x4::scaling(object.scale);
+    model *= float4x4::translation(pObject->position);
+    model *= float4x4::rotation(pObject->rotation);
+    model *= float4x4::scaling(pObject->scale);
 
     ObjectUniform data = { .model = model };
 
@@ -52,8 +52,8 @@ GameLevelPass::GameLevelPass(Graph *ctx, GameLevel *pLevel, ResourceWrapper<IRTV
     setRenderTargetHandle(pRenderTarget);
     setDepthStencilHandle(pDepthTarget);
 
-    for (auto &object : pLevel->objects) {
-        auto *pUniform = graph->addResource<ObjectUniformHandle>(object.name);
+    for (auto *pObject : pLevel->objects) {
+        auto *pUniform = graph->addResource<ObjectUniformHandle>(pObject->name);
         objectUniforms.push_back(addAttachment(pUniform, rhi::ResourceState::eShaderResource));
     }
 }

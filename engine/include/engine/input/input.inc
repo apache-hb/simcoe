@@ -15,14 +15,14 @@ DEVICE(eGameInput, "input.device.gameinput")
 AXIS(eMouseX, "input.axis.mouse.x")
 AXIS(eMouseY, "input.axis.mouse.y")
 
-AXIS(eGamepadLeftX, "input.axis.gamepad.left.x")
-AXIS(eGamepadLeftY, "input.axis.gamepad.left.y")
+AXIS(eGamepadLeftX, "input.axis.lstick.x")
+AXIS(eGamepadLeftY, "input.axis.lstick.y")
 
-AXIS(eGamepadRightX, "input.axis.gamepad.right.x")
-AXIS(eGamepadRightY, "input.axis.gamepad.right.y")
+AXIS(eGamepadRightX, "input.axis.rstick.x")
+AXIS(eGamepadRightY, "input.axis.rstick.y")
 
-AXIS(eGamepadLeftTrigger, "input.axis.gamepad.lefttrigger")
-AXIS(eGamepadRightTrigger, "input.axis.gamepad.righttrigger")
+AXIS(eGamepadLeftTrigger, "input.axis.gamepad.ltrigger")
+AXIS(eGamepadRightTrigger, "input.axis.gamepad.rtrigger")
 
 #undef AXIS
 
@@ -43,15 +43,15 @@ BUTTON(ePadDirectionDown, "input.button.gamepad.direction.down")
 BUTTON(ePadDirectionLeft, "input.button.gamepad.direction.left")
 BUTTON(ePadDirectionRight, "input.button.gamepad.direction.right")
 
-BUTTON(ePadBumperLeft, "input.button.gamepad.bumper.left")
-BUTTON(ePadBumperRight, "input.button.gamepad.bumper.right")
+BUTTON(ePadBumperLeft, "input.button.gamepad.lbumper")
+BUTTON(ePadBumperRight, "input.button.gamepad.rbumper")
 
 BUTTON(ePadStart, "input.button.gamepad.start")
 BUTTON(ePadBack, "input.button.gamepad.back")
 
 // events from when sticks are pushed down
-BUTTON(ePadStickLeft, "input.button.gamepad.stick.left")
-BUTTON(ePadStickRight, "input.button.gamepad.stick.right")
+BUTTON(ePadStickLeft, "input.button.gamepad.lstick")
+BUTTON(ePadStickRight, "input.button.gamepad.rstick")
 
 // keyboard keys
 
@@ -93,13 +93,30 @@ BUTTON(eKey7, "input.button.7")
 BUTTON(eKey8, "input.button.8")
 BUTTON(eKey9, "input.button.9")
 
-BUTTON(eKeyShiftLeft, "input.button.leftshift")
-BUTTON(eKeyShiftRight, "input.button.rightshift")
+BUTTON(eKeyLeft, "input.button.left")
+BUTTON(eKeyRight, "input.button.right")
+BUTTON(eKeyUp, "input.button.up")
+BUTTON(eKeyDown, "input.button.down")
 
-BUTTON(eKeyControlLeft, "input.button.leftcontrol")
-BUTTON(eKeyControlRight, "input.button.rightcontrol")
+BUTTON(eKeyShiftLeft, "input.button.lshift")
+BUTTON(eKeyShiftRight, "input.button.rshift")
 
-BUTTON(eKeyAltLeft, "input.button.leftalt")
-BUTTON(eKeyAltRight, "input.button.rightalt")
+BUTTON(eKeyControlLeft, "input.button.lctrl")
+BUTTON(eKeyControlRight, "input.button.rctrl")
+
+BUTTON(eKeyAltLeft, "input.button.lalt")
+BUTTON(eKeyAltRight, "input.button.ralt")
+
+BUTTON(eKeySpace, "input.button.space")
+BUTTON(eKeyEnter, "input.button.enter")
+BUTTON(eKeyEscape, "input.button.escape")
+BUTTON(eKeyTilde, "input.button.tilde")
+
+BUTTON(eKeyMouseLeft, "input.button.mouse.left")
+BUTTON(eKeyMouseRight, "input.button.mouse.right")
+BUTTON(eKeyMouseMiddle, "input.button.mouse.middle")
+
+BUTTON(eKeyMouseX1, "input.button.mouse.x1")
+BUTTON(eKeyMouseX2, "input.button.mouse.x2")
 
 #undef BUTTON
