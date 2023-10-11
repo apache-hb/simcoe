@@ -16,9 +16,9 @@ void CameraUniformHandle::update(GameLevel *pLevel) {
 
     float aspectRatio = width / height;
 
-    float4x4 view = float4x4::lookToRH(pLevel->cameraPosition, kForwardVector, kUpVector).transpose();
+    float4x4 view = float4x4::lookToRH(pLevel->cameraPosition, pLevel->cameraRotation, kUpVector).transpose();
     //float4x4 projection = float4x4::perspectiveRH(pLevel->fov * kDegToRad<float>, width / height, 0.1f, 1000.f).transpose();
-    float4x4 projection = float4x4::orthographicRH(20 * aspectRatio, 20, 0.1f, 125.f).transpose();
+    float4x4 projection = pLevel->pProjection->getProjectionMatrix(aspectRatio, pLevel->fov).transpose(); // float4x4::orthographicRH(20 * aspectRatio, 20, 0.1f, 125.f).transpose();
 
     CameraUniform data = {
         .view = view,

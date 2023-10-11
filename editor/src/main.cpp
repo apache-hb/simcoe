@@ -38,6 +38,17 @@ static bool gFullscreen = false;
 
 static input::Manager *pInput = nullptr;
 
+///
+/// projection and view
+///
+static std::vector<IProjection*> gProjections = {
+    new Perspective(),
+    new Orthographic(20.f, 20.f)
+};
+
+static const char *kProjectionNames[] = { "perspective", "orthographic" };
+static int gCurrentProjection = 0;
+
 std::string gGdkFailureReason;
 
 GameLevel gLevel;
@@ -309,10 +320,6 @@ struct GameGui final : graph::IGuiPass {
             ImGui::PopID();
         }
 
-        ImGui::Separator();
-
-        ImGui::SliderFloat3("camera position", gLevel.cameraPosition.data(), -10.f, 10.f);
-
         ImGui::End();
 
         gInputClient.debugDraw();
@@ -404,7 +411,23 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::End();
 
+        drawCameraInfo();
         drawGdkInfo();
+    }
+
+    static void drawCameraInfo() {
+        ImGui::Begin("camera");
+
+        ImGui::SliderFloat3("position", gLevel.cameraPosition.data(), -10.f, 10.f);
+        ImGui::SliderFloat3("rotation", gLevel.cameraRotation.data(), -1.f, 1.f);
+
+        if (ImGui::Combo("projection", &gCurrentProjection, kProjectionNames, std::size(kProjectionNames))) {
+            gLevel.pProjection = gProjections[gCurrentProjection];
+        }
+
+        ImGui::SliderFloat("fov", &gLevel.fov, 45.f, 120.f);
+
+        ImGui::End();
     }
 
     static void drawGdkInfo() {
@@ -539,6 +562,8 @@ static void commonMain() {
 
     addObject("jeff");
     addObject("bob");
+
+    gLevel.pProjection = gProjections[gCurrentProjection];
 
     // move the render context into the render thread to prevent hangs on shutdown
     render::Context *pContext = render::Context::create(renderCreateInfo);
