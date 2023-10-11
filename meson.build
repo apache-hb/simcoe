@@ -10,6 +10,7 @@ project('simcoe', 'cpp',
 ###
 
 directx = subproject('directx').get_variable('directx')
+xinput = subproject('xinput').get_variable('xinput')
 stb = subproject('stb').get_variable('stb')
 
 ###
@@ -22,6 +23,11 @@ src = [
     # os
     'engine/src/os/system.cpp',
     'engine/src/os/timer.cpp',
+
+    # input
+    'engine/src/input/input.cpp',
+    'engine/src/input/win32-device.cpp',
+    'engine/src/input/xinput-device.cpp',
 
     # memory
     'engine/src/memory/bitmap.cpp',
@@ -40,6 +46,9 @@ src = [
 ]
 
 deps = [
+    # input
+    xinput,
+
     # assets
     stb,
 

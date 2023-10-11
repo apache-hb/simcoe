@@ -12,8 +12,8 @@ namespace {
     std::recursive_mutex imguiLock;
 
     constexpr ImGuiConfigFlags kConfig = ImGuiConfigFlags_DockingEnable
-                                       | ImGuiConfigFlags_NavEnableKeyboard
-                                       | ImGuiConfigFlags_NavEnableGamepad;
+                                       | ImGuiConfigFlags_NavEnableKeyboard;
+                                       //| ImGuiConfigFlags_NavEnableGamepad;
 
     constexpr ImGuiDockNodeFlags kDockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
 

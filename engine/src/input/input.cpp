@@ -3,6 +3,34 @@
 using namespace simcoe;
 using namespace simcoe::input;
 
+std::string_view input::toString(DeviceType type) {
+    switch (type) {
+#define DEVICE(ID, NAME) case DeviceTags::ID: return NAME;
+#include "engine/input/input.inc"
+    default: return "unknown";
+    }
+}
+
+std::string_view input::toString(Button button) {
+    switch (button) {
+#define BUTTON(ID, NAME) case ButtonTags::ID: return NAME;
+#include "engine/input/input.inc"
+    default: return "unknown";
+    }
+}
+
+std::string_view input::toString(Axis axis) {
+    switch (axis) {
+#define AXIS(ID, NAME) case AxisTags::ID: return NAME;
+#include "engine/input/input.inc"
+    default: return "unknown";
+    }
+}
+
+///
+/// input manager
+///
+
 void Manager::poll() {
     bool dirty = false;
     for (ISource *pSource : sources) {

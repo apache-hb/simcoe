@@ -2,41 +2,50 @@
 
 #include <array>
 #include <vector>
+#include <span>
+#include <string_view>
 
 namespace simcoe::input {
     namespace DeviceTags {
         enum Slot : unsigned {
-            eDeviceRawInput, ///< Windows Raw Input
-            eDeviceWin32,    ///< win32 messages
-            eDeviceXInput,   ///< XInput
-            eDeviceGameInput ///< GameInput
+#define DEVICE(ID, NAME) ID,
+#include "engine/input/input.inc"
+            eTotal
         };
     }
 
     namespace AxisTags {
         enum Slot : unsigned {
+#define AXIS(ID, NAME) ID,
+#include "engine/input/input.inc"
             eTotal
         };
     }
 
     namespace ButtonTags {
         enum Slot : unsigned {
+#define BUTTON(ID, NAME) ID,
+#include "engine/input/input.inc"
             eTotal
         };
     }
 
     using DeviceType = DeviceTags::Slot;
-    using AxisType = AxisTags::Slot;
-    using ButtonType = ButtonTags::Slot;
+    using Button = ButtonTags::Slot;
+    using Axis = AxisTags::Slot;
 
-    using ButtonState = std::array<size_t, ButtonTags::eTotal>;
-    using AxisState = std::array<float, AxisTags::eTotal>;
+    using ButtonState = std::array<size_t, Button::eTotal>;
+    using AxisState = std::array<float, Axis::eTotal>;
 
     struct State final {
         DeviceType device;
         ButtonState buttons;
         AxisState axes;
     };
+
+    std::string_view toString(DeviceType type);
+    std::string_view toString(Button button);
+    std::string_view toString(Axis axis);
 
     struct ISource {
         virtual ~ISource() = default;
@@ -59,6 +68,10 @@ namespace simcoe::input {
     // manages aggregating input from multiple sources
     // and distributing it to clients
     struct Manager {
+        Manager(ISource *pSource) {
+            addSource(pSource);
+        }
+
         void poll();
 
         void addSource(ISource *pSource) {

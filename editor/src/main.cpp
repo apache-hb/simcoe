@@ -1,6 +1,8 @@
 #include "engine/engine.h"
 #include "engine/os/system.h"
 
+#include "engine/input/xinput-device.h"
+
 #include "engine/render/graph.h"
 
 #include "editor/graph/assets.h"
@@ -27,6 +29,9 @@ static simcoe::Window *pWindow = nullptr;
 static std::jthread *pRenderThread = nullptr;
 static render::Graph *pGraph = nullptr;
 static bool gFullscreen = false;
+
+static input::XInputGamepad *pGamepad0 = new input::XInputGamepad(0);
+static input::Manager *pInput = nullptr;
 
 GameLevel gLevel;
 
@@ -153,6 +158,79 @@ struct GameWindow final : IWindowCallbacks {
     }
 };
 
+struct GameInputClient final : input::IClient {
+    void onInput(const input::State& newState) override {
+        writeNewState(newState);
+        updates += 1;
+    }
+
+    static constexpr ImGuiTableFlags kTableFlags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV;
+
+    void debugDraw() {
+        auto state = readState();
+
+        ImGui::Begin("input");
+        ImGui::Text("updates: %zu", updates.load());
+        ImGui::Text("device: %s", input::toString(state.device).data());
+        ImGui::SeparatorText("buttons");
+
+        if (ImGui::BeginTable("buttons", 2, kTableFlags)) {
+            ImGui::TableNextColumn();
+            ImGui::Text("button");
+            ImGui::TableNextColumn();
+            ImGui::Text("state");
+
+            for (size_t i = 0; i < state.buttons.size(); i++) {
+                ImGui::TableNextColumn();
+                ImGui::Text("%s", input::toString(input::Button(i)).data());
+                ImGui::TableNextColumn();
+                ImGui::Text("%zu", state.buttons[i]);
+            }
+
+            ImGui::EndTable();
+        }
+
+        ImGui::SeparatorText("axes");
+        if (ImGui::BeginTable("axes", 2, kTableFlags)) {
+            ImGui::TableNextColumn();
+            ImGui::Text("axis");
+            ImGui::TableNextColumn();
+            ImGui::Text("value");
+
+            for (size_t i = 0; i < state.axes.size(); i++) {
+                ImGui::TableNextColumn();
+                ImGui::Text("%s", input::toString(input::Axis(i)).data());
+                ImGui::TableNextColumn();
+                ImGui::Text("%f", state.axes[i]);
+            }
+
+            ImGui::EndTable();
+        }
+
+        ImGui::End();
+    }
+
+private:
+    void writeNewState(const input::State& newState) {
+        std::lock_guard guard(lock);
+        state = newState;
+    }
+
+    input::State readState() {
+        std::lock_guard guard(lock);
+        return state;
+    }
+
+    std::atomic_size_t updates = 0;
+
+    std::mutex lock;
+    std::atomic_size_t buffer = 0;
+
+    input::State state;
+};
+
+GameInputClient gInputClient;
+
 struct GameGui final : graph::IGuiPass {
     using graph::IGuiPass::IGuiPass;
 
@@ -229,6 +307,8 @@ struct GameGui final : graph::IGuiPass {
         ImGui::SliderFloat3("camera position", gLevel.cameraPosition.data(), -10.f, 10.f);
 
         ImGui::End();
+
+        gInputClient.debugDraw();
 
         ImGui::Begin("debug");
         auto *pSrvHeap = ctx->getSrvHeap();
@@ -327,6 +407,8 @@ static GameWindow gWindowCallbacks;
 
 static void commonMain() {
     assets::Assets depot = { std::filesystem::current_path() / "build" / "editor.exe.p" };
+    pInput = new input::Manager(pGamepad0);
+    pInput->addClient(&gInputClient);
 
     const simcoe::WindowCreateInfo windowCreateInfo = {
         .title = "simcoe",
@@ -416,6 +498,14 @@ static void commonMain() {
             delete pContext;
         } catch (std::runtime_error& err) {
             simcoe::logError("render thread exception during startup: {}", err.what());
+        }
+    });
+
+    std::jthread inputThread([](auto token) {
+        setThreadName("input");
+
+        while (!token.stop_requested()) {
+            pInput->poll();
         }
     });
 
