@@ -777,7 +777,7 @@ DepthBuffer *Device::createDepthStencil(const TextureInfo& createInfo) {
         .MipLevels = 1,
         .Format = format,
         .SampleDesc = { .Count = 1 },
-        .Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL,
+        .Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE,
     };
 
     HR_CHECK(get()->CreateCommittedResource(
