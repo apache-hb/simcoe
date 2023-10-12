@@ -2,6 +2,7 @@
 
 #include <string_view>
 #include <format>
+#include <span>
 
 namespace simcoe {
     struct ILogSink {
@@ -55,6 +56,8 @@ namespace simcoe {
     namespace util {
         std::string narrow(std::wstring_view wstr);
         std::wstring widen(std::string_view str);
+
+        std::string join(std::span<std::string_view> all, std::string_view delim);
     }
 }
 

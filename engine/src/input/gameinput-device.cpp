@@ -64,18 +64,38 @@ namespace {
         return false;
     }
 
-    std::string getDeviceName(IGameInputDevice* pDevice) {
-        const GameInputDeviceInfo *pInfo = pDevice->GetDeviceInfo();
-        if (const GameInputString *pName = pInfo->displayName; pName != nullptr) {
-            return std::string{ pName->data, pName->data + pName->sizeInBytes };
+    struct InputNameMapping {
+        GameInputKind kind;
+        std::string_view name;
+    };
+
+    constexpr auto kInputKinds = std::to_array<InputNameMapping>({
+        { GameInputKindRawDeviceReport  , "RawDeviceReport" },
+        { GameInputKindControllerAxis   , "ControllerAxis" },
+        { GameInputKindControllerButton , "ControllerButton" },
+        { GameInputKindControllerSwitch , "ControllerSwitch" },
+        { GameInputKindController       , "Controller" },
+        { GameInputKindKeyboard         , "Keyboard" },
+        { GameInputKindMouse            , "Mouse" },
+        { GameInputKindTouch            , "Touch" },
+        { GameInputKindMotion           , "Motion" },
+        { GameInputKindArcadeStick      , "ArcadeStick" },
+        { GameInputKindFlightStick      , "FlightStick" },
+        { GameInputKindGamepad          , "Gamepad" },
+        { GameInputKindRacingWheel      , "RacingWheel" },
+        { GameInputKindUiNavigation     , "UiNavigation" },
+    });
+
+    std::string getInputKind(GameInputKind kind) {
+        std::vector<std::string_view> kinds;
+
+        for (const auto& [k, name] : kInputKinds) {
+            if ((kind & k) == k) {
+                kinds.push_back(name);
+            }
         }
 
-        APP_LOCAL_DEVICE_ID deviceId = pInfo->deviceId;
-        std::string str;
-        for (size_t i = 0; i < sizeof(deviceId.value); i++) {
-            str += std::format("{:02X}", deviceId.value[i]);
-        }
-        return str;
+        return util::join(kinds, " + ");
     }
 }
 
@@ -93,55 +113,67 @@ GameInput::~GameInput() {
 
 ReportOnce getStateError;
 bool GameInput::poll(State& state) {
-    getStateError([] {
-        simcoe::logInfo("polling gamepad state");
-    });
-
-    GameInputGamepadState gamepadState = {};
     ComPtr<IGameInputReading> pReading = nullptr;
     if (HRESULT hr = pInput->GetCurrentReading(GameInputKindGamepad, pDevice, &pReading); SUCCEEDED(hr)) {
         if (pDevice == nullptr) {
             pReading->GetDevice(&pDevice);
 
-            simcoe::logInfo("gamepad device found {}", getDeviceName(pDevice));
+            simcoe::logInfo("gameinput device found");
             buttonPressIndex = 1;
             getStateError.reset();
-        }
-
-        if (!pReading->GetGamepadState(&gamepadState)) {
-            getStateError([]{
-                simcoe::logError("failed to get gamepad state");
-            });
-            return false;
+            deviceGeometry.reset();
         }
     } else if (pDevice != nullptr) {
-        simcoe::logError("gamepad device lost");
+        simcoe::logError("gameinput device lost");
 
         pDevice->Release();
         pDevice = nullptr;
+        return false;
+    } else {
+        getStateError([]{
+            simcoe::logError("failed to get current reading");
+        });
+        return false;
+    }
+
+    GameInputGamepadState padState = {};
+    if (!pReading->GetGamepadState(&padState)) {
+        getStateError([]{
+            simcoe::logError("failed to get gamepad state");
+        });
         return false;
     }
 
     bool bDirty = false;
     for (const auto& [button, mask] : kGamepadButtons) {
-        bDirty |= updateButton(state, button, gamepadState.buttons, mask);
+        bDirty |= updateButton(state, button, padState.buttons, mask);
     }
 
-    bDirty |= setStickAxis(state.axes[Axis::eGamepadLeftX], state.axes[Axis::eGamepadLeftY], gamepadState.leftThumbstickX, gamepadState.leftThumbstickY);
-    bDirty |= setStickAxis(state.axes[Axis::eGamepadRightX], state.axes[Axis::eGamepadRightY], gamepadState.rightThumbstickX, gamepadState.rightThumbstickY);
+    deviceGeometry([&] {
+        simcoe::logInfo("reading kind: {}", getInputKind(pReading->GetInputKind()));
+    });
 
-    bDirty |= setTriggerRatio(state.axes[Axis::eGamepadLeftTrigger], gamepadState.leftTrigger);
-    bDirty |= setTriggerRatio(state.axes[Axis::eGamepadRightTrigger], gamepadState.rightTrigger);
+    simcoe::logInfo("gamepad");
+    simcoe::logInfo("  left stick: ({}, {})", padState.leftThumbstickX, padState.leftThumbstickY);
+    simcoe::logInfo("  right stick: ({}, {})", padState.rightThumbstickX, padState.rightThumbstickY);
+    simcoe::logInfo("  left trigger: {}", padState.leftTrigger);
+    simcoe::logInfo("  right trigger: {}", padState.rightTrigger);
+
+    bDirty |= setStickAxis(state.axes[Axis::eGamepadLeftX], state.axes[Axis::eGamepadLeftY], padState.leftThumbstickX, padState.leftThumbstickY);
+    bDirty |= setStickAxis(state.axes[Axis::eGamepadRightX], state.axes[Axis::eGamepadRightY], padState.rightThumbstickX, padState.rightThumbstickY);
+
+    bDirty |= setTriggerRatio(state.axes[Axis::eGamepadLeftTrigger], padState.leftTrigger);
+    bDirty |= setTriggerRatio(state.axes[Axis::eGamepadRightTrigger], padState.rightTrigger);
 
     if (bDirty) {
-        simcoe::logInfo("gamepad: {}", getDeviceName(pDevice));
+        simcoe::logInfo("gamepad");
     }
 
     return bDirty;
 }
 
 bool GameInput::updateButton(State& state, Button button, GameInputGamepadButtons input, GameInputGamepadButtons mask) {
-    bool bUpdate = (input & mask) != 0;
+    bool bUpdate = (input & mask);
     if (!bUpdate) {
         return detail::update(state.buttons[button], size_t(0));
     }

@@ -45,8 +45,8 @@ static std::atomic_bool gRunning = true;
 
 static input::Win32Keyboard *pKeyboard = nullptr;
 static input::Win32Mouse *pMouse = nullptr;
-//static input::XInputGamepad *pGamepad0 = nullptr;
-static input::GameInput *pGameInput = nullptr;
+static input::XInputGamepad *pGamepad0 = nullptr;
+//static input::GameInput *pGameInput = nullptr;
 static input::Manager *pInput = nullptr;
 
 ///
@@ -557,10 +557,10 @@ static void commonMain(const std::filesystem::path& path) {
     auto [realWidth, realHeight] = pWindow->getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
 
     pInput = new input::Manager();
+    //pInput->addSource(pGameInput = new input::GameInput());
     pInput->addSource(pKeyboard = new input::Win32Keyboard());
     pInput->addSource(pMouse = new input::Win32Mouse(pWindow, true));
-    //pInput->addSource(pGamepad0 = new input::XInputGamepad(0));
-    pInput->addSource(pGameInput = new input::GameInput());
+    pInput->addSource(pGamepad0 = new input::XInputGamepad(0));
     pInput->addClient(&gInputClient);
 
     const render::RenderCreateInfo renderCreateInfo = {

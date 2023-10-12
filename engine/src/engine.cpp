@@ -61,3 +61,15 @@ std::wstring util::widen(std::string_view str) {
     MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), result.data(), (int)result.size());
     return result;
 }
+
+std::string util::join(std::span<std::string_view> all, std::string_view delim) {
+    std::string result;
+    for (size_t i = 0; i < all.size(); i++) {
+        result += all[i];
+        if (i != all.size() - 1) {
+            result += delim;
+        }
+    }
+
+    return result;
+}

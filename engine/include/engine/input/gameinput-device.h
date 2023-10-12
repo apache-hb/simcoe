@@ -19,6 +19,7 @@ namespace simcoe::input {
         IGameInputDevice *pDevice = nullptr;
 
         ReportOnce getStateError;
+        ReportOnce deviceGeometry;
         size_t buttonPressIndex;
     };
 }
