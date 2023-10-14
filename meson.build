@@ -37,6 +37,7 @@ src = [
     'engine/src/input/win32-device.cpp',
     'engine/src/input/xinput-device.cpp',
     'engine/src/input/gameinput-device.cpp',
+    'engine/src/input/gameinput-service.cpp',
 
     # memory
     'engine/src/memory/bitmap.cpp',

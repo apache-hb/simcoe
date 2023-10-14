@@ -557,7 +557,7 @@ static void commonMain(const std::filesystem::path& path) {
     auto [realWidth, realHeight] = pWindow->getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
 
     pInput = new input::Manager();
-    //pInput->addSource(pGameInput = new input::GameInput());
+    // pInput->addSource(pGameInput = new input::GameInput());
     pInput->addSource(pKeyboard = new input::Win32Keyboard());
     pInput->addSource(pMouse = new input::Win32Mouse(pWindow, true));
     pInput->addSource(pGamepad0 = new input::XInputGamepad(0));

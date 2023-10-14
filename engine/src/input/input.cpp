@@ -32,6 +32,8 @@ std::string_view input::toString(Axis axis) {
 ///
 
 void Manager::poll() {
+    std::lock_guard guard(lock);
+
     bool bDirty = false;
     for (ISource *pSource : sources) {
         if (pSource->poll(state)) {
