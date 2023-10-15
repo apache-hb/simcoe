@@ -18,7 +18,7 @@ is_release = get_option('buildtype').startswith('release')
 
 directx = subproject('directx').get_variable('directx')
 xinput = subproject('xinput').get_variable('xinput')
-gameinput = subproject('gameinput').get_variable('gameinput')
+gdk = subproject('gdk').get_variable('gdk')
 stb = subproject('stb').get_variable('stb')
 
 ###
@@ -36,8 +36,6 @@ src = [
     'engine/src/input/input.cpp',
     'engine/src/input/win32-device.cpp',
     'engine/src/input/xinput-device.cpp',
-    'engine/src/input/gameinput-device.cpp',
-    'engine/src/input/gameinput-service.cpp',
 
     # memory
     'engine/src/memory/bitmap.cpp',
@@ -65,7 +63,7 @@ inc = [
 
 deps = [
     # input
-    xinput, gameinput,
+    xinput, gdk,
 
     # assets
     stb,

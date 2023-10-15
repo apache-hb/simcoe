@@ -1,9 +1,10 @@
 #include "engine/engine.h"
 #include "engine/os/system.h"
 
+#include "vendor/microsoft/gdk.h"
+
 #include "engine/input/win32-device.h"
 #include "engine/input/xinput-device.h"
-#include "engine/input/gameinput-device.h"
 
 #include "engine/render/graph.h"
 
@@ -28,6 +29,7 @@ using namespace simcoe;
 using namespace editor;
 
 namespace gdk = microsoft::gdk;
+namespace fs = std::filesystem;
 
 static constexpr auto kWindowWidth = 1920;
 static constexpr auto kWindowHeight = 1080;
@@ -36,7 +38,6 @@ static constexpr auto kWindowHeight = 1080;
 
 static simcoe::System *pSystem = nullptr;
 static simcoe::Window *pWindow = nullptr;
-static std::jthread *pRenderThread = nullptr;
 static render::Graph *pGraph = nullptr;
 static bool gFullscreen = false;
 static std::atomic_bool gRunning = true;
@@ -46,7 +47,6 @@ static std::atomic_bool gRunning = true;
 static input::Win32Keyboard *pKeyboard = nullptr;
 static input::Win32Mouse *pMouse = nullptr;
 static input::XInputGamepad *pGamepad0 = nullptr;
-//static input::GameInput *pGameInput = nullptr;
 static input::Manager *pInput = nullptr;
 
 ///
@@ -69,22 +69,68 @@ static void addObject(std::string name) {
 }
 
 using WorkItem = std::function<void()>;
-struct WorkMessage {
-    std::string_view name;
-    WorkItem item;
-};
 
-moodycamel::ConcurrentQueue<WorkMessage> gWorkQueue{64};
-static std::jthread *pWorkThread = nullptr;
+struct WorkQueue {
+    WorkQueue(size_t size)
+        : workQueue(size)
+    { }
 
-static void addWork(std::string_view name, WorkItem item) {
-    WorkMessage message = {
-        .name = name,
-        .item = item
+    void add(std::string_view name, WorkItem item) {
+        WorkMessage message = {
+            .name = name,
+            .item = item
+        };
+
+        workQueue.enqueue(message);
+    }
+
+    bool process() {
+        WorkMessage message;
+        if (workQueue.try_dequeue(message)) {
+            message.item();
+            return true;
+        }
+
+        return false;
+    }
+
+private:
+    struct WorkMessage {
+        std::string_view name;
+        WorkItem item;
     };
 
-    gWorkQueue.enqueue(message);
-}
+    moodycamel::ConcurrentQueue<WorkMessage> workQueue{64};
+};
+
+struct WorkThread final : WorkQueue {
+    template<typename F>
+    WorkThread(size_t size, std::string_view name, F&& func)
+        : WorkQueue(size)
+        , workThread(start(name, func))
+    { }
+
+private:
+    template<typename F>
+    std::unique_ptr<std::jthread> start(std::string_view name, F&& func) {
+        return std::make_unique<std::jthread>([this, name, func](std::stop_token token) {
+            setThreadName(name.data());
+
+            func(this, token);
+
+            // drain the queue
+            while (process()) { }
+
+            simcoe::logInfo("thread `{}` stopped", name);
+        });
+    }
+
+    std::unique_ptr<std::jthread> workThread;
+};
+
+static WorkQueue *pMainQueue = nullptr;
+static WorkThread *pWorkThread = nullptr;
+static WorkThread *pRenderThread = nullptr;
 
 struct FileLogger final : ILogSink {
     FileLogger()
@@ -117,7 +163,7 @@ struct GameWindow final : IWindowCallbacks {
     }
 
     void onResize(const ResizeEvent& event) override {
-        addWork("resize-display", [&, event] {
+        pWorkThread->add("resize-display", [&, event] {
             auto [width, height] = event;
 
             if (pGraph) pGraph->resizeDisplay(width, height);
@@ -380,7 +426,7 @@ struct GameGui final : graph::IGuiPass {
             simcoe::logInfo("selected: {}", path.string());
             fileBrowser.ClearSelected();
 
-            addWork("load-obj", [path] {
+            pWorkThread->add("load-obj", [path] {
                 auto *pMesh = pGraph->addObject<ObjMesh>(path);
             });
         }
@@ -392,13 +438,12 @@ struct GameGui final : graph::IGuiPass {
             ImGui::Text("present: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
             ImGui::Text("render: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
             if (ImGui::Checkbox("fullscreen", &gFullscreen)) {
-                addWork("change-fullscreen", [fs = gFullscreen] {
+                pRenderThread->add("change-fullscreen", [fs = gFullscreen] {
+                    pGraph->setFullscreen(fs);
                     if (fs) {
-                        pGraph->setFullscreen(true);
-                        //pWindow->enterFullscreen();
+                        pWindow->enterFullscreen();
                     } else {
-                        pGraph->setFullscreen(false);
-                        //pWindow->exitFullscreen();
+                        pWindow->exitFullscreen();
                     }
                 });
             }
@@ -410,21 +455,21 @@ struct GameGui final : graph::IGuiPass {
             ImGui::Text("DXGI reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
 
             if (ImGui::SliderInt2("render size", renderSize, 64, 4096)) {
-                addWork("resize-render", [this] {
+                pRenderThread->add("resize-render", [this] {
                     pGraph->resizeRender(renderSize[0], renderSize[1]);
                     logInfo("resize-render: {}x{}", renderSize[0], renderSize[1]);
                 });
             }
 
             if (ImGui::SliderInt("backbuffer count", &backBufferCount, 2, 8)) {
-                addWork("change-backbuffers", [this] {
+                pRenderThread->add("change-backbuffers", [this] {
                     pGraph->changeBackBufferCount(backBufferCount);
                     logInfo("change-backbuffer-count: {}", backBufferCount);
                 });
             }
 
             if (ImGui::Combo("device", &currentAdapter, adapterNames.data(), adapterNames.size())) {
-                addWork("change-adapter", [this] {
+                pRenderThread->add("change-adapter", [this] {
                     pGraph->changeAdapter(currentAdapter);
                     logInfo("change-adapter: {}", currentAdapter);
                 });
@@ -539,6 +584,12 @@ CommandLine getCommandLine() {
 static void commonMain(const std::filesystem::path& path) {
     GdkInit gdkInit;
 
+    pWorkThread = new WorkThread(64, "work", [](WorkQueue *pSelf, std::stop_token token) {
+        while (!token.stop_requested()) {
+            pSelf->process();
+        }
+    });
+
     auto assets = path / "editor.exe.p";
     assets::Assets depot = { assets };
     simcoe::logInfo("depot: {}", assets.string());
@@ -577,18 +628,6 @@ static void commonMain(const std::filesystem::path& path) {
         .renderHeight = 1080 * 2
     };
 
-    pWorkThread = new std::jthread([](std::stop_token token) {
-        setThreadName("work");
-
-        while (!token.stop_requested()) {
-            WorkMessage item;
-            if (gWorkQueue.try_dequeue(item)) {
-                item.item();
-            }
-        }
-        simcoe::logInfo("work thread stopped");
-    });
-
     addObject("jeff");
     addObject("bob");
 
@@ -596,8 +635,7 @@ static void commonMain(const std::filesystem::path& path) {
 
     // move the render context into the render thread to prevent hangs on shutdown
     render::Context *pContext = render::Context::create(renderCreateInfo);
-    pRenderThread = new std::jthread([pContext](std::stop_token token) {
-        setThreadName("render");
+    pRenderThread = new WorkThread(64, "render", [pContext](WorkQueue *pSelf, std::stop_token token) {
         size_t faultCount = 0;
         size_t faultLimit = 3;
 
@@ -628,6 +666,10 @@ static void commonMain(const std::filesystem::path& path) {
             // TODO: if the render loop throws an exception, the program will std::terminate
             // we should handle this case and restart the render loop
             while (!token.stop_requested()) {
+                if (pSelf->process()) {
+                    continue; // TODO: this is also a little stupid
+                }
+
                 try {
                     pGraph->execute();
                 } catch (std::runtime_error& err) {
@@ -645,14 +687,16 @@ static void commonMain(const std::filesystem::path& path) {
                     break;
                 }
             }
-
-            delete pGraph;
-            delete pContext;
         } catch (std::runtime_error& err) {
             simcoe::logError("render thread exception during startup: {}", err.what());
         }
 
-        gRunning = false;
+        pMainQueue->add("render-thread-stopped", [] {
+            pGraph->setFullscreen(false);
+            delete pGraph;
+
+            gRunning = false;
+        });
     });
 
     std::jthread inputThread([](auto token) {
@@ -665,10 +709,22 @@ static void commonMain(const std::filesystem::path& path) {
 
     while (pSystem->getEvent()) {
         pSystem->dispatchEvent();
+        pMainQueue->process();
+
         if (!gRunning) {
             break;
         }
     }
+
+    while (pMainQueue->process()) {
+        // flush the main queue
+    }
+}
+
+static fs::path getGameDir() {
+    char gamePath[1024];
+    GetModuleFileNameA(nullptr, gamePath, sizeof(gamePath));
+    return fs::path(gamePath).parent_path();
 }
 
 static int innerMain() try {
@@ -676,15 +732,12 @@ static int innerMain() try {
     simcoe::addSink(&gFileLogger);
     simcoe::addSink(&gGuiLogger);
 
-    char gamePath[1024];
-    GetModuleFileNameA(nullptr, gamePath, sizeof(gamePath));
-    std::filesystem::path gameDir = gamePath;
-
-    simcoe::logInfo("exe: {}", gamePath);
+    auto mainWorkQueue = std::make_unique<WorkQueue>(64);
+    pMainQueue = mainWorkQueue.get();
 
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
     simcoe::logInfo("startup");
-    commonMain(gameDir.parent_path());
+    commonMain(getGameDir());
     simcoe::logInfo("shutdown");
 
     return 0;

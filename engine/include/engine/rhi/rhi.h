@@ -314,7 +314,15 @@ namespace simcoe::rhi {
         RenderTarget *getRenderTarget(UINT index);
         size_t getFrameIndex();
         bool getFullscreenState();
-        void setFullscreenState(bool fullscreen);
+
+        /**
+         * @brief set the fullscreen state of the display
+         *
+         * @param fullscreen true to set fullscreen, false to set windowed
+         * @return true if the state was changed
+         * @return false if the state failed to change
+         */
+        bool setFullscreenState(bool fullscreen);
 
         void resizeBuffers(UINT bufferCount, UINT width, UINT height);
 

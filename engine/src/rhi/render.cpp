@@ -377,8 +377,8 @@ bool DisplayQueue::getFullscreenState() {
     return fullscreen;
 }
 
-void DisplayQueue::setFullscreenState(bool fullscreen) {
-    HR_CHECK(pSwapChain->SetFullscreenState(fullscreen, nullptr));
+bool DisplayQueue::setFullscreenState(bool fullscreen) {
+    return SUCCEEDED(pSwapChain->SetFullscreenState(fullscreen, nullptr));
 }
 
 void DisplayQueue::resizeBuffers(UINT bufferCount, UINT width, UINT height) {
@@ -430,7 +430,6 @@ DisplayQueue *DisplayQueue::create(IDXGISwapChain4 *pSwapChain, bool tearing) {
 }
 
 DisplayQueue::~DisplayQueue() {
-    //setFullscreenState(false);
     pSwapChain->Release();
 }
 

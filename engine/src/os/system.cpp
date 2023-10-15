@@ -59,7 +59,7 @@ LRESULT CALLBACK Window::callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
     }
 
     case WM_CLOSE:
-        pWindow->pCallbacks->onClose();
+        pWindow->closeWindow();
         return 0;
 
     case WM_ENTERSIZEMOVE:
@@ -115,7 +115,9 @@ Window::Window(HINSTANCE hInstance, int nCmdShow, const WindowCreateInfo& create
 }
 
 Window::~Window() {
-    DestroyWindow(hWindow);
+    if (hWindow != nullptr) {
+        DestroyWindow(hWindow);
+    }
 }
 
 // callbacks
@@ -144,6 +146,12 @@ void Window::doSizeChange(WPARAM wParam, int width, int height) {
     default:
         break;
     }
+}
+
+void Window::closeWindow() {
+    pCallbacks->onClose();
+    DestroyWindow(hWindow);
+    hWindow = nullptr;
 }
 
 void Window::beginUserResize() {
@@ -243,7 +251,7 @@ void System::quit() {
 
 std::string simcoe::getErrorName(HRESULT hr) {
     _com_error err(hr);
-    return err.ErrorMessage();
+    return std::format("{} (0x{:x})", err.ErrorMessage(), unsigned(hr));
 }
 
 ///

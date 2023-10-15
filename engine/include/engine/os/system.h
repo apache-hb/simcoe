@@ -52,6 +52,8 @@ namespace simcoe {
         static LRESULT CALLBACK callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     private:
+        void closeWindow();
+
         void doResize(int width, int height, bool fullscreen);
         void doSizeChange(WPARAM wParam, int width, int height);
 

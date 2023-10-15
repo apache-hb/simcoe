@@ -143,9 +143,7 @@ void Context::destroyHeaps() {
 }
 
 void Context::changeFullscreen(bool bFullscreen) {
-    destroyFrameData();
     pDisplayQueue->setFullscreenState(bFullscreen);
-    createFrameData();
 }
 
 void Context::changeDisplaySize(UINT width, UINT height) {
