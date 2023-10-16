@@ -716,9 +716,7 @@ static void commonMain(const std::filesystem::path& path) {
         }
     }
 
-    while (pMainQueue->process()) {
-        // flush the main queue
-    }
+    delete pMainQueue;
 }
 
 static fs::path getGameDir() {
