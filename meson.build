@@ -20,6 +20,8 @@ directx = subproject('directx').get_variable('directx')
 xinput = subproject('xinput').get_variable('xinput')
 gdk = subproject('gdk').get_variable('gdk')
 stb = subproject('stb').get_variable('stb')
+moodycamel = subproject('atomic-queue').get_variable('queue')
+threads = dependency('threads')
 
 ###
 ### engine
@@ -39,6 +41,9 @@ src = [
 
     # memory
     'engine/src/memory/bitmap.cpp',
+
+    # tasks
+    'engine/src/tasks/task.cpp',
 
     # assets
     'engine/src/assets/assets.cpp',
@@ -65,6 +70,9 @@ deps = [
     # input
     xinput, gdk,
 
+    # tasks
+    moodycamel, threads,
+
     # assets
     stb,
 
@@ -87,7 +95,6 @@ engine = declare_dependency(
 ### editor
 ###
 
-moodycamel = subproject('atomic-queue').get_variable('queue')
 tinyobj = subproject('tinyobj').get_variable('tinyobj')
 fastgltf = subproject('fastgltf').get_variable('fastgltf')
 
@@ -171,9 +178,6 @@ deps = [
 
     # render
     tinyobj, fastgltf,
-
-    # worker
-    moodycamel,
 ]
 
 executable('editor', src,

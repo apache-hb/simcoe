@@ -1,24 +1,31 @@
+// os and system
 #include "engine/engine.h"
 #include "engine/os/system.h"
 
-#include "vendor/microsoft/gdk.h"
+// threads
+#include "engine/tasks/task.h"
 
+// input
 #include "engine/input/win32-device.h"
 #include "engine/input/xinput-device.h"
 
+// render graph
 #include "engine/render/graph.h"
 
+// render passes
 #include "editor/graph/assets.h"
 #include "editor/graph/post.h"
 #include "editor/graph/scene.h"
 #include "editor/graph/gui.h"
 #include "editor/graph/game.h"
 
+// debug gui
 #include "editor/debug/gui.h"
-
 #include "imgui/imgui.h"
 #include "imfiles/imfilebrowser.h"
 
+// vendor
+#include "vendor/microsoft/gdk.h"
 #include "moodycamel/concurrentqueue.h"
 
 #include <functional>
@@ -31,16 +38,22 @@ using namespace editor;
 namespace gdk = microsoft::gdk;
 namespace fs = std::filesystem;
 
+// consts
 static constexpr auto kWindowWidth = 1920;
 static constexpr auto kWindowHeight = 1080;
 
-/// rendering
+static constexpr auto kProjectionNames = std::to_array({ "Perspective", "Orthographic" });
+static const auto gProjections = std::to_array({
+    static_cast<IProjection*>(new Perspective()),
+    static_cast<IProjection*>(new Orthographic(20.f, 20.f))
+});
 
+// system
 static simcoe::System *pSystem = nullptr;
 static simcoe::Window *pWindow = nullptr;
-static render::Graph *pGraph = nullptr;
 static bool gFullscreen = false;
 static std::atomic_bool gRunning = true;
+std::string gGdkFailureReason = "";
 
 /// input
 
@@ -49,18 +62,11 @@ static input::Win32Mouse *pMouse = nullptr;
 static input::XInputGamepad *pGamepad0 = nullptr;
 static input::Manager *pInput = nullptr;
 
-///
-/// projection and view
-///
-static std::vector<IProjection*> gProjections = {
-    new Perspective(),
-    new Orthographic(20.f, 20.f)
-};
-
-static const char *kProjectionNames[] = { "perspective", "orthographic" };
+/// rendering
+static render::Graph *pGraph = nullptr;
 static int gCurrentProjection = 0;
 
-std::string gGdkFailureReason;
+/// game level
 
 GameLevel gLevel;
 
@@ -68,69 +74,31 @@ static void addObject(std::string name) {
     gLevel.objects.push_back(new EnemyObject(name));
 }
 
-using WorkItem = std::function<void()>;
+template<typename F>
+tasks::WorkThread *newTask(const char *name, F&& func) {
+    struct WorkImpl final : tasks::WorkThread {
+        WorkImpl(const char *name, F&& fn)
+            : WorkThread(64, name)
+            , fn(std::forward<F>(fn))
+        { }
 
-struct WorkQueue {
-    WorkQueue(size_t size)
-        : workQueue(size)
-    { }
-
-    void add(std::string_view name, WorkItem item) {
-        WorkMessage message = {
-            .name = name,
-            .item = item
-        };
-
-        workQueue.enqueue(message);
-    }
-
-    bool process() {
-        WorkMessage message;
-        if (workQueue.try_dequeue(message)) {
-            message.item();
-            return true;
+        void run(std::stop_token token) override {
+            while (!token.stop_requested()) {
+                fn(this, token);
+            }
         }
 
-        return false;
-    }
-
-private:
-    struct WorkMessage {
-        std::string_view name;
-        WorkItem item;
+    private:
+        F fn;
     };
 
-    moodycamel::ConcurrentQueue<WorkMessage> workQueue{64};
-};
+    return new WorkImpl(name, std::move(func));
+}
 
-struct WorkThread final : WorkQueue {
-    template<typename F>
-    WorkThread(size_t size, std::string_view name, F&& func)
-        : WorkQueue(size)
-        , workThread(start(name, func))
-    { }
-
-private:
-    template<typename F>
-    std::unique_ptr<std::jthread> start(std::string_view name, F&& func) {
-        return std::make_unique<std::jthread>([this, name, func](std::stop_token token) {
-            setThreadName(name.data());
-
-            func(this, token);
-
-            // drain the queue
-            while (process()) { }
-
-            simcoe::logInfo("thread `{}` stopped", name);
-        });
-    }
-
-    std::unique_ptr<std::jthread> workThread;
-};
-
-static WorkQueue *pMainQueue = nullptr;
-static WorkThread *pWorkThread = nullptr;
-static WorkThread *pRenderThread = nullptr;
+/// threads
+static tasks::WorkQueue *pMainQueue = nullptr;
+static tasks::WorkThread *pWorkThread = nullptr;
+static tasks::WorkThread *pRenderThread = nullptr;
 
 struct FileLogger final : ILogSink {
     FileLogger()
@@ -157,8 +125,6 @@ FileLogger gFileLogger;
 
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
-        delete pWorkThread;
-        delete pRenderThread;
         pSystem->quit();
     }
 
@@ -244,7 +210,6 @@ private:
     std::atomic_size_t updates = 0;
 
     std::mutex lock;
-    std::atomic_size_t buffer = 0;
 
     input::State state;
 };
@@ -498,7 +463,7 @@ struct GameGui final : graph::IGuiPass {
             ImGui::SliderFloat3("position", gLevel.cameraPosition.data(), -10.f, 10.f);
             ImGui::SliderFloat3("rotation", gLevel.cameraRotation.data(), -1.f, 1.f);
 
-            if (ImGui::Combo("projection", &gCurrentProjection, kProjectionNames, std::size(kProjectionNames))) {
+            if (ImGui::Combo("projection", &gCurrentProjection, kProjectionNames.data(), kProjectionNames.size())) {
                 gLevel.pProjection = gProjections[gCurrentProjection];
             }
 
@@ -584,7 +549,7 @@ CommandLine getCommandLine() {
 static void commonMain(const std::filesystem::path& path) {
     GdkInit gdkInit;
 
-    pWorkThread = new WorkThread(64, "work", [](WorkQueue *pSelf, std::stop_token token) {
+    pWorkThread = newTask("work", [](tasks::WorkQueue *pSelf, std::stop_token token) {
         while (!token.stop_requested()) {
             pSelf->process();
         }
@@ -608,7 +573,6 @@ static void commonMain(const std::filesystem::path& path) {
     auto [realWidth, realHeight] = pWindow->getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
 
     pInput = new input::Manager();
-    // pInput->addSource(pGameInput = new input::GameInput());
     pInput->addSource(pKeyboard = new input::Win32Keyboard());
     pInput->addSource(pMouse = new input::Win32Mouse(pWindow, true));
     pInput->addSource(pGamepad0 = new input::XInputGamepad(0));
@@ -635,7 +599,7 @@ static void commonMain(const std::filesystem::path& path) {
 
     // move the render context into the render thread to prevent hangs on shutdown
     render::Context *pContext = render::Context::create(renderCreateInfo);
-    pRenderThread = new WorkThread(64, "render", [pContext](WorkQueue *pSelf, std::stop_token token) {
+    pRenderThread = newTask("render", [pContext](tasks::WorkQueue *pSelf, std::stop_token token) {
         size_t faultCount = 0;
         size_t faultLimit = 3;
 
@@ -716,6 +680,8 @@ static void commonMain(const std::filesystem::path& path) {
         }
     }
 
+    delete pWorkThread;
+    delete pRenderThread;
     delete pMainQueue;
 }
 
@@ -730,7 +696,7 @@ static int innerMain() try {
     simcoe::addSink(&gFileLogger);
     simcoe::addSink(&gGuiLogger);
 
-    auto mainWorkQueue = std::make_unique<WorkQueue>(64);
+    auto mainWorkQueue = std::make_unique<tasks::WorkQueue>(64);
     pMainQueue = mainWorkQueue.get();
 
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
