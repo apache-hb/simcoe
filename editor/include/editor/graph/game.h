@@ -27,7 +27,7 @@ namespace editor::graph {
             : IUniformHandle(ctx, std::format("uniform.object.{}", name))
         { }
 
-        void update(GameLevel *pLevel, size_t index);
+        void update(IGameObject *pObject);
     };
 
     struct GameRenderInfo {
@@ -55,7 +55,10 @@ namespace editor::graph {
         PassAttachment<TextureHandle> *pPlayerTexture;
         PassAttachment<CameraUniformHandle> *pCameraUniform;
 
-        std::vector<PassAttachment<ObjectUniformHandle>*> objectUniforms;
+        using ObjectAttachment = PassAttachment<ObjectUniformHandle>;
+        std::unordered_map<IGameObject*, ObjectAttachment*> objectUniforms;
+        ObjectUniformHandle *getObjectUniform(IGameObject *pObject);
+        void createObjectUniform(IGameObject *pObject);
 
         IMeshBufferHandle *pPlayerMesh;
 

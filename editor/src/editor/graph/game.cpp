@@ -28,9 +28,7 @@ void CameraUniformHandle::update(GameLevel *pLevel) {
     IUniformHandle::update(&data);
 }
 
-void ObjectUniformHandle::update(GameLevel *pLevel, size_t index) {
-    const auto *pObject = pLevel->objects[index];
-
+void ObjectUniformHandle::update(IGameObject *pObject) {
     float4x4 model = float4x4::identity();
     model *= float4x4::translation(pObject->position);
     model *= float4x4::rotation(pObject->rotation);
@@ -52,10 +50,9 @@ GameLevelPass::GameLevelPass(Graph *ctx, GameLevel *pLevel, ResourceWrapper<IRTV
     setRenderTargetHandle(pRenderTarget);
     setDepthStencilHandle(pDepthTarget);
 
-    for (auto *pObject : pLevel->objects) {
-        auto *pUniform = graph->addResource<ObjectUniformHandle>(pObject->name);
-        objectUniforms.push_back(addAttachment(pUniform, rhi::ResourceState::eShaderResource));
-    }
+    pLevel->useEachObject([this](IGameObject *pObject) {
+        createObjectUniform(pObject);
+    });
 }
 
 void GameLevelPass::create() {
@@ -111,12 +108,25 @@ void GameLevelPass::execute() {
     ctx->setVertexBuffer(pPlayerMesh->getVertexBuffer());
     ctx->setIndexBuffer(pPlayerMesh->getIndexBuffer());
 
-    for (size_t i = 0; i < objectUniforms.size(); i++) {
-        auto *pUniformHandle = objectUniforms[i];
-        auto *pUniform = pUniformHandle->getInner();
+    pLevel->useEachObject([&](IGameObject *pObject) {
+        auto *pUniform = getObjectUniform(pObject); // get object uniform (create if not exists)
 
-        pUniform->update(pLevel, i);
+        pUniform->update(pObject);
         ctx->setShaderInput(pUniform->getSrvIndex(), objectIndex); // set object uniform
         ctx->drawIndexed(pPlayerMesh->getIndexCount());
+    });
+}
+
+ObjectUniformHandle *GameLevelPass::getObjectUniform(IGameObject *pObject) {
+    if (!objectUniforms.contains(pObject)) {
+        createObjectUniform(pObject);
     }
+
+    auto *pAttachment = objectUniforms.at(pObject);
+    return pAttachment->getInner();
+}
+
+void GameLevelPass::createObjectUniform(IGameObject *pObject) {
+    auto *pUniform = graph->addResource<ObjectUniformHandle>(pObject->name);
+    objectUniforms.emplace(pObject, addAttachment(pUniform, rhi::ResourceState::eShaderResource));
 }

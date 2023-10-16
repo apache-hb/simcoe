@@ -110,12 +110,32 @@ namespace editor {
     };
 
     struct GameLevel {
-        std::vector<IGameObject*> objects;
-
         math::float3 cameraPosition = { 5.0f, 5.0f, 5.0f };
         math::float3 cameraRotation = { 1.0f, 0.0f, 0.0f };
         float fov = 90.f;
 
         IProjection *pProjection = nullptr;
+
+        void addObject(IGameObject *pObject) {
+            std::lock_guard guard(lock);
+            objects.push_back(pObject);
+        }
+
+        template<typename F>
+        void useEachObject(F&& func) {
+            std::lock_guard guard(lock);
+            for (auto *pObject : objects)
+                func(pObject);
+        }
+
+        template<typename F>
+        void useObjects(F&& func) {
+            std::lock_guard guard(lock);
+            func(objects);
+        }
+
+    private:
+        std::vector<IGameObject*> objects;
+        std::mutex lock;
     };
 }

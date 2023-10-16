@@ -50,7 +50,11 @@ namespace simcoe::tasks {
 
         virtual ~WorkThread() = default;
 
-        virtual void run(std::stop_token token) = 0;
+        virtual void run(std::stop_token token) {
+            while (!token.stop_requested()) {
+                process();
+            }
+        }
 
     private:
         std::jthread start(const char *name);

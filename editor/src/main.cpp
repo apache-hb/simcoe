@@ -55,6 +55,11 @@ static bool gFullscreen = false;
 static std::atomic_bool gRunning = true;
 std::string gGdkFailureReason = "";
 
+/// threads
+static tasks::WorkQueue *pMainQueue = nullptr;
+static tasks::WorkThread *pWorkThread = nullptr;
+static tasks::WorkThread *pRenderThread = nullptr;
+
 /// input
 
 static input::Win32Keyboard *pKeyboard = nullptr;
@@ -71,7 +76,7 @@ static int gCurrentProjection = 0;
 GameLevel gLevel;
 
 static void addObject(std::string name) {
-    gLevel.objects.push_back(new EnemyObject(name));
+    gLevel.addObject(new EnemyObject(name));
 }
 
 template<typename F>
@@ -94,11 +99,6 @@ tasks::WorkThread *newTask(const char *name, F&& func) {
 
     return new WorkImpl(name, std::move(func));
 }
-
-/// threads
-static tasks::WorkQueue *pMainQueue = nullptr;
-static tasks::WorkThread *pWorkThread = nullptr;
-static tasks::WorkThread *pRenderThread = nullptr;
 
 struct FileLogger final : ILogSink {
     FileLogger()
@@ -281,18 +281,20 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::Begin("Game Objects");
 
-        for (size_t i = 0; i < gLevel.objects.size(); i++) {
-            auto *pObject = gLevel.objects[i];
-            ImGui::PushID(i);
+        gLevel.useObjects([&](const auto& objects) {
+            for (size_t i = 0; i < objects.size(); i++) {
+                auto *pObject = objects[i];
+                ImGui::PushID(i);
 
-            ImGui::BulletText("%s", pObject->name.data());
+                ImGui::BulletText("%s", pObject->name.data());
 
-            ImGui::SliderFloat3("position", pObject->position.data(), -10.f, 10.f);
-            ImGui::SliderFloat3("rotation", pObject->rotation.data(), -1.f, 1.f);
-            ImGui::SliderFloat3("scale", pObject->scale.data(), 0.1f, 10.f);
+                ImGui::SliderFloat3("position", pObject->position.data(), -10.f, 10.f);
+                ImGui::SliderFloat3("rotation", pObject->rotation.data(), -1.f, 1.f);
+                ImGui::SliderFloat3("scale", pObject->scale.data(), 0.1f, 10.f);
 
-            ImGui::PopID();
-        }
+                ImGui::PopID();
+            }
+        });
 
         ImGui::SeparatorText("Add Object");
 
@@ -549,11 +551,7 @@ CommandLine getCommandLine() {
 static void commonMain(const std::filesystem::path& path) {
     GdkInit gdkInit;
 
-    pWorkThread = newTask("work", [](tasks::WorkQueue *pSelf, std::stop_token token) {
-        while (!token.stop_requested()) {
-            pSelf->process();
-        }
-    });
+    pWorkThread = new tasks::WorkThread(64, "work");
 
     auto assets = path / "editor.exe.p";
     assets::Assets depot = { assets };
