@@ -41,7 +41,6 @@ void ObjectUniformHandle::update(IGameObject *pObject) {
 
 GameLevelPass::GameLevelPass(Graph *ctx, GameLevel *pLevel, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<IDSVHandle> *pDepthTarget, GameRenderInfo info)
     : IRenderPass(ctx, "game.level")
-    , pDepthTarget(addAttachment(pDepthTarget, rhi::ResourceState::eDepthWrite))
     , pPlayerTexture(addAttachment(info.pPlayerTexture, rhi::ResourceState::eShaderResource))
     , pCameraUniform(addAttachment(info.pCameraUniform, rhi::ResourceState::eShaderResource))
     , pPlayerMesh(info.pPlayerMesh)

@@ -15,6 +15,8 @@ namespace editor::graph {
 
     template<typename T>
     struct IUniformHandle : ISingleResourceHandle<rhi::UniformBuffer>, ISingleSRVHandle {
+        static_assert(alignof(T) <= UNIFORM_ALIGN, "Uniform buffer must be 256-byte aligned");
+
         IUniformHandle(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
             : ISingleResourceHandle(ctx, name, stateDeps)
         { }

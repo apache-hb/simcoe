@@ -5,7 +5,7 @@
 #include "engine/os/system.h"
 
 namespace editor::graph {
-    struct UNIFORM_ALIGN UniformData {
+    struct UNIFORM_BUFFER UniformData {
         math::float2 offset;
 
         float angle;

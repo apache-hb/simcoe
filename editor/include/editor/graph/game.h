@@ -5,12 +5,12 @@
 #include "editor/game/state.h"
 
 namespace editor::graph {
-    struct UNIFORM_ALIGN CameraUniform {
+    struct UNIFORM_BUFFER CameraUniform {
         math::float4x4 view;
         math::float4x4 projection;
     };
 
-    struct UNIFORM_ALIGN ObjectUniform {
+    struct UNIFORM_BUFFER ObjectUniform {
         math::float4x4 model;
     };
 
@@ -51,12 +51,12 @@ namespace editor::graph {
         void execute() override;
 
     private:
-        PassAttachment<IDSVHandle> *pDepthTarget;
+        using ObjectAttachment = PassAttachment<ObjectUniformHandle>;
+
         PassAttachment<TextureHandle> *pPlayerTexture;
         PassAttachment<CameraUniformHandle> *pCameraUniform;
-
-        using ObjectAttachment = PassAttachment<ObjectUniformHandle>;
         std::unordered_map<IGameObject*, ObjectAttachment*> objectUniforms;
+
         ObjectUniformHandle *getObjectUniform(IGameObject *pObject);
         void createObjectUniform(IGameObject *pObject);
 
