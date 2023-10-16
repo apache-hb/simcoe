@@ -10,6 +10,10 @@ namespace {
     constexpr size_t kChannels = 4;
 }
 
+fs::path Assets::getAssetPath(const fs::path& path) const {
+    return root / path;
+}
+
 std::vector<std::byte> Assets::loadBlob(const std::filesystem::path& path) const {
     std::vector<std::byte> data;
 

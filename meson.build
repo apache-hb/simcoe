@@ -153,9 +153,16 @@ src = [
     hlsl.process('data/shaders/blit.hlsl'),
     hlsl.process('data/shaders/object.hlsl'),
 
-    # assets
+    # textures
     copy.process('data/images/assets/uv-coords.png'),
     copy.process('data/images/assets/player.png'),
+    copy.process('data/images/assets/cross.png'),
+    copy.process('data/images/assets/alien.png'),
+
+    # models
+    copy.process('data/models/cross.model'),
+    copy.process('data/models/ship.model'),
+    copy.process('data/models/alien.model'),
 
     # libraries
     copy.process('data/libs/warp/d3d10warp.dll'),

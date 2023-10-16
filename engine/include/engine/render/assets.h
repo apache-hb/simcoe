@@ -9,8 +9,6 @@ namespace simcoe::render {
 
         virtual rhi::VertexBuffer *getVertexBuffer() const = 0;
         virtual rhi::IndexBuffer *getIndexBuffer() const = 0;
-
-        virtual std::vector<rhi::VertexAttribute> getVertexAttributes() const = 0;
     };
 
     struct ISingleMeshBufferHandle : IMeshBufferHandle {

@@ -85,21 +85,29 @@ namespace editor {
     };
 
     struct IGameObject {
-        IGameObject(std::string name)
+        IGameObject(std::string name, render::IMeshBufferHandle *pMesh, size_t textureId)
             : name(name)
+            , pMesh(pMesh)
+            , textureId(textureId)
         { }
-
-        std::string name;
-        size_t meshIndex = SIZE_MAX;
 
         math::float3 position = { 0.0f, 0.0f, 0.0f };
         math::float3 rotation = { 0.0f, 0.0f, 0.0f }; // rotate around z-axis
         math::float3 scale = { 1.f, 1.f, 1.f };
+
+        std::string_view getName() const { return name; }
+        render::IMeshBufferHandle *getMesh() const { return pMesh; }
+        size_t getTexture() const { return textureId; }
+
+    private:
+        std::string name;
+        render::IMeshBufferHandle *pMesh = nullptr;
+        size_t textureId = 0;
     };
 
     struct EnemyObject : IGameObject {
-        EnemyObject(std::string name)
-            : IGameObject(name)
+        EnemyObject(std::string name, render::IMeshBufferHandle *pMesh, size_t textureId)
+            : IGameObject(name, pMesh, textureId)
         { }
 
         size_t health = 3;
@@ -107,21 +115,28 @@ namespace editor {
     };
 
     struct PlayerObject : IGameObject {
+        PlayerObject(std::string name, render::IMeshBufferHandle *pMesh, size_t textureId)
+            : IGameObject(name, pMesh, textureId)
+        { }
+
         size_t lives = 3;
         size_t maxLives = 5;
     };
 
     struct GameLevel {
-        math::float3 cameraPosition = { 5.0f, 5.0f, 5.0f };
+        math::float3 cameraPosition = { -10.0f, 0.0f, 0.0f };
         math::float3 cameraRotation = { 1.0f, 0.0f, 0.0f };
         float fov = 90.f;
 
         IProjection *pProjection = nullptr;
 
         template<typename T, typename... A>
-        IGameObject *addObject(A&&... args) {
-            std::lock_guard guard(lock);
+        T *addObject(A&&... args) {
+            static_assert(std::is_base_of_v<IGameObject, T>);
+
             T *pObject = new T(args...);
+
+            std::lock_guard guard(lock);
             objects.push_back(pObject);
             return pObject;
         }

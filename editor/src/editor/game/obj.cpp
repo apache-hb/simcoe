@@ -14,14 +14,31 @@ struct std::hash<math::float3> {
     }
 };
 
-std::vector<rhi::VertexAttribute> ObjMesh::getVertexAttributes() const {
-    return {
-        { "POSITION", offsetof(ObjVertex, position), rhi::TypeFormat::eFloat3 },
-        { "TEXCOORD", offsetof(ObjVertex, uv), rhi::TypeFormat::eFloat2 }
-    };
-}
+template<>
+struct std::hash<math::float2> {
+    size_t operator()(const math::float2& v) const {
+        return std::hash<float>()(v.x) ^ std::hash<float>()(v.y);
+    }
+};
+
+template<>
+struct std::hash<ObjVertex> {
+    size_t operator()(const ObjVertex& v) const {
+        return std::hash<math::float3>()(v.position) ^ std::hash<math::float2>()(v.uv);
+    }
+};
+
+template<>
+struct std::equal_to<ObjVertex> {
+    bool operator()(const ObjVertex& lhs, const ObjVertex& rhs) const {
+        return lhs.position == rhs.position && lhs.uv == rhs.uv;
+    }
+};
 
 void ObjMesh::create() {
+    const auto& createInfo = ctx->getCreateInfo();
+    auto assetPath = createInfo.depot.getAssetPath(path);
+
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -29,7 +46,7 @@ void ObjMesh::create() {
     std::string warn;
     std::string error;
 
-    bool ok = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &error, path.string().c_str(), path.parent_path().string().c_str());
+    bool ok = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &error, assetPath.string().c_str(), assetPath.parent_path().string().c_str());
 
     if (!warn.empty()) {
         simcoe::logWarn("tinyobj warn {}", warn);
@@ -51,70 +68,64 @@ void ObjMesh::create() {
     std::vector<ObjVertex> vertexBuffer;
     std::vector<uint16_t> indexBuffer;
 
+    std::unordered_map<ObjVertex, uint16_t> uniqueVertices;
+
     const auto& vertices = attrib.vertices;
+    const auto& texcoords = attrib.texcoords;
     const auto& indices = shape.mesh.indices;
     ASSERT(vertices.size() % 3 == 0);
     ASSERT(indices.size() % 3 == 0);
 
-    simcoe::logInfo("(vertices={} indices={})", vertices.size(), indices.size());
+    simcoe::logInfo("(vertices={} uvs={} indices={})", vertices.size(), texcoords.size(), indices.size());
 
-    std::unordered_map<math::float3, uint16_t> vertexMap;
+    auto getIndex = [&](tinyobj::index_t idx) {
+        auto vtx = idx.vertex_index;
+        auto uv = idx.texcoord_index;
 
-    std::mt19937 rand{std::random_device{}()};
-    std::uniform_real_distribution<float> dist{0.0f, 1.0f};
+        math::float2 uvCoord = { texcoords[uv * 2 + 0], texcoords[uv * 2 + 1] };
+        math::float3 position = { vertices[vtx * 3 + 0], vertices[vtx * 3 + 1], vertices[vtx * 3 + 2] };
 
-    for (size_t v = 0; v < vertices.size(); v += 3) {
-        auto v0 = vertices[v + 0];
-        auto v1 = vertices[v + 1];
-        auto v2 = vertices[v + 2];
-
-        math::float3 vertex = { v0, v1, v2 };
-
-        vertexBuffer.push_back({ vertex, { dist(rand), dist(rand) } });
-
-        if (vertexMap.find(vertex) == vertexMap.end()) {
-            vertexMap[vertex] = vertexBuffer.size() - 1;
+        ObjVertex vertex = { position, uvCoord };
+        if (uniqueVertices.find(vertex) == uniqueVertices.end()) {
+            uniqueVertices[vertex] = static_cast<uint16_t>(vertexBuffer.size());
+            vertexBuffer.push_back(vertex);
         }
-    }
+
+        return uniqueVertices[vertex];
+    };
 
     size_t offset = 0;
-    for (size_t p = 0; p < shape.mesh.num_face_vertices.size(); p++) {
-        size_t verts = shape.mesh.num_face_vertices[p];
-
+    for (size_t i = 0; i < shape.mesh.num_face_vertices.size(); i++) {
+        size_t verts = shape.mesh.num_face_vertices[i];
         if (verts == 3) {
-            auto i0 = indices[offset + 0];
-            auto i1 = indices[offset + 1];
-            auto i2 = indices[offset + 2];
+            auto i0 = getIndex(indices[offset + 0]);
+            auto i1 = getIndex(indices[offset + 1]);
+            auto i2 = getIndex(indices[offset + 2]);
 
-            auto v0 = vertexBuffer[i0.vertex_index];
-            auto v1 = vertexBuffer[i1.vertex_index];
-            auto v2 = vertexBuffer[i2.vertex_index];
+            indexBuffer.push_back(i0);
+            indexBuffer.push_back(i1);
+            indexBuffer.push_back(i2);
+        } else if (verts == 4) {
+            auto i0 = getIndex(indices[offset + 0]);
+            auto i1 = getIndex(indices[offset + 1]);
+            auto i2 = getIndex(indices[offset + 2]);
+            auto i3 = getIndex(indices[offset + 3]);
 
-            indexBuffer.push_back(vertexMap[v0.position]);
-            indexBuffer.push_back(vertexMap[v2.position]);
-            indexBuffer.push_back(vertexMap[v1.position]);
+            indexBuffer.push_back(i0);
+            indexBuffer.push_back(i1);
+            indexBuffer.push_back(i2);
+
+            indexBuffer.push_back(i0);
+            indexBuffer.push_back(i2);
+            indexBuffer.push_back(i3);
         } else {
-            auto i0 = indices[offset + 0];
-            auto i1 = indices[offset + 1];
-            auto i2 = indices[offset + 2];
-            auto i3 = indices[offset + 3];
-
-            auto v0 = vertexBuffer[i0.vertex_index];
-            auto v1 = vertexBuffer[i1.vertex_index];
-            auto v2 = vertexBuffer[i2.vertex_index];
-            auto v3 = vertexBuffer[i3.vertex_index];
-
-            indexBuffer.push_back(vertexMap[v0.position]);
-            indexBuffer.push_back(vertexMap[v1.position]);
-            indexBuffer.push_back(vertexMap[v2.position]);
-
-            indexBuffer.push_back(vertexMap[v0.position]);
-            indexBuffer.push_back(vertexMap[v2.position]);
-            indexBuffer.push_back(vertexMap[v3.position]);
+            ASSERTF(false, "unsupported face vertex count {}", verts);
         }
 
         offset += verts;
     }
+
+    simcoe::logInfo("buffer sizes (vertices={} indices={})", vertexBuffer.size(), indexBuffer.size());
 
     indexCount = indexBuffer.size();
     pVertexBuffer = ctx->createVertexBuffer(vertexBuffer.size(), sizeof(ObjVertex));

@@ -41,9 +41,7 @@ void ObjectUniformHandle::update(IGameObject *pObject) {
 
 GameLevelPass::GameLevelPass(Graph *ctx, GameLevel *pLevel, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<IDSVHandle> *pDepthTarget, GameRenderInfo info)
     : IRenderPass(ctx, "game.level")
-    , pPlayerTexture(addAttachment(info.pPlayerTexture, rhi::ResourceState::eShaderResource))
     , pCameraUniform(addAttachment(info.pCameraUniform, rhi::ResourceState::eShaderResource))
-    , pPlayerMesh(info.pPlayerMesh)
     , pLevel(pLevel)
 {
     setRenderTargetHandle(pRenderTarget);
@@ -61,7 +59,10 @@ void GameLevelPass::create() {
         .vertexShader = createInfo.depot.loadBlob("object.vs.cso"),
         .pixelShader = createInfo.depot.loadBlob("object.ps.cso"),
 
-        .attributes = pPlayerMesh->getVertexAttributes(),
+        .attributes = {
+            { "POSITION", offsetof(ObjVertex, position), rhi::TypeFormat::eFloat3 },
+            { "TEXCOORD", offsetof(ObjVertex, uv), rhi::TypeFormat::eFloat2 }
+        },
 
         .textureInputs = {
             { "tex", rhi::InputVisibility::ePixel, 0, true }
@@ -90,7 +91,6 @@ void GameLevelPass::destroy() {
 }
 
 void GameLevelPass::execute() {
-    ISRVHandle *pTexture = pPlayerTexture->getInner();
     CameraUniformHandle *pCamera = pCameraUniform->getInner();
 
     pCamera->update(pLevel);
@@ -101,19 +101,30 @@ void GameLevelPass::execute() {
     UINT cameraIndex = pPipeline->getUniformInput("camera");
     UINT objectIndex = pPipeline->getUniformInput("object");
 
-    ctx->setShaderInput(pTexture->getSrvIndex(), texIndex);
     ctx->setShaderInput(pCamera->getSrvIndex(), cameraIndex); // set camera uniform
 
-    ctx->setVertexBuffer(pPlayerMesh->getVertexBuffer());
-    ctx->setIndexBuffer(pPlayerMesh->getIndexBuffer());
-
     pLevel->useEachObject([&](IGameObject *pObject) {
-        auto *pUniform = getObjectUniform(pObject); // get object uniform (create if not exists)
+        auto *pTextureHandle = textureAttachments[pObject->getTexture()];
+        auto *pTexture = pTextureHandle->getInner();
 
+        auto *pMesh = pObject->getMesh();
+
+        auto *pUniform = getObjectUniform(pObject); // get object uniform (create if not exists)
         pUniform->update(pObject);
+
+        ctx->setShaderInput(pTexture->getSrvIndex(), texIndex); // set texture
         ctx->setShaderInput(pUniform->getSrvIndex(), objectIndex); // set object uniform
-        ctx->drawIndexed(pPlayerMesh->getIndexCount());
+
+        ctx->setVertexBuffer(pMesh->getVertexBuffer());
+        ctx->setIndexBuffer(pMesh->getIndexBuffer());
+        ctx->drawIndexed(pMesh->getIndexCount());
     });
+}
+
+size_t GameLevelPass::addTexture(ResourceWrapper<TextureHandle> *pTexture) {
+    auto *pAttachment = addAttachment(pTexture, rhi::ResourceState::eShaderResource);
+    textureAttachments.push_back(pAttachment);
+    return textureAttachments.size() - 1;
 }
 
 ObjectUniformHandle *GameLevelPass::getObjectUniform(IGameObject *pObject) {
@@ -126,6 +137,6 @@ ObjectUniformHandle *GameLevelPass::getObjectUniform(IGameObject *pObject) {
 }
 
 void GameLevelPass::createObjectUniform(IGameObject *pObject) {
-    auto *pUniform = graph->addResource<ObjectUniformHandle>(pObject->name);
+    auto *pUniform = graph->addResource<ObjectUniformHandle>(pObject->getName());
     objectUniforms.emplace(pObject, addAttachment(pUniform, rhi::ResourceState::eShaderResource));
 }

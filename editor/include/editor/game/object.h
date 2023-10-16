@@ -20,7 +20,6 @@ namespace editor {
         void destroy() override;
 
         size_t getIndexCount() const override { return indexCount; }
-        std::vector<rhi::VertexAttribute> getVertexAttributes() const override;
 
         rhi::IndexBuffer *getIndexBuffer() const override { return pIndexBuffer; }
         rhi::VertexBuffer *getVertexBuffer() const override { return pVertexBuffer; }
@@ -48,7 +47,6 @@ namespace editor {
         void destroy() override;
 
         size_t getIndexCount() const override;
-        std::vector<rhi::VertexAttribute> getVertexAttributes() const override;
 
         rhi::IndexBuffer *getIndexBuffer() const override;
         rhi::VertexBuffer *getVertexBuffer() const override;

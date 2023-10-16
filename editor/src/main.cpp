@@ -69,14 +69,32 @@ static input::Manager *pInput = nullptr;
 
 /// rendering
 static render::Graph *pGraph = nullptr;
-static int gCurrentProjection = 0;
+static int gCurrentProjection = 1;
+
+static IMeshBufferHandle *pPlayerMesh = nullptr;
+static IMeshBufferHandle *pCrossMesh = nullptr;
+static IMeshBufferHandle *pAlienMesh = nullptr;
+
+static size_t gPlayerTextureId = SIZE_MAX;
+static size_t gCrossTextureId = SIZE_MAX;
+static size_t gAlienTextureId = SIZE_MAX;
 
 /// game level
 
 GameLevel gLevel;
 
-static void addObject(std::string name) {
-    gLevel.addObject<EnemyObject>(name);
+static PlayerObject *pPlayerObject = nullptr;
+
+static void addAlien(std::string name) {
+    gLevel.addObject<EnemyObject>(name, pAlienMesh, gAlienTextureId);
+}
+
+static void createPlayer(std::string name) {
+    pPlayerObject = gLevel.addObject<PlayerObject>(name, pPlayerMesh, gPlayerTextureId);
+}
+
+static EnemyObject *addCross(std::string name) {
+    return gLevel.addObject<EnemyObject>(name, pCrossMesh, gCrossTextureId);
 }
 
 template<typename F>
@@ -143,17 +161,34 @@ struct GameWindow final : IWindowCallbacks {
     }
 };
 
+using namespace simcoe::input;
+
 struct GameInputClient final : input::IClient {
+    float getButtonAxis(Button neg, Button pos) const {
+        size_t negIdx = state.buttons[neg];
+        size_t posIdx = state.buttons[pos];
+
+        if (negIdx > posIdx) {
+            return -1.f;
+        } else if (posIdx > negIdx) {
+            return 1.f;
+        } else {
+            return 0.f;
+        }
+    }
+
+    float getStickAxis(Axis axis) const {
+        return state.axes[axis];
+    }
+
     void onInput(const input::State& newState) override {
-        writeNewState(newState);
+        state = newState;
         updates += 1;
     }
 
     static constexpr ImGuiTableFlags kTableFlags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV;
 
     void debugDraw() {
-        auto state = readState();
-
         if (ImGui::Begin("Input")) {
             ImGui::Text("updates: %zu", updates.load());
             ImGui::Text("device: %s", input::toString(state.device).data());
@@ -197,19 +232,7 @@ struct GameInputClient final : input::IClient {
     }
 
 private:
-    void writeNewState(const input::State& newState) {
-        std::lock_guard guard(lock);
-        state = newState;
-    }
-
-    input::State readState() {
-        std::lock_guard guard(lock);
-        return state;
-    }
-
     std::atomic_size_t updates = 0;
-
-    std::mutex lock;
 
     input::State state;
 };
@@ -284,11 +307,16 @@ struct GameGui final : graph::IGuiPass {
         gLevel.useEachObject([&](IGameObject *pObject) {
             ImGui::PushID((void*)pObject);
 
-            ImGui::BulletText("%s", pObject->name.data());
+            auto name = pObject->getName();
+            auto model = pObject->getMesh();
+
+            ImGui::BulletText("%s", name.data());
             ImGui::SameLine();
             if (ImGui::Button("Delete")) {
                 gLevel.removeObject(pObject);
             } else {
+                auto modelName = model->getName();
+                ImGui::Text("Mesh: %s", modelName.data());
                 ImGui::SliderFloat3("position", pObject->position.data(), -10.f, 10.f);
                 ImGui::SliderFloat3("rotation", pObject->rotation.data(), -1.f, 1.f);
                 ImGui::SliderFloat3("scale", pObject->scale.data(), 0.1f, 10.f);
@@ -303,7 +331,7 @@ struct GameGui final : graph::IGuiPass {
 
         if (ImGui::Button("Add Object")) {
             if (std::strlen(objectName) > 0) {
-                addObject(objectName);
+                addAlien(objectName);
                 objectName[0] = '\0';
             } else {
                 logWarn("cannot add object with no name");
@@ -545,6 +573,31 @@ CommandLine getCommandLine() {
     return args;
 }
 
+struct GameWorld {
+    math::float3 getWorldPos(size_t x, size_t y, float index = 0) {
+        return { index, (x * 2.f), (y * 2.f) };
+    }
+
+    size_t width = 10;
+    size_t height = 10;
+};
+
+GameWorld gWorld;
+
+static void createLevel() {
+    for (size_t x = 0; x < gWorld.width; x++) {
+        for (size_t y = 0; y < gWorld.height; y++) {
+            auto *pCross = addCross(std::format("cross-{}-{}", x, y));
+            pCross->position = gWorld.getWorldPos(x, y);
+        }
+    }
+
+    createPlayer("player");
+
+    pPlayerObject->position = gWorld.getWorldPos(0, 0, -1);
+    pPlayerObject->rotation = { -90 * math::kDegToRad<float>, 0.f, 0.f };
+}
+
 ///
 /// entry point
 ///
@@ -591,9 +644,6 @@ static void commonMain(const std::filesystem::path& path) {
         .renderHeight = 1080 * 2
     };
 
-    addObject("jeff");
-    addObject("bob");
-
     gLevel.pProjection = gProjections[gCurrentProjection];
 
     // move the render context into the render thread to prevent hangs on shutdown
@@ -614,17 +664,31 @@ static void commonMain(const std::filesystem::path& path) {
             auto *pTexture = pGraph->addResource<graph::TextureHandle>("uv-coords.png");
             auto *pUniform = pGraph->addResource<graph::SceneUniformHandle>();
 
+            auto *pPlayerTexture = pGraph->addResource<graph::TextureHandle>("player.png");
+            auto *pCrossTexture = pGraph->addResource<graph::TextureHandle>("cross.png");
+            auto *pAlienTexture = pGraph->addResource<graph::TextureHandle>("alien.png");
+
+            pPlayerMesh = pGraph->addObject<ObjMesh>("ship.model");
+            pCrossMesh = pGraph->addObject<ObjMesh>("cross.model");
+            pAlienMesh = pGraph->addObject<ObjMesh>("alien.model");
+
             const graph::GameRenderInfo gameRenderConfig = {
-                .pPlayerTexture =  pGraph->addResource<graph::TextureHandle>("player.png"),
-                .pCameraUniform = pGraph->addResource<graph::CameraUniformHandle>(),
-                .pPlayerMesh = pGraph->addObject<ObjMesh>("G:\\untitled.obj")
+                .pCameraUniform = pGraph->addResource<graph::CameraUniformHandle>()
             };
 
             pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pTexture, pUniform);
-            pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>(), gameRenderConfig);
+
+            auto *pGamePass = pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>(), gameRenderConfig);
+
             pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<graph::PresentPass>(pBackBuffers);
+
+            gPlayerTextureId = pGamePass->addTexture(pPlayerTexture);
+            gCrossTextureId = pGamePass->addTexture(pCrossTexture);
+            gAlienTextureId = pGamePass->addTexture(pAlienTexture);
+
+            pMainQueue->add("create-level", createLevel);
 
             // TODO: if the render loop throws an exception, the program will std::terminate
             // we should handle this case and restart the render loop
@@ -668,6 +732,41 @@ static void commonMain(const std::filesystem::path& path) {
 
         while (!token.stop_requested()) {
             pInput->poll();
+        }
+    });
+
+    std::jthread gameThread([](auto token) {
+        setThreadName("game");
+
+        Timer timer;
+        float lastTick = timer.now();
+
+        const float speed = 5.f;
+
+        while (!token.stop_requested()) {
+            float now = timer.now();
+            float delta = now - lastTick;
+            lastTick = now;
+
+            if (pPlayerObject == nullptr) continue;
+
+            float bx = gInputClient.getButtonAxis(Button::eKeyLeft, Button::eKeyRight);
+            float by = gInputClient.getButtonAxis(Button::eKeyDown, Button::eKeyUp);
+
+            float ax = gInputClient.getStickAxis(Axis::eGamepadLeftX);
+            float ay = gInputClient.getStickAxis(Axis::eGamepadLeftY);
+
+            float tx = -(bx + ax);
+            float ty = (by + ay);
+
+            if (tx == 0.f && ty == 0.f) continue;
+
+            pPlayerObject->position += math::float3(0.f, tx * speed * delta, ty * speed * delta);
+
+            pPlayerObject->rotation.x = -std::atan2(ty, tx);
+
+            gLevel.cameraPosition.y = pPlayerObject->position.y;
+            gLevel.cameraPosition.z = pPlayerObject->position.z;
         }
     });
 

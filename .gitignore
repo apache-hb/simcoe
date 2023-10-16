@@ -15,6 +15,7 @@
 !data/libs/agility/*
 !data/libs/warp/*
 !data/config/*
+!data/models/*
 
 # gameinput
 !subprojects/gameinput/lib/*

@@ -4,6 +4,8 @@
 #include <vector>
 
 namespace simcoe::assets {
+    namespace fs = std::filesystem;
+
     enum struct ImageFormat {
         eRGBA8
     };
@@ -17,12 +19,14 @@ namespace simcoe::assets {
     };
 
     struct Assets {
-        Assets(const std::filesystem::path& root) : root(root) { }
+        Assets(const fs::path& root) : root(root) { }
 
-        std::vector<std::byte> loadBlob(const std::filesystem::path& path) const;
+        fs::path getAssetPath(const fs::path& path) const;
 
-        Image loadImage(const std::filesystem::path& path) const;
+        std::vector<std::byte> loadBlob(const fs::path& path) const;
+
+        Image loadImage(const fs::path& path) const;
     private:
-        std::filesystem::path root;
+        fs::path root;
     };
 }

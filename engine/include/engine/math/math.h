@@ -12,7 +12,7 @@ namespace simcoe::math {
     template<typename T>
     constexpr T kDegToRad = std::numbers::pi_v<T> / T(180);
 
-    template <typename T>
+    template<typename T>
     T clamp(T it, T low, T high) {
         if (it < low)
             return low;
@@ -21,6 +21,23 @@ namespace simcoe::math {
             return high;
 
         return it;
+    }
+
+    template<typename T>
+    T wrapAngle(T it) {
+        if (it > std::numbers::pi_v<T>)
+            return it - std::numbers::pi_v<T> * T(2);
+
+        if (it < -std::numbers::pi_v<T>)
+            return it + std::numbers::pi_v<T> * T(2);
+
+        return it;
+    }
+
+    template<typename T>
+    T angleDelta(T lhs, T rhs) {
+        auto delta = lhs - rhs;
+        return wrapAngle(delta);
     }
 
     template<typename T>
