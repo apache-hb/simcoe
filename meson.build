@@ -149,7 +149,6 @@ src = [
     'editor/src/editor/debug/gui.cpp',
 
     # shaders
-    hlsl.process('data/shaders/quad.hlsl'),
     hlsl.process('data/shaders/blit.hlsl'),
     hlsl.process('data/shaders/object.hlsl'),
 
@@ -208,6 +207,7 @@ executable('client', src,
 
 if is_release
     layout = data_dir/'config/layout.xml'
-    # makepkg pack /f data/config/layout.xml /lt /d build /nogameos /pc /pd game
-    # wdapp install game\32190Simcoe.Swarm1983_1.0.0.0_x64__7vy8vpnrb1vvr.msixvc /bootstrapper
+    # mkdir bundle
+    # makepkg pack /f data/config/layout.xml /lt /d build /nogameos /pc /pd bundle
+    # wdapp install bundle\32190Simcoe.Swarm1983_1.0.0.0_x64__7vy8vpnrb1vvr.msixvc /bootstrapper
 endif

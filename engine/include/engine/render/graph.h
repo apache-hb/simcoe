@@ -89,7 +89,6 @@ namespace simcoe::render {
 
         virtual RenderTargetAlloc::Index getRtvIndex() const = 0;
 
-
         math::float4 getClearColour() const { return clearColour; }
 
     protected:

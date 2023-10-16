@@ -99,6 +99,14 @@ static size_t getByteSize(TypeFormat fmt) {
     }
 }
 
+static D3D_PRIMITIVE_TOPOLOGY getTopology(Topology topology) {
+    switch (topology) {
+    case Topology::eTriangleList: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+    case Topology::eTriangleStrip: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
+    default: throw std::runtime_error("invalid topology");
+    }
+}
+
 static size_t getPixelByteSize(TypeFormat fmt) {
     switch (fmt) {
     case TypeFormat::eRGBA8: return 4;
@@ -275,8 +283,8 @@ void Commands::setRenderTarget(HostHeapOffset rtvHandle, HostHeapOffset dsvHandl
     get()->OMSetRenderTargets(1, rtvHandles, FALSE, &innerDsvHandle);
 }
 
-void Commands::setVertexBuffer(VertexBuffer *pBuffer) {
-    get()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+void Commands::setVertexBuffer(VertexBuffer *pBuffer, Topology topology) {
+    get()->IASetPrimitiveTopology(getTopology(topology));
 
     D3D12_VERTEX_BUFFER_VIEW views[] = { pBuffer->getView() };
     get()->IASetVertexBuffers(0, 1, views);

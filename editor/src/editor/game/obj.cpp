@@ -78,11 +78,19 @@ void ObjMesh::create() {
 
     simcoe::logInfo("(vertices={} uvs={} indices={})", vertices.size(), texcoords.size(), indices.size());
 
+    auto getUvCoord = [&](int idx) {
+        if (idx != -1) {
+            return math::float2{ texcoords[idx * 2 + 0], texcoords[idx * 2 + 1] };
+        } else {
+            return math::float2{ 0.0f, 0.0f };
+        }
+    };
+
     auto getIndex = [&](tinyobj::index_t idx) {
         auto vtx = idx.vertex_index;
         auto uv = idx.texcoord_index;
 
-        math::float2 uvCoord = { texcoords[uv * 2 + 0], texcoords[uv * 2 + 1] };
+        math::float2 uvCoord = getUvCoord(uv);
         math::float3 position = { vertices[vtx * 3 + 0], vertices[vtx * 3 + 1], vertices[vtx * 3 + 2] };
 
         ObjVertex vertex = { position, uvCoord };

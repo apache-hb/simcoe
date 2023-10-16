@@ -54,7 +54,7 @@ namespace simcoe::math {
         T width;
         T height;
 
-        constexpr static Resolution of(T it) {
+        constexpr static Resolution from(T it) {
             return { it, it };
         }
 
@@ -91,8 +91,20 @@ namespace simcoe::math {
         T x;
         T y;
 
+        constexpr Vec2() : Vec2(0) { }
+        constexpr Vec2(T x, T y) : x(x), y(y) { }
+        constexpr Vec2(T it) : Vec2(it, it) { }
+        constexpr Vec2(const T *pData) : Vec2(pData[0], pData[1]) { }
+
+        constexpr static Vec2 from(T x, T y) { return { x, y }; }
+        constexpr static Vec2 from(T it) { return from(it, it); }
+        constexpr static Vec2 from(const T *pData) { return from(pData[0], pData[1]); }
+
+        constexpr static Vec2 zero() { return from(T(0)); }
+        constexpr static Vec2 unit() { return from(T(1)); }
+
         constexpr bool operator==(T other) const noexcept {
-            return equal(of(other));
+            return equal(from(other));
         }
 
         constexpr bool operator==(const Vec2& other) const noexcept {
@@ -104,10 +116,10 @@ namespace simcoe::math {
         }
 
         constexpr Vec2 operator+(const Vec2& other) const { return from(x + other.x, y + other.y); }
-        constexpr Vec2 operator+(T it) const { return *this + of(it); }
+        constexpr Vec2 operator+(T it) const { return *this + from(it); }
 
         constexpr Vec2 operator-(const Vec2 &other) const { return from(x - other.x, y - other.y); }
-        constexpr Vec2 operator-(T it) const { return *this - of(it); }
+        constexpr Vec2 operator-(T it) const { return *this - from(it); }
 
         constexpr Vec2 operator*(T it) const { return from(x * it, y * it); }
         constexpr Vec2 operator*(const Vec2& other) const { return from(x * other.x, y * other.y); }
@@ -136,23 +148,11 @@ namespace simcoe::math {
         }
 
         static constexpr Vec2 clamp(const Vec2 &it, T low, T high) {
-            return clamp(it, of(low), of(high));
-        }
-
-        static constexpr Vec2 from(T x, T y) {
-            return { x, y };
-        }
-
-        static constexpr Vec2 from(const T *pData) {
-            return { pData[0], pData[1] };
-        }
-
-        static constexpr Vec2 of(T it) {
-            return from(it, it);
+            return clamp(it, from(low), from(high));
         }
 
         constexpr Vec3<T> vec3(T z) const {
-            return Vec3<T>::from(x, y, z);
+            return { x, y, z };
         }
     };
 
@@ -162,37 +162,36 @@ namespace simcoe::math {
         T y;
         T z;
 
-        constexpr bool operator==(const Vec3& other) const noexcept {
-            return x == other.x && y == other.y && z == other.z;
-        }
+        constexpr Vec3() : Vec3(0) { }
+        constexpr Vec3(T x, T y, T z) : x(x), y(y), z(z) { }
+        constexpr Vec3(T it) : Vec3(it, it, it){ }
+        constexpr Vec3(T x, Vec2<T> yz) : Vec3(x, yz.x, yz.y) { }
+        constexpr Vec3(Vec2<T> xy, T z) : Vec3(xy.x, xy.y, z) { }
+        constexpr Vec3(const T *pData) : Vec3(pData[0], pData[1], pData[2]) { }
 
-        static constexpr Vec3 zero() {
-            return from(0, 0, 0);
-        }
+        static constexpr Vec3 from(T x, T y, T z) { return { x, y, z }; }
+        static constexpr Vec3 from(T it) { return from(it, it, it); }
+        static constexpr Vec3 from(T x, Vec2<T> yz) { return from(x, yz.x, yz.y); }
+        static constexpr Vec3 from(Vec2<T> xy, T z) { return from(xy.x, xy.y, z); }
+        static constexpr Vec3 from(const T *pData) { return from(pData[0], pData[1], pData[2]); }
 
-        static constexpr Vec3 from(T x, T y, T z) {
-            return { x, y, z };
-        }
+        static constexpr Vec3 zero() { return from(T(0)); }
+        static constexpr Vec3 unit() { return from(T(1)); }
 
-        static constexpr Vec3 from(const T *pData) {
-            return { pData[0], pData[1], pData[2] };
-        }
+        constexpr bool operator==(const Vec3& other) const { return x == other.x && y == other.y && z == other.z; }
+        constexpr bool operator!=(const Vec3& it) const { return x != it.x || y != it.y || z != it.z; }
 
-        static constexpr Vec3 of(T it) {
-            return from(it, it, it);
-        }
+        constexpr Vec3 operator+(const Vec3& it) const { return from(x + it.x, y + it.y, z + it.z); }
+        constexpr Vec3 operator-(const Vec3& it) const { return from(x - it.x, y - it.y, z - it.z); }
+        constexpr Vec3 operator*(const Vec3& it) const { return from(x * it.x, y * it.y, z * it.z); }
+        constexpr Vec3 operator/(const Vec3& it) const { return from(x / it.x, y / it.y, z / it.z); }
 
-        constexpr Vec3 operator-(const Vec3& it) const {
-            return from(x - it.x, y - it.y, z - it.z);
-        }
+        constexpr Vec3 operator+=(const Vec3& it) { return *this = *this + it; }
+        constexpr Vec3 operator-=(const Vec3& it) { return *this = *this - it; }
+        constexpr Vec3 operator*=(const Vec3& it) { return *this = *this * it; }
+        constexpr Vec3 operator/=(const Vec3& it) { return *this = *this / it; }
 
-        constexpr bool operator!=(const Vec3& it) const {
-            return x != it.x || y != it.y || z != it.z;
-        }
-
-        bool isinf() const {
-            return std::isinf(x) || std::isinf(y) || std::isinf(z);
-        }
+        bool isinf() const { return std::isinf(x) || std::isinf(y) || std::isinf(z); }
 
         static constexpr Vec3 cross(const Vec3& lhs, const Vec3& rhs) {
             return from(
@@ -223,22 +222,6 @@ namespace simcoe::math {
             return Vec4<T>::from(x, y, z, w);
         }
 
-        constexpr Vec3 operator*(T it) const {
-            return from(x * it, y * it, z * it);
-        }
-
-        constexpr Vec3 operator*=(T it) {
-            return *this = *this * it;
-        }
-
-        constexpr Vec3 operator+(const Vec3& it) const {
-            return from(x + it.x, y + it.y, z + it.z);
-        }
-
-        constexpr Vec3 operator+=(const Vec3& it) {
-            return *this = *this + it;
-        }
-
         constexpr T *data() { return &x; } // TODO: this is UB
     };
 
@@ -257,7 +240,7 @@ namespace simcoe::math {
             return { pData[0], pData[1], pData[2], pData[3] };
         }
 
-        static constexpr Vec4 of(T it) {
+        static constexpr Vec4 from(T it) {
             return from(it, it, it, it);
         }
 
@@ -307,8 +290,8 @@ namespace simcoe::math {
             return { row0, row1, row2 };
         }
 
-        static constexpr Mat3x3 of(T it) {
-            return from(Row::of(it), Row::of(it), Row::of(it));
+        static constexpr Mat3x3 from(T it) {
+            return from(Row::from(it), Row::from(it), Row::from(it));
         }
 
         static constexpr Mat3x3 identity() {
@@ -436,8 +419,8 @@ namespace simcoe::math {
             );
         }
 
-        static constexpr Mat4x4 of(T it) {
-            return from(Row::of(it), Row::of(it), Row::of(it), Row::of(it));
+        static constexpr Mat4x4 from(T it) {
+            return from(Row::from(it), Row::from(it), Row::from(it), Row::from(it));
         }
 
         ///
@@ -546,8 +529,8 @@ namespace simcoe::math {
         }
 
         static constexpr Mat4x4 lookToLH(const Row3& eye, const Row3& dir, const Row3& up) {
-            ASSERT(eye != Row3::of(0));
-            ASSERT(up != Row3::of(0));
+            ASSERT(eye != Row3::zero());
+            ASSERT(up != Row3::zero());
 
             ASSERT(!eye.isinf());
             ASSERT(!up.isinf());
@@ -565,7 +548,7 @@ namespace simcoe::math {
             auto s0 = r0.vec4(d0);
             auto s1 = r1.vec4(d1);
             auto s2 = r2.vec4(d2);
-            auto s3 = Row::from(0, 0, 0, 1);
+            auto s3 = Row(0, 0, 0, 1);
 
             return from(s0, s1, s2, s3).transpose();
         }

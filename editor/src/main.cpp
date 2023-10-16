@@ -33,6 +33,8 @@
 #include <fstream>
 
 using namespace simcoe;
+using namespace simcoe::math;
+
 using namespace editor;
 
 namespace gdk = microsoft::gdk;
@@ -59,6 +61,7 @@ std::string gGdkFailureReason = "";
 static tasks::WorkQueue *pMainQueue = nullptr;
 static tasks::WorkThread *pWorkThread = nullptr;
 static tasks::WorkThread *pRenderThread = nullptr;
+static tasks::WorkThread *pGameThread = nullptr;
 
 /// input
 
@@ -84,9 +87,10 @@ static size_t gAlienTextureId = SIZE_MAX;
 GameLevel gLevel;
 
 static PlayerObject *pPlayerObject = nullptr;
+static EnemyObject *pEnemyObject = nullptr;
 
-static void addAlien(std::string name) {
-    gLevel.addObject<EnemyObject>(name, pAlienMesh, gAlienTextureId);
+static void createAlien(std::string name) {
+    pEnemyObject = gLevel.addObject<EnemyObject>(name, pAlienMesh, gAlienTextureId);
 }
 
 static void createPlayer(std::string name) {
@@ -329,15 +333,6 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::InputText("name", objectName, std::size(objectName));
 
-        if (ImGui::Button("Add Object")) {
-            if (std::strlen(objectName) > 0) {
-                addAlien(objectName);
-                objectName[0] = '\0';
-            } else {
-                logWarn("cannot add object with no name");
-            }
-        }
-
         ImGui::End();
 
         gInputClient.debugDraw();
@@ -574,28 +569,110 @@ CommandLine getCommandLine() {
 }
 
 struct GameWorld {
-    math::float3 getWorldPos(size_t x, size_t y, float index = 0) {
-        return { index, (x * 2.f), (y * 2.f) };
+    float3 worldScale = float3::from(1.f, 1.f, 1.f) * float3::from(0.5f);
+    float3 worldOrigin = float3::from(0.f, 0.f, 0.f);
+
+    float3 getWorldPos(float x, float y, float index = 0) {
+        return worldOrigin + float3::from(index, x - 0.5f, y - 0.5f);
     }
 
-    size_t width = 10;
-    size_t height = 10;
+    float3 getWorldScale() const {
+        return worldScale;
+    }
+
+    float2 getWorldLimits() const {
+        return { float(width - 1), float(height) };
+    }
+
+    float2 getAlienSpawn() const {
+        return { 0.f, float(height - 1) };
+    }
+
+    float2 getPlayerSpawn() const {
+        return { 0.f, float(height - 2) };
+    }
+
+    size_t width = 22;
+    size_t height = 19;
+
+    size_t maxLives = 5;
+    size_t currentLives = 3;
 };
 
 GameWorld gWorld;
 
 static void createLevel() {
+    createAlien("alien");
+    pEnemyObject->position = float3::from(2.f, gWorld.getAlienSpawn());
+    pEnemyObject->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
+    pEnemyObject->scale = gWorld.getWorldScale();
+
+    createPlayer("player");
+    pPlayerObject->position = float3::from(1.f, gWorld.getPlayerSpawn());
+    pPlayerObject->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
+    pPlayerObject->scale = gWorld.getWorldScale();
+
+    gLevel.cameraPosition = { 10.f, float(gWorld.width) / 2, float(gWorld.height) / 2 };
+    gLevel.cameraRotation = { -1, 0.f, 0.f };
+
     for (size_t x = 0; x < gWorld.width; x++) {
         for (size_t y = 0; y < gWorld.height; y++) {
             auto *pCross = addCross(std::format("cross-{}-{}", x, y));
-            pCross->position = gWorld.getWorldPos(x, y);
+            pCross->position = gWorld.getWorldPos(float(x), float(y));
+            pCross->scale = gWorld.getWorldScale();
         }
     }
+}
 
-    createPlayer("player");
+static void createGameThread() {
+    pGameThread = newTask("game", [](tasks::WorkQueue *pSelf, auto token) {
+        Timer timer;
+        float lastTick = timer.now();
 
-    pPlayerObject->position = gWorld.getWorldPos(0, 0, -1);
-    pPlayerObject->rotation = { -90 * math::kDegToRad<float>, 0.f, 0.f };
+        const float playerSpeed = 5.f;
+        const float enemySpeed = 2.f;
+
+        const float2 limits = gWorld.getWorldLimits();
+
+        auto updateEnemy = [&](float delta) {
+            pEnemyObject->position.y += enemySpeed * delta;
+            if (pEnemyObject->position.y > limits.y) {
+                pEnemyObject->position.y = 0.f;
+            }
+        };
+
+        auto updatePlayer = [&](float delta) {
+            float bx = gInputClient.getButtonAxis(Button::eKeyLeft, Button::eKeyRight);
+            float by = gInputClient.getButtonAxis(Button::eKeyDown, Button::eKeyUp);
+
+            float ax = gInputClient.getStickAxis(Axis::eGamepadLeftX);
+            float ay = gInputClient.getStickAxis(Axis::eGamepadLeftY);
+
+            float tx = (bx + ax);
+            float ty = (by + ay);
+
+            pPlayerObject->position += float3(0.f, tx * playerSpeed * delta, ty * playerSpeed * delta);
+
+            //pPlayerObject->position.y = math::clamp(pPlayerObject->position.y, 0.f, limits.x);
+            //pPlayerObject->position.z = math::clamp(pPlayerObject->position.z, 0.f, limits.y);
+
+            pPlayerObject->rotation.x = -std::atan2(ty, tx);
+        };
+
+        while (!token.stop_requested()) {
+            float now = timer.now();
+            float delta = now - lastTick;
+            lastTick = now;
+
+            if (pEnemyObject != nullptr) {
+                updateEnemy(delta);
+            }
+
+            if (pPlayerObject != nullptr) {
+                updatePlayer(delta);
+            }
+        }
+    });
 }
 
 ///
@@ -661,8 +738,6 @@ static void commonMain(const std::filesystem::path& path) {
             auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
             auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
             auto *pDepthTarget = pGraph->addResource<graph::DepthTargetHandle>();
-            auto *pTexture = pGraph->addResource<graph::TextureHandle>("uv-coords.png");
-            auto *pUniform = pGraph->addResource<graph::SceneUniformHandle>();
 
             auto *pPlayerTexture = pGraph->addResource<graph::TextureHandle>("player.png");
             auto *pCrossTexture = pGraph->addResource<graph::TextureHandle>("cross.png");
@@ -676,7 +751,7 @@ static void commonMain(const std::filesystem::path& path) {
                 .pCameraUniform = pGraph->addResource<graph::CameraUniformHandle>()
             };
 
-            pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pTexture, pUniform);
+            pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>());
 
             auto *pGamePass = pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>(), gameRenderConfig);
 
@@ -689,6 +764,7 @@ static void commonMain(const std::filesystem::path& path) {
             gAlienTextureId = pGamePass->addTexture(pAlienTexture);
 
             pMainQueue->add("create-level", createLevel);
+            pMainQueue->add("start-game", createGameThread);
 
             // TODO: if the render loop throws an exception, the program will std::terminate
             // we should handle this case and restart the render loop
@@ -735,41 +811,6 @@ static void commonMain(const std::filesystem::path& path) {
         }
     });
 
-    std::jthread gameThread([](auto token) {
-        setThreadName("game");
-
-        Timer timer;
-        float lastTick = timer.now();
-
-        const float speed = 5.f;
-
-        while (!token.stop_requested()) {
-            float now = timer.now();
-            float delta = now - lastTick;
-            lastTick = now;
-
-            if (pPlayerObject == nullptr) continue;
-
-            float bx = gInputClient.getButtonAxis(Button::eKeyLeft, Button::eKeyRight);
-            float by = gInputClient.getButtonAxis(Button::eKeyDown, Button::eKeyUp);
-
-            float ax = gInputClient.getStickAxis(Axis::eGamepadLeftX);
-            float ay = gInputClient.getStickAxis(Axis::eGamepadLeftY);
-
-            float tx = -(bx + ax);
-            float ty = (by + ay);
-
-            if (tx == 0.f && ty == 0.f) continue;
-
-            pPlayerObject->position += math::float3(0.f, tx * speed * delta, ty * speed * delta);
-
-            pPlayerObject->rotation.x = -std::atan2(ty, tx);
-
-            gLevel.cameraPosition.y = pPlayerObject->position.y;
-            gLevel.cameraPosition.z = pPlayerObject->position.z;
-        }
-    });
-
     while (pSystem->getEvent()) {
         pSystem->dispatchEvent();
         pMainQueue->process();
@@ -779,6 +820,7 @@ static void commonMain(const std::filesystem::path& path) {
         }
     }
 
+    delete pGameThread;
     delete pWorkThread;
     delete pRenderThread;
     delete pMainQueue;

@@ -4,5 +4,6 @@
     <FileGroup DestinationPath="." SourcePath="." Include="editor.exe" />
     <FileGroup DestinationPath=".\editor.exe.p" SourcePath=".\editor.exe.p" Include="*.cso" />
     <FileGroup DestinationPath=".\editor.exe.p" SourcePath=".\editor.exe.p" Include="*.png" />
+    <FileGroup DestinationPath=".\editor.exe.p" SourcePath=".\editor.exe.p" Include="*.model" />
   </Chunk>
 </Package>

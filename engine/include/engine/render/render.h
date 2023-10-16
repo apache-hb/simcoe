@@ -23,6 +23,8 @@ namespace simcoe::render {
 
         UINT renderWidth;
         UINT renderHeight;
+
+        size_t srvHeapSize = 1024;
     };
 
     // helper types
@@ -253,8 +255,8 @@ namespace simcoe::render {
             pDirectCommands->drawIndexBuffer(count);
         }
 
-        void setVertexBuffer(rhi::VertexBuffer *pBuffer) {
-            pDirectCommands->setVertexBuffer(pBuffer);
+        void setVertexBuffer(rhi::VertexBuffer *pBuffer, rhi::Topology topology = rhi::Topology::eTriangleList) {
+            pDirectCommands->setVertexBuffer(pBuffer, topology);
         }
 
         void setIndexBuffer(rhi::IndexBuffer *pBuffer) {
@@ -263,6 +265,10 @@ namespace simcoe::render {
 
         void drawIndexed(size_t count) {
             pDirectCommands->drawIndexBuffer(count);
+        }
+
+        void draw(size_t count) {
+            pDirectCommands->drawVertexBuffer(count);
         }
 
         // copy commands

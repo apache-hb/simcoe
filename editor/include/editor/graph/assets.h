@@ -59,8 +59,6 @@ namespace editor::graph {
     struct SceneTargetHandle final : ITextureHandle, ISingleSRVHandle, ISingleRTVHandle {
         SceneTargetHandle(Graph *ctx);
 
-        static constexpr math::float4 kClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
-
         void create() override;
         void destroy() override;
     };

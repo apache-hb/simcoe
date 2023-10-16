@@ -25,35 +25,8 @@ constexpr rhi::Display createDisplay(UINT width, UINT height) {
     return { viewport, scissor };
 }
 
-static constexpr auto kQuadVerts = std::to_array<Vertex>({
-    Vertex{ { 0.5f, -0.5f, 0.0f }, { 0.f, 0.f } }, // top left
-    Vertex{ { 0.5f, 0.5f, 0.0f }, { 1.f, 0.f } }, // top right
-    Vertex{ { -0.5f, -0.5f, 0.0f }, { 0.f, 1.f } }, // bottom left
-    Vertex{ { -0.5f, 0.5f, 0.0f }, { 1.f, 1.f } } // bottom right
-});
-
-static constexpr auto kQuadIndices = std::to_array<uint16_t>({
-    0, 2, 1,
-    1, 2, 3
-});
-
-void SceneUniformHandle::update() {
-    float time = timer.now();
-    const auto& createInfo = ctx->getCreateInfo();
-
-    UniformData data = {
-        .offset = { 0.f, std::sin(time) / 3 },
-        .angle = time,
-        .aspect = float(createInfo.renderHeight) / float(createInfo.renderWidth)
-    };
-
-    getBuffer()->write(&data, sizeof(UniformData));
-}
-
-ScenePass::ScenePass(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<TextureHandle> *pTexture, ResourceWrapper<SceneUniformHandle> *pUniform)
+ScenePass::ScenePass(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget)
     : IRenderPass(ctx, "scene", eDepRenderSize)
-    , pTextureHandle(addAttachment(pTexture, rhi::ResourceState::eShaderResource))
-    , pUniformHandle(addAttachment(pUniform, rhi::ResourceState::eShaderResource))
 {
     setRenderTargetHandle(pRenderTarget);
 }
@@ -61,75 +34,12 @@ ScenePass::ScenePass(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, Res
 void ScenePass::create() {
     const auto& createInfo = ctx->getCreateInfo();
     display = createDisplay(createInfo.renderWidth, createInfo.renderHeight);
-
-    // create pipeline
-    const rhi::PipelineCreateInfo psoCreateInfo = {
-        .vertexShader = createInfo.depot.loadBlob("quad.vs.cso"),
-        .pixelShader = createInfo.depot.loadBlob("quad.ps.cso"),
-
-        .attributes = {
-            { "POSITION", offsetof(Vertex, position), rhi::TypeFormat::eFloat3 },
-            { "TEXCOORD", offsetof(Vertex, uv), rhi::TypeFormat::eFloat2 }
-        },
-
-        .textureInputs = {
-            { "tex", rhi::InputVisibility::ePixel, 0, true }
-        },
-
-        .uniformInputs = {
-            { "object", rhi::InputVisibility::eVertex, 0, false }
-        },
-
-        .samplers = {
-            { rhi::InputVisibility::ePixel, 0 }
-        },
-
-        .rtvFormat = ctx->getSwapChainFormat(),
-
-        .depthEnable = false
-    };
-
-    pPipeline = ctx->createPipelineState(psoCreateInfo);
-    pPipeline->setName("pso.scene");
-
-    // create vertex data
-    std::unique_ptr<rhi::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(kQuadVerts.data(), kQuadVerts.size() * sizeof(Vertex))};
-    std::unique_ptr<rhi::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(kQuadIndices.data(), kQuadIndices.size() * sizeof(uint16_t))};
-
-    pQuadVertexBuffer = ctx->createVertexBuffer(kQuadVerts.size(), sizeof(Vertex));
-    pQuadIndexBuffer = ctx->createIndexBuffer(kQuadIndices.size(), rhi::TypeFormat::eUint16);
-
-    pVertexStaging->setName("vbo-staging.quad");
-    pIndexStaging->setName("ibo-staging.quad");
-
-    pQuadVertexBuffer->setName("vbo.quad");
-    pQuadIndexBuffer->setName("ibo.quad");
-
-    ctx->beginCopy();
-    ctx->copyBuffer(pQuadVertexBuffer, pVertexStaging.get());
-    ctx->copyBuffer(pQuadIndexBuffer, pIndexStaging.get());
-    ctx->endCopy();
 }
 
 void ScenePass::destroy() {
-    delete pPipeline;
 
-    delete pQuadVertexBuffer;
-    delete pQuadIndexBuffer;
 }
 
 void ScenePass::execute() {
-    ISRVHandle *pTexture = pTextureHandle->getInner();
-    SceneUniformHandle *pUniform = pUniformHandle->getInner();
-
-    pUniform->update();
-
-    ctx->setPipeline(pPipeline);
     ctx->setDisplay(display);
-
-    ctx->setShaderInput(pTexture->getSrvIndex(), pPipeline->getTextureInput("tex"));
-    ctx->setShaderInput(pUniform->getSrvIndex(), pPipeline->getUniformInput("object"));
-
-    ctx->setVertexBuffer(pQuadVertexBuffer);
-    ctx->drawIndexBuffer(pQuadIndexBuffer, kQuadIndices.size());
 }

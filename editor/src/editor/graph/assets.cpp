@@ -4,7 +4,7 @@ using namespace editor;
 using namespace editor::graph;
 
 static constexpr math::float4 kRenderClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
-static constexpr math::float4 kSceneClearColour = { 0.0f, 0.2f, 0.4f, 1.0f };
+static constexpr math::float4 kSceneClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
 
 SwapChainHandle::SwapChainHandle(Graph *ctx)
     : IResourceHandle(ctx, "swapchain.rtv", StateDep(eDepDisplaySize | eDepBackBufferCount))
@@ -67,7 +67,7 @@ void SceneTargetHandle::create() {
         .format = rhi::TypeFormat::eRGBA8,
     };
 
-    auto *pResource = ctx->createTextureRenderTarget(textureCreateInfo, kClearColour);
+    auto *pResource = ctx->createTextureRenderTarget(textureCreateInfo, getClearColour());
     pResource->setName("scene-target");
 
     setResource(pResource);

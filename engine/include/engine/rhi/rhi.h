@@ -413,6 +413,11 @@ namespace simcoe::rhi {
         ResourceState after;
     };
 
+    enum struct Topology {
+        eTriangleList,
+        eTriangleStrip
+    };
+
     struct Commands : Object<ID3D12GraphicsCommandList> {
         // public interface
 
@@ -434,7 +439,7 @@ namespace simcoe::rhi {
         void setRenderTarget(HostHeapOffset handle);
         void setRenderTarget(HostHeapOffset rtvHandle, HostHeapOffset dsvHandle);
 
-        void setVertexBuffer(VertexBuffer *pBuffer);
+        void setVertexBuffer(VertexBuffer *pBuffer, Topology topology = Topology::eTriangleList);
         void setIndexBuffer(IndexBuffer *pBuffer);
 
         void drawVertexBuffer(UINT count);
