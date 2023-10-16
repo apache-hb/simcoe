@@ -123,8 +123,6 @@ Window::~Window() {
 // callbacks
 
 void Window::doResize(int width, int height, bool fullscreen) {
-    logInfo("resize: {} {} {}", width, height, fullscreen);
-
     pCallbacks->onResize({
         .width = width,
         .height = height
@@ -201,7 +199,6 @@ void Window::exitFullscreen() {
 
 void Window::setStyle(WindowStyle style) {
     SetWindowLongPtr(hWindow, GWL_STYLE, getStyle(style));
-    //SetWindowPos(hWindow, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
 }
 
 // system api
@@ -267,7 +264,7 @@ typedef struct tagTHREADNAME_INFO {
 } THREADNAME_INFO;
 #pragma pack(pop)
 
-static constexpr DWORD dwMagicBullshit = 0x406D1388;
+static constexpr DWORD dwRenameThreadMagic = 0x406D1388;
 
 static void setThreadDesc(const char *name) {
     auto wide = util::widen(name);
@@ -287,7 +284,7 @@ void simcoe::setThreadName(const char *name) {
     };
 
     __try {
-        RaiseException(dwMagicBullshit, 0, sizeof(info) / sizeof(DWORD), reinterpret_cast<ULONG_PTR *>(&info));
+        RaiseException(dwRenameThreadMagic, 0, sizeof(info) / sizeof(DWORD), reinterpret_cast<ULONG_PTR *>(&info));
     } __except (EXCEPTION_EXECUTE_HANDLER) {
     }
 }

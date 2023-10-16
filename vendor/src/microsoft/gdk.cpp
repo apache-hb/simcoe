@@ -15,8 +15,9 @@ namespace gdk = microsoft::gdk;
 #define HR_CHECK(expr) \
     do { \
         if (HRESULT hr = (expr); FAILED(hr)) { \
-            simcoe::logError("failure: {} ({})", #expr, simcoe::getErrorName(hr)); \
-            throw std::runtime_error(#expr); \
+            auto msg = std::format("gdk-error: {} ({})", #expr, gdkErrorString(hr)); \
+            simcoe::logError(msg); \
+            throw std::runtime_error(msg); \
         } \
     } while (false)
 

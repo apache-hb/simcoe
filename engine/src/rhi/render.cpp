@@ -17,8 +17,9 @@ using namespace simcoe::rhi;
 #define HR_CHECK(expr) \
     do { \
         if (HRESULT hr = (expr); FAILED(hr)) { \
-            simcoe::logError("expr: {}. ({})", #expr, simcoe::getErrorName(hr)); \
-            throw std::runtime_error(#expr); \
+            auto msg = std::format("{} ({})", #expr, simcoe::getErrorName(hr)); \
+            simcoe::logError(msg); \
+            throw std::runtime_error(msg); \
         } \
     } while (false)
 
@@ -352,7 +353,7 @@ DisplayQueue *DeviceQueue::createDisplayQueue(Context *pContext, const DisplayQu
 
     ComPtr<IDXGISwapChain1> pSwapChain1 = nullptr;
     HR_CHECK(pFactory->CreateSwapChainForHwnd(getQueue(), createInfo.hWindow, &desc, nullptr, nullptr, &pSwapChain1));
-    //HR_CHECK(pFactory->MakeWindowAssociation(createInfo.hWindow, DXGI_MWA_NO_ALT_ENTER));
+    HR_CHECK(pFactory->MakeWindowAssociation(createInfo.hWindow, DXGI_MWA_NO_ALT_ENTER));
 
     IDXGISwapChain4 *pSwapChain = nullptr;
     HR_CHECK(pSwapChain1->QueryInterface(IID_PPV_ARGS(&pSwapChain)));
@@ -398,20 +399,13 @@ RenderTarget *DisplayQueue::getRenderTarget(UINT index) {
 void DisplayQueue::present(bool allowTearing) {
     UINT flags = (tearing && allowTearing) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
 
-    // TODO: this is a little hacky but works well enough for now
-    // without this its impossible to enter fullscreen because of race conditions
-    // l0
-    // t1 -> lock the context. begin fullscreen (this makes presenting fail)
-    // t2 -> the begin fullscreen message makes a thread signal a window resize to the message thread
-    // t1 -> unlock context. the swapchain has been resized but with the wrong size
-    // ... a present may happen here ...
-    // t2 -> the message thread resizes the swapchain to the correct size, presents now work
-    if (HRESULT hr = (pSwapChain->Present(0, flags)); hr == DXGI_ERROR_INVALID_CALL) {
+    HRESULT hr = (pSwapChain->Present(0, flags));
+    if (hr == DXGI_ERROR_INVALID_CALL) {
         failedFrames += 1; // count consecutive failed frames
         simcoe::logError("consecutive failed presents: {}", failedFrames.load());
     } else if (hr == DXGI_ERROR_DEVICE_REMOVED) {
         simcoe::logInfo("device removed, cannot present");
-        throw std::runtime_error("device removed");
+        throw std::runtime_error("device removed during present");
     } else if (SUCCEEDED(hr)) {
         failedFrames = 0;
     } else {
@@ -421,7 +415,7 @@ void DisplayQueue::present(bool allowTearing) {
 
     if (failedFrames > 3) {
         simcoe::logError("too many failed frames, exiting");
-        throw std::runtime_error("too many failed frames");
+        throw std::runtime_error(std::format("too many failed frames, last error {}", simcoe::getErrorName(hr)));
     }
 }
 

@@ -379,7 +379,7 @@ namespace simcoe::render {
         void destroyIf(StateDep dep);
 
         std::atomic_bool lock;
-        std::mutex renderLock;
+        std::recursive_mutex renderLock;
 
     public:
         void setResourceState(rhi::DeviceResource *pResource, rhi::ResourceState state) {
@@ -396,7 +396,6 @@ namespace simcoe::render {
         Context *ctx;
 
     public:
-
         // TODO: make private
         std::vector<ICommandPass*> passes;
         std::vector<IResourceHandle*> resources;

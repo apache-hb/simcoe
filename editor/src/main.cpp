@@ -76,7 +76,7 @@ static int gCurrentProjection = 0;
 GameLevel gLevel;
 
 static void addObject(std::string name) {
-    gLevel.addObject(new EnemyObject(name));
+    gLevel.addObject<EnemyObject>(name);
 }
 
 template<typename F>
@@ -281,19 +281,20 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::Begin("Game Objects");
 
-        gLevel.useObjects([&](const auto& objects) {
-            for (size_t i = 0; i < objects.size(); i++) {
-                auto *pObject = objects[i];
-                ImGui::PushID(i);
+        gLevel.useEachObject([&](IGameObject *pObject) {
+            ImGui::PushID((void*)pObject);
 
-                ImGui::BulletText("%s", pObject->name.data());
-
+            ImGui::BulletText("%s", pObject->name.data());
+            ImGui::SameLine();
+            if (ImGui::Button("Delete")) {
+                gLevel.removeObject(pObject);
+            } else {
                 ImGui::SliderFloat3("position", pObject->position.data(), -10.f, 10.f);
                 ImGui::SliderFloat3("rotation", pObject->rotation.data(), -1.f, 1.f);
                 ImGui::SliderFloat3("scale", pObject->scale.data(), 0.1f, 10.f);
-
-                ImGui::PopID();
             }
+
+            ImGui::PopID();
         });
 
         ImGui::SeparatorText("Add Object");
@@ -635,6 +636,8 @@ static void commonMain(const std::filesystem::path& path) {
                 try {
                     pGraph->execute();
                 } catch (std::runtime_error& err) {
+                    simcoe::logError("render exception: {}", err.what());
+
                     faultCount += 1;
                     simcoe::logError("render fault. {} total fault{}", faultCount, faultCount > 1 ? "s" : "");
                     if (faultCount > faultLimit) {
@@ -642,7 +645,6 @@ static void commonMain(const std::filesystem::path& path) {
                         break;
                     }
 
-                    simcoe::logError("exception: {}. attempting to resume", err.what());
                     pGraph->resumeFromFault();
                 } catch (...) {
                     simcoe::logError("unknown thread exception. exiting");

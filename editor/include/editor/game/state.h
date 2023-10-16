@@ -2,6 +2,8 @@
 
 #include "editor/game/object.h"
 
+#include <unordered_set>
+
 namespace editor {
     ///
     /// view matrices
@@ -116,15 +118,23 @@ namespace editor {
 
         IProjection *pProjection = nullptr;
 
-        void addObject(IGameObject *pObject) {
+        template<typename T, typename... A>
+        IGameObject *addObject(A&&... args) {
             std::lock_guard guard(lock);
+            T *pObject = new T(args...);
             objects.push_back(pObject);
+            return pObject;
+        }
+
+        void removeObject(IGameObject *pObject) {
+            std::lock_guard guard(lock);
+            std::erase(objects, pObject);
         }
 
         template<typename F>
         void useEachObject(F&& func) {
             std::lock_guard guard(lock);
-            for (auto *pObject : objects)
+            for (auto& pObject : objects)
                 func(pObject);
         }
 
@@ -136,6 +146,6 @@ namespace editor {
 
     private:
         std::vector<IGameObject*> objects;
-        std::mutex lock;
+        std::recursive_mutex lock;
     };
 }
