@@ -1,6 +1,7 @@
 #include "editor/game/level.h"
 
 using namespace editor;
+using namespace editor::game;
 
 void GameLevel::deleteObject(IGameObject *pObject) {
     std::lock_guard guard(lock);

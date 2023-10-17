@@ -19,7 +19,7 @@ namespace editor::graph {
             : IUniformHandle(ctx, "uniform.camera", eDepRenderSize)
         { }
 
-        void update(GameLevel *pLevel);
+        void update(game::GameLevel *pLevel);
     };
 
     struct ObjectUniformHandle final : IUniformHandle<ObjectUniform> {
@@ -27,7 +27,7 @@ namespace editor::graph {
             : IUniformHandle(ctx, std::format("uniform.object.{}", name))
         { }
 
-        void update(IGameObject *pObject);
+        void update(game::IGameObject *pObject);
     };
 
     struct GameRenderInfo {
@@ -37,7 +37,7 @@ namespace editor::graph {
     struct GameLevelPass final : IRenderPass {
         GameLevelPass(
             Graph *ctx,
-            GameLevel *pLevel,
+            game::GameLevel *pLevel,
             ResourceWrapper<IRTVHandle> *pRenderTarget,
             ResourceWrapper<IDSVHandle> *pDepthTarget,
             GameRenderInfo info
@@ -58,12 +58,12 @@ namespace editor::graph {
 
         std::vector<TextureAttachment*> textureAttachments;
 
-        std::unordered_map<IGameObject*, ObjectAttachment*> objectUniforms;
-        ObjectUniformHandle *getObjectUniform(IGameObject *pObject);
-        void createObjectUniform(IGameObject *pObject);
+        std::unordered_map<game::IGameObject*, ObjectAttachment*> objectUniforms;
+        ObjectUniformHandle *getObjectUniform(game::IGameObject *pObject);
+        void createObjectUniform(game::IGameObject *pObject);
 
         rhi::PipelineState *pPipeline;
 
-        GameLevel *pLevel;
+        game::GameLevel *pLevel;
     };
 }

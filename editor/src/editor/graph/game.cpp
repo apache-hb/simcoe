@@ -4,6 +4,8 @@
 
 using namespace editor;
 using namespace editor::graph;
+using namespace editor::game;
+
 using namespace simcoe::math;
 
 constexpr auto kUpVector = float3::from(0.f, 0.f, 1.f); // z-up

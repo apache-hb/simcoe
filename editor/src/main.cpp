@@ -30,6 +30,7 @@
 
 // game logic
 #include "editor/game/input.h"
+#include "editor/game/swarm.h"
 
 #include <functional>
 #include <array>
@@ -39,6 +40,7 @@ using namespace simcoe;
 using namespace simcoe::math;
 
 using namespace editor;
+using namespace editor::game;
 
 namespace gdk = microsoft::gdk;
 namespace fs = std::filesystem;
@@ -87,7 +89,7 @@ static IMeshBufferHandle *pEggMediumMesh = nullptr;
 static IMeshBufferHandle *pEggLargeMesh = nullptr;
 
 static size_t gPlayerTextureId = SIZE_MAX;
-static size_t gCrossTextureId = SIZE_MAX;
+static size_t gGridTextureId = SIZE_MAX;
 static size_t gAlienTextureId = SIZE_MAX;
 
 static size_t gBulletTextureId = SIZE_MAX;
@@ -98,263 +100,8 @@ static size_t gEggLargeTextureId = SIZE_MAX;
 
 /// game level
 
-static GameLevel gLevel;
-static game::GameInputClient gInputClient;
-
-struct AlienObject;
-struct PlayerObject;
-
-struct GameWorld {
-    float3 worldScale = float3::from(1.f, 1.f, 1.f) * float3::from(0.5f);
-    float3 worldOrigin = float3::from(0.f, 0.f, 0.f);
-
-    float3 getWorldPos(float x, float y, float index = 0) {
-        return worldOrigin + float3::from(index, x - 0.5f, y - 0.5f);
-    }
-
-    float3 getWorldScale() const {
-        return worldScale;
-    }
-
-    float2 getWorldLimits() const {
-        return { float(width - 1), float(height) };
-    }
-
-    float2 getAlienSpawn() const {
-        return { 0.f, float(height - 1) };
-    }
-
-    float2 getPlayerSpawn() const {
-        return { 0.f, float(height - 2) };
-    }
-
-    void createAlien();
-    void createPlayer();
-
-    size_t width = 22;
-    size_t height = 19;
-
-    AlienObject *getAlien() const { return pAlien; }
-    PlayerObject *getPlayer() const { return pPlayer; }
-
-private:
-    AlienObject *pAlien;
-    PlayerObject *pPlayer;
-};
-
-static GameWorld gWorld;
-
-struct AlienObject : IGameObject {
-    AlienObject(GameLevel *pLevel, std::string name) : IGameObject(pLevel, name) {
-        setMesh(pAlienMesh);
-        setTextureId(gAlienTextureId);
-
-        position = float3::from(2.f, gWorld.getAlienSpawn());
-        rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
-        scale = gWorld.getWorldScale();
-    }
-
-    void tick(float delta) override {
-        float2 limits = gWorld.getWorldLimits();
-
-        position.y += speed * delta;
-        if (position.y > limits.y) {
-            position.y = 0.f;
-        }
-    }
-
-private:
-    float speed = 2.f;
-};
-
-struct BulletObject : IGameObject {
-    BulletObject(GameLevel *pLevel, IGameObject *pParent, float2 velocity)
-        : IGameObject(pLevel, "bullet")
-        , pParent(pParent)
-        , velocity(velocity)
-    {
-        setMesh(pBulletMesh);
-        setTextureId(gBulletTextureId);
-        setShouldCull(true);
-    }
-
-    void tick(float delta) override {
-        position += float3::from(0.f, velocity * delta);
-    }
-
-    bool isParent(IGameObject *pObject) const {
-        return pParent == pObject;
-    }
-
-private:
-    IGameObject *pParent;
-    float2 velocity;
-};
-
-struct LifeObject : IGameObject {
-    LifeObject(GameLevel *pLevel, size_t life)
-        : IGameObject(pLevel, std::format("life-{}", life))
-    {
-        setMesh(pPlayerMesh);
-        setTextureId(gPlayerTextureId);
-        setShouldCull(false);
-    }
-};
-
-struct PlayerObject : IGameObject {
-    PlayerObject(GameLevel *pLevel, std::string name) : IGameObject(pLevel, name) {
-        setMesh(pPlayerMesh);
-        setTextureId(gPlayerTextureId);
-        setShouldCull(false); // TODO: we shouldnt need this
-
-        position = float3::from(1.f, gWorld.getPlayerSpawn());
-        rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
-        scale = gWorld.getWorldScale();
-
-        createLives();
-    }
-
-    void tick(float delta) override {
-        float moveVertical = gInputClient.getHorizontalAxis();
-        float moveHorizontal = gInputClient.getVerticalAxis();
-
-        position += float3(0.f, moveVertical * speed * delta, moveHorizontal * speed * delta);
-
-        float2 limits = gWorld.getWorldLimits();
-
-        position.y = math::clamp(position.y, 0.f, limits.x);
-        position.z = math::clamp(position.z, 0.f, limits.y);
-
-        float angle = std::atan2(moveHorizontal, moveVertical);
-
-        if (moveVertical != 0.f || moveHorizontal != 0.f)
-            rotation.x = -angle;
-
-        if (gInputClient.isShootPressed())
-            tryShootBullet(angle);
-    }
-
-private:
-    void createLives() {
-        for (size_t i = 0; i < initialLives; i++) {
-            addLife();
-        }
-    }
-
-    void addLife() {
-        if (currentLives >= maxLives) {
-            return;
-        }
-
-        LifeObject *pLife = gLevel.addObject<LifeObject>(currentLives);
-        pLife->position = gWorld.getWorldPos(float(gWorld.width - currentLives), -1.f);
-        pLife->scale = gWorld.getWorldScale();
-        pLife->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
-        lifeObjects.push_back(pLife);
-        currentLives += 1;
-    }
-
-    void removeLife() {
-        if (currentLives == 0) {
-            // TODO: report game over
-            return;
-        }
-
-        currentLives -= 1;
-        pLevel->deleteObject(lifeObjects.back());
-        lifeObjects.pop_back();
-    }
-
-    void tryShootBullet(float angle) {
-        float now = pLevel->getCurrentTime();
-        if (now - lastFire > fireRate) {
-            lastFire = now;
-
-            float2 velocity = float2::from(std::cos(angle), std::sin(angle)) * bulletSpeed;
-
-            auto *pBullet = gLevel.addObject<BulletObject>(this, velocity);
-            pBullet->position = position;
-            pBullet->rotation = rotation;
-            pBullet->scale = gWorld.getWorldScale() * 0.3f;
-        }
-    }
-
-    // shooting logic
-    float lastFire = 0.f;
-    float fireRate = 0.3f;
-
-    // config
-    float speed = 5.f;
-    float bulletSpeed = 10.f;
-    size_t initialLives = 3;
-
-    size_t maxLives = 5;
-    size_t currentLives = 0;
-    std::vector<LifeObject*> lifeObjects;
-};
-
-struct EggObject : IGameObject {
-    EggObject(GameLevel *pLevel, std::string name) : IGameObject(pLevel, name) {
-        setMesh(pEggSmallMesh);
-        setTextureId(gEggSmallTextureId);
-    }
-
-    void tick(float delta) {
-        timeAlive += delta;
-
-        if (timeAlive > kTimeToHatch) {
-            pLevel->deleteObject(this);
-            pLevel->addObject<BulletObject>(gWorld.getAlien(), getPlayerTarget());
-        } else if (timeAlive > kTimeToLarge) {
-            setMesh(pEggLargeMesh);
-            setTextureId(gEggLargeTextureId);
-        } else if (timeAlive > kTimeToMedium) {
-            setMesh(pEggMediumMesh);
-            setTextureId(gEggMediumTextureId);
-        }
-    }
-
-private:
-    /**
-     * @brief create a velocity vector that would propel a bullet from the eggs position to the players
-     *
-     * @return float2
-     */
-    float2 getPlayerTarget() const {
-        float2 playerPos = gWorld.getPlayer()->position.xy();
-        float2 eggPos = position.xy();
-
-        float2 delta = playerPos - eggPos;
-        float2 dir = delta.normalize();
-
-        return dir;
-    }
-
-    static constexpr auto kTimeToMedium = 1.5f;
-    static constexpr auto kTimeToLarge = 3.f;
-    static constexpr auto kTimeToHatch = 5.f;
-
-    float timeAlive = 0.f;
-};
-
-struct CrossObject : IGameObject {
-    CrossObject(GameLevel *pLevel, std::string name) : IGameObject(pLevel, name) {
-        setMesh(pGridMesh);
-        setTextureId(gCrossTextureId);
-    }
-};
-
-void GameWorld::createAlien() {
-    pAlien = gLevel.addObject<AlienObject>("alien");
-}
-
-void GameWorld::createPlayer() {
-    pPlayer = gLevel.addObject<PlayerObject>("player");
-}
-
-static CrossObject *addCross(std::string name) {
-    return gLevel.addObject<CrossObject>(name);
-}
+static GameInputClient gInputClient;
+static game::SwarmGame *pSwarm = nullptr;
 
 template<typename F>
 tasks::WorkThread *newTask(const char *name, F&& func) {
@@ -489,7 +236,7 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::Begin("Game Objects");
 
-        gLevel.useEachObject([&](IGameObject *pObject) {
+        pSwarm->useEachObject([&](IGameObject *pObject) {
             ImGui::PushID((void*)pObject);
 
             auto name = pObject->getName();
@@ -498,7 +245,7 @@ struct GameGui final : graph::IGuiPass {
             ImGui::BulletText("%s", name.data());
             ImGui::SameLine();
             if (ImGui::Button("Delete")) {
-                gLevel.removeObject(pObject);
+                pSwarm->removeObject(pObject);
             } else {
                 auto modelName = model->getName();
                 ImGui::Text("Mesh: %s", modelName.data());
@@ -512,13 +259,12 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::SeparatorText("Add Egg");
 
-        ImGui::SliderInt("X", &eggX, 0, gWorld.width);
-        ImGui::SliderInt("Y", &eggY, 0, gWorld.height);
+        ImGui::SliderInt("X", &eggX, 0, pSwarm->getWidth());
+        ImGui::SliderInt("Y", &eggY, 0, pSwarm->getHeight());
 
         if (ImGui::Button("Create Egg")) {
-            auto *pEgg = gLevel.addObject<EggObject>("egg");
-            pEgg->position = gWorld.getWorldPos(float(eggX), float(eggY), 1.f);
-            pEgg->scale = gWorld.getWorldScale();
+            auto *pEgg = pSwarm->addObject<OEgg>("egg");
+            pEgg->position = pSwarm->getWorldPos(float(eggX), float(eggY), 1.f);
         }
 
         ImGui::End();
@@ -670,14 +416,14 @@ struct GameGui final : graph::IGuiPass {
 
     static void showCameraInfo() {
         if (ImGui::Begin("Camera")) {
-            ImGui::SliderFloat3("position", gLevel.cameraPosition.data(), -20.f, 20.f);
-            ImGui::SliderFloat3("rotation", gLevel.cameraRotation.data(), -1.f, 1.f);
+            ImGui::SliderFloat3("position", pSwarm->cameraPosition.data(), -20.f, 20.f);
+            ImGui::SliderFloat3("rotation", pSwarm->cameraRotation.data(), -1.f, 1.f);
 
             if (ImGui::Combo("projection", &gCurrentProjection, kProjectionNames.data(), kProjectionNames.size())) {
-                gLevel.pProjection = gProjections[gCurrentProjection];
+                pSwarm->pProjection = gProjections[gCurrentProjection];
             }
 
-            ImGui::SliderFloat("fov", &gLevel.fov, 45.f, 120.f);
+            ImGui::SliderFloat("fov", &pSwarm->fov, 45.f, 120.f);
         }
 
         ImGui::End();
@@ -754,48 +500,36 @@ CommandLine getCommandLine() {
 
 static void createGameThread() {
     pGameThread = newTask("game", [](tasks::WorkQueue *pSelf, auto token) {
-        Clock clock;
-        float lastTick = clock.now();
-
-        const float2 limits = gWorld.getWorldLimits();
-
-        auto isObjectInBounds = [&](IGameObject *pObject) {
-            if (!pObject->canCull()) return true;
-
-            float2 pos = pObject->position.yz();
-            return pos.x >= 0.f && pos.x < limits.x && pos.y >= 0.f && pos.y < limits.y;
-        };
-
         while (!token.stop_requested()) {
-            float now = clock.now();
-            float delta = now - lastTick;
-            lastTick = now;
-
-            gLevel.beginTick();
-
-            gLevel.useEachObject([&](IGameObject *pObject) {
-                if (!isObjectInBounds(pObject))
-                    gLevel.deleteObject(pObject);
-                else
-                    pObject->tick(delta);
-            });
-
-            gLevel.endTick();
+            pSwarm->tick();
         }
     });
 }
 
 static void createLevel() {
-    gWorld.createAlien();
-    gWorld.createPlayer();
-    gLevel.cameraPosition = { 10.f, float(gWorld.width) / 2, float(gWorld.height) / 2 };
-    gLevel.cameraRotation = { -1, 0.f, 0.f };
+    SwarmGameInfo info = {
+        .pAlienMesh = pAlienMesh,
+        .pPlayerMesh = pPlayerMesh,
+        .pBulletMesh = pBulletMesh,
+        .pGridMesh = pGridMesh,
 
-    CrossObject *pCross = addCross("cross");
-    pCross->position = float3::from(0.f, 0.f, 0.f);
-    pCross->rotation = float3::from(-90 * kDegToRad<float>, 0.f, 0.f);
-    pCross->scale = float3::from(0.5f);
+        .pEggSmallMesh = pEggSmallMesh,
+        .pEggMediumMesh = pEggMediumMesh,
+        .pEggLargeMesh = pEggLargeMesh,
 
+        .alienTextureId = gAlienTextureId,
+        .playerTextureId = gPlayerTextureId,
+        .bulletTextureId = gBulletTextureId,
+        .gridTextureId = gGridTextureId,
+
+        .eggSmallTextureId = gEggSmallTextureId,
+        .eggMediumTextureId = gEggMediumTextureId,
+        .eggLargeTextureId = gEggLargeTextureId,
+
+        .pInputClient = &gInputClient
+    };
+
+    pSwarm->create(info);
     pMainQueue->add("start-game", createGameThread);
 }
 
@@ -845,7 +579,8 @@ static void commonMain(const std::filesystem::path& path) {
         .renderHeight = 1080 * 2
     };
 
-    gLevel.pProjection = gProjections[gCurrentProjection];
+    pSwarm = new SwarmGame();
+    pSwarm->pProjection = gProjections[gCurrentProjection];
 
     // move the render context into the render thread to prevent hangs on shutdown
     render::Context *pContext = render::Context::create(renderCreateInfo);
@@ -882,14 +617,14 @@ static void commonMain(const std::filesystem::path& path) {
 
             pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>());
 
-            auto *pGamePass = pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>(), gameRenderConfig);
+            auto *pGamePass = pGraph->addPass<graph::GameLevelPass>(pSwarm, pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>(), gameRenderConfig);
 
             //pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<graph::PresentPass>(pBackBuffers);
 
             gPlayerTextureId = pGamePass->addTexture(pPlayerTexture);
-            gCrossTextureId = pGamePass->addTexture(pCrossTexture);
+            gGridTextureId = pGamePass->addTexture(pCrossTexture);
             gAlienTextureId = pGamePass->addTexture(pAlienTexture);
 
             gBulletTextureId = gPlayerTextureId;

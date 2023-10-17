@@ -5,7 +5,7 @@
 
 #include <unordered_set>
 
-namespace editor {
+namespace editor::game {
     ///
     /// view matrices
     ///
