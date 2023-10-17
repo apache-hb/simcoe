@@ -160,6 +160,7 @@ src = [
 
     # models
     copy.process('data/models/cross.model'),
+    copy.process('data/models/grid.model'),
     copy.process('data/models/ship.model'),
     copy.process('data/models/alien.model'),
 

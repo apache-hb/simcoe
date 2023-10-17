@@ -75,7 +75,7 @@ static render::Graph *pGraph = nullptr;
 static int gCurrentProjection = 1;
 
 static IMeshBufferHandle *pPlayerMesh = nullptr;
-static IMeshBufferHandle *pCrossMesh = nullptr;
+static IMeshBufferHandle *pGridMesh = nullptr;
 static IMeshBufferHandle *pAlienMesh = nullptr;
 
 static IMeshBufferHandle *pBulletMesh = nullptr;
@@ -93,24 +93,72 @@ static size_t gEggSmallTextureId = SIZE_MAX;
 static size_t gEggMediumTextureId = SIZE_MAX;
 static size_t gEggLargeTextureId = SIZE_MAX;
 
-
 /// game level
 
 GameLevel gLevel;
 
+struct PlayerObject : IGameObject {
+    PlayerObject(GameLevel *pLevel, std::string name) : IGameObject(pLevel, name) {
+        setMesh(pPlayerMesh);
+        setTextureId(gPlayerTextureId);
+    }
+};
+
+struct AlienObject : IGameObject {
+    AlienObject(GameLevel *pLevel, std::string name) : IGameObject(pLevel, name) {
+        setMesh(pAlienMesh);
+        setTextureId(gAlienTextureId);
+    }
+};
+
+struct EggObject : IGameObject {
+    EggObject(GameLevel *pLevel, std::string name) : IGameObject(pLevel, name) {
+        setMesh(pEggSmallMesh);
+        setTextureId(gEggSmallTextureId);
+    }
+
+    void tick(float delta) {
+        timeAlive += delta;
+
+        if (timeAlive > kTimeToHatch) {
+            pLevel->deleteObject(this);
+        } else if (timeAlive > kTimeToLarge) {
+            setMesh(pEggLargeMesh);
+            setTextureId(gEggLargeTextureId);
+        } else if (timeAlive > kTimeToMedium) {
+            setMesh(pEggMediumMesh);
+            setTextureId(gEggMediumTextureId);
+        }
+    }
+
+private:
+    static constexpr auto kTimeToMedium = 1.5f;
+    static constexpr auto kTimeToLarge = 3.f;
+    static constexpr auto kTimeToHatch = 5.f;
+
+    float timeAlive = 0.f;
+};
+
+struct CrossObject : IGameObject {
+    CrossObject(GameLevel *pLevel, std::string name) : IGameObject(pLevel, name) {
+        setMesh(pGridMesh);
+        setTextureId(gCrossTextureId);
+    }
+};
+
 static PlayerObject *pPlayerObject = nullptr;
-static EnemyObject *pEnemyObject = nullptr;
+static AlienObject *pEnemyObject = nullptr;
 
 static void createAlien(std::string name) {
-    pEnemyObject = gLevel.addObject<EnemyObject>(name, pAlienMesh, gAlienTextureId);
+    pEnemyObject = gLevel.addObject<AlienObject>(name);
 }
 
 static void createPlayer(std::string name) {
-    pPlayerObject = gLevel.addObject<PlayerObject>(name, pPlayerMesh, gPlayerTextureId);
+    pPlayerObject = gLevel.addObject<PlayerObject>(name);
 }
 
-static EnemyObject *addCross(std::string name) {
-    return gLevel.addObject<EnemyObject>(name, pCrossMesh, gCrossTextureId);
+static CrossObject *addCross(std::string name) {
+    return gLevel.addObject<CrossObject>(name);
 }
 
 template<typename F>
@@ -333,7 +381,7 @@ struct GameGui final : graph::IGuiPass {
             } else {
                 auto modelName = model->getName();
                 ImGui::Text("Mesh: %s", modelName.data());
-                ImGui::SliderFloat3("position", pObject->position.data(), -10.f, 10.f);
+                ImGui::SliderFloat3("position", pObject->position.data(), -20.f, 20.f);
                 ImGui::SliderFloat3("rotation", pObject->rotation.data(), -1.f, 1.f);
                 ImGui::SliderFloat3("scale", pObject->scale.data(), 0.1f, 10.f);
             }
@@ -498,7 +546,7 @@ struct GameGui final : graph::IGuiPass {
 
     static void showCameraInfo() {
         if (ImGui::Begin("Camera")) {
-            ImGui::SliderFloat3("position", gLevel.cameraPosition.data(), -10.f, 10.f);
+            ImGui::SliderFloat3("position", gLevel.cameraPosition.data(), -20.f, 20.f);
             ImGui::SliderFloat3("rotation", gLevel.cameraRotation.data(), -1.f, 1.f);
 
             if (ImGui::Combo("projection", &gCurrentProjection, kProjectionNames.data(), kProjectionNames.size())) {
@@ -683,16 +731,13 @@ static void createLevel() {
     gLevel.cameraPosition = { 10.f, float(gWorld.width) / 2, float(gWorld.height) / 2 };
     gLevel.cameraRotation = { -1, 0.f, 0.f };
 
-    for (size_t x = 0; x < gWorld.width; x++) {
-        for (size_t y = 0; y < gWorld.height; y++) {
-            auto *pCross = addCross(std::format("cross-{}-{}", x, y));
-            pCross->position = gWorld.getWorldPos(float(x), float(y));
-            pCross->scale = gWorld.getWorldScale();
-        }
-    }
+    CrossObject *pCross = addCross("cross");
+    pCross->position = float3::from(0.f, 0.f, 0.f);
+    pCross->rotation = float3::from(-90 * kDegToRad<float>, 0.f, 0.f);
+    pCross->scale = float3::from(0.5f);
 
     for (size_t i = 0; i < gWorld.maxLives; i++) {
-        auto *pLife = gLevel.addObject<EnemyObject>(std::format("life-{}", i), pPlayerMesh, gPlayerTextureId);
+        auto *pLife = gLevel.addObject<PlayerObject>(std::format("life-{}", i));
         pLife->position = gWorld.getWorldPos(float(gWorld.width - i), -1.f);
         pLife->scale = gWorld.getWorldScale();
         pLife->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
@@ -770,7 +815,7 @@ static void commonMain(const std::filesystem::path& path) {
             auto *pAlienTexture = pGraph->addResource<graph::TextureHandle>("alien.png");
 
             pPlayerMesh = pGraph->addObject<ObjMesh>("ship.model");
-            pCrossMesh = pGraph->addObject<ObjMesh>("cross.model");
+            pGridMesh = pGraph->addObject<ObjMesh>("grid.model");
             pAlienMesh = pGraph->addObject<ObjMesh>("alien.model");
 
             pBulletMesh = pGraph->addObject<ObjMesh>("bullet.model");

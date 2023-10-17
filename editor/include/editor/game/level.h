@@ -78,18 +78,15 @@ namespace editor {
     /// game level
     ///
 
-    struct Transform {
-        math::float3 position;
-        math::float3 rotation;
-        math::float3 scale;
-    };
+    struct GameLevel;
 
     struct IGameObject {
-        IGameObject(std::string name, render::IMeshBufferHandle *pMesh, size_t textureId)
-            : name(name)
-            , pMesh(pMesh)
-            , textureId(textureId)
+        IGameObject(GameLevel *pLevel, std::string name)
+            : pLevel(pLevel)
+            , name(name)
         { }
+
+        virtual ~IGameObject() = default;
 
         math::float3 position = { 0.0f, 0.0f, 0.0f };
         math::float3 rotation = { 0.0f, 0.0f, 0.0f }; // rotate around z-axis
@@ -99,28 +96,19 @@ namespace editor {
         render::IMeshBufferHandle *getMesh() const { return pMesh; }
         size_t getTexture() const { return textureId; }
 
+        virtual void tick(float delta) { }
+
+    protected:
+        void setTextureId(size_t id) { textureId = id; }
+        void setMesh(render::IMeshBufferHandle *pNewMesh) { pMesh = pNewMesh; }
+
+        GameLevel *pLevel;
+
     private:
         std::string name;
+
         render::IMeshBufferHandle *pMesh = nullptr;
-        size_t textureId = 0;
-    };
-
-    struct EnemyObject : IGameObject {
-        EnemyObject(std::string name, render::IMeshBufferHandle *pMesh, size_t textureId)
-            : IGameObject(name, pMesh, textureId)
-        { }
-
-        size_t health = 3;
-        size_t maxHealth = 5;
-    };
-
-    struct PlayerObject : IGameObject {
-        PlayerObject(std::string name, render::IMeshBufferHandle *pMesh, size_t textureId)
-            : IGameObject(name, pMesh, textureId)
-        { }
-
-        size_t lives = 3;
-        size_t maxLives = 5;
+        size_t textureId = SIZE_MAX;
     };
 
     struct GameLevel {
@@ -134,7 +122,7 @@ namespace editor {
         T *addObject(A&&... args) {
             static_assert(std::is_base_of_v<IGameObject, T>);
 
-            T *pObject = new T(args...);
+            T *pObject = new T(this, args...);
 
             std::lock_guard guard(lock);
             objects.push_back(pObject);
@@ -157,6 +145,13 @@ namespace editor {
         void useObjects(F&& func) {
             std::lock_guard guard(lock);
             func(objects);
+        }
+
+        void deleteObject(IGameObject *pObject) {
+            std::lock_guard guard(lock);
+            std::erase(objects, pObject);
+
+            delete pObject;
         }
 
     private:
