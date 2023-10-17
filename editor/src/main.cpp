@@ -244,7 +244,7 @@ struct GameGui final : graph::IGuiPass {
         ImGui::SliderInt("Y", &eggY, 0, pSwarm->getHeight());
 
         if (ImGui::Button("Create Egg")) {
-            auto *pEgg = pSwarm->addObject<OEgg>("egg");
+            auto *pEgg = pSwarm->newObject<OEgg>("egg");
             pEgg->position = pSwarm->getWorldPos(float(eggX), float(eggY), 1.f);
         }
 

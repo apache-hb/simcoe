@@ -27,6 +27,9 @@ OAlien::OAlien(GameLevel *pLevel, std::string name)
     const auto& info = getInfo(pLevel);
     const auto *pSwarm = getSwarm(pLevel);
 
+    rng.seed(seed);
+    dist = std::uniform_real_distribution<float>(0.f, float(pSwarm->getHeight()));
+
     setMesh(info.pAlienMesh);
     setTextureId(info.alienTextureId);
 
@@ -35,13 +38,37 @@ OAlien::OAlien(GameLevel *pLevel, std::string name)
 }
 
 void OAlien::tick(float delta) {
-    auto *pSwarm = static_cast<SwarmGame*>(pLevel);
+    auto *pSwarm = getSwarm(pLevel);
     float2 limits = pSwarm->getWorldLimits();
 
     position.y += speed * delta;
     if (position.y > limits.y) {
         position.y = 0.f;
     }
+
+    trySpawnEgg();
+}
+
+void OAlien::trySpawnEgg() {
+    if (!canSpawnEgg()) return;
+
+    spawnEgg();
+}
+
+void OAlien::spawnEgg() {
+    auto *pSwarm = getSwarm(pLevel);
+    lastEggSpawn = pLevel->getCurrentTime();
+
+    float vertical = dist(rng);
+    float horizontal = position.y;
+
+    auto *pEgg = pSwarm->newObject<OEgg>("egg");
+    pEgg->position = float3::from(2.f, horizontal, vertical);
+}
+
+bool OAlien::canSpawnEgg() const {
+    float now = pLevel->getCurrentTime();
+    return now - lastEggSpawn > eggSpawnRate;
 }
 
 // bullet
@@ -54,8 +81,10 @@ OBullet::OBullet(GameLevel *pLevel, IGameObject *pParent, float2 velocity)
     const auto& info = getInfo(pLevel);
 
     setMesh(info.pBulletMesh);
-    setTextureId(info.bulletTextureId);
+    setTextureId(pParent->getTexture()); // inherit colour from parent
     setShouldCull(true);
+
+    scale /= 3.f;
 }
 
 void OBullet::tick(float delta) {
@@ -132,7 +161,7 @@ void OPlayer::addLife() {
 
     auto *pSwarm = getSwarm(pLevel);
 
-    OLife *pLife = pSwarm->addObject<OLife>(currentLives);
+    OLife *pLife = pSwarm->newObject<OLife>(currentLives);
     pLife->position = pSwarm->getWorldPos(float(pSwarm->getWidth() - currentLives), -1.f);
     pLife->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
     lifeObjects.push_back(pLife);
@@ -159,10 +188,9 @@ void OPlayer::tryShootBullet(float angle) {
 
         float2 velocity = float2::from(std::cos(angle), std::sin(angle)) * bulletSpeed;
 
-        auto *pBullet = pSwarm->addObject<OBullet>(this, velocity);
+        auto *pBullet = pSwarm->newObject<OBullet>(this, velocity);
         pBullet->position = position;
         pBullet->rotation = rotation;
-        pBullet->scale *= 0.3f;
     }
 }
 
@@ -184,8 +212,10 @@ void OEgg::tick(float delta) {
     timeAlive += delta;
 
     if (timeAlive > timeToHatch) {
+        auto *pBullet = pSwarm->newObject<OBullet>(pSwarm->getAlien(), getShootVector(pSwarm->getPlayer()));
+        pBullet->position = position;
+
         pLevel->deleteObject(this);
-        pLevel->addObject<OBullet>(pSwarm->getAlien(), getShootVector(pSwarm->getPlayer()));
     } else if (timeAlive > timeToLarge) {
         setMesh(info.pEggLargeMesh);
         setTextureId(info.eggLargeTextureId);
@@ -196,13 +226,13 @@ void OEgg::tick(float delta) {
 }
 
 float2 OEgg::getShootVector(IGameObject *pTarget) const {
-    float2 playerPos = pTarget->position.xy();
-    float2 eggPos = position.xy();
+    float2 targetPos = pTarget->position.yz();
+    float2 eggPos = position.yz();
 
-    float2 delta = playerPos - eggPos;
+    float2 delta = targetPos - eggPos;
     float2 dir = delta.normalize();
 
-    return dir;
+    return dir * bulletSpeed;
 }
 
 // grid
@@ -220,9 +250,9 @@ OGrid::OGrid(GameLevel *pLevel, std::string name)
 void SwarmGame::create(const SwarmGameInfo& createInfo) {
     info = createInfo;
 
-    pAlien = addObject<OAlien>("alien");
-    pPlayer = addObject<OPlayer>("player");
-    pGrid = addObject<OGrid>("grid");
+    pAlien = newObject<OAlien>("alien");
+    pPlayer = newObject<OPlayer>("player");
+    pGrid = newObject<OGrid>("grid");
     pGrid->rotation = float3::from(-90.f * kDegToRad<float>, 0.f, 0.f);
 
     cameraPosition = float3::from(10.f, float(getWidth()) / 2, float(getHeight()) / 2);

@@ -2,6 +2,7 @@
 
 #include "editor/game/level.h"
 #include "editor/game/input.h"
+#include <random>
 
 namespace editor::game {
     using namespace simcoe::math;
@@ -14,6 +15,17 @@ namespace editor::game {
     private:
         // config
         float speed = 2.f;
+        float eggSpawnRate = 2.f;
+        size_t seed = 100;
+
+        // egg spawning logic
+        void trySpawnEgg();
+        void spawnEgg();
+        bool canSpawnEgg() const;
+
+        float lastEggSpawn = 0.f;
+        std::mt19937 rng;
+        std::uniform_real_distribution<float> dist;
     };
 
     struct OBullet : IGameObject {
@@ -24,8 +36,9 @@ namespace editor::game {
         bool isParent(IGameObject *pObject) const;
 
     private:
-        IGameObject *pParent;
-        float2 velocity;
+        // bullet logic
+        IGameObject *pParent; // parent object (we cant hit the parent)
+        float2 velocity; // velocity vector
     };
 
     struct OLife : IGameObject {
@@ -43,11 +56,15 @@ namespace editor::game {
         float bulletSpeed = 10.f;
         size_t initialLives = 3;
 
+
+
         // shooting logic
         void tryShootBullet(float angle);
 
         float lastFire = 0.f;
         float fireRate = 0.3f;
+
+
 
         // life handling logic
         void createLives();
@@ -66,6 +83,8 @@ namespace editor::game {
 
     private:
         // config
+        float bulletSpeed = 7.f;
+
         float timeToMedium = 1.5f;
         float timeToLarge = 3.f;
         float timeToHatch = 5.f;
@@ -112,9 +131,9 @@ namespace editor::game {
         void tick();
 
         template<typename T, typename... A>
-        T *addObject(A&&... args) {
+        T *newObject(A&&... args) {
             T *pObject = GameLevel::addObject<T>(args...);
-            pObject->scale = getWorldScale();
+            pObject->scale *= getWorldScale();
             return pObject;
         }
 
