@@ -79,25 +79,6 @@ static input::Manager *pInput = nullptr;
 static render::Graph *pGraph = nullptr;
 static int gCurrentProjection = 1;
 
-static IMeshBufferHandle *pPlayerMesh = nullptr;
-static IMeshBufferHandle *pGridMesh = nullptr;
-static IMeshBufferHandle *pAlienMesh = nullptr;
-
-static IMeshBufferHandle *pBulletMesh = nullptr;
-static IMeshBufferHandle *pEggSmallMesh = nullptr;
-static IMeshBufferHandle *pEggMediumMesh = nullptr;
-static IMeshBufferHandle *pEggLargeMesh = nullptr;
-
-static size_t gPlayerTextureId = SIZE_MAX;
-static size_t gGridTextureId = SIZE_MAX;
-static size_t gAlienTextureId = SIZE_MAX;
-
-static size_t gBulletTextureId = SIZE_MAX;
-
-static size_t gEggSmallTextureId = SIZE_MAX;
-static size_t gEggMediumTextureId = SIZE_MAX;
-static size_t gEggLargeTextureId = SIZE_MAX;
-
 /// game level
 
 static GameInputClient gInputClient;
@@ -227,7 +208,7 @@ struct GameGui final : graph::IGuiPass {
             const auto &createInfo = ctx->getCreateInfo();
             float aspect = float(createInfo.renderWidth) / createInfo.renderHeight;
 
-            float avail = ImGui::GetWindowWidth();
+            float avail = ImGui::GetWindowWidth() - 32;
 
             ImGui::Image((ImTextureID)offset, { avail, avail / aspect });
         }
@@ -506,33 +487,6 @@ static void createGameThread() {
     });
 }
 
-static void createLevel() {
-    SwarmGameInfo info = {
-        .pAlienMesh = pAlienMesh,
-        .pPlayerMesh = pPlayerMesh,
-        .pBulletMesh = pBulletMesh,
-        .pGridMesh = pGridMesh,
-
-        .pEggSmallMesh = pEggSmallMesh,
-        .pEggMediumMesh = pEggMediumMesh,
-        .pEggLargeMesh = pEggLargeMesh,
-
-        .alienTextureId = gAlienTextureId,
-        .playerTextureId = gPlayerTextureId,
-        .bulletTextureId = gBulletTextureId,
-        .gridTextureId = gGridTextureId,
-
-        .eggSmallTextureId = gEggSmallTextureId,
-        .eggMediumTextureId = gEggMediumTextureId,
-        .eggLargeTextureId = gEggLargeTextureId,
-
-        .pInputClient = &gInputClient
-    };
-
-    pSwarm->create(info);
-    pMainQueue->add("start-game", createGameThread);
-}
-
 ///
 /// entry point
 ///
@@ -601,16 +555,6 @@ static void commonMain(const std::filesystem::path& path) {
             auto *pCrossTexture = pGraph->addResource<graph::TextureHandle>("cross.png");
             auto *pAlienTexture = pGraph->addResource<graph::TextureHandle>("alien.png");
 
-            pPlayerMesh = pGraph->addObject<ObjMesh>("ship.model");
-            pGridMesh = pGraph->addObject<ObjMesh>("grid.model");
-            pAlienMesh = pGraph->addObject<ObjMesh>("alien.model");
-
-            pBulletMesh = pGraph->addObject<ObjMesh>("bullet.model");
-
-            pEggSmallMesh = pGraph->addObject<ObjMesh>("egg-small.model");
-            pEggMediumMesh = pGraph->addObject<ObjMesh>("egg-medium.model");
-            pEggLargeMesh = pGraph->addObject<ObjMesh>("egg-large.model");
-
             const graph::GameRenderInfo gameRenderConfig = {
                 .pCameraUniform = pGraph->addResource<graph::CameraUniformHandle>()
             };
@@ -623,16 +567,33 @@ static void commonMain(const std::filesystem::path& path) {
             pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<graph::PresentPass>(pBackBuffers);
 
-            gPlayerTextureId = pGamePass->addTexture(pPlayerTexture);
-            gGridTextureId = pGamePass->addTexture(pCrossTexture);
-            gAlienTextureId = pGamePass->addTexture(pAlienTexture);
+            // TODO: the render thread should really just be a render thread
+            SwarmGameInfo createInfo = {
+                .pAlienMesh = pGraph->addObject<ObjMesh>("alien.model"),
+                .pPlayerMesh = pGraph->addObject<ObjMesh>("ship.model"),
+                .pBulletMesh = pGraph->addObject<ObjMesh>("bullet.model"),
+                .pGridMesh = pGraph->addObject<ObjMesh>("grid.model"),
 
-            gBulletTextureId = gPlayerTextureId;
-            gEggSmallTextureId = gAlienTextureId;
-            gEggMediumTextureId = gAlienTextureId;
-            gEggLargeTextureId = gAlienTextureId;
+                .pEggSmallMesh = pGraph->addObject<ObjMesh>("egg-small.model"),
+                .pEggMediumMesh = pGraph->addObject<ObjMesh>("egg-medium.model"),
+                .pEggLargeMesh = pGraph->addObject<ObjMesh>("egg-large.model"),
 
-            pMainQueue->add("create-level", createLevel);
+                .alienTextureId = pGamePass->addTexture(pAlienTexture),
+                .playerTextureId = pGamePass->addTexture(pPlayerTexture),
+                .bulletTextureId = createInfo.playerTextureId,
+                .gridTextureId = pGamePass->addTexture(pCrossTexture),
+
+                .eggSmallTextureId = createInfo.alienTextureId,
+                .eggMediumTextureId = createInfo.alienTextureId,
+                .eggLargeTextureId = createInfo.alienTextureId,
+
+                .pInputClient = &gInputClient
+            };
+
+            pMainQueue->add("create-level", [createInfo] {
+                pSwarm->create(createInfo);
+                pMainQueue->add("start-game", createGameThread);
+            });
 
             // TODO: if the render loop throws an exception, the program will std::terminate
             // we should handle this case and restart the render loop
