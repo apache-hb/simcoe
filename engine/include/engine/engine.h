@@ -30,14 +30,6 @@ namespace simcoe {
         logError(std::vformat(msg, std::make_format_args(args...)));
     }
 
-    struct Region {
-        Region(std::string_view start, std::string_view stop);
-        ~Region();
-
-    private:
-        std::string_view stop;
-    };
-
     struct ReportOnce {
         template<typename F>
         void operator()(F&& func) {

@@ -34,14 +34,6 @@ void simcoe::logError(std::string_view msg) {
     innerLog("ERROR", msg);
 }
 
-Region::Region(std::string_view start, std::string_view stop) : stop(stop) {
-    logInfo(start);
-}
-
-Region::~Region() {
-    logInfo(stop);
-}
-
 std::string util::narrow(std::wstring_view wstr) {
     std::string result(wstr.size() + 1, '\0');
     size_t size = result.size();

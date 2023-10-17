@@ -47,7 +47,7 @@ static constexpr auto kWindowHeight = 1080;
 static constexpr auto kProjectionNames = std::to_array({ "Perspective", "Orthographic" });
 static const auto gProjections = std::to_array({
     static_cast<IProjection*>(new Perspective()),
-    static_cast<IProjection*>(new Orthographic(20.f, 20.f))
+    static_cast<IProjection*>(new Orthographic(24.f, 24.f))
 });
 
 // system
@@ -78,9 +78,21 @@ static IMeshBufferHandle *pPlayerMesh = nullptr;
 static IMeshBufferHandle *pCrossMesh = nullptr;
 static IMeshBufferHandle *pAlienMesh = nullptr;
 
+static IMeshBufferHandle *pBulletMesh = nullptr;
+static IMeshBufferHandle *pEggSmallMesh = nullptr;
+static IMeshBufferHandle *pEggMediumMesh = nullptr;
+static IMeshBufferHandle *pEggLargeMesh = nullptr;
+
 static size_t gPlayerTextureId = SIZE_MAX;
 static size_t gCrossTextureId = SIZE_MAX;
 static size_t gAlienTextureId = SIZE_MAX;
+
+static size_t gBulletTextureId = SIZE_MAX;
+
+static size_t gEggSmallTextureId = SIZE_MAX;
+static size_t gEggMediumTextureId = SIZE_MAX;
+static size_t gEggLargeTextureId = SIZE_MAX;
+
 
 /// game level
 
@@ -597,32 +609,11 @@ struct GameWorld {
 
     size_t maxLives = 5;
     size_t currentLives = 3;
+
+    std::vector<IGameObject*> pLifeObjects;
 };
 
 GameWorld gWorld;
-
-static void createLevel() {
-    createAlien("alien");
-    pEnemyObject->position = float3::from(2.f, gWorld.getAlienSpawn());
-    pEnemyObject->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
-    pEnemyObject->scale = gWorld.getWorldScale();
-
-    createPlayer("player");
-    pPlayerObject->position = float3::from(1.f, gWorld.getPlayerSpawn());
-    pPlayerObject->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
-    pPlayerObject->scale = gWorld.getWorldScale();
-
-    gLevel.cameraPosition = { 10.f, float(gWorld.width) / 2, float(gWorld.height) / 2 };
-    gLevel.cameraRotation = { -1, 0.f, 0.f };
-
-    for (size_t x = 0; x < gWorld.width; x++) {
-        for (size_t y = 0; y < gWorld.height; y++) {
-            auto *pCross = addCross(std::format("cross-{}-{}", x, y));
-            pCross->position = gWorld.getWorldPos(float(x), float(y));
-            pCross->scale = gWorld.getWorldScale();
-        }
-    }
-}
 
 static void createGameThread() {
     pGameThread = newTask("game", [](tasks::WorkQueue *pSelf, auto token) {
@@ -645,16 +636,19 @@ static void createGameThread() {
             float bx = gInputClient.getButtonAxis(Button::eKeyLeft, Button::eKeyRight);
             float by = gInputClient.getButtonAxis(Button::eKeyDown, Button::eKeyUp);
 
+            float kx = gInputClient.getButtonAxis(Button::eKeyA, Button::eKeyD);
+            float ky = gInputClient.getButtonAxis(Button::eKeyS, Button::eKeyW);
+
             float ax = gInputClient.getStickAxis(Axis::eGamepadLeftX);
             float ay = gInputClient.getStickAxis(Axis::eGamepadLeftY);
 
-            float tx = (bx + ax);
-            float ty = (by + ay);
+            float tx = (bx + kx + ax);
+            float ty = (by + ky + ay);
 
             pPlayerObject->position += float3(0.f, tx * playerSpeed * delta, ty * playerSpeed * delta);
 
-            //pPlayerObject->position.y = math::clamp(pPlayerObject->position.y, 0.f, limits.x);
-            //pPlayerObject->position.z = math::clamp(pPlayerObject->position.z, 0.f, limits.y);
+            pPlayerObject->position.y = math::clamp(pPlayerObject->position.y, 0.f, limits.x);
+            pPlayerObject->position.z = math::clamp(pPlayerObject->position.z, 0.f, limits.y);
 
             pPlayerObject->rotation.x = -std::atan2(ty, tx);
         };
@@ -673,6 +667,39 @@ static void createGameThread() {
             }
         }
     });
+}
+
+static void createLevel() {
+    createAlien("alien");
+    pEnemyObject->position = float3::from(2.f, gWorld.getAlienSpawn());
+    pEnemyObject->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
+    pEnemyObject->scale = gWorld.getWorldScale();
+
+    createPlayer("player");
+    pPlayerObject->position = float3::from(1.f, gWorld.getPlayerSpawn());
+    pPlayerObject->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
+    pPlayerObject->scale = gWorld.getWorldScale();
+
+    gLevel.cameraPosition = { 10.f, float(gWorld.width) / 2, float(gWorld.height) / 2 };
+    gLevel.cameraRotation = { -1, 0.f, 0.f };
+
+    for (size_t x = 0; x < gWorld.width; x++) {
+        for (size_t y = 0; y < gWorld.height; y++) {
+            auto *pCross = addCross(std::format("cross-{}-{}", x, y));
+            pCross->position = gWorld.getWorldPos(float(x), float(y));
+            pCross->scale = gWorld.getWorldScale();
+        }
+    }
+
+    for (size_t i = 0; i < gWorld.maxLives; i++) {
+        auto *pLife = gLevel.addObject<EnemyObject>(std::format("life-{}", i), pPlayerMesh, gPlayerTextureId);
+        pLife->position = gWorld.getWorldPos(float(gWorld.width - i), -1.f);
+        pLife->scale = gWorld.getWorldScale();
+        pLife->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
+        gWorld.pLifeObjects.push_back(pLife);
+    }
+
+    pMainQueue->add("start-game", createGameThread);
 }
 
 ///
@@ -729,7 +756,6 @@ static void commonMain(const std::filesystem::path& path) {
         size_t faultCount = 0;
         size_t faultLimit = 3;
 
-        simcoe::Region region("render thread started", "render thread stopped");
         simcoe::logInfo("render fault limit: {} faults", faultLimit);
 
         // TODO: this is a little stupid
@@ -747,6 +773,12 @@ static void commonMain(const std::filesystem::path& path) {
             pCrossMesh = pGraph->addObject<ObjMesh>("cross.model");
             pAlienMesh = pGraph->addObject<ObjMesh>("alien.model");
 
+            pBulletMesh = pGraph->addObject<ObjMesh>("bullet.model");
+
+            pEggSmallMesh = pGraph->addObject<ObjMesh>("egg-small.model");
+            pEggMediumMesh = pGraph->addObject<ObjMesh>("egg-medium.model");
+            pEggLargeMesh = pGraph->addObject<ObjMesh>("egg-large.model");
+
             const graph::GameRenderInfo gameRenderConfig = {
                 .pCameraUniform = pGraph->addResource<graph::CameraUniformHandle>()
             };
@@ -763,8 +795,9 @@ static void commonMain(const std::filesystem::path& path) {
             gCrossTextureId = pGamePass->addTexture(pCrossTexture);
             gAlienTextureId = pGamePass->addTexture(pAlienTexture);
 
+            gPlayerTextureId = pGamePass->addTexture(pPlayerTexture);
+
             pMainQueue->add("create-level", createLevel);
-            pMainQueue->add("start-game", createGameThread);
 
             // TODO: if the render loop throws an exception, the program will std::terminate
             // we should handle this case and restart the render loop

@@ -163,6 +163,11 @@ src = [
     copy.process('data/models/ship.model'),
     copy.process('data/models/alien.model'),
 
+    copy.process('data/models/bullet.model'),
+    copy.process('data/models/egg-small.model'),
+    copy.process('data/models/egg-medium.model'),
+    copy.process('data/models/egg-large.model'),
+
     # libraries
     copy.process('data/libs/warp/d3d10warp.dll'),
     copy.process('data/libs/warp/d3d10warp.pdb'),

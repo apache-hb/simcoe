@@ -8,6 +8,8 @@ using namespace simcoe::tasks;
 
 std::jthread WorkThread::start(const char *name) {
     return std::jthread([this, name](std::stop_token token) {
+        simcoe::logInfo("thread `{}` started", name);
+
         setThreadName(name);
 
         this->run(token);

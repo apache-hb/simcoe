@@ -7,7 +7,6 @@ using namespace editor::graph;
 using namespace simcoe::math;
 
 constexpr auto kUpVector = float3::from(0.f, 0.f, 1.f); // z-up
-constexpr auto kForwardVector = float3::from(1.f, 0.f, 0.f); // x-forward
 
 void CameraUniformHandle::update(GameLevel *pLevel) {
     const auto& createInfo = ctx->getCreateInfo();
@@ -17,8 +16,7 @@ void CameraUniformHandle::update(GameLevel *pLevel) {
     float aspectRatio = width / height;
 
     float4x4 view = float4x4::lookToRH(pLevel->cameraPosition, pLevel->cameraRotation, kUpVector).transpose();
-    //float4x4 projection = float4x4::perspectiveRH(pLevel->fov * kDegToRad<float>, width / height, 0.1f, 1000.f).transpose();
-    float4x4 projection = pLevel->pProjection->getProjectionMatrix(aspectRatio, pLevel->fov).transpose(); // float4x4::orthographicRH(20 * aspectRatio, 20, 0.1f, 125.f).transpose();
+    float4x4 projection = pLevel->pProjection->getProjectionMatrix(aspectRatio, pLevel->fov).transpose();
 
     CameraUniform data = {
         .view = view,
@@ -46,10 +44,6 @@ GameLevelPass::GameLevelPass(Graph *ctx, GameLevel *pLevel, ResourceWrapper<IRTV
 {
     setRenderTargetHandle(pRenderTarget);
     setDepthStencilHandle(pDepthTarget);
-
-    pLevel->useEachObject([this](IGameObject *pObject) {
-        createObjectUniform(pObject);
-    });
 }
 
 void GameLevelPass::create() {
