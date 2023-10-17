@@ -225,7 +225,8 @@ namespace simcoe::rhi {
 
     enum struct CommandType {
         eDirect,
-        eCopy
+        eCopy,
+        eCompute
     };
 
     struct Device : Object<ID3D12Device4> {

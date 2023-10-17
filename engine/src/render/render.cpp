@@ -45,37 +45,63 @@ void Context::destroyContextData() {
 
 // create data that depends on the device
 void Context::createDeviceData() {
+    // create device
     rhi::Adapter* pAdapter = selectAdapter();
     rhi::CreateFlags deviceFlags = rhi::CreateFlags(rhi::eCreateDebug | rhi::eCreateInfoQueue | rhi::eCreateExtendedInfo);
     pDevice = pAdapter->createDevice(deviceFlags);
+    pDevice->setName("simcoe.device");
+
+    // create direct queue and fence
 
     pDirectQueue = pDevice->createQueue(rhi::CommandType::eDirect);
     pDirectFence = pDevice->createFence();
+    pDirectQueue->setName("simcoe.direct-queue");
+    pDirectFence->setName("simcoe.direct-fence");
+
+    // create copy queue and fence
 
     pCopyQueue = pDevice->createQueue(rhi::CommandType::eCopy);
     pCopyFence = pDevice->createFence();
+    pCopyQueue->setName("simcoe.copy-queue");
+    pCopyFence->setName("simcoe.copy-fence");
+
+    // create copy commands and allocator
 
     pCopyAllocator = pDevice->createCommandMemory(rhi::CommandType::eCopy);
     pCopyCommands = pDevice->createCommands(rhi::CommandType::eCopy, pCopyAllocator);
-
-    pDevice->setName("simcoe.device");
-    pDirectQueue->setName("simcoe.direct-queue");
-    pCopyQueue->setName("simcoe.copy-queue");
     pCopyAllocator->setName("simcoe.copy-allocator");
     pCopyCommands->setName("simcoe.copy-commands");
-    pDirectFence->setName("simcoe.direct-fence");
-    pCopyFence->setName("simcoe.copy-fence");
+
+    // create compute queue and fence
+
+    pComputeQueue = pDevice->createQueue(rhi::CommandType::eCompute);
+    pComputeFence = pDevice->createFence();
+    pComputeQueue->setName("simcoe.compute-queue");
+    pComputeFence->setName("simcoe.compute-fence");
+
+    // create compute commands and allocator
+
+    pComputeAllocator = pDevice->createCommandMemory(rhi::CommandType::eCompute);
+    pComputeCommands = pDevice->createCommands(rhi::CommandType::eCompute, pComputeAllocator);
+    pComputeAllocator->setName("simcoe.compute-allocator");
+    pComputeCommands->setName("simcoe.compute-commands");
 }
 
 void Context::destroyDeviceData() {
     delete pDirectFence;
     delete pCopyFence;
+    delete pComputeFence;
 
     delete pCopyCommands;
     delete pCopyAllocator;
 
+    delete pComputeCommands;
+    delete pComputeAllocator;
+
+    delete pComputeQueue;
     delete pCopyQueue;
     delete pDirectQueue;
+
     delete pDevice;
 }
 
@@ -248,5 +274,24 @@ void Context::waitForCopyQueue() {
 
     if (pCopyFence->getValue() <= value) {
         pCopyFence->wait(value);
+    }
+}
+
+void Context::beginCompute() {
+    pComputeCommands->begin(pComputeAllocator);
+}
+
+void Context::endCompute() {
+    pComputeCommands->end();
+    pComputeQueue->execute(pComputeCommands);
+    waitForComputeQueue();
+}
+
+void Context::waitForComputeQueue() {
+    size_t value = computeFenceValue++;
+    pComputeQueue->signal(pComputeFence, value);
+
+    if (pComputeFence->getValue() <= value) {
+        pComputeFence->wait(value);
     }
 }

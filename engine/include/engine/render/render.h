@@ -103,8 +103,12 @@ namespace simcoe::render {
         void beginCopy();
         void endCopy();
 
+        void beginCompute();
+        void endCompute();
+
         void waitForCopyQueue();
         void waitForDirectQueue();
+        void waitForComputeQueue();
 
         // actions
 
@@ -337,6 +341,14 @@ namespace simcoe::render {
         rhi::CommandMemory *pCopyAllocator;
         rhi::Commands *pCopyCommands;
 
+        // device compute data
+
+        rhi::DeviceQueue *pComputeQueue;
+        rhi::Fence *pComputeFence;
+        std::atomic_size_t computeFenceValue = 1;
+
+        rhi::CommandMemory *pComputeAllocator;
+        rhi::Commands *pComputeCommands;
 
         // frame data
 

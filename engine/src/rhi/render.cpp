@@ -55,6 +55,7 @@ static D3D12_COMMAND_LIST_TYPE getCommandType(CommandType type) {
     switch (type) {
     case CommandType::eDirect: return D3D12_COMMAND_LIST_TYPE_DIRECT;
     case CommandType::eCopy: return D3D12_COMMAND_LIST_TYPE_COPY;
+    case CommandType::eCompute: return D3D12_COMMAND_LIST_TYPE_COMPUTE;
     default: throw std::runtime_error("invalid command type");
     }
 }
