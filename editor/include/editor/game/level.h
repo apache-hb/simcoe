@@ -147,14 +147,13 @@ namespace editor {
             func(objects);
         }
 
-        void deleteObject(IGameObject *pObject) {
-            std::lock_guard guard(lock);
-            std::erase(objects, pObject);
+        void deleteObject(IGameObject *pObject);
 
-            delete pObject;
-        }
+        void beginTick();
+        void endTick();
 
     private:
+        std::unordered_set<IGameObject*> retired;
         std::vector<IGameObject*> objects;
         std::recursive_mutex lock;
     };

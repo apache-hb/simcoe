@@ -148,6 +148,9 @@ src = [
     # game debug
     'editor/src/editor/debug/gui.cpp',
 
+    # game logic
+    'editor/src/editor/game/level.cpp',
+
     # shaders
     hlsl.process('data/shaders/blit.hlsl'),
     hlsl.process('data/shaders/object.hlsl'),

@@ -756,6 +756,8 @@ static void createGameThread() {
             float delta = now - lastTick;
             lastTick = now;
 
+            gLevel.beginTick();
+
             if (pEnemyObject != nullptr) {
                 updateEnemy(delta);
             }
@@ -765,11 +767,13 @@ static void createGameThread() {
             }
 
             gLevel.useEachObject([&](IGameObject *pObject) {
-                // if (!isObjectInBounds(pObject))
-                //     gLevel.deleteObject(pObject); TODO: delete objects out of bounds
-                // else
+                if (!isObjectInBounds(pObject))
+                    gLevel.deleteObject(pObject);
+                else
                     pObject->tick(delta);
             });
+
+            gLevel.endTick();
         }
     });
 }
