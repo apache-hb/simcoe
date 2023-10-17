@@ -111,6 +111,22 @@ struct AlienObject : IGameObject {
     }
 };
 
+struct BulletObject : IGameObject {
+    BulletObject(GameLevel *pLevel, std::string name, float2 velocity)
+        : IGameObject(pLevel, name)
+        , velocity(velocity)
+    {
+        setMesh(pBulletMesh);
+        setTextureId(gBulletTextureId);
+    }
+
+    void tick(float delta) override {
+        position += float3::from(0.f, velocity * delta);
+    }
+private:
+    float2 velocity;
+};
+
 struct EggObject : IGameObject {
     EggObject(GameLevel *pLevel, std::string name) : IGameObject(pLevel, name) {
         setMesh(pEggSmallMesh);
@@ -228,6 +244,8 @@ struct GameWindow final : IWindowCallbacks {
 using namespace simcoe::input;
 
 struct GameInputClient final : input::IClient {
+    Event shootEvent;
+
     float getButtonAxis(Button neg, Button pos) const {
         size_t negIdx = state.buttons[neg];
         size_t posIdx = state.buttons[pos];
@@ -248,6 +266,8 @@ struct GameInputClient final : input::IClient {
     void onInput(const input::State& newState) override {
         state = newState;
         updates += 1;
+
+        shootEvent.update(state.buttons[Button::eKeySpace]);
     }
 
     static constexpr ImGuiTableFlags kTableFlags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV;
@@ -673,6 +693,9 @@ static void createGameThread() {
 
         const float2 limits = gWorld.getWorldLimits();
 
+        const float fireRate = 0.3f;
+        float lastFire = -1.f;
+
         auto updateEnemy = [&](float delta) {
             pEnemyObject->position.y += enemySpeed * delta;
             if (pEnemyObject->position.y > limits.y) {
@@ -698,7 +721,23 @@ static void createGameThread() {
             pPlayerObject->position.y = math::clamp(pPlayerObject->position.y, 0.f, limits.x);
             pPlayerObject->position.z = math::clamp(pPlayerObject->position.z, 0.f, limits.y);
 
-            pPlayerObject->rotation.x = -std::atan2(ty, tx);
+            float angle = std::atan2(ty, tx);
+
+            pPlayerObject->rotation.x = -angle;
+
+            if (gInputClient.shootEvent.beginPress()) {
+                float now = timer.now();
+                if (now - lastFire > fireRate) {
+                    lastFire = now;
+
+                    float2 velocity = float2::from(std::cos(angle), std::sin(angle)) * 10.f;
+
+                    auto *pBullet = gLevel.addObject<BulletObject>("bullet", velocity);
+                    pBullet->position = pPlayerObject->position;
+                    pBullet->rotation = pPlayerObject->rotation;
+                    pBullet->scale = gWorld.getWorldScale() * 0.3f;
+                }
+            }
         };
 
         while (!token.stop_requested()) {
@@ -713,6 +752,10 @@ static void createGameThread() {
             if (pPlayerObject != nullptr) {
                 updatePlayer(delta);
             }
+
+            gLevel.useEachObject([delta](IGameObject *pObject) {
+                pObject->tick(delta);
+            });
         }
     });
 }
@@ -840,7 +883,10 @@ static void commonMain(const std::filesystem::path& path) {
             gCrossTextureId = pGamePass->addTexture(pCrossTexture);
             gAlienTextureId = pGamePass->addTexture(pAlienTexture);
 
-            gPlayerTextureId = pGamePass->addTexture(pPlayerTexture);
+            gBulletTextureId = gPlayerTextureId;
+            gEggSmallTextureId = gAlienTextureId;
+            gEggMediumTextureId = gAlienTextureId;
+            gEggLargeTextureId = gAlienTextureId;
 
             pMainQueue->add("create-level", createLevel);
 

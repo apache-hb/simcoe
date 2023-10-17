@@ -191,6 +191,10 @@ namespace simcoe::math {
         constexpr Vec3 operator*=(const Vec3& it) { return *this = *this * it; }
         constexpr Vec3 operator/=(const Vec3& it) { return *this = *this / it; }
 
+        constexpr Vec2<T> xy() const { return Vec2<T>::from(x, y); }
+        constexpr Vec2<T> xz() const { return Vec2<T>::from(x, z); }
+        constexpr Vec2<T> yz() const { return Vec2<T>::from(y, z); }
+
         bool isinf() const { return std::isinf(x) || std::isinf(y) || std::isinf(z); }
 
         static constexpr Vec3 cross(const Vec3& lhs, const Vec3& rhs) {

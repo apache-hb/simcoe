@@ -73,3 +73,42 @@ void Toggle::set(bool bState) {
     lastValue = 0;
     bEnabled = bState;
 }
+
+///
+/// button events
+///
+
+void Event::update(size_t key) {
+    if (key > lastValue) {
+        lastValue = key;
+        bSendPressEvent = true;
+    } else if (key == 0 && lastValue > 0) {
+        lastValue = 0;
+        bSendReleaseEvent = true;
+    } else {
+        bSendPressEvent = false;
+        bSendReleaseEvent = false;
+    }
+}
+
+bool Event::beginPress() {
+    if (lastValue > 0 && bSendPressEvent) {
+        bSendPressEvent = false;
+        return true;
+    }
+
+    return false;
+}
+
+bool Event::beginRelease() {
+    if (lastValue == 0 && bSendReleaseEvent) {
+        bSendReleaseEvent = false;
+        return true;
+    }
+
+    return false;
+}
+
+bool Event::isHeld() const {
+    return lastValue > 0;
+}

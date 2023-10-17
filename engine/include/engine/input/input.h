@@ -112,4 +112,17 @@ namespace simcoe::input {
         size_t lastValue = 0;
         bool bEnabled;
     };
+
+    struct Event final {
+        void update(size_t key);
+
+        bool beginPress();
+        bool beginRelease();
+        bool isHeld() const;
+
+    private:
+        size_t lastValue = 0;
+        bool bSendPressEvent = false;
+        bool bSendReleaseEvent = false;
+    };
 }
