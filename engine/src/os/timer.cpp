@@ -16,12 +16,12 @@ namespace {
     }
 }
 
-Timer::Timer() 
+Clock::Clock()
     : frequency(getFrequency())
     , start(getCounter())
 { }
 
-float Timer::now() {
+float Clock::now() const {
     size_t counter = getCounter();
     return float(counter - start) / frequency;
 }

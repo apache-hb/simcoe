@@ -150,6 +150,7 @@ src = [
 
     # game logic
     'editor/src/editor/game/level.cpp',
+    'editor/src/editor/game/input.cpp',
 
     # shaders
     hlsl.process('data/shaders/blit.hlsl'),

@@ -67,10 +67,10 @@ namespace simcoe {
         IWindowCallbacks *pCallbacks;
     };
 
-    struct Timer {
-        Timer();
+    struct Clock {
+        Clock();
 
-        float now();
+        float now() const;
 
     private:
         size_t frequency;

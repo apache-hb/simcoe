@@ -1,6 +1,7 @@
 #pragma once
 
 #include "editor/game/object.h"
+#include "engine/os/system.h"
 
 #include <unordered_set>
 
@@ -98,14 +99,18 @@ namespace editor {
 
         virtual void tick(float delta) { }
 
+        bool canCull() const { return bShouldCull; }
+
     protected:
         void setTextureId(size_t id) { textureId = id; }
         void setMesh(render::IMeshBufferHandle *pNewMesh) { pMesh = pNewMesh; }
+        void setShouldCull(bool bShould) { bShouldCull = bShould; }
 
         GameLevel *pLevel;
 
     private:
         std::string name;
+        bool bShouldCull = true;
 
         render::IMeshBufferHandle *pMesh = nullptr;
         size_t textureId = SIZE_MAX;
@@ -125,7 +130,7 @@ namespace editor {
             T *pObject = new T(this, args...);
 
             std::lock_guard guard(lock);
-            objects.push_back(pObject);
+            pending.emplace(pObject);
             return pObject;
         }
 
@@ -152,8 +157,15 @@ namespace editor {
         void beginTick();
         void endTick();
 
+        float getCurrentTime() const { return clock.now(); }
+
     private:
+        Clock clock;
+
+        // object management
+        std::unordered_set<IGameObject*> pending;
         std::unordered_set<IGameObject*> retired;
+
         std::vector<IGameObject*> objects;
         std::recursive_mutex lock;
     };

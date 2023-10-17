@@ -8,7 +8,12 @@ void GameLevel::deleteObject(IGameObject *pObject) {
 }
 
 void GameLevel::beginTick() {
+    std::lock_guard guard(lock);
 
+    for (auto *pObject : pending)
+        objects.emplace_back(pObject);
+
+    pending.clear();
 }
 
 void GameLevel::endTick() {

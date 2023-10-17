@@ -118,7 +118,7 @@ namespace simcoe::input {
 
         bool beginPress();
         bool beginRelease();
-        bool isHeld() const;
+        bool isPressed() const;
 
     private:
         size_t lastValue = 0;

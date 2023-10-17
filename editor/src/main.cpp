@@ -28,6 +28,9 @@
 #include "vendor/microsoft/gdk.h"
 #include "moodycamel/concurrentqueue.h"
 
+// game logic
+#include "editor/game/input.h"
+
 #include <functional>
 #include <array>
 #include <fstream>
@@ -55,7 +58,7 @@ static simcoe::System *pSystem = nullptr;
 static simcoe::Window *pWindow = nullptr;
 static bool gFullscreen = false;
 static std::atomic_bool gRunning = true;
-std::string gGdkFailureReason = "";
+static std::string gGdkFailureReason = "";
 
 /// threads
 static tasks::WorkQueue *pMainQueue = nullptr;
@@ -95,36 +98,199 @@ static size_t gEggLargeTextureId = SIZE_MAX;
 
 /// game level
 
-GameLevel gLevel;
+static GameLevel gLevel;
+static game::GameInputClient gInputClient;
 
-struct PlayerObject : IGameObject {
-    PlayerObject(GameLevel *pLevel, std::string name) : IGameObject(pLevel, name) {
-        setMesh(pPlayerMesh);
-        setTextureId(gPlayerTextureId);
+struct AlienObject;
+struct PlayerObject;
+
+struct GameWorld {
+    float3 worldScale = float3::from(1.f, 1.f, 1.f) * float3::from(0.5f);
+    float3 worldOrigin = float3::from(0.f, 0.f, 0.f);
+
+    float3 getWorldPos(float x, float y, float index = 0) {
+        return worldOrigin + float3::from(index, x - 0.5f, y - 0.5f);
     }
+
+    float3 getWorldScale() const {
+        return worldScale;
+    }
+
+    float2 getWorldLimits() const {
+        return { float(width - 1), float(height) };
+    }
+
+    float2 getAlienSpawn() const {
+        return { 0.f, float(height - 1) };
+    }
+
+    float2 getPlayerSpawn() const {
+        return { 0.f, float(height - 2) };
+    }
+
+    void createAlien();
+    void createPlayer();
+
+    size_t width = 22;
+    size_t height = 19;
+
+    AlienObject *getAlien() const { return pAlien; }
+    PlayerObject *getPlayer() const { return pPlayer; }
+
+private:
+    AlienObject *pAlien;
+    PlayerObject *pPlayer;
 };
+
+static GameWorld gWorld;
 
 struct AlienObject : IGameObject {
     AlienObject(GameLevel *pLevel, std::string name) : IGameObject(pLevel, name) {
         setMesh(pAlienMesh);
         setTextureId(gAlienTextureId);
+
+        position = float3::from(2.f, gWorld.getAlienSpawn());
+        rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
+        scale = gWorld.getWorldScale();
     }
+
+    void tick(float delta) override {
+        float2 limits = gWorld.getWorldLimits();
+
+        position.y += speed * delta;
+        if (position.y > limits.y) {
+            position.y = 0.f;
+        }
+    }
+
+private:
+    float speed = 2.f;
 };
 
 struct BulletObject : IGameObject {
-    BulletObject(GameLevel *pLevel, std::string name, float2 velocity)
-        : IGameObject(pLevel, name)
+    BulletObject(GameLevel *pLevel, IGameObject *pParent, float2 velocity)
+        : IGameObject(pLevel, "bullet")
+        , pParent(pParent)
         , velocity(velocity)
     {
         setMesh(pBulletMesh);
         setTextureId(gBulletTextureId);
+        setShouldCull(true);
     }
 
     void tick(float delta) override {
         position += float3::from(0.f, velocity * delta);
     }
+
+    bool isParent(IGameObject *pObject) const {
+        return pParent == pObject;
+    }
+
 private:
+    IGameObject *pParent;
     float2 velocity;
+};
+
+struct LifeObject : IGameObject {
+    LifeObject(GameLevel *pLevel, size_t life)
+        : IGameObject(pLevel, std::format("life-{}", life))
+    {
+        setMesh(pPlayerMesh);
+        setTextureId(gPlayerTextureId);
+        setShouldCull(false);
+    }
+};
+
+struct PlayerObject : IGameObject {
+    PlayerObject(GameLevel *pLevel, std::string name) : IGameObject(pLevel, name) {
+        setMesh(pPlayerMesh);
+        setTextureId(gPlayerTextureId);
+        setShouldCull(false); // TODO: we shouldnt need this
+
+        position = float3::from(1.f, gWorld.getPlayerSpawn());
+        rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
+        scale = gWorld.getWorldScale();
+
+        createLives();
+    }
+
+    void tick(float delta) override {
+        float moveVertical = gInputClient.getHorizontalAxis();
+        float moveHorizontal = gInputClient.getVerticalAxis();
+
+        position += float3(0.f, moveVertical * speed * delta, moveHorizontal * speed * delta);
+
+        float2 limits = gWorld.getWorldLimits();
+
+        position.y = math::clamp(position.y, 0.f, limits.x);
+        position.z = math::clamp(position.z, 0.f, limits.y);
+
+        float angle = std::atan2(moveHorizontal, moveVertical);
+
+        if (moveVertical != 0.f || moveHorizontal != 0.f)
+            rotation.x = -angle;
+
+        if (gInputClient.isShootPressed())
+            tryShootBullet(angle);
+    }
+
+private:
+    void createLives() {
+        for (size_t i = 0; i < initialLives; i++) {
+            addLife();
+        }
+    }
+
+    void addLife() {
+        if (currentLives >= maxLives) {
+            return;
+        }
+
+        LifeObject *pLife = gLevel.addObject<LifeObject>(currentLives);
+        pLife->position = gWorld.getWorldPos(float(gWorld.width - currentLives), -1.f);
+        pLife->scale = gWorld.getWorldScale();
+        pLife->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
+        lifeObjects.push_back(pLife);
+        currentLives += 1;
+    }
+
+    void removeLife() {
+        if (currentLives == 0) {
+            // TODO: report game over
+            return;
+        }
+
+        currentLives -= 1;
+        pLevel->deleteObject(lifeObjects.back());
+        lifeObjects.pop_back();
+    }
+
+    void tryShootBullet(float angle) {
+        float now = pLevel->getCurrentTime();
+        if (now - lastFire > fireRate) {
+            lastFire = now;
+
+            float2 velocity = float2::from(std::cos(angle), std::sin(angle)) * bulletSpeed;
+
+            auto *pBullet = gLevel.addObject<BulletObject>(this, velocity);
+            pBullet->position = position;
+            pBullet->rotation = rotation;
+            pBullet->scale = gWorld.getWorldScale() * 0.3f;
+        }
+    }
+
+    // shooting logic
+    float lastFire = 0.f;
+    float fireRate = 0.3f;
+
+    // config
+    float speed = 5.f;
+    float bulletSpeed = 10.f;
+    size_t initialLives = 3;
+
+    size_t maxLives = 5;
+    size_t currentLives = 0;
+    std::vector<LifeObject*> lifeObjects;
 };
 
 struct EggObject : IGameObject {
@@ -138,6 +304,7 @@ struct EggObject : IGameObject {
 
         if (timeAlive > kTimeToHatch) {
             pLevel->deleteObject(this);
+            pLevel->addObject<BulletObject>(gWorld.getAlien(), getPlayerTarget());
         } else if (timeAlive > kTimeToLarge) {
             setMesh(pEggLargeMesh);
             setTextureId(gEggLargeTextureId);
@@ -148,6 +315,21 @@ struct EggObject : IGameObject {
     }
 
 private:
+    /**
+     * @brief create a velocity vector that would propel a bullet from the eggs position to the players
+     *
+     * @return float2
+     */
+    float2 getPlayerTarget() const {
+        float2 playerPos = gWorld.getPlayer()->position.xy();
+        float2 eggPos = position.xy();
+
+        float2 delta = playerPos - eggPos;
+        float2 dir = delta.normalize();
+
+        return dir;
+    }
+
     static constexpr auto kTimeToMedium = 1.5f;
     static constexpr auto kTimeToLarge = 3.f;
     static constexpr auto kTimeToHatch = 5.f;
@@ -162,15 +344,12 @@ struct CrossObject : IGameObject {
     }
 };
 
-static PlayerObject *pPlayerObject = nullptr;
-static AlienObject *pEnemyObject = nullptr;
-
-static void createAlien(std::string name) {
-    pEnemyObject = gLevel.addObject<AlienObject>(name);
+void GameWorld::createAlien() {
+    pAlien = gLevel.addObject<AlienObject>("alien");
 }
 
-static void createPlayer(std::string name) {
-    pPlayerObject = gLevel.addObject<PlayerObject>(name);
+void GameWorld::createPlayer() {
+    pPlayer = gLevel.addObject<PlayerObject>("player");
 }
 
 static CrossObject *addCross(std::string name) {
@@ -241,90 +420,6 @@ struct GameWindow final : IWindowCallbacks {
     }
 };
 
-using namespace simcoe::input;
-
-struct GameInputClient final : input::IClient {
-    Event shootKeyEvent;
-    Event shootGamepadEvent;
-
-    float getButtonAxis(Button neg, Button pos) const {
-        size_t negIdx = state.buttons[neg];
-        size_t posIdx = state.buttons[pos];
-
-        if (negIdx > posIdx) {
-            return -1.f;
-        } else if (posIdx > negIdx) {
-            return 1.f;
-        } else {
-            return 0.f;
-        }
-    }
-
-    float getStickAxis(Axis axis) const {
-        return state.axes[axis];
-    }
-
-    void onInput(const input::State& newState) override {
-        state = newState;
-        updates += 1;
-
-        shootKeyEvent.update(state.buttons[Button::eKeySpace]);
-        shootGamepadEvent.update(state.buttons[Button::ePadButtonDown]);
-    }
-
-    static constexpr ImGuiTableFlags kTableFlags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV;
-
-    void debugDraw() {
-        if (ImGui::Begin("Input")) {
-            ImGui::Text("updates: %zu", updates.load());
-            ImGui::Text("device: %s", input::toString(state.device).data());
-            ImGui::SeparatorText("buttons");
-
-            if (ImGui::BeginTable("buttons", 2, kTableFlags)) {
-                ImGui::TableNextColumn();
-                ImGui::Text("button");
-                ImGui::TableNextColumn();
-                ImGui::Text("state");
-
-                for (size_t i = 0; i < state.buttons.size(); i++) {
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%s", input::toString(input::Button(i)).data());
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%zu", state.buttons[i]);
-                }
-
-                ImGui::EndTable();
-            }
-
-            ImGui::SeparatorText("axes");
-            if (ImGui::BeginTable("axes", 2, kTableFlags)) {
-                ImGui::TableNextColumn();
-                ImGui::Text("axis");
-                ImGui::TableNextColumn();
-                ImGui::Text("value");
-
-                for (size_t i = 0; i < state.axes.size(); i++) {
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%s", input::toString(input::Axis(i)).data());
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%f", state.axes[i]);
-                }
-
-                ImGui::EndTable();
-            }
-        }
-
-        ImGui::End();
-    }
-
-private:
-    std::atomic_size_t updates = 0;
-
-    input::State state;
-};
-
-GameInputClient gInputClient;
-
 struct GameGui final : graph::IGuiPass {
     using graph::IGuiPass::IGuiPass;
 
@@ -371,7 +466,8 @@ struct GameGui final : graph::IGuiPass {
 
     bool sceneIsOpen = true;
 
-    char objectName[256] = { 0 };
+    int eggX = 0;
+    int eggY = 0;
 
     void content() override {
         showDockSpace();
@@ -414,9 +510,16 @@ struct GameGui final : graph::IGuiPass {
             ImGui::PopID();
         });
 
-        ImGui::SeparatorText("Add Object");
+        ImGui::SeparatorText("Add Egg");
 
-        ImGui::InputText("name", objectName, std::size(objectName));
+        ImGui::SliderInt("X", &eggX, 0, gWorld.width);
+        ImGui::SliderInt("Y", &eggY, 0, gWorld.height);
+
+        if (ImGui::Button("Create Egg")) {
+            auto *pEgg = gLevel.addObject<EggObject>("egg");
+            pEgg->position = gWorld.getWorldPos(float(eggX), float(eggY), 1.f);
+            pEgg->scale = gWorld.getWorldScale();
+        }
 
         ImGui::End();
 
@@ -501,10 +604,6 @@ struct GameGui final : graph::IGuiPass {
             auto path = fileBrowser.GetSelected();
             simcoe::logInfo("selected: {}", path.string());
             fileBrowser.ClearSelected();
-
-            pWorkThread->add("load-obj", [path] {
-                auto *pMesh = pGraph->addObject<ObjMesh>(path);
-            });
         }
     }
 
@@ -653,118 +752,26 @@ CommandLine getCommandLine() {
     return args;
 }
 
-struct GameWorld {
-    float3 worldScale = float3::from(1.f, 1.f, 1.f) * float3::from(0.5f);
-    float3 worldOrigin = float3::from(0.f, 0.f, 0.f);
-
-    float3 getWorldPos(float x, float y, float index = 0) {
-        return worldOrigin + float3::from(index, x - 0.5f, y - 0.5f);
-    }
-
-    float3 getWorldScale() const {
-        return worldScale;
-    }
-
-    float2 getWorldLimits() const {
-        return { float(width - 1), float(height) };
-    }
-
-    float2 getAlienSpawn() const {
-        return { 0.f, float(height - 1) };
-    }
-
-    float2 getPlayerSpawn() const {
-        return { 0.f, float(height - 2) };
-    }
-
-    size_t width = 22;
-    size_t height = 19;
-
-    size_t maxLives = 5;
-    size_t currentLives = 3;
-
-    std::vector<IGameObject*> pLifeObjects;
-};
-
-GameWorld gWorld;
-
 static void createGameThread() {
     pGameThread = newTask("game", [](tasks::WorkQueue *pSelf, auto token) {
-        Timer timer;
-        float lastTick = timer.now();
-
-        const float playerSpeed = 5.f;
-        const float enemySpeed = 2.f;
+        Clock clock;
+        float lastTick = clock.now();
 
         const float2 limits = gWorld.getWorldLimits();
 
-        const float fireRate = 0.3f;
-        float lastFire = -1.f;
-
-        auto updateEnemy = [&](float delta) {
-            pEnemyObject->position.y += enemySpeed * delta;
-            if (pEnemyObject->position.y > limits.y) {
-                pEnemyObject->position.y = 0.f;
-            }
-        };
-
-        auto updatePlayer = [&](float delta) {
-            float bx = gInputClient.getButtonAxis(Button::eKeyLeft, Button::eKeyRight);
-            float by = gInputClient.getButtonAxis(Button::eKeyDown, Button::eKeyUp);
-
-            float kx = gInputClient.getButtonAxis(Button::eKeyA, Button::eKeyD);
-            float ky = gInputClient.getButtonAxis(Button::eKeyS, Button::eKeyW);
-
-            float ax = gInputClient.getStickAxis(Axis::eGamepadLeftX);
-            float ay = gInputClient.getStickAxis(Axis::eGamepadLeftY);
-
-            float tx = (bx + kx + ax);
-            float ty = (by + ky + ay);
-
-            pPlayerObject->position += float3(0.f, tx * playerSpeed * delta, ty * playerSpeed * delta);
-
-            pPlayerObject->position.y = math::clamp(pPlayerObject->position.y, 0.f, limits.x);
-            pPlayerObject->position.z = math::clamp(pPlayerObject->position.z, 0.f, limits.y);
-
-            float angle = std::atan2(ty, tx);
-
-            if (tx != 0.f || ty != 0.f)
-                pPlayerObject->rotation.x = -angle;
-
-            if (gInputClient.shootKeyEvent.isHeld() || gInputClient.shootGamepadEvent.isHeld()) {
-                float now = timer.now();
-                if (now - lastFire > fireRate) {
-                    lastFire = now;
-
-                    float2 velocity = float2::from(std::cos(angle), std::sin(angle)) * 10.f;
-
-                    auto *pBullet = gLevel.addObject<BulletObject>("bullet", velocity);
-                    pBullet->position = pPlayerObject->position;
-                    pBullet->rotation = pPlayerObject->rotation;
-                    pBullet->scale = gWorld.getWorldScale() * 0.3f;
-                }
-            }
-        };
-
         auto isObjectInBounds = [&](IGameObject *pObject) {
+            if (!pObject->canCull()) return true;
+
             float2 pos = pObject->position.yz();
             return pos.x >= 0.f && pos.x < limits.x && pos.y >= 0.f && pos.y < limits.y;
         };
 
         while (!token.stop_requested()) {
-            float now = timer.now();
+            float now = clock.now();
             float delta = now - lastTick;
             lastTick = now;
 
             gLevel.beginTick();
-
-            if (pEnemyObject != nullptr) {
-                updateEnemy(delta);
-            }
-
-            if (pPlayerObject != nullptr) {
-                updatePlayer(delta);
-            }
 
             gLevel.useEachObject([&](IGameObject *pObject) {
                 if (!isObjectInBounds(pObject))
@@ -779,16 +786,8 @@ static void createGameThread() {
 }
 
 static void createLevel() {
-    createAlien("alien");
-    pEnemyObject->position = float3::from(2.f, gWorld.getAlienSpawn());
-    pEnemyObject->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
-    pEnemyObject->scale = gWorld.getWorldScale();
-
-    createPlayer("player");
-    pPlayerObject->position = float3::from(1.f, gWorld.getPlayerSpawn());
-    pPlayerObject->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
-    pPlayerObject->scale = gWorld.getWorldScale();
-
+    gWorld.createAlien();
+    gWorld.createPlayer();
     gLevel.cameraPosition = { 10.f, float(gWorld.width) / 2, float(gWorld.height) / 2 };
     gLevel.cameraRotation = { -1, 0.f, 0.f };
 
@@ -796,14 +795,6 @@ static void createLevel() {
     pCross->position = float3::from(0.f, 0.f, 0.f);
     pCross->rotation = float3::from(-90 * kDegToRad<float>, 0.f, 0.f);
     pCross->scale = float3::from(0.5f);
-
-    for (size_t i = 0; i < gWorld.maxLives; i++) {
-        auto *pLife = gLevel.addObject<PlayerObject>(std::format("life-{}", i));
-        pLife->position = gWorld.getWorldPos(float(gWorld.width - i), -1.f);
-        pLife->scale = gWorld.getWorldScale();
-        pLife->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
-        gWorld.pLifeObjects.push_back(pLife);
-    }
 
     pMainQueue->add("start-game", createGameThread);
 }

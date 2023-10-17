@@ -109,6 +109,6 @@ bool Event::beginRelease() {
     return false;
 }
 
-bool Event::isHeld() const {
+bool Event::isPressed() const {
     return lastValue > 0;
 }

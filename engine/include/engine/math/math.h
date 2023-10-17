@@ -40,6 +40,22 @@ namespace simcoe::math {
         return wrapAngle(delta);
     }
 
+    /**
+     * vector types are organized like so
+     *
+     * struct Type {
+     *    fields...
+     *
+     *    constructors
+     *    static `from` constructors
+     *    comparison operators
+     *    arithmetic operators
+     *    in place arithmetic operators
+     *    conversion operators
+     *    vector specific functions
+     * }
+     */
+
     template<typename T>
     struct Vec2;
 
@@ -116,6 +132,17 @@ namespace simcoe::math {
         template<typename O>
         constexpr Vec2<O> as() const { return Vec2<O>::from(O(x), O(y)); }
 
+        bool isinf() const { return std::isinf(x) || std::isinf(y); }
+
+        constexpr T length() const { return std::sqrt(x * x + y * y); }
+
+        constexpr Vec2 normalize() const {
+            auto len = length();
+            return from(x / len, y / len);
+        }
+
+        constexpr Vec2 negate() const { return from(-x, -y); }
+
         constexpr Vec2 clamp(const Vec2 &low, const Vec2 &high) const {
             return clamp(*this, low, high);
         }
@@ -181,6 +208,15 @@ namespace simcoe::math {
 
         bool isinf() const { return std::isinf(x) || std::isinf(y) || std::isinf(z); }
 
+        constexpr T length() const { return std::sqrt(x * x + y * y + z * z); }
+
+        constexpr Vec3 normalize() const {
+            auto len = length();
+            return from(x / len, y / len, z / len);
+        }
+
+        constexpr Vec3 negate() const { return from(-x, -y, -z); }
+
         static constexpr Vec3 cross(const Vec3& lhs, const Vec3& rhs) {
             return from(
                 lhs.y * rhs.z - lhs.z * rhs.y,
@@ -191,19 +227,6 @@ namespace simcoe::math {
 
         static constexpr T dot(const Vec3& lhs, const Vec3& rhs) {
             return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
-        }
-
-        constexpr T length() const {
-            return std::sqrt(x * x + y * y + z * z);
-        }
-
-        constexpr Vec3 normal() const {
-            auto len = length();
-            return from(x / len, y / len, z / len);
-        }
-
-        constexpr Vec3 negate() const {
-            return from(-x, -y, -z);
         }
 
         constexpr Vec4<T> vec4(T w) const {
@@ -242,22 +265,21 @@ namespace simcoe::math {
         constexpr Vec4 operator*=(const Vec4& other) { return *this = *this * other; }
         constexpr Vec4 operator/=(const Vec4& other) { return *this = *this / other; }
 
-        constexpr T length() const {
-            return std::sqrt(x * x + y * y + z * z + w * w);
-        }
+        template<typename O>
+        constexpr Vec4<O> as() const { return Vec4<O>::from(O(x), O(y), O(z), O(w)); }
 
-        constexpr Vec4 negate() const {
-            return from(-x, -y, -z, -w);
-        }
+        constexpr Vec3<T> xyz() const { return Vec3<T>::from(x, y, z); }
 
-        constexpr Vec4 normal() const {
+        bool isinf() const { return std::isinf(x) || std::isinf(y) || std::isinf(z) || std::isinf(w); }
+
+        constexpr T length() const { return std::sqrt(x * x + y * y + z * z + w * w); }
+
+        constexpr Vec4 normalize() const {
             auto len = length();
             return from(x / len, y / len, z / len, w / len);
         }
 
-        constexpr Vec3<T> vec3() const {
-            return Vec3<T>::from(x, y, z);
-        }
+        constexpr Vec4 negate() const { return from(-x, -y, -z, -w); }
 
         constexpr const T& operator[](size_t index) const { return at(index); }
         constexpr T& operator[](size_t index) { return at(index); }
@@ -524,8 +546,8 @@ namespace simcoe::math {
             ASSERT(!eye.isinf());
             ASSERT(!up.isinf());
 
-            auto r2 = dir.normal();
-            auto r0 = Row3::cross(up, r2).normal();
+            auto r2 = dir.normalize();
+            auto r0 = Row3::cross(up, r2).normalize();
             auto r1 = Row3::cross(r2, r0);
 
             auto negEye = eye.negate();
