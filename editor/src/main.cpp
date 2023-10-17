@@ -244,7 +244,8 @@ struct GameWindow final : IWindowCallbacks {
 using namespace simcoe::input;
 
 struct GameInputClient final : input::IClient {
-    Event shootEvent;
+    Event shootKeyEvent;
+    Event shootGamepadEvent;
 
     float getButtonAxis(Button neg, Button pos) const {
         size_t negIdx = state.buttons[neg];
@@ -267,7 +268,8 @@ struct GameInputClient final : input::IClient {
         state = newState;
         updates += 1;
 
-        shootEvent.update(state.buttons[Button::eKeySpace]);
+        shootKeyEvent.update(state.buttons[Button::eKeySpace]);
+        shootGamepadEvent.update(state.buttons[Button::ePadButtonDown]);
     }
 
     static constexpr ImGuiTableFlags kTableFlags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV;
@@ -729,7 +731,7 @@ static void createGameThread() {
             if (tx != 0.f || ty != 0.f)
                 pPlayerObject->rotation.x = -angle;
 
-            if (gInputClient.shootEvent.beginPress()) {
+            if (gInputClient.shootKeyEvent.isHeld() || gInputClient.shootGamepadEvent.isHeld()) {
                 float now = timer.now();
                 if (now - lastFire > fireRate) {
                     lastFire = now;
@@ -742,6 +744,11 @@ static void createGameThread() {
                     pBullet->scale = gWorld.getWorldScale() * 0.3f;
                 }
             }
+        };
+
+        auto isObjectInBounds = [&](IGameObject *pObject) {
+            float2 pos = pObject->position.yz();
+            return pos.x >= 0.f && pos.x < limits.x && pos.y >= 0.f && pos.y < limits.y;
         };
 
         while (!token.stop_requested()) {
@@ -757,8 +764,11 @@ static void createGameThread() {
                 updatePlayer(delta);
             }
 
-            gLevel.useEachObject([delta](IGameObject *pObject) {
-                pObject->tick(delta);
+            gLevel.useEachObject([&](IGameObject *pObject) {
+                // if (!isObjectInBounds(pObject))
+                //     gLevel.deleteObject(pObject); TODO: delete objects out of bounds
+                // else
+                    pObject->tick(delta);
             });
         }
     });
