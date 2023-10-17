@@ -182,6 +182,9 @@ src = [
     copy.process('data/images/store/logo150x150.png'),
     copy.process('data/images/store/logo480x480.png'),
     copy.process('data/images/store/splash.png'),
+
+    # imgui config
+    copy.process('imgui.ini')
 ]
 
 deps = [

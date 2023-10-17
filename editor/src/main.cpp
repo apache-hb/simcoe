@@ -381,7 +381,10 @@ struct GameGui final : graph::IGuiPass {
             auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getSrvIndex());
             const auto &createInfo = ctx->getCreateInfo();
             float aspect = float(createInfo.renderWidth) / createInfo.renderHeight;
-            ImGui::Image((ImTextureID)offset, { 256 * aspect, 256 });
+
+            float avail = ImGui::GetWindowWidth();
+
+            ImGui::Image((ImTextureID)offset, { avail, avail / aspect });
         }
 
         ImGui::End();
@@ -723,7 +726,8 @@ static void createGameThread() {
 
             float angle = std::atan2(ty, tx);
 
-            pPlayerObject->rotation.x = -angle;
+            if (tx != 0.f || ty != 0.f)
+                pPlayerObject->rotation.x = -angle;
 
             if (gInputClient.shootEvent.beginPress()) {
                 float now = timer.now();
@@ -875,7 +879,7 @@ static void commonMain(const std::filesystem::path& path) {
 
             auto *pGamePass = pGraph->addPass<graph::GameLevelPass>(&gLevel, pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>(), gameRenderConfig);
 
-            pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
+            //pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<graph::PresentPass>(pBackBuffers);
 

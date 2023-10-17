@@ -54,31 +54,28 @@ namespace simcoe::math {
         T width;
         T height;
 
-        constexpr static Resolution from(T it) {
-            return { it, it };
-        }
+        Resolution() : Resolution(0) { }
+        Resolution(T width, T height) : width(width), height(height) { }
+        Resolution(T it) : Resolution(it, it) { }
+        Resolution(const T *pData) : Resolution(pData[0], pData[1]) { }
 
-        constexpr static Resolution from(T width, T height) {
-            return { width, height };
-        }
+        constexpr static Resolution from(T width, T height) { return { width, height }; }
+        constexpr static Resolution from(T it) { return from(it, it); }
+        constexpr static Resolution from(const T *pData) { return from(pData[0], pData[1]); }
+
+        constexpr static Resolution zero() { return from(T(0)); }
+        constexpr static Resolution unit() { return from(T(1)); }
+
+        constexpr bool operator==(const Resolution &other) const { return width == other.width && height == other.height; }
+        constexpr bool operator!=(const Resolution &other) const { return width != other.width || height != other.height; }
+
+        template<typename O>
+        constexpr Resolution<O> as() const { return Resolution<O>::from(O(width), O(height)); }
 
         template<typename U>
         constexpr U aspectRatio() const {
             auto [w, h] = as<U>();
             return w / h;
-        }
-
-        template<typename U>
-        constexpr Resolution<U> as() const {
-            return { U(width), U(height) };
-        }
-
-        constexpr bool operator==(const Resolution &other) const {
-            return width == other.width && height == other.height;
-        }
-
-        constexpr bool operator!=(const Resolution &other) const {
-            return width != other.width || height != other.height;
         }
 
         constexpr operator Vec2<T>() const {
@@ -103,32 +100,21 @@ namespace simcoe::math {
         constexpr static Vec2 zero() { return from(T(0)); }
         constexpr static Vec2 unit() { return from(T(1)); }
 
-        constexpr bool operator==(T other) const noexcept {
-            return equal(from(other));
-        }
-
-        constexpr bool operator==(const Vec2& other) const noexcept {
-            return equal(other);
-        }
-
-        constexpr bool equal(const Vec2 &other) const {
-            return x == other.x && y == other.y;
-        }
+        constexpr bool operator==(const Vec2& other) const { return x == other.x && y == other.y; }
+        constexpr bool operator!=(const Vec2& other) const { return x != other.x || y != other.y; }
 
         constexpr Vec2 operator+(const Vec2& other) const { return from(x + other.x, y + other.y); }
-        constexpr Vec2 operator+(T it) const { return *this + from(it); }
-
         constexpr Vec2 operator-(const Vec2 &other) const { return from(x - other.x, y - other.y); }
-        constexpr Vec2 operator-(T it) const { return *this - from(it); }
-
-        constexpr Vec2 operator*(T it) const { return from(x * it, y * it); }
         constexpr Vec2 operator*(const Vec2& other) const { return from(x * other.x, y * other.y); }
+        constexpr Vec2 operator/(const Vec2& other) const { return from(x / other.x, y / other.y); }
 
-        constexpr Vec2& operator+=(T it) { return *this = *this + it; }
-        constexpr Vec2& operator+=(const Vec2& other) { return *this = *this + other; }
+        constexpr Vec2 operator+=(const Vec2& other) { return *this = *this + other; }
+        constexpr Vec2 operator-=(const Vec2& other) { return *this = *this - other; }
+        constexpr Vec2 operator*=(const Vec2& other) { return *this = *this * other; }
+        constexpr Vec2 operator/=(const Vec2& other) { return *this = *this / other; }
 
-        constexpr Vec2& operator*=(T it) { return *this = *this * it; }
-        constexpr Vec2& operator*=(const Vec2& other) { return *this = *this * other; }
+        template<typename O>
+        constexpr Vec2<O> as() const { return Vec2<O>::from(O(x), O(y)); }
 
         constexpr Vec2 clamp(const Vec2 &low, const Vec2 &high) const {
             return clamp(*this, low, high);
@@ -136,11 +122,6 @@ namespace simcoe::math {
 
         constexpr Vec2 clamp(T low, T high) const {
             return clamp(*this, low, high);
-        }
-
-        template<typename O>
-        constexpr Vec2<O> as() const {
-            return { O(x), O(y) };
         }
 
         static constexpr Vec2 clamp(const Vec2 &it, const Vec2 &low, const Vec2 &high) {
@@ -154,6 +135,8 @@ namespace simcoe::math {
         constexpr Vec3<T> vec3(T z) const {
             return { x, y, z };
         }
+
+        constexpr T *data() { return &x; } // TODO: this is UB
     };
 
     template<typename T>
@@ -165,8 +148,6 @@ namespace simcoe::math {
         constexpr Vec3() : Vec3(0) { }
         constexpr Vec3(T x, T y, T z) : x(x), y(y), z(z) { }
         constexpr Vec3(T it) : Vec3(it, it, it){ }
-        constexpr Vec3(T x, Vec2<T> yz) : Vec3(x, yz.x, yz.y) { }
-        constexpr Vec3(Vec2<T> xy, T z) : Vec3(xy.x, xy.y, z) { }
         constexpr Vec3(const T *pData) : Vec3(pData[0], pData[1], pData[2]) { }
 
         static constexpr Vec3 from(T x, T y, T z) { return { x, y, z }; }
@@ -190,6 +171,9 @@ namespace simcoe::math {
         constexpr Vec3 operator-=(const Vec3& it) { return *this = *this - it; }
         constexpr Vec3 operator*=(const Vec3& it) { return *this = *this * it; }
         constexpr Vec3 operator/=(const Vec3& it) { return *this = *this / it; }
+
+        template<typename O>
+        constexpr Vec3<O> as() const { return Vec3<O>::from(O(x), O(y), O(z)); }
 
         constexpr Vec2<T> xy() const { return Vec2<T>::from(x, y); }
         constexpr Vec2<T> xz() const { return Vec2<T>::from(x, z); }
@@ -236,17 +220,27 @@ namespace simcoe::math {
         T z;
         T w;
 
-        static constexpr Vec4 from(T x, T y, T z, T w) {
-            return { x, y, z, w };
-        }
+        constexpr Vec4() : Vec4(0) { }
+        constexpr Vec4(T x, T y, T z, T w) : x(x), y(y), z(z), w(w) { }
+        constexpr Vec4(T it) : Vec4(it, it, it, it) { }
+        constexpr Vec4(const T *pData) : Vec4(pData[0], pData[1], pData[2], pData[3]) { }
 
-        static constexpr Vec4 from(const T *pData) {
-            return { pData[0], pData[1], pData[2], pData[3] };
-        }
+        static constexpr Vec4 from(T x, T y, T z, T w) { return { x, y, z, w }; }
+        static constexpr Vec4 from(T it) { return from(it, it, it, it); }
+        static constexpr Vec4 from(const T *pData) { return from(pData[0], pData[1], pData[2], pData[3]); }
 
-        static constexpr Vec4 from(T it) {
-            return from(it, it, it, it);
-        }
+        static constexpr Vec4 zero() { return from(T(0)); }
+        static constexpr Vec4 unit() { return from(T(1)); }
+
+        constexpr Vec4 operator+(const Vec4& other) const { return from(x + other.x, y + other.y, z + other.z, w + other.w); }
+        constexpr Vec4 operator-(const Vec4& other) const { return from(x - other.x, y - other.y, z - other.z, w - other.w); }
+        constexpr Vec4 operator*(const Vec4& other) const { return from(x * other.x, y * other.y, z * other.z, w * other.w); }
+        constexpr Vec4 operator/(const Vec4& other) const { return from(x / other.x, y / other.y, z / other.z, w / other.w); }
+
+        constexpr Vec4 operator+=(const Vec4& other) { return *this = *this + other; }
+        constexpr Vec4 operator-=(const Vec4& other) { return *this = *this - other; }
+        constexpr Vec4 operator*=(const Vec4& other) { return *this = *this * other; }
+        constexpr Vec4 operator/=(const Vec4& other) { return *this = *this / other; }
 
         constexpr T length() const {
             return std::sqrt(x * x + y * y + z * z + w * w);
@@ -268,19 +262,10 @@ namespace simcoe::math {
         constexpr const T& operator[](size_t index) const { return at(index); }
         constexpr T& operator[](size_t index) { return at(index); }
 
-        constexpr Vec4 add(const Vec4& other) const {
-            return from(x + other.x, y + other.y, z + other.z, w + other.w);
-        }
-
-        constexpr Vec4 operator+(const Vec4& other) const {
-            return add(other);
-        }
-
         constexpr const T& at(size_t index) const { return this->*components[index];}
         constexpr T& at(size_t index) { return this->*components[index]; }
 
         const T *data() const { return &x; } // TODO: this is UB
-
     private:
         static constexpr T Vec4::*components[] { &Vec4::x, &Vec4::y, &Vec4::z, &Vec4::w };
     };

@@ -18,5 +18,6 @@ namespace editor::graph {
 
     private:
         ShaderResourceAlloc::Index guiUniformIndex;
+        std::string iniPath;
     };
 }

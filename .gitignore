@@ -18,7 +18,7 @@
 !data/models/*
 
 # gameinput
-!subprojects/gameinput/lib/*
+!subprojects/gdk/lib/*
 
 # dont ignore readme and build files
 !*.md
@@ -31,6 +31,7 @@
 !.clang-format
 !.github/workflows/*.yml
 !*.xml
+!imgui.ini
 
 # git stuff
 !*.gitignore

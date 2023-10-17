@@ -16,15 +16,22 @@ namespace {
                                        //| ImGuiConfigFlags_NavEnableGamepad;
 }
 
-IGuiPass::IGuiPass(Graph *ctx, ResourceWrapper<IRTVHandle> *pHandle)
-    : IRenderPass(ctx, "imgui", eDepDisplaySize)
+IGuiPass::IGuiPass(Graph *graph, ResourceWrapper<IRTVHandle> *pHandle)
+    : IRenderPass(graph, "imgui", eDepDisplaySize)
 {
     setRenderTargetHandle(pHandle);
+
+    const auto& createInfo = ctx->getCreateInfo();
+    iniPath = createInfo.depot.getAssetPath("imgui.ini").string();
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= kConfig;
+    io.IniFilename = iniPath.c_str();
+
+    simcoe::logInfo("imgui.ini path: {}", iniPath);
 
     ImGui::StyleColorsDark();
 }
