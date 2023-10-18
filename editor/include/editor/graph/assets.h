@@ -25,7 +25,7 @@ namespace editor::graph {
             auto *pResource = ctx->createUniformBuffer(sizeof(T));
             setResource(pResource);
             setSrvIndex(ctx->mapUniform(pResource, sizeof(T)));
-            setCurrentState(rhi::ResourceState::eShaderResource);
+            setCurrentState(rhi::ResourceState::eUniform);
         }
 
         void destroy() override {

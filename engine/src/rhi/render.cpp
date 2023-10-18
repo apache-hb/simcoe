@@ -44,7 +44,8 @@ static D3D12_RESOURCE_STATES getResourceState(ResourceState state) {
     switch (state) {
     case ResourceState::ePresent: return D3D12_RESOURCE_STATE_PRESENT;
     case ResourceState::eRenderTarget: return D3D12_RESOURCE_STATE_RENDER_TARGET;
-    case ResourceState::eShaderResource: return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    case ResourceState::eTexture: return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    case ResourceState::eUniform: return D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
     case ResourceState::eDepthWrite: return D3D12_RESOURCE_STATE_DEPTH_WRITE;
     case ResourceState::eCopyDest: return D3D12_RESOURCE_STATE_COPY_DEST;
     default: throw std::runtime_error("invalid resource state");
@@ -82,7 +83,10 @@ std::string_view simcoe::rhi::toString(ResourceState state) {
     switch (state) {
     case ResourceState::ePresent: return "present";
     case ResourceState::eRenderTarget: return "render-target";
-    case ResourceState::eShaderResource: return "shader-resource";
+    case ResourceState::eTexture: return "texture";
+    case ResourceState::eUniform: return "uniform";
+    case ResourceState::eVertexBuffer: return "vertex-buffer";
+    case ResourceState::eIndexBuffer: return "index-buffer";
     case ResourceState::eDepthWrite: return "depth-write";
     case ResourceState::eCopyDest: return "copy-dest";
     default: return "unknown";
@@ -119,6 +123,7 @@ static D3D12_SHADER_VISIBILITY getVisibility(InputVisibility visibility) {
     switch (visibility) {
     case InputVisibility::ePixel: return D3D12_SHADER_VISIBILITY_PIXEL;
     case InputVisibility::eVertex: return D3D12_SHADER_VISIBILITY_VERTEX;
+    case InputVisibility::eCompute: return D3D12_SHADER_VISIBILITY_ALL;
     default: throw std::runtime_error("invalid shader visibility");
     }
 }
@@ -259,8 +264,13 @@ void Commands::setDisplay(const Display& display) {
     get()->RSSetScissorRects(1, &s);
 }
 
-void Commands::setPipelineState(PipelineState *pState) {
+void Commands::setGraphicsPipeline(PipelineState *pState) {
     get()->SetGraphicsRootSignature(pState->getRootSignature());
+    get()->SetPipelineState(pState->getState());
+}
+
+void Commands::setComputePipeline(PipelineState *pState) {
+    get()->SetComputeRootSignature(pState->getRootSignature());
     get()->SetPipelineState(pState->getState());
 }
 
@@ -269,8 +279,12 @@ void Commands::setHeap(DescriptorHeap *pHeap) {
     get()->SetDescriptorHeaps(1, &pDescriptorHeap);
 }
 
-void Commands::setShaderInput(DeviceHeapOffset handle, UINT reg) {
+void Commands::setGraphicsShaderInput(UINT reg, DeviceHeapOffset handle) {
     get()->SetGraphicsRootDescriptorTable(reg, deviceHandle(handle));
+}
+
+void Commands::setComputeShaderInput(UINT reg, DeviceHeapOffset handle) {
+    get()->SetComputeRootDescriptorTable(reg, deviceHandle(handle));
 }
 
 void Commands::setRenderTarget(HostHeapOffset handle) {
@@ -571,7 +585,7 @@ static CD3DX12_DESCRIPTOR_RANGE1 createRange(D3D12_DESCRIPTOR_RANGE_TYPE type, c
     return range;
 }
 
-PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo) {
+PipelineState *Device::createGraphicsPipeline(const GraphicsPipelineInfo& createInfo) {
     PipelineState::IndexMap textureIndices;
     PipelineState::IndexMap uniformIndices;
 
@@ -699,6 +713,122 @@ PipelineState *Device::createPipelineState(const PipelineCreateInfo& createInfo)
 
     ID3D12PipelineState *pPipeline = nullptr;
     HR_CHECK(get()->CreateGraphicsPipelineState(&pipelineDesc, IID_PPV_ARGS(&pPipeline)));
+
+    return PipelineState::create(pSignature, pPipeline, textureIndices, uniformIndices);
+}
+
+PipelineState *Device::createComputePipeline(const ComputePipelineInfo& createInfo) {
+    PipelineState::IndexMap textureIndices;
+    PipelineState::IndexMap uniformIndices;
+    PipelineState::IndexMap uavIndices;
+
+    // create root parameters
+    std::vector<D3D12_ROOT_PARAMETER1> parameters;
+    auto addParam = [&](const D3D12_ROOT_PARAMETER1& param) {
+        parameters.push_back(param);
+        return parameters.size() - 1;
+    };
+
+    // first check texture inputs
+    size_t textureInputs = createInfo.textureInputs.size();
+    std::unique_ptr<D3D12_DESCRIPTOR_RANGE1[]> pTextureRanges{new D3D12_DESCRIPTOR_RANGE1[textureInputs]};
+    for (size_t i = 0; i < textureInputs; i++) {
+        const auto& input = createInfo.textureInputs[i];
+
+        pTextureRanges[i] = createRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, input);
+
+        CD3DX12_ROOT_PARAMETER1 parameter;
+        parameter.InitAsDescriptorTable(
+            1, &pTextureRanges[i],
+            getVisibility(input.visibility)
+        );
+        textureIndices[input.name] = addParam(parameter);
+    }
+
+    // then uniforms
+    size_t uniformInputs = createInfo.uniformInputs.size();
+    std::unique_ptr<D3D12_DESCRIPTOR_RANGE1[]> pUniformRanges{new D3D12_DESCRIPTOR_RANGE1[uniformInputs]};
+    for (size_t i = 0; i < uniformInputs; i++) {
+        const auto& input = createInfo.uniformInputs[i];
+
+        pUniformRanges[i] = createRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, input);
+
+        CD3DX12_ROOT_PARAMETER1 parameter;
+        parameter.InitAsDescriptorTable(
+            1, &pUniformRanges[i],
+            getVisibility(input.visibility)
+        );
+        uniformIndices[input.name] = addParam(parameter);
+    }
+
+    // then uavs
+    size_t uavInputs = createInfo.uavInputs.size();
+    std::unique_ptr<D3D12_DESCRIPTOR_RANGE1[]> pUavRanges{new D3D12_DESCRIPTOR_RANGE1[uavInputs]};
+    for (size_t i = 0; i < uavInputs; i++) {
+        const auto& input = createInfo.uavInputs[i];
+
+        pUavRanges[i] = createRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, input);
+
+        CD3DX12_ROOT_PARAMETER1 parameter;
+        parameter.InitAsDescriptorTable(
+            1, &pUavRanges[i],
+            getVisibility(input.visibility)
+        );
+        uavIndices[input.name] = addParam(parameter);
+    }
+
+    // create samplers
+
+    std::vector<D3D12_STATIC_SAMPLER_DESC> samplerDescs;
+    for (const auto& sampler : createInfo.samplers) {
+        D3D12_STATIC_SAMPLER_DESC desc = {
+            .Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR,
+            .AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+            .AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+            .AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+            .MipLODBias = 0,
+            .MaxAnisotropy = 0,
+            .ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER,
+            .BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
+            .MinLOD = 0,
+            .MaxLOD = D3D12_FLOAT32_MAX,
+            .ShaderRegister = UINT(sampler.reg),
+            .RegisterSpace = 0,
+            .ShaderVisibility = getVisibility(sampler.visibility),
+        };
+
+        samplerDescs.push_back(desc);
+    }
+
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
+    rootSignatureDesc.Init_1_1(
+        UINT(parameters.size()), parameters.data(),
+        UINT(samplerDescs.size()), samplerDescs.data()
+    );
+
+    ComPtr<ID3DBlob> signature;
+    ComPtr<ID3DBlob> error;
+    if (HRESULT hr = D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, rootSignatureVersion, &signature, &error); FAILED(hr)) {
+        simcoe::logError("Failed to serialize root signature: {:X}", unsigned(hr));
+
+        std::string_view msg{static_cast<LPCSTR>(error->GetBufferPointer()), error->GetBufferSize() / sizeof(char)};
+        simcoe::logError("{}", msg);
+
+        return nullptr;
+    }
+
+    ID3D12RootSignature *pSignature = nullptr;
+    HR_CHECK(getDevice()->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&pSignature)));
+
+    const auto& cs = createInfo.computeShader;
+
+    D3D12_COMPUTE_PIPELINE_STATE_DESC pipelineDesc = {
+        .pRootSignature = pSignature,
+        .CS = CD3DX12_SHADER_BYTECODE(cs.data(), cs.size())
+    };
+
+    ID3D12PipelineState *pPipeline = nullptr;
+    HR_CHECK(get()->CreateComputePipelineState(&pipelineDesc, IID_PPV_ARGS(&pPipeline)));
 
     return PipelineState::create(pSignature, pPipeline, textureIndices, uniformIndices);
 }

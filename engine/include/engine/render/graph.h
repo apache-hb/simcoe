@@ -174,6 +174,34 @@ namespace simcoe::render {
     };
 
     ///
+    /// uav handles
+    ///
+
+    struct IUAVHandle {
+        virtual ~IUAVHandle() = default;
+
+        virtual ShaderResourceAlloc::Index getUavIndex() const = 0;
+    };
+
+    struct ISingleUAVHandle : IUAVHandle {
+        virtual ~ISingleUAVHandle() = default;
+
+        ShaderResourceAlloc::Index getUavIndex() const final override {
+            return uavIndex;
+        }
+
+    protected:
+        void destroy(Context *ctx) {
+            auto *pUavHeap = ctx->getSrvHeap();
+            pUavHeap->release(uavIndex);
+        }
+
+        void setUavIndex(ShaderResourceAlloc::Index index) { uavIndex = index; }
+    private:
+        ShaderResourceAlloc::Index uavIndex;
+    };
+
+    ///
     /// resources allocated by the graph
     ///
 

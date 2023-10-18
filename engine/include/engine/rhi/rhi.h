@@ -168,13 +168,17 @@ namespace simcoe::rhi {
 
     enum struct InputVisibility {
         ePixel,
-        eVertex
+        eVertex,
+        eCompute
     };
 
     enum struct ResourceState {
         ePresent,
         eRenderTarget,
-        eShaderResource,
+        eTexture,
+        eUniform,
+        eVertexBuffer,
+        eIndexBuffer,
         eDepthWrite,
         eCopyDest
     };
@@ -199,7 +203,7 @@ namespace simcoe::rhi {
         size_t reg;
     };
 
-    struct PipelineCreateInfo {
+    struct GraphicsPipelineInfo {
         std::vector<std::byte> vertexShader;
         std::vector<std::byte> pixelShader;
 
@@ -214,6 +218,16 @@ namespace simcoe::rhi {
 
         bool depthEnable = false;
         TypeFormat dsvFormat = TypeFormat::eNone;
+    };
+
+    struct ComputePipelineInfo {
+        std::vector<std::byte> computeShader;
+
+        std::vector<InputSlot> textureInputs;
+        std::vector<InputSlot> uniformInputs;
+        std::vector<InputSlot> uavInputs;
+
+        std::vector<SamplerSlot> samplers;
     };
 
     struct TextureInfo {
@@ -243,7 +257,8 @@ namespace simcoe::rhi {
         DescriptorHeap *createShaderDataHeap(UINT count);
         DescriptorHeap *createDepthStencilHeap(UINT count);
 
-        PipelineState *createPipelineState(const PipelineCreateInfo& createInfo);
+        PipelineState *createGraphicsPipeline(const GraphicsPipelineInfo& createInfo);
+        PipelineState *createComputePipeline(const ComputePipelineInfo& createInfo);
         Fence *createFence();
 
         // buffer creation
@@ -432,10 +447,13 @@ namespace simcoe::rhi {
         void clearDepthStencil(HostHeapOffset handle, float depth, UINT8 stencil);
 
         void setDisplay(const Display& display);
-        void setPipelineState(PipelineState *pState);
+        void setGraphicsPipeline(PipelineState *pState);
+        void setComputePipeline(PipelineState *pState);
+
         void setHeap(DescriptorHeap *pHeap);
 
-        void setShaderInput(DeviceHeapOffset handle, UINT reg);
+        void setGraphicsShaderInput(UINT reg, DeviceHeapOffset handle);
+        void setComputeShaderInput(UINT reg, DeviceHeapOffset handle);
 
         void setRenderTarget(HostHeapOffset handle);
         void setRenderTarget(HostHeapOffset rtvHandle, HostHeapOffset dsvHandle);

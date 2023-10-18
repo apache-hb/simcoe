@@ -71,7 +71,7 @@ void SceneTargetHandle::create() {
     pResource->setName("scene-target");
 
     setResource(pResource);
-    setCurrentState(rhi::ResourceState::eShaderResource);
+    setCurrentState(rhi::ResourceState::eTexture);
     setSrvIndex(ctx->mapTexture(pResource));
     setRtvIndex(ctx->mapRenderTarget(pResource));
 }

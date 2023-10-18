@@ -103,9 +103,19 @@ python3 = find_program('python3')
 data_dir = meson.current_source_dir()/'data'
 script_dir = data_dir/'scripts'
 
-hlsl = generator(python3,
-    output : [ '@BASENAME@.ps.cso', '@BASENAME@.vs.cso' ],
-    arguments : [ script_dir/'compile-hlsl.py', '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'vs,ps', '6_0' ]
+hlsl_vs = generator(python3,
+    output : '@BASENAME@.vs.cso',
+    arguments : [ script_dir/'compile-hlsl.py', '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'vs', '6_0' ]
+)
+
+hlsl_ps = generator(python3,
+    output : '@BASENAME@.ps.cso',
+    arguments : [ script_dir/'compile-hlsl.py', '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'ps', '6_0' ]
+)
+
+hlsl_cs = generator(python3,
+    output : '@BASENAME@.cs.cso',
+    arguments : [ script_dir/'compile-hlsl.py', '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'cs', '6_0' ]
 )
 
 copy = generator(python3,
@@ -140,6 +150,7 @@ src = [
     'editor/src/editor/graph/scene.cpp',
     'editor/src/editor/graph/gui.cpp',
     'editor/src/editor/graph/game.cpp',
+    'editor/src/editor/graph/mipmap.cpp',
 
     # game objects
     'editor/src/editor/game/obj.cpp',
@@ -154,8 +165,13 @@ src = [
     'editor/src/editor/game/swarm.cpp',
 
     # shaders
-    hlsl.process('data/shaders/blit.hlsl'),
-    hlsl.process('data/shaders/object.hlsl'),
+    hlsl_vs.process('data/shaders/blit.hlsl'),
+    hlsl_ps.process('data/shaders/blit.hlsl'),
+
+    hlsl_vs.process('data/shaders/object.hlsl'),
+    hlsl_ps.process('data/shaders/object.hlsl'),
+
+    hlsl_cs.process('data/shaders/mipmap.hlsl'),
 
     # textures
     copy.process('data/images/assets/uv-coords.png'),

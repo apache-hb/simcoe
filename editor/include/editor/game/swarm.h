@@ -56,17 +56,17 @@ namespace editor::game {
         float bulletSpeed = 10.f;
         size_t initialLives = 3;
 
-
-
-        // shooting logic
+        ///////////////////////////////////
+        /// shooting logic
+        ///////////////////////////////////
         void tryShootBullet(float angle);
 
         float lastFire = 0.f;
         float fireRate = 0.3f;
 
-
-
-        // life handling logic
+        ///////////////////////////////////
+        /// life handling logic
+        ///////////////////////////////////
         void createLives();
         void addLife();
         void removeLife();

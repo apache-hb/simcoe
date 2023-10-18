@@ -163,19 +163,20 @@ struct GameGui final : graph::IGuiPass {
 
     GameGui(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
         : IGuiPass(ctx, pRenderTarget)
-        , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eShaderResource))
+        , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTexture))
     { }
 
     void create() override {
         IGuiPass::create();
 
-        const auto &createInfo = ctx->getCreateInfo();
-        renderSize[0] = createInfo.renderWidth;
-        renderSize[1] = createInfo.renderHeight;
+        const auto &info = ctx->getCreateInfo();
 
-        backBufferCount = createInfo.backBufferCount;
+        renderSize[0] = info.renderWidth;
+        renderSize[1] = info.renderHeight;
 
-        currentAdapter = createInfo.adapterIndex;
+        backBufferCount = info.backBufferCount;
+
+        currentAdapter = info.adapterIndex;
         for (auto *pAdapter : ctx->getAdapters()) {
             auto info = pAdapter->getInfo();
             adapterNames.push_back(_strdup(info.name.c_str()));

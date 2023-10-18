@@ -56,7 +56,7 @@ static rhi::Display createLetterBoxDisplay(UINT renderWidth, UINT renderHeight, 
 
 PostPass::PostPass(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
     : IRenderPass(ctx, "post", StateDep(eDepDisplaySize | eDepRenderSize))
-    , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eShaderResource))
+    , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTexture))
 {
     setRenderTargetHandle(pRenderTarget);
 }
@@ -66,7 +66,7 @@ void PostPass::create() {
 
     display = createLetterBoxDisplay(createInfo.renderWidth, createInfo.renderHeight, createInfo.displayWidth, createInfo.displayHeight);
 
-    const rhi::PipelineCreateInfo psoCreateInfo = {
+    const rhi::GraphicsPipelineInfo psoCreateInfo = {
         .vertexShader = createInfo.depot.loadBlob("blit.vs.cso"),
         .pixelShader = createInfo.depot.loadBlob("blit.ps.cso"),
 
@@ -86,7 +86,7 @@ void PostPass::create() {
         .rtvFormat = ctx->getSwapChainFormat()
     };
 
-    pPipeline = ctx->createPipelineState(psoCreateInfo);
+    pPipeline = ctx->createGraphicsPipeline(psoCreateInfo);
     pPipeline->setName("pso.post");
 
     std::unique_ptr<rhi::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(kScreenQuad.data(), kScreenQuad.size() * sizeof(Vertex))};
@@ -118,11 +118,12 @@ void PostPass::destroy() {
 
 void PostPass::execute() {
     ISRVHandle *pSource = pSceneSource->getInner();
+    UINT srcSlot = pPipeline->getTextureInput("source");
 
-    ctx->setPipeline(pPipeline);
+    ctx->setGraphicsPipeline(pPipeline);
     ctx->setDisplay(display);
 
-    ctx->setShaderInput(pSource->getSrvIndex(), pPipeline->getTextureInput("source"));
+    ctx->setGraphicsShaderInput(srcSlot, pSource->getSrvIndex());
     ctx->setVertexBuffer(pScreenQuadVerts);
     ctx->drawIndexBuffer(pScreenQuadIndices, kScreenQuadIndices.size());
 }

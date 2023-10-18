@@ -155,8 +155,12 @@ namespace simcoe::render {
             return pDevice->createUniformBuffer(size);
         }
 
-        rhi::PipelineState *createPipelineState(const rhi::PipelineCreateInfo& createInfo) {
-            return pDevice->createPipelineState(createInfo);
+        rhi::PipelineState *createGraphicsPipeline(const rhi::GraphicsPipelineInfo& createInfo) {
+            return pDevice->createGraphicsPipeline(createInfo);
+        }
+
+        rhi::PipelineState *createComputePipeline(const rhi::ComputePipelineInfo& createInfo) {
+            return pDevice->createComputePipeline(createInfo);
         }
 
         rhi::UploadBuffer *createUploadBuffer(const void *pData, size_t size) {
@@ -208,6 +212,15 @@ namespace simcoe::render {
             return index;
         }
 
+        // compute commands
+        void setComputePipeline(rhi::PipelineState *pPipeline) {
+            pComputeCommands->setComputePipeline(pPipeline);
+        }
+
+        void setComputeShaderInput(UINT slot, ShaderResourceAlloc::Index index) {
+            pComputeCommands->setComputeShaderInput(slot, pDataAlloc->deviceOffset(index));
+        }
+
         // commands
         void transition(rhi::DeviceResource *pResource, rhi::ResourceState from, rhi::ResourceState to) {
             pDirectCommands->transition(pResource, from, to);
@@ -221,8 +234,8 @@ namespace simcoe::render {
             pDirectCommands->setDisplay(display);
         }
 
-        void setPipeline(rhi::PipelineState *pPipeline) {
-            pDirectCommands->setPipelineState(pPipeline);
+        void setGraphicsPipeline(rhi::PipelineState *pPipeline) {
+            pDirectCommands->setGraphicsPipeline(pPipeline);
         }
 
         // render and depth commands
@@ -250,8 +263,8 @@ namespace simcoe::render {
 
         // pipeline commands
 
-        void setShaderInput(ShaderResourceAlloc::Index index, UINT slot) {
-            pDirectCommands->setShaderInput(pDataAlloc->deviceOffset(index), slot);
+        void setGraphicsShaderInput(UINT slot, ShaderResourceAlloc::Index index) {
+            pDirectCommands->setGraphicsShaderInput(slot, pDataAlloc->deviceOffset(index));
         }
 
         void drawIndexBuffer(rhi::IndexBuffer *pBuffer, size_t count) {

@@ -41,7 +41,7 @@ void ObjectUniformHandle::update(IGameObject *pObject) {
 
 GameLevelPass::GameLevelPass(Graph *ctx, GameLevel *pLevel, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<IDSVHandle> *pDepthTarget, GameRenderInfo info)
     : IRenderPass(ctx, "game.level")
-    , pCameraUniform(addAttachment(info.pCameraUniform, rhi::ResourceState::eShaderResource))
+    , pCameraUniform(addAttachment(info.pCameraUniform, rhi::ResourceState::eUniform))
     , pLevel(pLevel)
 {
     setRenderTargetHandle(pRenderTarget);
@@ -51,7 +51,7 @@ GameLevelPass::GameLevelPass(Graph *ctx, GameLevel *pLevel, ResourceWrapper<IRTV
 void GameLevelPass::create() {
     const auto &createInfo = ctx->getCreateInfo();
     // create pipeline
-    const rhi::PipelineCreateInfo psoCreateInfo = {
+    const rhi::GraphicsPipelineInfo psoCreateInfo = {
         .vertexShader = createInfo.depot.loadBlob("object.vs.cso"),
         .pixelShader = createInfo.depot.loadBlob("object.ps.cso"),
 
@@ -78,7 +78,7 @@ void GameLevelPass::create() {
         .dsvFormat = ctx->getDepthFormat()
     };
 
-    pPipeline = ctx->createPipelineState(psoCreateInfo);
+    pPipeline = ctx->createGraphicsPipeline(psoCreateInfo);
     pPipeline->setName("pso.game");
 }
 
@@ -91,13 +91,13 @@ void GameLevelPass::execute() {
 
     pCamera->update(pLevel);
 
-    ctx->setPipeline(pPipeline);
+    ctx->setGraphicsPipeline(pPipeline);
 
     UINT texIndex = pPipeline->getTextureInput("tex");
     UINT cameraIndex = pPipeline->getUniformInput("camera");
     UINT objectIndex = pPipeline->getUniformInput("object");
 
-    ctx->setShaderInput(pCamera->getSrvIndex(), cameraIndex); // set camera uniform
+    ctx->setGraphicsShaderInput(cameraIndex, pCamera->getSrvIndex()); // set camera uniform
 
     pLevel->useEachObject([&](IGameObject *pObject) {
         auto *pTextureHandle = textureAttachments[pObject->getTexture()];
@@ -108,8 +108,8 @@ void GameLevelPass::execute() {
         auto *pUniform = getObjectUniform(pObject); // get object uniform (create if not exists)
         pUniform->update(pObject);
 
-        ctx->setShaderInput(pTexture->getSrvIndex(), texIndex); // set texture
-        ctx->setShaderInput(pUniform->getSrvIndex(), objectIndex); // set object uniform
+        ctx->setGraphicsShaderInput(texIndex, pTexture->getSrvIndex()); // set texture
+        ctx->setGraphicsShaderInput(objectIndex, pUniform->getSrvIndex()); // set object uniform
 
         ctx->setVertexBuffer(pMesh->getVertexBuffer());
         ctx->setIndexBuffer(pMesh->getIndexBuffer());
@@ -118,7 +118,7 @@ void GameLevelPass::execute() {
 }
 
 size_t GameLevelPass::addTexture(ResourceWrapper<TextureHandle> *pTexture) {
-    auto *pAttachment = addAttachment(pTexture, rhi::ResourceState::eShaderResource);
+    auto *pAttachment = addAttachment(pTexture, rhi::ResourceState::eTexture);
     textureAttachments.push_back(pAttachment);
     return textureAttachments.size() - 1;
 }
@@ -134,5 +134,5 @@ ObjectUniformHandle *GameLevelPass::getObjectUniform(IGameObject *pObject) {
 
 void GameLevelPass::createObjectUniform(IGameObject *pObject) {
     auto *pUniform = graph->addResource<ObjectUniformHandle>(pObject->getName());
-    objectUniforms.emplace(pObject, addAttachment(pUniform, rhi::ResourceState::eShaderResource));
+    objectUniforms.emplace(pObject, addAttachment(pUniform, rhi::ResourceState::eUniform));
 }

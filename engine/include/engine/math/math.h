@@ -599,19 +599,22 @@ namespace simcoe::math {
     };
 
     using int2 = Vec2<int>;
-
+    using int3 = Vec3<int>;
+    using int4 = Vec4<int>;
     static_assert(sizeof(int2) == sizeof(int) * 2);
+    static_assert(sizeof(int3) == sizeof(int) * 3);
+    static_assert(sizeof(int4) == sizeof(int) * 4);
+
 
     using size2 = Vec2<size_t>;
-
     static_assert(sizeof(size2) == sizeof(size_t) * 2);
+
 
     using float2 = Vec2<float>;
     using float3 = Vec3<float>;
     using float4 = Vec4<float>;
     using float3x3 = Mat3x3<float>;
     using float4x4 = Mat4x4<float>;
-
     static_assert(sizeof(float2) == sizeof(float) * 2);
     static_assert(sizeof(float3) == sizeof(float) * 3);
     static_assert(sizeof(float4) == sizeof(float) * 4);
