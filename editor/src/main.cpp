@@ -163,7 +163,7 @@ struct GameGui final : graph::IGuiPass {
 
     GameGui(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
         : IGuiPass(ctx, pRenderTarget)
-        , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTexture))
+        , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTextureRead))
     { }
 
     void create() override {

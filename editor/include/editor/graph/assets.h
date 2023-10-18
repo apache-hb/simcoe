@@ -4,13 +4,14 @@
 
 using namespace simcoe;
 using namespace simcoe::render;
+using namespace simcoe::math;
 
 namespace editor::graph {
     using ITextureHandle = ISingleResourceHandle<rhi::TextureBuffer>;
 
     struct Vertex {
-        math::float3 position;
-        math::float2 uv;
+        float3 position;
+        float2 uv;
     };
 
     template<typename T>
@@ -78,7 +79,14 @@ namespace editor::graph {
         void create() override;
         void destroy() override;
 
+        uint2 getSize() const { return size; }
+
     private:
+        // image path
         std::string name;
+
+        // image data
+        uint2 size;
+        std::vector<std::byte> data;
     };
 }

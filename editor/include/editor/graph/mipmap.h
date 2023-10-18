@@ -5,8 +5,6 @@
 namespace editor::graph {
     using namespace simcoe::math;
 
-    using uint2 = Vec2<uint32_t>;
-
     struct UNIFORM_BUFFER MipMapInfo {
         uint32_t sourceLevel;
         uint32_t mipLevel;
@@ -17,8 +15,19 @@ namespace editor::graph {
         MipMapInfoHandle(Graph *ctx);
     };
 
+    struct RwTextureHandle : ISingleResourceHandle<rhi::RwTextureBuffer>, ISingleUAVHandle {
+        RwTextureHandle(Graph *ctx, uint2 size, size_t mipLevel);
+
+        void create() override;
+        void destroy() override;
+
+    private:
+        uint2 size;
+        size_t mipLevel;
+    };
+
     struct MipMapPass : ICommandPass {
-        MipMapPass(Graph *ctx, ResourceWrapper<ITextureHandle> *pSourceTexture);
+        MipMapPass(Graph *ctx, ResourceWrapper<TextureHandle> *pSourceTexture);
 
         void create() override;
         void destroy() override;
@@ -26,10 +35,13 @@ namespace editor::graph {
         void execute() override;
 
     private:
-        PassAttachment<ITextureHandle> *pSourceTexture;
+        PassAttachment<ISRVHandle> *pSourceTexture;
 
         ResourceWrapper<MipMapInfoHandle> *pMipMapInfo;
         PassAttachment<MipMapInfoHandle> *pMipMapInfoAttachment;
+
+        ResourceWrapper<RwTextureHandle> *pTargetTexture;
+        PassAttachment<IUAVHandle> *pTargetTextureAttachment;
 
         rhi::PipelineState *pPipelineState;
     };

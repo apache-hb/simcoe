@@ -71,7 +71,7 @@ void SceneTargetHandle::create() {
     pResource->setName("scene-target");
 
     setResource(pResource);
-    setCurrentState(rhi::ResourceState::eTexture);
+    setCurrentState(rhi::ResourceState::eTextureRead);
     setSrvIndex(ctx->mapTexture(pResource));
     setRtvIndex(ctx->mapRenderTarget(pResource));
 }
@@ -110,23 +110,26 @@ void DepthTargetHandle::destroy() {
 /// texture handle
 ///
 
-TextureHandle::TextureHandle(Graph *ctx, std::string name)
-    : ISingleResourceHandle(ctx, name)
+TextureHandle::TextureHandle(Graph *graph, std::string name)
+    : ISingleResourceHandle(graph, name)
     , name(name)
-{ }
-
-void TextureHandle::create() {
+{
     const auto& createInfo = ctx->getCreateInfo();
     assets::Image image = createInfo.depot.loadImage(name);
 
+    size = { UINT(image.width), UINT(image.height) };
+    data = image.data;
+
+    simcoe::logInfo("texture {} ({}x{})", name, image.width, image.height);
+}
+
+void TextureHandle::create() {
     const rhi::TextureInfo textureInfo = {
-        .width = image.width,
-        .height = image.height,
+        .width = size.x,
+        .height = size.y,
 
         .format = rhi::TypeFormat::eRGBA8
     };
-
-    simcoe::logInfo("texture {} ({}x{})", name, image.width, image.height);
 
     auto *pResource = ctx->createTexture(textureInfo);
 
@@ -141,7 +144,7 @@ void TextureHandle::create() {
 
     ctx->beginCopy();
 
-    ctx->copyTexture(pResource, pTextureStaging.get(), textureInfo, image.data);
+    ctx->copyTexture(pResource, pTextureStaging.get(), textureInfo, data);
 
     ctx->endCopy();
 }

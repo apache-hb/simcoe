@@ -183,6 +183,10 @@ namespace simcoe::render {
             return pDevice->createTexture(info);
         }
 
+        rhi::RwTextureBuffer *createRwTexture(const rhi::TextureInfo& info) {
+            return pDevice->createRwTexture(info);
+        }
+
         // heap allocators
         RenderTargetAlloc::Index mapRenderTarget(rhi::DeviceResource *pResource) {
             auto index = pRenderTargetAlloc->alloc();
@@ -190,9 +194,31 @@ namespace simcoe::render {
             return index;
         }
 
-        ShaderResourceAlloc::Index mapTexture(rhi::TextureBuffer *pResource) {
+        ShaderResourceAlloc::Index mapTexture(rhi::TextureBuffer *pResource, size_t mips = 1) {
             auto index = pDataAlloc->alloc();
-            pDevice->mapTexture(pDataAlloc->hostOffset(index), pResource);
+            rhi::TextureMapInfo info = {
+                .handle = pDataAlloc->hostOffset(index),
+                .pTexture = pResource,
+
+                .mipLevels = mips,
+                .format = rhi::TypeFormat::eRGBA8,
+            };
+
+            pDevice->mapTexture(info);
+            return index;
+        }
+
+        ShaderResourceAlloc::Index mapRwTexture(rhi::RwTextureBuffer *pResource, size_t mip) {
+            auto index = pDataAlloc->alloc();
+            rhi::RwTextureMapInfo info = {
+                .handle = pDataAlloc->hostOffset(index),
+                .pTexture = pResource,
+
+                .mipSlice = mip,
+                .format = rhi::TypeFormat::eRGBA8,
+            };
+
+            pDevice->mapRwTexture(info);
             return index;
         }
 
@@ -219,6 +245,10 @@ namespace simcoe::render {
 
         void setComputeShaderInput(UINT slot, ShaderResourceAlloc::Index index) {
             pComputeCommands->setComputeShaderInput(slot, pDataAlloc->deviceOffset(index));
+        }
+
+        void dispatchCompute(UINT x, UINT y, UINT z = 1) {
+            pComputeCommands->dispatchCompute(x, y, z);
         }
 
         // commands

@@ -70,7 +70,7 @@ namespace simcoe::math {
         T width;
         T height;
 
-        Resolution() : Resolution(0) { }
+        Resolution() : Resolution(T(0)) { }
         Resolution(T width, T height) : width(width), height(height) { }
         Resolution(T it) : Resolution(it, it) { }
         Resolution(const T *pData) : Resolution(pData[0], pData[1]) { }
@@ -104,7 +104,7 @@ namespace simcoe::math {
         T x;
         T y;
 
-        constexpr Vec2() : Vec2(0) { }
+        constexpr Vec2() : Vec2(T(0)) { }
         constexpr Vec2(T x, T y) : x(x), y(y) { }
         constexpr Vec2(T it) : Vec2(it, it) { }
         constexpr Vec2(const T *pData) : Vec2(pData[0], pData[1]) { }
@@ -172,7 +172,7 @@ namespace simcoe::math {
         T y;
         T z;
 
-        constexpr Vec3() : Vec3(0) { }
+        constexpr Vec3() : Vec3(T(0)) { }
         constexpr Vec3(T x, T y, T z) : x(x), y(y), z(z) { }
         constexpr Vec3(T it) : Vec3(it, it, it){ }
         constexpr Vec3(const T *pData) : Vec3(pData[0], pData[1], pData[2]) { }
@@ -243,7 +243,7 @@ namespace simcoe::math {
         T z;
         T w;
 
-        constexpr Vec4() : Vec4(0) { }
+        constexpr Vec4() : Vec4(T(0)) { }
         constexpr Vec4(T x, T y, T z, T w) : x(x), y(y), z(z), w(w) { }
         constexpr Vec4(T it) : Vec4(it, it, it, it) { }
         constexpr Vec4(const T *pData) : Vec4(pData[0], pData[1], pData[2], pData[3]) { }
@@ -606,9 +606,20 @@ namespace simcoe::math {
     static_assert(sizeof(int4) == sizeof(int) * 4);
 
 
-    using size2 = Vec2<size_t>;
-    static_assert(sizeof(size2) == sizeof(size_t) * 2);
+    using uint2 = Vec2<uint32_t>;
+    using uint3 = Vec3<uint32_t>;
+    using uint4 = Vec4<uint32_t>;
+    static_assert(sizeof(uint2) == sizeof(uint32_t) * 2);
+    static_assert(sizeof(uint3) == sizeof(uint32_t) * 3);
+    static_assert(sizeof(uint4) == sizeof(uint32_t) * 4);
 
+
+    using size2 = Vec2<size_t>;
+    using size3 = Vec3<size_t>;
+    using size4 = Vec4<size_t>;
+    static_assert(sizeof(size2) == sizeof(size_t) * 2);
+    static_assert(sizeof(size3) == sizeof(size_t) * 3);
+    static_assert(sizeof(size4) == sizeof(size_t) * 4);
 
     using float2 = Vec2<float>;
     using float3 = Vec3<float>;

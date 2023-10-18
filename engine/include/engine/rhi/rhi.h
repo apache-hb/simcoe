@@ -33,6 +33,7 @@ namespace simcoe::rhi {
     struct VertexBuffer;
     struct IndexBuffer;
     struct TextureBuffer;
+    struct RwTextureBuffer;
     struct DepthBuffer;
     struct UploadBuffer;
     struct UniformBuffer;
@@ -175,10 +176,14 @@ namespace simcoe::rhi {
     enum struct ResourceState {
         ePresent,
         eRenderTarget,
-        eTexture,
+
+        eTextureRead,
+        eTextureWrite,
         eUniform,
+
         eVertexBuffer,
         eIndexBuffer,
+
         eDepthWrite,
         eCopyDest
     };
@@ -243,6 +248,22 @@ namespace simcoe::rhi {
         eCompute
     };
 
+    struct TextureMapInfo {
+        HostHeapOffset handle;
+        TextureBuffer *pTexture;
+
+        size_t mipLevels = 1;
+        rhi::TypeFormat format;
+    };
+
+    struct RwTextureMapInfo {
+        HostHeapOffset handle;
+        RwTextureBuffer *pTexture;
+
+        size_t mipSlice;
+        rhi::TypeFormat format;
+    };
+
     struct Device : Object<ID3D12Device4> {
         // public interface
 
@@ -270,6 +291,7 @@ namespace simcoe::rhi {
 
         TextureBuffer *createTextureRenderTarget(const TextureInfo& createInfo, const math::float4& clearColour);
         TextureBuffer *createTexture(const TextureInfo& createInfo);
+        RwTextureBuffer *createRwTexture(const TextureInfo& createInfo);
 
         UploadBuffer *createUploadBuffer(const void *pData, size_t length);
         UploadBuffer *createTextureUploadBuffer(const TextureInfo& createInfo);
@@ -279,7 +301,8 @@ namespace simcoe::rhi {
         void mapRenderTarget(HostHeapOffset handle, DeviceResource *pTarget, rhi::TypeFormat format);
         void mapDepthStencil(HostHeapOffset handle, DepthBuffer *pTarget, rhi::TypeFormat format);
         void mapUniform(HostHeapOffset handle, UniformBuffer *pUniform, size_t size);
-        void mapTexture(HostHeapOffset handle, TextureBuffer *pTexture);
+        void mapTexture(const TextureMapInfo& info);
+        void mapRwTexture(const RwTextureMapInfo& info);
 
         // module interface
 
@@ -437,23 +460,17 @@ namespace simcoe::rhi {
     struct Commands : Object<ID3D12GraphicsCommandList> {
         // public interface
 
+        // commom commands
         void begin(CommandMemory *pMemory);
         void end();
+        void setHeap(DescriptorHeap *pHeap);
 
         void transition(DeviceResource *pTarget, ResourceState from, ResourceState to);
         void transition(std::span<const Transition> transitions);
 
-        void clearRenderTarget(HostHeapOffset handle, math::float4 colour);
-        void clearDepthStencil(HostHeapOffset handle, float depth, UINT8 stencil);
-
-        void setDisplay(const Display& display);
+        // graphics commands
         void setGraphicsPipeline(PipelineState *pState);
-        void setComputePipeline(PipelineState *pState);
-
-        void setHeap(DescriptorHeap *pHeap);
-
         void setGraphicsShaderInput(UINT reg, DeviceHeapOffset handle);
-        void setComputeShaderInput(UINT reg, DeviceHeapOffset handle);
 
         void setRenderTarget(HostHeapOffset handle);
         void setRenderTarget(HostHeapOffset rtvHandle, HostHeapOffset dsvHandle);
@@ -464,6 +481,17 @@ namespace simcoe::rhi {
         void drawVertexBuffer(UINT count);
         void drawIndexBuffer(UINT count);
 
+        void setDisplay(const Display& display);
+        void clearRenderTarget(HostHeapOffset handle, math::float4 colour);
+        void clearDepthStencil(HostHeapOffset handle, float depth, UINT8 stencil);
+
+        // compute commands
+        void setComputePipeline(PipelineState *pState);
+        void setComputeShaderInput(UINT reg, DeviceHeapOffset handle);
+
+        void dispatchCompute(UINT x, UINT y, UINT z);
+
+        // copy commands
         void copyBuffer(DeviceResource *pDestination, UploadBuffer *pSource);
         void copyTexture(TextureBuffer *pDestination, UploadBuffer *pSource, const TextureInfo& info, std::span<const std::byte> data);
 
@@ -486,7 +514,8 @@ namespace simcoe::rhi {
             ID3D12RootSignature *pRootSignature,
             ID3D12PipelineState *pState,
             IndexMap textureInputs,
-            IndexMap uniformInputs
+            IndexMap uniformInputs,
+            IndexMap uavInputs
         );
         ~PipelineState();
 
@@ -495,11 +524,12 @@ namespace simcoe::rhi {
 
         UINT getTextureInput(std::string_view name) { return textureInputs.at(name); }
         UINT getUniformInput(std::string_view name) { return uniformInputs.at(name); }
+        UINT getUavInput(std::string_view name) { return uavInputs.at(name); }
 
         void setName(std::string_view name);
 
     private:
-        PipelineState(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState, IndexMap textureInputs, IndexMap uniformInputs)
+        PipelineState(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState, IndexMap textureInputs, IndexMap uniformInputs, IndexMap uavInputs)
             : pRootSignature(pRootSignature)
             , pState(pState)
             , textureInputs(textureInputs)
@@ -511,6 +541,7 @@ namespace simcoe::rhi {
 
         IndexMap textureInputs;
         IndexMap uniformInputs;
+        IndexMap uavInputs;
     };
 
     // any resource
@@ -562,6 +593,11 @@ namespace simcoe::rhi {
     struct TextureBuffer : DeviceResource {
         using DeviceResource::DeviceResource;
         static TextureBuffer *create(ID3D12Resource *pResource);
+    };
+
+    struct RwTextureBuffer : DeviceResource {
+        using DeviceResource::DeviceResource;
+        static RwTextureBuffer *create(ID3D12Resource *pResource);
     };
 
     struct UploadBuffer : DeviceResource {

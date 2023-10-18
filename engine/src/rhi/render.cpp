@@ -44,7 +44,8 @@ static D3D12_RESOURCE_STATES getResourceState(ResourceState state) {
     switch (state) {
     case ResourceState::ePresent: return D3D12_RESOURCE_STATE_PRESENT;
     case ResourceState::eRenderTarget: return D3D12_RESOURCE_STATE_RENDER_TARGET;
-    case ResourceState::eTexture: return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    case ResourceState::eTextureRead: return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    case ResourceState::eTextureWrite: return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
     case ResourceState::eUniform: return D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
     case ResourceState::eDepthWrite: return D3D12_RESOURCE_STATE_DEPTH_WRITE;
     case ResourceState::eCopyDest: return D3D12_RESOURCE_STATE_COPY_DEST;
@@ -83,7 +84,8 @@ std::string_view simcoe::rhi::toString(ResourceState state) {
     switch (state) {
     case ResourceState::ePresent: return "present";
     case ResourceState::eRenderTarget: return "render-target";
-    case ResourceState::eTexture: return "texture";
+    case ResourceState::eTextureRead: return "texture-read";
+    case ResourceState::eTextureWrite: return "texture-write";
     case ResourceState::eUniform: return "uniform";
     case ResourceState::eVertexBuffer: return "vertex-buffer";
     case ResourceState::eIndexBuffer: return "index-buffer";
@@ -285,6 +287,10 @@ void Commands::setGraphicsShaderInput(UINT reg, DeviceHeapOffset handle) {
 
 void Commands::setComputeShaderInput(UINT reg, DeviceHeapOffset handle) {
     get()->SetComputeRootDescriptorTable(reg, deviceHandle(handle));
+}
+
+void Commands::dispatchCompute(UINT x, UINT y, UINT z) {
+    get()->Dispatch(x, y, z);
 }
 
 void Commands::setRenderTarget(HostHeapOffset handle) {
@@ -714,7 +720,7 @@ PipelineState *Device::createGraphicsPipeline(const GraphicsPipelineInfo& create
     ID3D12PipelineState *pPipeline = nullptr;
     HR_CHECK(get()->CreateGraphicsPipelineState(&pipelineDesc, IID_PPV_ARGS(&pPipeline)));
 
-    return PipelineState::create(pSignature, pPipeline, textureIndices, uniformIndices);
+    return PipelineState::create(pSignature, pPipeline, textureIndices, uniformIndices, {});
 }
 
 PipelineState *Device::createComputePipeline(const ComputePipelineInfo& createInfo) {
@@ -830,7 +836,7 @@ PipelineState *Device::createComputePipeline(const ComputePipelineInfo& createIn
     ID3D12PipelineState *pPipeline = nullptr;
     HR_CHECK(get()->CreateComputePipelineState(&pipelineDesc, IID_PPV_ARGS(&pPipeline)));
 
-    return PipelineState::create(pSignature, pPipeline, textureIndices, uniformIndices);
+    return PipelineState::create(pSignature, pPipeline, textureIndices, uniformIndices, uavIndices);
 }
 
 Fence *Device::createFence() {
@@ -988,6 +994,24 @@ TextureBuffer *Device::createTexture(const TextureInfo& createInfo) {
     return TextureBuffer::create(pResource);
 }
 
+RwTextureBuffer *Device::createRwTexture(const TextureInfo& createInfo) {
+    ID3D12Resource *pResource = nullptr;
+
+    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Tex2D(
+        getTypeFormat(createInfo.format),
+        UINT(createInfo.width), UINT(createInfo.height)
+    );
+
+    HR_CHECK(get()->CreateCommittedResource(
+        &heap, D3D12_HEAP_FLAG_NONE, &desc,
+        D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+        nullptr, IID_PPV_ARGS(&pResource)
+    ));
+
+    return RwTextureBuffer::create(pResource);
+}
+
 UploadBuffer *Device::createUploadBuffer(const void *pData, size_t length) {
     ID3D12Resource *pResource = nullptr;
     D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
@@ -1050,15 +1074,31 @@ void Device::mapUniform(HostHeapOffset handle, UniformBuffer *pUniform, size_t s
     get()->CreateConstantBufferView(&desc, hostHandle(handle));
 }
 
-void Device::mapTexture(HostHeapOffset handle, TextureBuffer *pTexture) {
-    D3D12_SHADER_RESOURCE_VIEW_DESC desc = {
-        .Format = DXGI_FORMAT_R8G8B8A8_UNORM, // TODO: this doesnt account for pixel format
+void Device::mapTexture(const TextureMapInfo& info) {
+    const D3D12_SHADER_RESOURCE_VIEW_DESC desc = {
+        .Format = getTypeFormat(info.format),
         .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
         .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-        .Texture2D = { .MostDetailedMip = 0, .MipLevels = 1 },
+        .Texture2D = { .MostDetailedMip = 0, .MipLevels = UINT(info.mipLevels) },
     };
 
+    TextureBuffer *pTexture = info.pTexture;
+    HostHeapOffset handle = info.handle;
+
     get()->CreateShaderResourceView(pTexture->getResource(), &desc, hostHandle(handle));
+}
+
+void Device::mapRwTexture(const RwTextureMapInfo& info) {
+    D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {
+        .Format = getTypeFormat(info.format),
+        .ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D,
+        .Texture2D = { .MipSlice = UINT(info.mipSlice) },
+    };
+
+    RwTextureBuffer *pTexture = info.pTexture;
+    HostHeapOffset handle = info.handle;
+
+    get()->CreateUnorderedAccessView(pTexture->getResource(), nullptr, &desc, hostHandle(handle));
 }
 
 static ID3D12Debug *getDeviceDebugInterface() {
@@ -1252,8 +1292,8 @@ void PipelineState::setName(std::string_view name) {
     ::setName(pState, std::format("{}.state", name));
 }
 
-PipelineState *PipelineState::create(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState, IndexMap textureInputs, IndexMap uniformInputs) {
-    return new PipelineState(pRootSignature, pState, textureInputs, uniformInputs);
+PipelineState *PipelineState::create(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState, IndexMap textureInputs, IndexMap uniformInputs, IndexMap uavInputs) {
+    return new PipelineState(pRootSignature, pState, textureInputs, uniformInputs, uavInputs);
 }
 
 PipelineState::~PipelineState() {
@@ -1288,6 +1328,11 @@ IndexBuffer *IndexBuffer::create(ID3D12Resource *pResource, D3D12_INDEX_BUFFER_V
 // texture buffer
 TextureBuffer *TextureBuffer::create(ID3D12Resource *pResource) {
     return new TextureBuffer(pResource);
+}
+
+// rw texture buffer
+RwTextureBuffer *RwTextureBuffer::create(ID3D12Resource *pResource) {
+    return new RwTextureBuffer(pResource);
 }
 
 // uniform buffer

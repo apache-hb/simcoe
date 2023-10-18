@@ -118,7 +118,7 @@ void GameLevelPass::execute() {
 }
 
 size_t GameLevelPass::addTexture(ResourceWrapper<TextureHandle> *pTexture) {
-    auto *pAttachment = addAttachment(pTexture, rhi::ResourceState::eTexture);
+    auto *pAttachment = addAttachment(pTexture, rhi::ResourceState::eTextureRead);
     textureAttachments.push_back(pAttachment);
     return textureAttachments.size() - 1;
 }
