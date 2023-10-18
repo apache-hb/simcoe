@@ -134,14 +134,13 @@ namespace simcoe::math {
 
         bool isinf() const { return std::isinf(x) || std::isinf(y); }
 
+        constexpr Vec2 negate() const { return from(-x, -y); }
         constexpr T length() const { return std::sqrt(x * x + y * y); }
 
         constexpr Vec2 normalize() const {
             auto len = length();
             return from(x / len, y / len);
         }
-
-        constexpr Vec2 negate() const { return from(-x, -y); }
 
         constexpr Vec2 clamp(const Vec2 &low, const Vec2 &high) const {
             return clamp(*this, low, high);
@@ -159,11 +158,8 @@ namespace simcoe::math {
             return clamp(it, from(low), from(high));
         }
 
-        constexpr Vec3<T> vec3(T z) const {
-            return { x, y, z };
-        }
-
         constexpr T *data() { return &x; } // TODO: this is UB
+        constexpr const T *data() const { return &x; }
     };
 
     template<typename T>
@@ -208,14 +204,13 @@ namespace simcoe::math {
 
         bool isinf() const { return std::isinf(x) || std::isinf(y) || std::isinf(z); }
 
+        constexpr Vec3 negate() const { return from(-x, -y, -z); }
         constexpr T length() const { return std::sqrt(x * x + y * y + z * z); }
 
         constexpr Vec3 normalize() const {
             auto len = length();
             return from(x / len, y / len, z / len);
         }
-
-        constexpr Vec3 negate() const { return from(-x, -y, -z); }
 
         static constexpr Vec3 cross(const Vec3& lhs, const Vec3& rhs) {
             return from(
@@ -229,11 +224,8 @@ namespace simcoe::math {
             return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
         }
 
-        constexpr Vec4<T> vec4(T w) const {
-            return Vec4<T>::from(x, y, z, w);
-        }
-
         constexpr T *data() { return &x; } // TODO: this is UB
+        constexpr const T *data() const { return &x; }
     };
 
     template<typename T>
@@ -251,6 +243,8 @@ namespace simcoe::math {
         static constexpr Vec4 from(T x, T y, T z, T w) { return { x, y, z, w }; }
         static constexpr Vec4 from(T it) { return from(it, it, it, it); }
         static constexpr Vec4 from(const T *pData) { return from(pData[0], pData[1], pData[2], pData[3]); }
+
+        static constexpr Vec4 from(Vec3<T> o, T w) { return from(o.x, o.y, o.z, w); }
 
         static constexpr Vec4 zero() { return from(T(0)); }
         static constexpr Vec4 unit() { return from(T(1)); }
@@ -273,13 +267,12 @@ namespace simcoe::math {
         bool isinf() const { return std::isinf(x) || std::isinf(y) || std::isinf(z) || std::isinf(w); }
 
         constexpr T length() const { return std::sqrt(x * x + y * y + z * z + w * w); }
+        constexpr Vec4 negate() const { return from(-x, -y, -z, -w); }
 
         constexpr Vec4 normalize() const {
             auto len = length();
             return from(x / len, y / len, z / len, w / len);
         }
-
-        constexpr Vec4 negate() const { return from(-x, -y, -z, -w); }
 
         constexpr const T& operator[](size_t index) const { return at(index); }
         constexpr T& operator[](size_t index) { return at(index); }
@@ -287,7 +280,8 @@ namespace simcoe::math {
         constexpr const T& at(size_t index) const { return this->*components[index];}
         constexpr T& at(size_t index) { return this->*components[index]; }
 
-        const T *data() const { return &x; } // TODO: this is UB
+        constexpr T *data() { return &x; } // TODO: this is UB
+        constexpr const T *data() const { return &x; }
     private:
         static constexpr T Vec4::*components[] { &Vec4::x, &Vec4::y, &Vec4::z, &Vec4::w };
     };
@@ -318,6 +312,23 @@ namespace simcoe::math {
         using Row = Vec4<T>;
         using Row3 = Vec3<T>;
         Row rows[4];
+
+        constexpr Mat4x4() : Mat4x4(T(0)) { }
+        constexpr Mat4x4(T it) : Mat4x4(Row::from(it)) { }
+        constexpr Mat4x4(const Row& row) : Mat4x4(row, row, row, row) { }
+        constexpr Mat4x4(const Row& row0, const Row& row1, const Row& row2, const Row& row3) : rows{ row0, row1, row2, row3 } { }
+
+        constexpr static Mat4x4 from(const Row& row0, const Row& row1, const Row& row2, const Row& row3) {
+            return { row0, row1, row2, row3 };
+        }
+
+        constexpr static Mat4x4 from(T it) {
+            return from(Row::from(it), Row::from(it), Row::from(it), Row::from(it));
+        }
+
+        constexpr static Mat4x4 from(const T *pData) {
+            return from(Row::from(pData), Row::from(pData + 4), Row::from(pData + 8), Row::from(pData + 12));
+        }
 
         constexpr Row column(size_t column) const {
             return Row::from(at(column, 0), at(column, 1), at(column, 2), at(column, 3));
@@ -415,23 +426,6 @@ namespace simcoe::math {
 
         constexpr Mat4x4 operator+=(const Mat4x4& other) {
             return *this = *this + other;
-        }
-
-        static constexpr Mat4x4 from(const Row& row0, const Row& row1, const Row& row2, const Row& row3) {
-            return { { row0, row1, row2, row3 } };
-        }
-
-        static constexpr Mat4x4 from(const T *it) {
-            return from(
-                Row::from(it),
-                Row::from(it + 4),
-                Row::from(it + 8),
-                Row::from(it + 12)
-            );
-        }
-
-        static constexpr Mat4x4 from(T it) {
-            return from(Row::from(it), Row::from(it), Row::from(it), Row::from(it));
         }
 
         ///
@@ -556,12 +550,12 @@ namespace simcoe::math {
             auto d1 = Row3::dot(r1, negEye);
             auto d2 = Row3::dot(r2, negEye);
 
-            auto s0 = r0.vec4(d0);
-            auto s1 = r1.vec4(d1);
-            auto s2 = r2.vec4(d2);
-            auto s3 = Row(0, 0, 0, 1);
+            auto s0 = Row::from(r0, d0);
+            auto s1 = Row::from(r1, d1);
+            auto s2 = Row::from(r2, d2);
+            auto s3 = Row::from(0, 0, 0, 1);
 
-            return from(s0, s1, s2, s3).transpose();
+            return Mat4x4::from(s0, s1, s2, s3).transpose();
         }
 
         static constexpr Mat4x4 lookToRH(const Row3& eye, const Row3& dir, const Row3& up) {

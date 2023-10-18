@@ -3,6 +3,7 @@
 #include "engine/engine.h"
 
 #include "engine/math/math.h"
+#include "engine/util/strings.h"
 
 #include <string>
 #include <vector>

@@ -55,6 +55,14 @@ namespace simcoe::input {
 
         DeviceType getDeviceType() const { return type; }
 
+        /**
+         * @brief poll this device for input
+         *
+         * @param state the state to update
+         * @param now the current time
+         * @return true the device has provided new data
+         * @return false the device has not provided new data
+         */
         virtual bool poll(State& state) = 0;
 
     private:

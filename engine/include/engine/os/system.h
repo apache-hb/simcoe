@@ -73,7 +73,6 @@ namespace simcoe {
         float now() const;
 
     private:
-        size_t frequency;
         size_t start;
     };
 
@@ -97,6 +96,7 @@ namespace simcoe {
     };
 
     std::string getErrorName(HRESULT hr);
+    std::string getWin32ErrorName(DWORD dwErrorCode);
 
     void setThreadName(const char *name);
     std::string getThreadName();

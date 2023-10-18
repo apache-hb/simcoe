@@ -1,6 +1,8 @@
 #pragma once
 
 #include "engine/input/input.h"
+#include "engine/os/system.h"
+#include "engine/util/retry.h"
 
 #include <windows.h>
 #include <Xinput.h>
@@ -23,6 +25,10 @@ namespace simcoe::input {
          * @return false the button is not pressed
          */
         bool updateButton(State& result, Button button, WORD mask, WORD state);
+
+        Clock clock;
+        bool bDeviceConnected = true;
+        util::Retry retryOnDisconnect = 3.f;
 
         DWORD dwIndex;
         size_t keyPressIndex = 0;

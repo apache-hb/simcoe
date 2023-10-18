@@ -1,10 +1,9 @@
 #include "engine/os/system.h"
+#include "engine/util/strings.h"
 
 #include <intsafe.h>
 #include <comdef.h>
 #include <stdexcept>
-
-#include "engine/engine.h"
 
 using namespace simcoe;
 
@@ -12,6 +11,7 @@ using namespace simcoe;
 using UserCommandFn = void(*)(Window *pWindow);
 
 namespace {
+    // window
     constexpr const char *kClassName = "simcoe";
 
     constexpr DWORD getStyle(WindowStyle style) {
@@ -43,6 +43,21 @@ namespace {
     void sendCommand(Window *pWindow, UserCommandFn fn) {
         PostMessage(pWindow->getHandle(), WM_USER_COMMAND, reinterpret_cast<WPARAM>(fn), 0);
     }
+
+    // clock
+    size_t getFrequency() {
+        LARGE_INTEGER frequency;
+        QueryPerformanceFrequency(&frequency);
+        return frequency.QuadPart;
+    }
+
+    size_t getCounter() {
+        LARGE_INTEGER counter;
+        QueryPerformanceCounter(&counter);
+        return counter.QuadPart;
+    }
+
+    size_t gFrequency;
 }
 
 // window callback
@@ -207,7 +222,11 @@ System::System(HINSTANCE hInstance, int nCmdShow)
     : hInstance(hInstance)
     , nCmdShow(nCmdShow)
 {
-    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    if (!SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)) {
+        throw std::runtime_error(std::format("failed to set dpi awareness: {}", getWin32ErrorName(GetLastError())));
+    }
+
+    gFrequency = getFrequency();
 
     const WNDCLASSA cls = {
         .style = CS_HREDRAW | CS_VREDRAW,
@@ -216,8 +235,8 @@ System::System(HINSTANCE hInstance, int nCmdShow)
         .lpszClassName = kClassName
     };
 
-    if (!RegisterClassA(&cls)) {
-        throw std::runtime_error("failed to register window class");
+    if (RegisterClassA(&cls) == 0) {
+        throw std::runtime_error(std::format("failed to register window class: {}", getWin32ErrorName(GetLastError())));
     }
 }
 
@@ -246,12 +265,43 @@ void System::quit() {
     PostQuitMessage(0);
 }
 
+/// clock api
+
+Clock::Clock()
+    : start(getCounter())
+{ }
+
+float Clock::now() const {
+    size_t counter = getCounter();
+    return float(counter - start) / gFrequency;
+}
+
+/// error reporting
+
 std::string simcoe::getErrorName(HRESULT hr) {
     _com_error err(hr);
     return std::format("{} (0x{:x})", err.ErrorMessage(), unsigned(hr));
 }
 
+std::string simcoe::getWin32ErrorName(DWORD dwErrorCode) {
+    char *pMessage = nullptr;
+    FormatMessageA(
+        /* dwFlags = */ FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        /* lpSource = */ nullptr,
+        /* dwMessageId = */ dwErrorCode,
+        /* dwLanguageId = */ MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        /* lpBuffer = */ reinterpret_cast<LPSTR>(&pMessage),
+        /* nSize = */ 0,
+        /* Arguments = */ nullptr
+    );
+
+    std::string result = pMessage;
+    LocalFree(pMessage);
+    return result;
+}
+
 ///
+/// thread naming
 /// the depths of windows engineers insanity knows no bounds
 ///
 

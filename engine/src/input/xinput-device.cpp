@@ -83,9 +83,24 @@ XInputGamepad::XInputGamepad(DWORD dwIndex)
 bool XInputGamepad::poll(State& state) {
     XINPUT_STATE xState;
 
-    if (DWORD dwErr = XInputGetState(dwIndex, &xState); dwErr != ERROR_SUCCESS) {
+    if (!bDeviceConnected) {
+        if (!retryOnDisconnect.shouldRetry(clock.now())) {
+            return false;
+        }
+    }
+
+    DWORD dwErr = XInputGetState(dwIndex, &xState);
+
+    if (dwErr == ERROR_DEVICE_NOT_CONNECTED) {
+        bDeviceConnected = false;
         return false;
     }
+
+    if (dwErr != ERROR_SUCCESS) {
+        return false;
+    }
+
+    retryOnDisconnect.reset();
 
     XINPUT_GAMEPAD xPad = xState.Gamepad;
 

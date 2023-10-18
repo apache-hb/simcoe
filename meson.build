@@ -32,7 +32,10 @@ src = [
 
     # os
     'engine/src/os/system.cpp',
-    'engine/src/os/timer.cpp',
+
+    # util
+    'engine/src/util/retry.cpp',
+    'engine/src/util/strings.cpp',
 
     # input
     'engine/src/input/input.cpp',
@@ -99,6 +102,7 @@ tinyobj = subproject('tinyobj').get_variable('tinyobj')
 fastgltf = subproject('fastgltf').get_variable('fastgltf')
 
 python3 = find_program('python3')
+mt = find_program('mt')
 
 data_dir = meson.current_source_dir()/'data'
 script_dir = data_dir/'scripts'
@@ -216,7 +220,7 @@ deps = [
     tinyobj, fastgltf,
 ]
 
-executable('editor', src,
+editor = executable('editor', src,
     dependencies : deps,
     include_directories : [ 'editor/include' ],
     gui_app : is_release
@@ -230,7 +234,7 @@ src = [
     'client/src/main.cpp'
 ]
 
-executable('client', src,
+client = executable('client', src,
     dependencies : engine,
     include_directories : [ 'client/include' ]
 )

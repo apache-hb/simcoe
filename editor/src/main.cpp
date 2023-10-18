@@ -130,6 +130,7 @@ FileLogger gFileLogger;
 
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
+        delete pRenderThread;
         pSystem->quit();
     }
 
@@ -652,7 +653,6 @@ static void commonMain(const std::filesystem::path& path) {
 
     delete pGameThread;
     delete pWorkThread;
-    delete pRenderThread;
     delete pMainQueue;
 }
 
