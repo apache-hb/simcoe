@@ -123,10 +123,8 @@ namespace editor::game {
 
         IProjection *pProjection = nullptr;
 
-        template<typename T, typename... A>
+        template<std::derived_from<IGameObject> T, typename... A> requires std::is_constructible_v<T, GameLevel*, A...>
         T *addObject(A&&... args) {
-            static_assert(std::is_base_of_v<IGameObject, T>);
-
             T *pObject = new T(this, args...);
 
             std::lock_guard guard(lock);
@@ -139,14 +137,14 @@ namespace editor::game {
             std::erase(objects, pObject);
         }
 
-        template<typename F>
+        template<typename F> requires std::invocable<F, IGameObject*>
         void useEachObject(F&& func) {
             std::lock_guard guard(lock);
             for (auto& pObject : objects)
                 func(pObject);
         }
 
-        template<typename F>
+        template<typename F> requires std::invocable<F, std::span<IGameObject*>>
         void useObjects(F&& func) {
             std::lock_guard guard(lock);
             func(objects);

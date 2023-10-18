@@ -8,34 +8,20 @@
 using namespace editor;
 
 template<>
-struct std::hash<math::float3> {
-    size_t operator()(const math::float3& v) const {
-        return std::hash<float>()(v.x) ^ std::hash<float>()(v.y) ^ std::hash<float>()(v.z);
-    }
-};
-
-template<>
-struct std::hash<math::float2> {
-    size_t operator()(const math::float2& v) const {
-        return std::hash<float>()(v.x) ^ std::hash<float>()(v.y);
-    }
-};
-
-template<>
 struct std::hash<ObjVertex> {
     size_t operator()(const ObjVertex& v) const {
         return std::hash<math::float3>()(v.position) ^ std::hash<math::float2>()(v.uv);
     }
 };
 
-template<>
-struct std::equal_to<ObjVertex> {
-    bool operator()(const ObjVertex& lhs, const ObjVertex& rhs) const {
-        return lhs.position == rhs.position && lhs.uv == rhs.uv;
-    }
-};
+ObjMesh::ObjMesh(render::Graph *ctx, const fs::path& path)
+    : IMeshBufferHandle(ctx, path.string())
+    , path(path)
+{
+    loadAsset();
+}
 
-void ObjMesh::create() {
+void ObjMesh::loadAsset() {
     const auto& createInfo = ctx->getCreateInfo();
     auto assetPath = createInfo.depot.getAssetPath(path);
 
@@ -65,9 +51,6 @@ void ObjMesh::create() {
     ASSERT(shapes.size() >= 1);
 
     const auto& shape = shapes[0];
-    std::vector<ObjVertex> vertexBuffer;
-    std::vector<uint16_t> indexBuffer;
-
     std::unordered_map<ObjVertex, uint16_t> uniqueVertices;
 
     const auto& vertices = attrib.vertices;
@@ -95,8 +78,8 @@ void ObjMesh::create() {
 
         ObjVertex vertex = { position, uvCoord };
         if (uniqueVertices.find(vertex) == uniqueVertices.end()) {
-            uniqueVertices[vertex] = static_cast<uint16_t>(vertexBuffer.size());
-            vertexBuffer.push_back(vertex);
+            uniqueVertices[vertex] = static_cast<uint16_t>(vertexData.size());
+            vertexData.push_back(vertex);
         }
 
         return uniqueVertices[vertex];
@@ -110,22 +93,22 @@ void ObjMesh::create() {
             auto i1 = getIndex(indices[offset + 1]);
             auto i2 = getIndex(indices[offset + 2]);
 
-            indexBuffer.push_back(i0);
-            indexBuffer.push_back(i1);
-            indexBuffer.push_back(i2);
+            indexData.push_back(i0);
+            indexData.push_back(i1);
+            indexData.push_back(i2);
         } else if (verts == 4) {
             auto i0 = getIndex(indices[offset + 0]);
             auto i1 = getIndex(indices[offset + 1]);
             auto i2 = getIndex(indices[offset + 2]);
             auto i3 = getIndex(indices[offset + 3]);
 
-            indexBuffer.push_back(i0);
-            indexBuffer.push_back(i1);
-            indexBuffer.push_back(i2);
+            indexData.push_back(i0);
+            indexData.push_back(i1);
+            indexData.push_back(i2);
 
-            indexBuffer.push_back(i0);
-            indexBuffer.push_back(i2);
-            indexBuffer.push_back(i3);
+            indexData.push_back(i0);
+            indexData.push_back(i2);
+            indexData.push_back(i3);
         } else {
             ASSERTF(false, "unsupported face vertex count {}", verts);
         }
@@ -133,14 +116,16 @@ void ObjMesh::create() {
         offset += verts;
     }
 
-    simcoe::logInfo("buffer sizes (vertices={} indices={})", vertexBuffer.size(), indexBuffer.size());
+    simcoe::logInfo("buffer sizes (vertices={} indices={})", vertexData.size(), indexData.size());
 
-    indexCount = indexBuffer.size();
-    pVertexBuffer = ctx->createVertexBuffer(vertexBuffer.size(), sizeof(ObjVertex));
-    pIndexBuffer = ctx->createIndexBuffer(indexBuffer.size(), rhi::TypeFormat::eUint16);
+}
 
-    std::unique_ptr<rhi::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(vertexBuffer.data(), vertexBuffer.size() * sizeof(ObjVertex))};
-    std::unique_ptr<rhi::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(indexBuffer.data(), indexBuffer.size() * sizeof(uint16_t))};
+void ObjMesh::create() {
+    pVertexBuffer = ctx->createVertexBuffer(vertexData.size(), sizeof(ObjVertex));
+    pIndexBuffer = ctx->createIndexBuffer(indexData.size(), rhi::TypeFormat::eUint16);
+
+    std::unique_ptr<rhi::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(vertexData.data(), vertexData.size() * sizeof(ObjVertex))};
+    std::unique_ptr<rhi::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(indexData.data(), indexData.size() * sizeof(uint16_t))};
 
     pIndexBuffer->setName(std::format("ibo({})", path.string()));
     pVertexBuffer->setName(std::format("vbo({})", path.string()));

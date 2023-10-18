@@ -5,17 +5,34 @@
 #include <unordered_map>
 
 namespace simcoe::math {
-    template<typename T>
-    struct SparseMatrix {
-        bool isEmpty(int2 pos) const {
+    template<typename TIndex, typename TData>
+    struct SparseVector {
+        bool isEmpty(TIndex pos) const {
             return data.find(pos) == data.end();
         }
 
-        T &at(int2 pos) {
+        TData &at(TIndex pos) {
             return data[pos];
         }
 
     private:
-        std::unordered_map<int2, T> data;
+        std::unordered_map<TIndex, TData> data;
+    };
+
+    template<typename TIndex, typename TData>
+    struct SparseMatrix {
+        bool isEmpty(TIndex pos) const {
+            return data.find(pos) == data.end();
+        }
+
+        TData &at(TIndex pos) { return data[pos]; }
+        const TData &at(TIndex pos) const { return data.at(pos); }
+
+        void evict(TIndex pos) {
+            data.erase(data.find(pos));
+        }
+
+    private:
+        std::unordered_map<TIndex, TData> data;
     };
 }

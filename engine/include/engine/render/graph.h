@@ -50,10 +50,8 @@ namespace simcoe::render {
         void setResourceState(rhi::DeviceResource *pResource, rhi::ResourceState state);
     };
 
-    template<typename T>
+    template<std::derived_from<rhi::DeviceResource> T>
     struct ISingleResourceHandle : IResourceHandle {
-        static_assert(std::is_base_of_v<rhi::DeviceResource, T>);
-
         virtual ~ISingleResourceHandle() = default;
         ISingleResourceHandle(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
             : IResourceHandle(ctx, name, stateDeps)
@@ -218,15 +216,14 @@ namespace simcoe::render {
 
     template<typename T>
     struct ResourceWrapper final : BaseResourceWrapper {
-        template<typename O>
+        template<typename O> requires std::derived_from<O, T> && std::derived_from<O, IResourceHandle>
         ResourceWrapper(O *pHandle)
             : BaseResourceWrapper(pHandle)
             , pHandle(pHandle)
         { }
 
-        template<typename O>
+        template<typename O> requires std::derived_from<T, O>
         ResourceWrapper<O> *as() const {
-            static_assert(std::is_base_of_v<O, T>);
             return new ResourceWrapper<O>(pHandle);
         }
 
@@ -328,28 +325,22 @@ namespace simcoe::render {
             destroyIf(eDepDevice); // everything depends on device
         }
 
-        template<typename T, typename... A>
+        template<std::derived_from<ICommandPass> T, typename... A>
         T *addPass(A&&... args) {
-            static_assert(std::is_base_of_v<ICommandPass, T>);
-
             T *pPass = new T(this, std::forward<A>(args)...);
             addPassObject(pPass);
             return pPass;
         }
 
-        template<typename T, typename... A>
+        template<std::derived_from<IResourceHandle> T, typename... A>
         ResourceWrapper<T> *addResource(A&&... args) {
-            static_assert(std::is_base_of_v<IResourceHandle, T>);
-
             T *pHandle = new T(this, std::forward<A>(args)...);
             addResourceObject(pHandle);
             return new ResourceWrapper<T>(pHandle);
         }
 
-        template<typename T, typename... A>
+        template<std::derived_from<IGraphObject> T, typename... A>
         T *addObject(A&&... args) {
-            static_assert(std::is_base_of_v<IGraphObject, T>);
-
             T *pObject = new T(this, std::forward<A>(args)...);
             addGraphObject(pObject);
             return pObject;

@@ -24,6 +24,17 @@ moodycamel = subproject('atomic-queue').get_variable('queue')
 threads = dependency('threads')
 
 ###
+### args
+###
+
+args = [ ]
+
+if not is_release
+    args += [ '-DDEBUG_RENDER=1' ]
+endif
+
+
+###
 ### engine
 ###
 
@@ -50,6 +61,9 @@ src = [
 
     # assets
     'engine/src/assets/assets.cpp',
+
+    # physics
+    'engine/src/physics/world.cpp',
 
     # rhi
     'engine/src/rhi/render.cpp',
@@ -84,6 +98,7 @@ deps = [
 ]
 
 libengine = library('engine', src,
+    cpp_args : args,
     include_directories : inc,
     dependencies : deps
 )
@@ -223,6 +238,7 @@ deps = [
 editor = executable('editor', src,
     dependencies : deps,
     include_directories : [ 'editor/include' ],
+    cpp_args : args,
     gui_app : is_release
 )
 

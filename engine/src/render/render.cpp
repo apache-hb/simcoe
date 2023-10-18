@@ -7,6 +7,16 @@
 using namespace simcoe;
 using namespace simcoe::render;
 
+namespace {
+#if DEBUG_RENDER
+    constexpr auto kFactoryFlags = rhi::eCreateDebug;
+    constexpr auto kDeviceFlags = rhi::CreateFlags(rhi::eCreateDebug | rhi::eCreateInfoQueue | rhi::eCreateExtendedInfo);
+#else
+    constexpr auto kFactoryFlags = rhi::eCreateNone;
+    constexpr auto kDeviceFlags = rhi::eCreateInfoQueue;
+#endif
+}
+
 Context *Context::create(const RenderCreateInfo& createInfo) {
     return new Context(createInfo);
 }
@@ -22,7 +32,7 @@ Context::~Context() {
 }
 
 Context::Context(const RenderCreateInfo& createInfo) : createInfo(createInfo) {
-    pContext = rhi::Context::create(rhi::eCreateDebug);
+    pContext = rhi::Context::create(kFactoryFlags);
 
     createContextData();
     createDeviceData();
@@ -47,8 +57,8 @@ void Context::destroyContextData() {
 void Context::createDeviceData() {
     // create device
     rhi::Adapter* pAdapter = selectAdapter();
-    rhi::CreateFlags deviceFlags = rhi::CreateFlags(rhi::eCreateDebug | rhi::eCreateInfoQueue | rhi::eCreateExtendedInfo);
-    pDevice = pAdapter->createDevice(deviceFlags);
+
+    pDevice = pAdapter->createDevice(kDeviceFlags);
     pDevice->setName("simcoe.device");
 
     // create direct queue and fence

@@ -130,7 +130,7 @@ namespace editor::game {
         void create(const SwarmGameInfo& info);
         void tick();
 
-        template<typename T, typename... A>
+        template<std::derived_from<IGameObject> T, typename... A> requires std::is_constructible_v<T, SwarmGame*, A...>
         T *newObject(A&&... args) {
             T *pObject = GameLevel::addObject<T>(args...);
             pObject->scale *= getWorldScale();
