@@ -493,6 +493,8 @@ static void createGameThread() {
 ///
 
 static void commonMain(const std::filesystem::path& path) {
+    pMainQueue = new tasks::WorkQueue(64);
+
     GdkInit gdkInit;
 
     pWorkThread = new tasks::WorkThread(64, "work");
@@ -625,12 +627,10 @@ static void commonMain(const std::filesystem::path& path) {
             simcoe::logError("render thread exception during startup: {}", err.what());
         }
 
-        pMainQueue->add("render-thread-stopped", [] {
-            pGraph->setFullscreen(false);
-            delete pGraph;
+        pGraph->setFullscreen(false);
+        delete pGraph;
 
-            gRunning = false;
-        });
+        gRunning = false;
     });
 
     std::jthread inputThread([](auto token) {
@@ -666,9 +666,6 @@ static int innerMain() try {
     setThreadName("main");
     simcoe::addSink(&gFileLogger);
     simcoe::addSink(&gGuiLogger);
-
-    auto mainWorkQueue = std::make_unique<tasks::WorkQueue>(64);
-    pMainQueue = mainWorkQueue.get();
 
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
     simcoe::logInfo("startup");

@@ -150,7 +150,7 @@ src = [
     'editor/src/editor/graph/scene.cpp',
     'editor/src/editor/graph/gui.cpp',
     'editor/src/editor/graph/game.cpp',
-    'editor/src/editor/graph/mipmap.cpp',
+    #'editor/src/editor/graph/mipmap.cpp',
 
     # game objects
     'editor/src/editor/game/obj.cpp',
@@ -171,7 +171,7 @@ src = [
     hlsl_vs.process('data/shaders/object.hlsl'),
     hlsl_ps.process('data/shaders/object.hlsl'),
 
-    hlsl_cs.process('data/shaders/mipmap.hlsl'),
+    #hlsl_cs.process('data/shaders/mipmap.hlsl'),
 
     # textures
     copy.process('data/images/assets/uv-coords.png'),

@@ -28,6 +28,7 @@ namespace simcoe::rhi {
 
     struct Commands;
 
+    struct Heap;
     struct DeviceResource;
     struct RenderTarget;
     struct VertexBuffer;

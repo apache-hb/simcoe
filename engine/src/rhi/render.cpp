@@ -1361,9 +1361,17 @@ size_t Fence::getValue() {
     return get()->GetCompletedValue();
 }
 
+// todo: this deadlocks
 void Fence::wait(size_t value) {
     get()->SetEventOnCompletion(value, hEvent);
-    WaitForSingleObject(hEvent, INFINITE);
+    DWORD err = WaitForSingleObject(hEvent, INFINITE);
+    switch (err) {
+    case WAIT_FAILED: throw std::runtime_error(std::format("fence wait failed (error={})", GetLastError()));
+    case WAIT_ABANDONED: throw std::runtime_error("fence wait abandoned");
+    case WAIT_TIMEOUT: throw std::runtime_error("fence wait timeout");
+    case WAIT_OBJECT_0:
+        break;
+    }
 }
 
 Fence *Fence::create(ID3D12Fence *pFence, HANDLE hEvent) {

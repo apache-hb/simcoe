@@ -79,6 +79,7 @@ XInputGamepad::XInputGamepad(DWORD dwIndex)
     , dwIndex(dwIndex)
 { }
 
+// TODO: backoff on ERROR_DEVICE_NOT_CONNECTED
 bool XInputGamepad::poll(State& state) {
     XINPUT_STATE xState;
 
