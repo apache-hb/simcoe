@@ -37,16 +37,26 @@ void RwTextureHandle::destroy() {
 
 // render pass
 
-MipMapPass::MipMapPass(Graph *ctx, ResourceWrapper<TextureHandle> *pSourceTexture)
+MipMapPass::MipMapPass(Graph *ctx, ResourceWrapper<TextureHandle> *pSourceTexture, size_t mipLevels)
     : ICommandPass(ctx, "mipmap")
     , pSourceTexture(addAttachment(pSourceTexture->as<ISRVHandle>(), rhi::ResourceState::eTextureRead))
+    , mipLevels(mipLevels)
 {
     TextureHandle *pTexture = pSourceTexture->getInner();
     pMipMapInfo = graph->addResource<MipMapInfoHandle>();
     pMipMapInfoAttachment = addAttachment(pMipMapInfo, rhi::ResourceState::eUniform);
 
-    pTargetTexture = graph->addResource<RwTextureHandle>(pTexture->getSize(), 0);
-    pTargetTextureAttachment = addAttachment(pTargetTexture->as<IUAVHandle>(), rhi::ResourceState::eTextureWrite);
+    pMipMapTargets = std::make_unique<MipMapTarget[]>(mipLevels);
+    uint2 size = pTexture->getSize();
+
+    for (size_t i = 0; i < mipLevels; i++) {
+        auto *pMipTexture = graph->addResource<RwTextureHandle>(size, i);
+        auto *pMipAttachment = addAttachment(pMipTexture->as<IUAVHandle>(), rhi::ResourceState::eTextureWrite);
+
+        size /= 2;
+
+        pMipMapTargets[i] = { pMipTexture, pMipAttachment };
+    }
 }
 
 void MipMapPass::create() {
@@ -79,7 +89,6 @@ void MipMapPass::destroy() {
 void MipMapPass::execute() {
     ISRVHandle *pSource = pSourceTexture->getInner();
     ISRVHandle *pMipMapInfo = pMipMapInfoAttachment->getInner();
-    IUAVHandle *pTarget = pTargetTexture->getInner();
 
     ctx->setComputePipeline(pPipelineState);
 
@@ -89,7 +98,14 @@ void MipMapPass::execute() {
 
     ctx->setComputeShaderInput(srcSlot, pSource->getSrvIndex());
     ctx->setComputeShaderInput(infoSlot, pMipMapInfo->getSrvIndex());
-    ctx->setComputeShaderInput(dstSlot, pTarget->getUavIndex());
 
-    ctx->dispatchCompute(16, 16);
+    // TODO: this
+    for (size_t i = 0; i < mipLevels; i++) {
+        auto [pTarget, pTargetAttachment] = pMipMapTargets[i];
+
+        auto *pTargetUav = pTargetAttachment->getInner();
+
+        ctx->setComputeShaderInput(dstSlot, pTargetUav->getUavIndex());
+        ctx->dispatchCompute(16, 16);
+    }
 }

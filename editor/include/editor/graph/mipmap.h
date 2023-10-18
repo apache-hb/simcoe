@@ -27,7 +27,7 @@ namespace editor::graph {
     };
 
     struct MipMapPass : ICommandPass {
-        MipMapPass(Graph *ctx, ResourceWrapper<TextureHandle> *pSourceTexture);
+        MipMapPass(Graph *ctx, ResourceWrapper<TextureHandle> *pSourceTexture, size_t mipLevels);
 
         void create() override;
         void destroy() override;
@@ -40,8 +40,13 @@ namespace editor::graph {
         ResourceWrapper<MipMapInfoHandle> *pMipMapInfo;
         PassAttachment<MipMapInfoHandle> *pMipMapInfoAttachment;
 
-        ResourceWrapper<RwTextureHandle> *pTargetTexture;
-        PassAttachment<IUAVHandle> *pTargetTextureAttachment;
+        struct MipMapTarget {
+            ResourceWrapper<RwTextureHandle> *pTargetTexture;
+            PassAttachment<IUAVHandle> *pTargetTextureAttachment;
+        };
+
+        std::unique_ptr<MipMapTarget[]> pMipMapTargets;
+        size_t mipLevels;
 
         rhi::PipelineState *pPipelineState;
     };
