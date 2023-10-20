@@ -191,6 +191,7 @@ namespace simcoe::rhi {
     };
 
     std::string_view toString(ResourceState state);
+    std::string_view toString(TypeFormat format);
 
     struct VertexAttribute {
         std::string_view name;
@@ -367,7 +368,7 @@ namespace simcoe::rhi {
 
         void resizeBuffers(UINT bufferCount, UINT width, UINT height);
 
-        void present(bool allowTearing);
+        void present(bool allowTearing, UINT syncInterval = 1);
 
         // module interface
 

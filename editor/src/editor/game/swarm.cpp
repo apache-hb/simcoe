@@ -6,6 +6,8 @@ using namespace editor;
 using namespace editor::game;
 
 namespace {
+    static constexpr auto kProjectionNames = std::to_array({ "Perspective", "Orthographic" });
+
     SwarmGame *getSwarm(GameLevel *pLevel) {
         return static_cast<SwarmGame*>(pLevel);
     }
@@ -146,7 +148,7 @@ void OPlayer::tick(float delta) {
         rotation.x = -angle;
 
     if (pInput->isShootPressed())
-        tryShootBullet(angle);
+        tryShootBullet(-rotation.x);
 }
 
 
@@ -287,4 +289,26 @@ bool SwarmGame::shouldCullObject(IGameObject *pObject) const {
 
 void SwarmGame::debug() {
     ImGui::Text("TPS: %f", 1.f / delta);
+
+    if (ImGui::CollapsingHeader("Camera")) {
+        ImGui::SliderFloat3("Position", cameraPosition.data(), -20.f, 20.f);
+        ImGui::SliderFloat3("Rotation", cameraRotation.data(), -1.f, 1.f);
+
+        int projection = currentProjection;
+        if (ImGui::Combo("Projection", &projection, kProjectionNames.data(), kProjectionNames.size())) {
+            setProjection(Projection(projection));
+        }
+
+        debug::DebugHandle *pCameraDebug = pProjection->getDebugHandle();
+        ImGui::SeparatorText(pCameraDebug->getName());
+        pCameraDebug->draw();
+    }
+
+    if (ImGui::CollapsingHeader("Objects")) {
+        useEachObject([](IGameObject *pObject) {
+            debug::DebugHandle *pDebug = pObject->getDebugHandle();
+            ImGui::SeparatorText(pDebug->getName());
+            pDebug->draw();
+        });
+    }
 }

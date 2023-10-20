@@ -1,5 +1,7 @@
 #pragma once
 
+#include "editor/debug/debug.h"
+
 #include "engine/render/graph.h"
 
 using namespace simcoe;

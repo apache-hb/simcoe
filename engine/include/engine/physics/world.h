@@ -14,8 +14,8 @@ namespace simcoe::physics {
         float2 velocity;
     };
 
-    struct World {
-        World(float cellSize);
+    struct World2D {
+        World2D(float cellSize);
 
         void tick(float delta);
 

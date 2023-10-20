@@ -95,6 +95,22 @@ std::string_view simcoe::rhi::toString(ResourceState state) {
     }
 }
 
+std::string_view simcoe::rhi::toString(TypeFormat format) {
+    switch (format) {
+    case TypeFormat::eNone: return "none";
+
+    case TypeFormat::eUint16: return "uint16";
+    case TypeFormat::eUint32: return "uint32";
+    case TypeFormat::eDepth32: return "depth32";
+    case TypeFormat::eFloat2: return "float2";
+    case TypeFormat::eFloat3: return "float3";
+    case TypeFormat::eFloat4: return "float4";
+    case TypeFormat::eRGBA8: return "rgba8";
+
+    default: return "unknown";
+    }
+}
+
 static size_t getByteSize(TypeFormat fmt) {
     switch (fmt) {
     case TypeFormat::eUint16: return sizeof(uint16_t);
@@ -425,10 +441,10 @@ RenderTarget *DisplayQueue::getRenderTarget(UINT index) {
     return RenderTarget::create(pResource);
 }
 
-void DisplayQueue::present(bool allowTearing) {
+void DisplayQueue::present(bool allowTearing, UINT syncInterval) {
     UINT flags = (tearing && allowTearing) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
 
-    HRESULT hr = (pSwapChain->Present(0, flags));
+    HRESULT hr = (pSwapChain->Present(syncInterval, flags));
     if (hr == DXGI_ERROR_INVALID_CALL) {
         failedFrames += 1; // count consecutive failed frames
         simcoe::logError("consecutive failed presents: {}", failedFrames.load());

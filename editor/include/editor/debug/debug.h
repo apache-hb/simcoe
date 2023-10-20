@@ -2,23 +2,37 @@
 
 #include "engine/render/graph.h"
 
+#include "imgui/imgui.h"
+
 #include <functional>
 
 namespace editor::debug {
     using namespace simcoe;
 
     struct DebugHandle {
+        virtual ~DebugHandle() = default;
+        DebugHandle(const std::string &name, std::function<void()> fn)
+            : name(name)
+            , fn(fn)
+        { }
+
+        void setEnabled(bool bUpdate) { bEnabled = bUpdate; }
+        bool isEnabled() const { return bEnabled; }
+
+        const char *getName() const { return name.c_str(); }
+        void draw() const { fn(); }
+
+    private:
+        bool bEnabled = true;
+
         std::string name;
-        std::function<void()> draw;
+        std::function<void()> fn;
     };
 
-    void removeHandle(DebugHandle *pHandle);
+    using GlobalHandle = std::unique_ptr<DebugHandle, void(*)(DebugHandle*)>;
+    using LocalHandle = std::unique_ptr<DebugHandle>;
 
-    using UserHandle = std::unique_ptr<DebugHandle, decltype(&removeHandle)>;
-
-    UserHandle addHandle(const std::string &name, std::function<void()> draw);
-
-    void enumHandles(std::function<void(DebugHandle*)> callback);
-
-    void showDebugGui(render::Graph *pGraph);
+    void removeGlobalHandle(DebugHandle *pHandle);
+    GlobalHandle addGlobalHandle(const std::string &name, std::function<void()> draw);
+    void enumGlobalHandles(std::function<void(DebugHandle*)> callback);
 }

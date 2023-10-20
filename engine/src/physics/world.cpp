@@ -23,11 +23,11 @@ namespace {
     }
 }
 
-World::World(float cellSize)
+World2D::World2D(float cellSize)
     : cellSize(cellSize)
 { }
 
-void World::tick(float delta) {
+void World2D::tick(float delta) {
     for (RigidBody *pBody : bodies) {
         for (int2 cell : cells[pBody]) {
             if (!bodyOverlapsOthers(pBody, cell)) {
@@ -40,7 +40,7 @@ void World::tick(float delta) {
     }
 }
 
-bool World::bodyOverlapsOthers(const RigidBody *pBody, int2 cell) const {
+bool World2D::bodyOverlapsOthers(const RigidBody *pBody, int2 cell) const {
     for (const RigidBody *pOther : grid.at(cell)) {
         if (pBody == pOther) {
             continue;
@@ -54,12 +54,12 @@ bool World::bodyOverlapsOthers(const RigidBody *pBody, int2 cell) const {
     return false;
 }
 
-void World::addBody(RigidBody *pBody) {
+void World2D::addBody(RigidBody *pBody) {
     bodies.push_back(pBody);
     updateBody(pBody);
 }
 
-void World::updateBody(RigidBody *pBody) {
+void World2D::updateBody(RigidBody *pBody) {
     cells.erase(pBody);
 
     auto pos = pBody->position;

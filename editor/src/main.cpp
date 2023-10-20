@@ -22,6 +22,7 @@
 // debug gui
 #include "editor/debug/debug.h"
 #include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
 #include "imfiles/imfilebrowser.h"
 
 // vendor
@@ -45,20 +46,34 @@ using namespace editor::game;
 namespace gdk = microsoft::gdk;
 namespace fs = std::filesystem;
 
+namespace ImGui {
+    bool CollapsingHeader(ImGuiID id, const char* label) {
+        ImGuiWindow* window = GetCurrentWindow();
+        if (window->SkipItems)
+            return false;
+
+        return TreeNodeBehavior(id, ImGuiTreeNodeFlags_CollapsingHeader, label);
+    }
+}
+
+enum WindowMode : int {
+    eModeWindowed,
+    eModeBorderless,
+    eModeFullscreen,
+
+    eNone
+};
+
 // consts
 static constexpr auto kWindowWidth = 1920;
 static constexpr auto kWindowHeight = 1080;
 
-static constexpr auto kProjectionNames = std::to_array({ "Perspective", "Orthographic" });
-static const auto gProjections = std::to_array({
-    static_cast<IProjection*>(new Perspective()),
-    static_cast<IProjection*>(new Orthographic(24.f, 24.f))
-});
-
 // system
 static simcoe::System *pSystem = nullptr;
 static simcoe::Window *pWindow = nullptr;
-static bool gFullscreen = false;
+static WindowMode gWindowMode = eModeWindowed;
+static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless", "Fullscreen" });
+
 static std::atomic_bool gRunning = true;
 
 /// threads
@@ -68,7 +83,6 @@ static tasks::WorkThread *pRenderThread = nullptr;
 static tasks::WorkThread *pGameThread = nullptr;
 
 /// input
-
 static input::Win32Keyboard *pKeyboard = nullptr;
 static input::Win32Mouse *pMouse = nullptr;
 static input::XInputGamepad *pGamepad0 = nullptr;
@@ -120,24 +134,40 @@ struct GuiLogger final : ILogSink {
         buffer.push_back(std::string(message));
     }
 
+private:
     std::vector<std::string> buffer;
+
+    void debug() {
+        for (const auto& message : buffer) {
+            ImGui::Text("%s", message.c_str());
+        }
+    }
+
+    debug::GlobalHandle debugHandle = debug::addGlobalHandle("Logs", [this] { debug(); });
 };
 
-GuiLogger gGuiLogger;
-FileLogger gFileLogger;
+static GuiLogger *pGuiLogger;
+static FileLogger *pFileLogger;
 
 struct GameWindow final : IWindowCallbacks {
+    std::atomic_bool bWindowOpen = true;
     void onClose() override {
+        bWindowOpen = false;
+
+        delete pGameThread;
+        delete pWorkThread;
         delete pRenderThread;
         pSystem->quit();
     }
 
     void onResize(const ResizeEvent& event) override {
-        pWorkThread->add("resize-display", [&, event] {
-            auto [width, height] = event;
+        if (!bWindowOpen) return;
+        if (!pRenderThread) return;
+        if (!pGraph) return;
 
-            if (pGraph) pGraph->resizeDisplay(width, height);
-            logInfo("resize-display: {}x{}", width, height);
+        pRenderThread->add("resize-display", [&, w = event.width, h = event.height] {
+            pGraph->resizeDisplay(w, h);
+            logInfo("resize-display: {}x{}", w, h);
         });
     }
 
@@ -146,6 +176,33 @@ struct GameWindow final : IWindowCallbacks {
         return graph::IGuiPass::handleMsg(hWnd, uMsg, wParam, lParam);
     }
 };
+
+static void changeWindowMode(WindowMode oldMode, WindowMode newMode) {
+    if (oldMode == newMode) return;
+    gWindowMode = newMode;
+
+    if (oldMode == eModeFullscreen) {
+        pGraph->setFullscreen(false);
+        pWindow->exitFullscreen();
+        return;
+    }
+
+    switch (newMode) {
+    case eModeWindowed:
+        pWindow->setStyle(simcoe::WindowStyle::eWindowed);
+        break;
+    case eModeBorderless:
+        pWindow->setStyle(simcoe::WindowStyle::eBorderlessFixed);
+        break;
+    case eModeFullscreen:
+        pGraph->setFullscreen(true);
+        pWindow->enterFullscreen();
+        break;
+
+    default:
+        break;
+    }
+}
 
 struct GameGui final : graph::IGuiPass {
     using graph::IGuiPass::IGuiPass;
@@ -164,6 +221,29 @@ struct GameGui final : graph::IGuiPass {
         : IGuiPass(ctx, pRenderTarget)
         , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTextureRead))
     { }
+
+    void debug() {
+        ISRVHandle *pHandle = pSceneSource->getInner();
+        auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getSrvIndex());
+        const auto &createInfo = ctx->getCreateInfo();
+        float aspect = float(createInfo.renderWidth) / createInfo.renderHeight;
+
+        float availWidth = ImGui::GetWindowWidth() - 32;
+        float availHeight = ImGui::GetWindowHeight() - 32;
+
+        float totalWidth = availWidth;
+        float totalHeight = availHeight;
+
+        if (availWidth > availHeight * aspect) {
+            totalWidth = availHeight * aspect;
+        } else {
+            totalHeight = availWidth / aspect;
+        }
+
+        ImGui::Image((ImTextureID)offset, { totalWidth, totalHeight });
+    }
+
+    debug::GlobalHandle debugHandle = debug::addGlobalHandle("Scene", [this] { debug(); });
 
     void create() override {
         IGuiPass::create();
@@ -202,66 +282,16 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::ShowDemoWindow();
 
-        debug::enumHandles([](auto *pHandle) {
-            const auto& [name, fn] = *pHandle;
-            if (ImGui::Begin(name.c_str())) {
-                fn();
+        debug::enumGlobalHandles([](auto *pHandle) {
+            if (!pHandle->isEnabled()) return;
+
+            if (ImGui::Begin(pHandle->getName())) {
+                pHandle->draw();
             }
             ImGui::End();
         });
 
-        if (ImGui::Begin("Scene", &sceneIsOpen)) {
-            ISRVHandle *pHandle = pSceneSource->getInner();
-            auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getSrvIndex());
-            const auto &createInfo = ctx->getCreateInfo();
-            float aspect = float(createInfo.renderWidth) / createInfo.renderHeight;
-
-            float avail = ImGui::GetWindowWidth() - 32;
-
-            ImGui::Image((ImTextureID)offset, { avail, avail / aspect });
-        }
-
-        ImGui::End();
-
-        ImGui::Begin("Game Objects");
-
-        pSwarm->useEachObject([&](IGameObject *pObject) {
-            ImGui::PushID((void*)pObject);
-
-            auto name = pObject->getName();
-            auto model = pObject->getMesh();
-
-            ImGui::BulletText("%s", name.data());
-            ImGui::SameLine();
-            if (ImGui::Button("Delete")) {
-                pSwarm->removeObject(pObject);
-            } else {
-                auto modelName = model->getName();
-                ImGui::Text("Mesh: %s", modelName.data());
-                ImGui::SliderFloat3("position", pObject->position.data(), -20.f, 20.f);
-                ImGui::SliderFloat3("rotation", pObject->rotation.data(), -1.f, 1.f);
-                ImGui::SliderFloat3("scale", pObject->scale.data(), 0.1f, 10.f);
-            }
-
-            ImGui::PopID();
-        });
-
-        ImGui::SeparatorText("Add Egg");
-
-        ImGui::SliderInt("X", &eggX, 0, pSwarm->getWidth());
-        ImGui::SliderInt("Y", &eggY, 0, pSwarm->getHeight());
-
-        if (ImGui::Button("Create Egg")) {
-            auto *pEgg = pSwarm->newObject<OEgg>("egg");
-            pEgg->position = pSwarm->getWorldPos(float(eggX), float(eggY), 1.f);
-        }
-
-        ImGui::End();
-
-        debug::showDebugGui(pGraph);
         showRenderSettings();
-        showCameraInfo();
-        showLogInfo();
         showFilePicker();
     }
 
@@ -339,29 +369,83 @@ struct GameGui final : graph::IGuiPass {
         }
     }
 
-    void showRenderSettings() {
-        if (ImGui::Begin("Render Settings")) {
-            const auto& createInfo = ctx->getCreateInfo();
-            ImGui::Text("present: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
-            ImGui::Text("render: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
-            if (ImGui::Checkbox("fullscreen", &gFullscreen)) {
-                pRenderThread->add("change-fullscreen", [fs = gFullscreen] {
-                    pGraph->setFullscreen(fs);
-                    if (fs) {
-                        pWindow->enterFullscreen();
+    static void showHeapSlots(bool *pOpen, const char *name, const simcoe::BitMap& alloc) {
+        if (*pOpen) {
+            ImGui::SetNextItemOpen(true);
+        }
+
+        if (ImGui::CollapsingHeader(name)) {
+            *pOpen = true;
+            // show a grid of slots
+            auto size = alloc.getSize();
+            auto rows = size / 8;
+            auto cols = size / rows;
+
+            if (ImGui::BeginTable("Slots", cols)) {
+                for (auto i = 0; i < size; i++) {
+                    ImGui::TableNextColumn();
+                    if (alloc.test(BitMap::Index(i))) {
+                        ImGui::Text("%d (used)", i);
                     } else {
-                        pWindow->exitFullscreen();
+                        ImGui::TextDisabled("%d (free)", i);
                     }
+                }
+
+                ImGui::EndTable();
+            }
+        } else {
+            *pOpen = false;
+        }
+    }
+
+    template<typename T, typename F>
+    static void showGraphObjects(bool *pOpen, const char *name, const std::vector<T>& objects, F&& showObject) {
+        if (*pOpen) {
+            ImGui::SetNextItemOpen(true);
+        }
+
+        if (ImGui::CollapsingHeader(name)) {
+            *pOpen = true;
+            for (auto& object : objects) {
+                showObject(object);
+            }
+        } else {
+            *pOpen = false;
+        }
+    }
+
+    bool bRtvOpen = false;
+    bool bSrvOpen = false;
+    bool bDsvOpen = false;
+
+    bool bResourcesOpen = false;
+    bool bPassesOpen = false;
+    bool bObjectsOpen = false;
+
+    void showRenderSettings() {
+        if (ImGui::Begin("Render settings")) {
+            const auto& createInfo = ctx->getCreateInfo();
+            ImGui::Text("Display resolution: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
+            ImGui::Text("Internal resolution: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
+
+            int currentWindowMode = gWindowMode;
+            if (ImGui::Combo("Window mode", &currentWindowMode, kWindowModeNames.data(), kWindowModeNames.size())) {
+                pMainQueue->add("change-window-mode", [oldMode = gWindowMode, newMode = currentWindowMode] {
+                    changeWindowMode(WindowMode(oldMode), WindowMode(newMode));
                 });
             }
 
             bool bTearing = ctx->bAllowTearing;
-            ImGui::Checkbox("tearing", &bTearing);
+            ImGui::Checkbox("Allow tearing", &bTearing);
             ctx->bAllowTearing = bTearing;
+
+            int currentSyncInterval = ctx->syncInterval;
+            ImGui::SliderInt("Sync interval", (int*)&currentSyncInterval, 0, 4);
+            ctx->syncInterval = currentSyncInterval;
 
             ImGui::Text("DXGI reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
 
-            if (ImGui::SliderInt2("render size", renderSize, 64, 4096)) {
+            if (ImGui::SliderInt2("Internal resolution", renderSize, 64, 4096)) {
                 pRenderThread->add("resize-render", [this] {
                     pGraph->resizeRender(renderSize[0], renderSize[1]);
                     logInfo("resize-render: {}x{}", renderSize[0], renderSize[1]);
@@ -375,41 +459,54 @@ struct GameGui final : graph::IGuiPass {
                 });
             }
 
-            if (ImGui::Combo("device", &currentAdapter, adapterNames.data(), adapterNames.size())) {
+            if (ImGui::Combo("Adapter", &currentAdapter, adapterNames.data(), adapterNames.size())) {
                 pRenderThread->add("change-adapter", [this] {
                     pGraph->changeAdapter(currentAdapter);
                     logInfo("change-adapter: {}", currentAdapter);
                 });
             }
 
-            if (ImGui::Button("Remove Device")) {
+            if (ImGui::Button("Remove device")) {
                 ctx->removeDevice();
             }
-        }
 
-        ImGui::End();
-    }
+            ImGui::SeparatorText("RenderContext state");
+            auto *pRtvHeap = ctx->getRtvHeap();
+            auto *pDsvHeap = ctx->getDsvHeap();
+            auto *pSrvHeap = ctx->getSrvHeap();
 
-    static void showLogInfo() {
-        if (ImGui::Begin("Logs")) {
-            for (const auto& message : gGuiLogger.buffer) {
-                ImGui::Text("%s", message.data());
-            }
-        }
+            auto& rtvAlloc = pRtvHeap->allocator;
+            auto& dsvAlloc = pDsvHeap->allocator;
+            auto& srvAlloc = pSrvHeap->allocator;
 
-        ImGui::End();
-    }
+            showHeapSlots(&bRtvOpen, std::format("RTV heap {}", rtvAlloc.getSize()).c_str(), rtvAlloc);
+            showHeapSlots(&bDsvOpen, std::format("DSV heap {}", dsvAlloc.getSize()).c_str(), dsvAlloc);
+            showHeapSlots(&bSrvOpen, std::format("SRV heap {}", srvAlloc.getSize()).c_str(), srvAlloc);
 
-    static void showCameraInfo() {
-        if (ImGui::Begin("Camera")) {
-            ImGui::SliderFloat3("position", pSwarm->cameraPosition.data(), -20.f, 20.f);
-            ImGui::SliderFloat3("rotation", pSwarm->cameraRotation.data(), -1.f, 1.f);
+            ImGui::SeparatorText("RenderGraph state");
+            const auto& resources = pGraph->resources;
+            const auto& passes = pGraph->passes;
+            const auto& objects = pGraph->objects;
 
-            if (ImGui::Combo("projection", &gCurrentProjection, kProjectionNames.data(), kProjectionNames.size())) {
-                pSwarm->pProjection = gProjections[gCurrentProjection];
-            }
+            showGraphObjects(&bResourcesOpen, std::format("resources: {}", resources.size()).c_str(), resources, [](render::IResourceHandle *pResource) {
+                auto name = pResource->getName();
+                ImGui::Text("%s (state: %s)", name.data(), rhi::toString(pResource->getCurrentState()).data());
+            });
 
-            ImGui::SliderFloat("fov", &pSwarm->fov, 45.f, 120.f);
+            showGraphObjects(&bPassesOpen, std::format("passes: {}", passes.size()).c_str(), passes, [](render::ICommandPass *pPass) {
+                auto name = pPass->getName();
+                ImGui::Text("pass: %s", name.data());
+                for (auto& resource : pPass->inputs) {
+                    auto handle = resource->getResourceHandle();
+                    auto state = resource->getRequiredState();
+                    ImGui::BulletText("resource: %s (expected: %s)", handle->getName().data(), rhi::toString(state).data());
+                }
+            });
+
+            showGraphObjects(&bObjectsOpen, std::format("objects: {}", objects.size()).c_str(), objects, [](render::IGraphObject *pObject) {
+                auto name = pObject->getName();
+                ImGui::Text("%s", name.data());
+            });
         }
 
         ImGui::End();
@@ -464,7 +561,7 @@ private:
         }
     }
 
-    debug::UserHandle debugHandle = debug::addHandle("GdkInit", [this] { debug(); });
+    debug::GlobalHandle debugHandle = debug::addGlobalHandle("GDK", [this] { debug(); });
     std::string failureReason;
 };
 
@@ -541,7 +638,6 @@ static void commonMain(const std::filesystem::path& path) {
     };
 
     pSwarm = new SwarmGame();
-    pSwarm->pProjection = gProjections[gCurrentProjection];
 
     // move the render context into the render thread to prevent hangs on shutdown
     render::Context *pContext = render::Context::create(renderCreateInfo);
@@ -604,14 +700,12 @@ static void commonMain(const std::filesystem::path& path) {
 
             // TODO: if the render loop throws an exception, the program will std::terminate
             // we should handle this case and restart the render loop
-            util::TimeStepper fpsLimit = {1.f / 120.f}; // TODO: this isnt the right tool for limiting fps
             while (!token.stop_requested()) {
                 if (pSelf->process()) {
                     continue; // TODO: this is also a little stupid
                 }
 
                 try {
-                    fpsLimit.tick();
                     pGraph->execute();
                 } catch (std::runtime_error& err) {
                     simcoe::logError("render exception: {}", err.what());
@@ -623,7 +717,12 @@ static void commonMain(const std::filesystem::path& path) {
                         break;
                     }
 
-                    pGraph->resumeFromFault();
+                    pRenderThread->add("resume", [] {
+                        pGraph->resumeFromFault();
+                        pMainQueue->add("resume", [] {
+                            changeWindowMode(eNone, WindowMode(gWindowMode));
+                        });
+                    });
                 } catch (...) {
                     simcoe::logError("unknown thread exception. exiting");
                     break;
@@ -633,7 +732,6 @@ static void commonMain(const std::filesystem::path& path) {
             simcoe::logError("render thread exception during startup: {}", err.what());
         }
 
-        pGraph->setFullscreen(false);
         delete pGraph;
 
         gRunning = false;
@@ -656,8 +754,6 @@ static void commonMain(const std::filesystem::path& path) {
         }
     }
 
-    delete pGameThread;
-    delete pWorkThread;
     delete pMainQueue;
 }
 
@@ -669,8 +765,11 @@ static fs::path getGameDir() {
 
 static int innerMain() try {
     setThreadName("main");
-    simcoe::addSink(&gFileLogger);
-    simcoe::addSink(&gGuiLogger);
+    pFileLogger = new FileLogger();
+    pGuiLogger = new GuiLogger();
+
+    simcoe::addSink(pFileLogger);
+    simcoe::addSink(pGuiLogger);
 
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
     simcoe::logInfo("startup");

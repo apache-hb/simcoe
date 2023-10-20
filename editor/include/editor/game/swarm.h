@@ -130,7 +130,14 @@ namespace editor::game {
     };
 
     struct SwarmGame : GameLevel {
-        SwarmGame() { }
+        enum Projection : int {
+            ePerspective,
+            eOrthographic
+        };
+
+        SwarmGame() {
+            pProjection = projections[currentProjection];
+        }
 
         void create(const SwarmGameInfo& info);
         void tick();
@@ -163,13 +170,24 @@ namespace editor::game {
 
     private:
         void debug();
-        debug::UserHandle debugHandle = debug::addHandle("SwarmGame", [this] { debug(); });
+        debug::GlobalHandle debugHandle = debug::addGlobalHandle("SwarmGame", [this] { debug(); });
 
         // config
         size_t width = 22;
         size_t height = 19;
 
         SwarmGameInfo info;
+
+        Projection currentProjection = eOrthographic;
+        std::array<IProjection*, 2> projections = std::to_array({
+            static_cast<IProjection*>(new Perspective(90.f)),
+            static_cast<IProjection*>(new Orthographic(24.f, 24.f))
+        });
+        void setProjection(Projection projection) {
+            currentProjection = projection;
+            pProjection = projections[currentProjection];
+        }
+
         util::TimeStepper timeStepper = {1.f / 60.f};
         float3 worldScale = float3::from(0.5f);
         float3 worldOrigin = float3::zero();

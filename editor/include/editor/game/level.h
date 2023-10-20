@@ -1,7 +1,10 @@
 #pragma once
 
+#include "editor/debug/debug.h"
 #include "editor/game/object.h"
 #include "engine/os/system.h"
+
+#include "imgui/imgui.h"
 
 #include <unordered_set>
 
@@ -51,28 +54,59 @@ namespace editor::game {
     ///
 
     struct IProjection {
-        virtual math::float4x4 getProjectionMatrix(float aspectRatio, float fov) const = 0;
+        template<typename F>
+        IProjection(const char *name, F&& func)
+            : debugHandle(std::make_unique<debug::DebugHandle>(name, [this, func] { debug(); func(); }))
+        { }
+
+        virtual math::float4x4 getProjectionMatrix(float aspectRatio) const = 0;
+        debug::DebugHandle *getDebugHandle() { return debugHandle.get(); }
+
+    protected:
+        float nearLimit = 0.1f;
+        float farLimit = 1000.f;
+
+    private:
+        void debug() {
+            ImGui::SliderFloat("near", &nearLimit, 0.1f, 100.f);
+            ImGui::SliderFloat("far", &farLimit, 0.1f, 1000.f);
+        }
+
+        debug::LocalHandle debugHandle;
     };
 
     struct Perspective final : IProjection {
-        math::float4x4 getProjectionMatrix(float aspectRatio, float fov) const override {
+        Perspective(float fov)
+            : IProjection("Perspective", [this] { debug(); })
+            , fov(fov)
+        { }
+
+        math::float4x4 getProjectionMatrix(float aspectRatio) const override {
             return math::float4x4::perspectiveRH(fov * math::kDegToRad<float>, aspectRatio, 0.1f, 1000.f);
         }
+
+    private:
+        float fov;
+
+        void debug();
     };
 
     struct Orthographic final : IProjection {
         Orthographic(float width, float height)
-            : width(width)
+            : IProjection("Orthographic", [this] { debug(); })
+            , width(width)
             , height(height)
         { }
 
-        math::float4x4 getProjectionMatrix(float aspectRatio, float fov) const override {
+        math::float4x4 getProjectionMatrix(float aspectRatio) const override {
             return math::float4x4::orthographicRH(width * aspectRatio, height, 0.1f, 125.f);
         }
 
     private:
         float width;
         float height;
+
+        void debug();
     };
 
     ///
@@ -85,6 +119,14 @@ namespace editor::game {
         IGameObject(GameLevel *pLevel, std::string name)
             : pLevel(pLevel)
             , name(name)
+            , debugHandle(std::make_unique<debug::DebugHandle>(name, [this] { debug(); }))
+        { }
+
+        template<typename F>
+        IGameObject(GameLevel *pLevel, std::string name, F&& func)
+            : pLevel(pLevel)
+            , name(name)
+            , debugHandle(std::make_unique<debug::DebugHandle>(name, [this, func] { debug(); func(); }))
         { }
 
         virtual ~IGameObject() = default;
@@ -100,6 +142,7 @@ namespace editor::game {
         virtual void tick(float delta) { }
 
         bool canCull() const { return bShouldCull; }
+        debug::DebugHandle *getDebugHandle() { return debugHandle.get(); }
 
     protected:
         void setTextureId(size_t id) { textureId = id; }
@@ -114,12 +157,15 @@ namespace editor::game {
 
         render::IMeshBufferHandle *pMesh = nullptr;
         size_t textureId = SIZE_MAX;
+
+        void debug();
+        bool bLockScale = false;
+        debug::LocalHandle debugHandle;
     };
 
     struct GameLevel {
         math::float3 cameraPosition = { -10.0f, 0.0f, 0.0f };
         math::float3 cameraRotation = { 1.0f, 0.0f, 0.0f };
-        float fov = 90.f;
 
         IProjection *pProjection = nullptr;
 

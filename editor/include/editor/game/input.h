@@ -20,7 +20,7 @@ namespace editor::game {
 
     private:
         void debug();
-        debug::UserHandle debugHandle = debug::addHandle("Input", [this] { debug(); });
+        debug::GlobalHandle debugHandle = debug::addGlobalHandle("Input", [this] { debug(); });
 
         Event shootKeyboardEvent;
         Event shootGamepadEvent;
