@@ -151,7 +151,6 @@ void OPlayer::tick(float delta) {
         tryShootBullet(-rotation.x);
 }
 
-
 void OPlayer::createLives() {
     for (size_t i = 0; i < initialLives; i++) {
         addLife();
@@ -281,7 +280,7 @@ void SwarmGame::tick() {
 bool SwarmGame::shouldCullObject(IGameObject *pObject) const {
     if (!pObject->canCull()) return false;
 
-    float2 pos = pObject->position.xy();
+    float2 pos = pObject->position.yz();
     float2 limits = getWorldLimits();
 
     return pos.x < 0.f || pos.x > limits.x || pos.y < 0.f || pos.y > limits.y;

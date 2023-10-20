@@ -24,7 +24,7 @@ namespace simcoe::physics {
     private:
         void updateBody(RigidBody *pBody);
 
-        std::vector<RigidBody *> bodies;
+        std::vector<RigidBody*> bodies;
 
         // the size of each cell in the grid
         float cellSize;

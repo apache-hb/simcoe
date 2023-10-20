@@ -99,6 +99,8 @@ void GameLevelPass::execute() {
 
     ctx->setGraphicsShaderInput(cameraIndex, pCamera->getSrvIndex()); // set camera uniform
 
+    std::unordered_set<IGameObject*> usedHandles;
+
     pLevel->useEachObject([&](IGameObject *pObject) {
         auto *pTextureHandle = textureAttachments[pObject->getTexture()];
         auto *pTexture = pTextureHandle->getInner();
@@ -108,6 +110,8 @@ void GameLevelPass::execute() {
         auto *pUniform = getObjectUniform(pObject); // get object uniform (create if not exists)
         pUniform->update(pObject);
 
+        usedHandles.emplace(pObject);
+
         ctx->setGraphicsShaderInput(texIndex, pTexture->getSrvIndex()); // set texture
         ctx->setGraphicsShaderInput(objectIndex, pUniform->getSrvIndex()); // set object uniform
 
@@ -115,6 +119,18 @@ void GameLevelPass::execute() {
         ctx->setIndexBuffer(pMesh->getIndexBuffer());
         ctx->drawIndexed(pMesh->getIndexCount());
     });
+
+    // remove unused object uniforms
+    for (auto it = objectUniforms.begin(); it != objectUniforms.end();) {
+        auto& [pObject, pAttachment] = *it;
+        if (!usedHandles.contains(it->first)) {
+            graph->removeResource(pAttachment->getResourceHandle());
+            std::erase(inputs, pAttachment);
+            it = objectUniforms.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 size_t GameLevelPass::addTexture(ResourceWrapper<TextureHandle> *pTexture) {

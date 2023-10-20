@@ -325,6 +325,8 @@ namespace simcoe::render {
             destroyIf(eDepDevice); // everything depends on device
         }
 
+        // state management
+
         template<std::derived_from<ICommandPass> T, typename... A>
         T *addPass(A&&... args) {
             T *pPass = new T(this, std::forward<A>(args)...);
@@ -345,6 +347,10 @@ namespace simcoe::render {
             addGraphObject(pObject);
             return pObject;
         }
+
+        void removePass(ICommandPass *pPass);
+        void removeResource(IResourceHandle *pHandle);
+        void removeObject(IGraphObject *pObject);
 
         // getters
 

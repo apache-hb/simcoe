@@ -156,7 +156,7 @@ namespace editor::game {
         float2 getPlayerSpawnPoint() const { return float2::from(0.f, float(height - 2)); }
 
         float3 getWorldScale() const { return worldScale; }
-        float2 getWorldLimits() const { return float2::from(float(width - 1), float(height)); }
+        float2 getWorldLimits() const { return float2::from(float(width), float(height)); }
 
         float3 getWorldPos(float x, float y, float z = 0.f) const {
             return float3::from(z, x, y) + worldOrigin;

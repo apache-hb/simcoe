@@ -73,6 +73,30 @@ void IRenderPass::executePass() {
 /// graph
 ///
 
+void Graph::removePass(ICommandPass *pPass) {
+    std::lock_guard guard(renderLock);
+
+    std::erase(passes, pPass);
+    pPass->destroy();
+    delete pPass;
+}
+
+void Graph::removeResource(IResourceHandle *pHandle) {
+    std::lock_guard guard(renderLock);
+
+    std::erase(resources, pHandle);
+    pHandle->destroy();
+    delete pHandle;
+}
+
+void Graph::removeObject(IGraphObject *pObject) {
+    std::lock_guard guard(renderLock);
+
+    std::erase(objects, pObject);
+    pObject->destroy();
+    delete pObject;
+}
+
 void Graph::setFullscreen(bool bFullscreen) {
     if (ctx->bReportedFullscreen == bFullscreen)
         return;

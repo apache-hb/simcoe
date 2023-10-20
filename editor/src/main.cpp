@@ -70,11 +70,12 @@ static constexpr auto kWindowHeight = 1080;
 
 // system
 static simcoe::System *pSystem = nullptr;
+static std::atomic_bool gRunning = true;
+
+// window mode
 static simcoe::Window *pWindow = nullptr;
 static WindowMode gWindowMode = eModeWindowed;
 static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless", "Fullscreen" });
-
-static std::atomic_bool gRunning = true;
 
 /// threads
 static tasks::WorkQueue *pMainQueue = nullptr;
@@ -90,10 +91,8 @@ static input::Manager *pInput = nullptr;
 
 /// rendering
 static render::Graph *pGraph = nullptr;
-static int gCurrentProjection = 1;
 
 /// game level
-
 static game::SwarmGame *pSwarm = nullptr;
 
 template<typename F>
@@ -574,7 +573,7 @@ CommandLine getCommandLine() {
     auto **argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 
     for (int i = 0; i < argc; i++) {
-        args.push_back(simcoe::util::narrow(argv[i]));
+        args.push_back(util::narrow(argv[i]));
     }
 
     LocalFree(argv);
