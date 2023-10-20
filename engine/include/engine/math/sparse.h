@@ -6,20 +6,6 @@
 
 namespace simcoe::math {
     template<typename TIndex, typename TData>
-    struct SparseVector {
-        bool isEmpty(TIndex pos) const {
-            return data.find(pos) == data.end();
-        }
-
-        TData &at(TIndex pos) {
-            return data[pos];
-        }
-
-    private:
-        std::unordered_map<TIndex, TData> data;
-    };
-
-    template<typename TIndex, typename TData>
     struct SparseMatrix {
         bool isEmpty(TIndex pos) const {
             return data.find(pos) == data.end();

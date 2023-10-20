@@ -1,5 +1,7 @@
 #include "editor/game/swarm.h"
 
+#include "imgui/imgui.h"
+
 using namespace editor;
 using namespace editor::game;
 
@@ -257,18 +259,14 @@ void SwarmGame::create(const SwarmGameInfo& createInfo) {
 
     cameraPosition = float3::from(10.f, float(getWidth()) / 2, float(getHeight()) / 2);
     cameraRotation = float3::from(-1.f, 0.f, 0.f);
-
-    lastTick = getCurrentTime();
 }
 
 void SwarmGame::tick() {
-    float now = getCurrentTime();
-    float delta = now - lastTick;
-    lastTick = now;
+    delta = timeStepper.tick();
 
     beginTick();
 
-    useEachObject([this, delta](IGameObject *pObject) {
+    useEachObject([this](IGameObject *pObject) {
         if (shouldCullObject(pObject))
             deleteObject(pObject);
         else
@@ -285,4 +283,8 @@ bool SwarmGame::shouldCullObject(IGameObject *pObject) const {
     float2 limits = getWorldLimits();
 
     return pos.x < 0.f || pos.x > limits.x || pos.y < 0.f || pos.y > limits.y;
+}
+
+void SwarmGame::debug() {
+    ImGui::Text("TPS: %f", 1.f / delta);
 }

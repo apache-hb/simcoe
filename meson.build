@@ -47,6 +47,7 @@ src = [
     # util
     'engine/src/util/retry.cpp',
     'engine/src/util/strings.cpp',
+    'engine/src/util/time.cpp',
 
     # input
     'engine/src/input/input.cpp',
@@ -176,7 +177,7 @@ src = [
     'editor/src/editor/game/gltf.cpp',
 
     # game debug
-    'editor/src/editor/debug/gui.cpp',
+    'editor/src/editor/debug/debug.cpp',
 
     # game logic
     'editor/src/editor/game/level.cpp',

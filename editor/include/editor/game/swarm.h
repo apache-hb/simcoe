@@ -1,7 +1,12 @@
 #pragma once
 
+#include "editor/debug/debug.h"
+
 #include "editor/game/level.h"
 #include "editor/game/input.h"
+
+#include "engine/util/time.h"
+
 #include <random>
 
 namespace editor::game {
@@ -157,11 +162,15 @@ namespace editor::game {
         OPlayer *getPlayer() const { return pPlayer; }
 
     private:
+        void debug();
+        debug::UserHandle debugHandle = debug::addHandle("SwarmGame", [this] { debug(); });
+
         // config
         size_t width = 22;
         size_t height = 19;
 
         SwarmGameInfo info;
+        util::TimeStepper timeStepper = {1.f / 60.f};
         float3 worldScale = float3::from(0.5f);
         float3 worldOrigin = float3::zero();
 
@@ -171,7 +180,7 @@ namespace editor::game {
         OGrid *pGrid = nullptr;
 
         // time management
-        float lastTick = 0.f;
+        float delta = 0.f;
 
         bool shouldCullObject(IGameObject *pObject) const;
     };

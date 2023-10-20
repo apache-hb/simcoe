@@ -20,7 +20,7 @@
 #include "editor/graph/game.h"
 
 // debug gui
-#include "editor/debug/gui.h"
+#include "editor/debug/debug.h"
 #include "imgui/imgui.h"
 #include "imfiles/imfilebrowser.h"
 
@@ -60,7 +60,6 @@ static simcoe::System *pSystem = nullptr;
 static simcoe::Window *pWindow = nullptr;
 static bool gFullscreen = false;
 static std::atomic_bool gRunning = true;
-static std::string gGdkFailureReason = "";
 
 /// threads
 static tasks::WorkQueue *pMainQueue = nullptr;
@@ -81,7 +80,6 @@ static int gCurrentProjection = 1;
 
 /// game level
 
-static GameInputClient gInputClient;
 static game::SwarmGame *pSwarm = nullptr;
 
 template<typename F>
@@ -204,6 +202,14 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::ShowDemoWindow();
 
+        debug::enumHandles([](auto *pHandle) {
+            const auto& [name, fn] = *pHandle;
+            if (ImGui::Begin(name.c_str())) {
+                fn();
+            }
+            ImGui::End();
+        });
+
         if (ImGui::Begin("Scene", &sceneIsOpen)) {
             ISRVHandle *pHandle = pSceneSource->getInner();
             auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getSrvIndex());
@@ -252,12 +258,9 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::End();
 
-        gInputClient.debugDraw();
-
         debug::showDebugGui(pGraph);
         showRenderSettings();
         showCameraInfo();
-        showGdkInfo();
         showLogInfo();
         showFilePicker();
     }
@@ -411,58 +414,58 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::End();
     }
-
-    static void showGdkInfo() {
-        if (ImGui::Begin("GDK")) {
-            if (!gdk::enabled()) {
-                ImGui::Text("GDK init failed: %s", gGdkFailureReason.c_str());
-                ImGui::End();
-                return;
-            }
-
-            auto info = gdk::getAnalyticsInfo();
-            auto id = gdk::getConsoleId();
-            const auto& features = gdk::getFeatures();
-
-            auto [osMajor, osMinor, osBuild, osRevision] = info.osVersion;
-            ImGui::Text("os: %u.%u.%u - %u", osMajor, osMinor, osBuild, osRevision);
-            auto [hostMajor, hostMinor, hostBuild, hostRevision] = info.hostingOsVersion;
-            ImGui::Text("host: %u.%u.%u - %u", hostMajor, hostMinor, hostBuild, hostRevision);
-            ImGui::Text("family: %s", info.family);
-            ImGui::Text("form: %s", info.form);
-            ImGui::Text("id: %s", id.data());
-
-            ImGui::SeparatorText("features");
-
-            if (ImGui::BeginTable("features", 2)) {
-                ImGui::TableNextColumn();
-                ImGui::Text("name");
-                ImGui::TableNextColumn();
-                ImGui::Text("enabled");
-
-                for (const auto& [name, enabled] : features) {
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%s", name.data());
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%s", enabled ? "true" : "false");
-                }
-                ImGui::EndTable();
-            }
-        }
-        ImGui::End();
-    }
 };
 
 static GameWindow gWindowCallbacks;
 
 struct GdkInit {
-    GdkInit() {
-       gGdkFailureReason = gdk::init();
-    }
+    GdkInit()
+        : failureReason(gdk::init())
+    { }
 
     ~GdkInit() {
         gdk::deinit();
     }
+
+private:
+    void debug() {
+        if (!gdk::enabled()) {
+            ImGui::Text("GDK init failed: %s", failureReason.c_str());
+            return;
+        }
+
+        auto info = gdk::getAnalyticsInfo();
+        auto id = gdk::getConsoleId();
+        const auto& features = gdk::getFeatures();
+
+        auto [osMajor, osMinor, osBuild, osRevision] = info.osVersion;
+        ImGui::Text("os: %u.%u.%u - %u", osMajor, osMinor, osBuild, osRevision);
+        auto [hostMajor, hostMinor, hostBuild, hostRevision] = info.hostingOsVersion;
+        ImGui::Text("host: %u.%u.%u - %u", hostMajor, hostMinor, hostBuild, hostRevision);
+        ImGui::Text("family: %s", info.family);
+        ImGui::Text("form: %s", info.form);
+        ImGui::Text("id: %s", id.data());
+
+        ImGui::SeparatorText("features");
+
+        if (ImGui::BeginTable("features", 2)) {
+            ImGui::TableNextColumn();
+            ImGui::Text("name");
+            ImGui::TableNextColumn();
+            ImGui::Text("enabled");
+
+            for (const auto& [name, enabled] : features) {
+                ImGui::TableNextColumn();
+                ImGui::Text("%s", name.data());
+                ImGui::TableNextColumn();
+                ImGui::Text("%s", enabled ? "true" : "false");
+            }
+            ImGui::EndTable();
+        }
+    }
+
+    debug::UserHandle debugHandle = debug::addHandle("GdkInit", [this] { debug(); });
+    std::string failureReason;
 };
 
 using CommandLine = std::vector<std::string>;
@@ -495,10 +498,10 @@ static void createGameThread() {
 
 static void commonMain(const std::filesystem::path& path) {
     pMainQueue = new tasks::WorkQueue(64);
+    pWorkThread = new tasks::WorkThread(64, "work");
 
     GdkInit gdkInit;
-
-    pWorkThread = new tasks::WorkThread(64, "work");
+    GameInputClient inputClient;
 
     auto assets = path / "editor.exe.p";
     assets::Assets depot = { assets };
@@ -521,7 +524,7 @@ static void commonMain(const std::filesystem::path& path) {
     pInput->addSource(pKeyboard = new input::Win32Keyboard());
     pInput->addSource(pMouse = new input::Win32Mouse(pWindow, true));
     pInput->addSource(pGamepad0 = new input::XInputGamepad(0));
-    pInput->addClient(&gInputClient);
+    pInput->addClient(&inputClient);
 
     const render::RenderCreateInfo renderCreateInfo = {
         .hWindow = pWindow->getHandle(),
@@ -542,7 +545,7 @@ static void commonMain(const std::filesystem::path& path) {
 
     // move the render context into the render thread to prevent hangs on shutdown
     render::Context *pContext = render::Context::create(renderCreateInfo);
-    pRenderThread = newTask("render", [pContext](tasks::WorkQueue *pSelf, std::stop_token token) {
+    pRenderThread = newTask("render", [pContext, &inputClient](tasks::WorkQueue *pSelf, std::stop_token token) {
         size_t faultCount = 0;
         size_t faultLimit = 3;
 
@@ -591,7 +594,7 @@ static void commonMain(const std::filesystem::path& path) {
                 .eggMediumTextureId = createInfo.alienTextureId,
                 .eggLargeTextureId = createInfo.alienTextureId,
 
-                .pInputClient = &gInputClient
+                .pInputClient = &inputClient
             };
 
             pMainQueue->add("create-level", [createInfo] {
@@ -601,12 +604,14 @@ static void commonMain(const std::filesystem::path& path) {
 
             // TODO: if the render loop throws an exception, the program will std::terminate
             // we should handle this case and restart the render loop
+            util::TimeStepper fpsLimit = {1.f / 120.f}; // TODO: this isnt the right tool for limiting fps
             while (!token.stop_requested()) {
                 if (pSelf->process()) {
                     continue; // TODO: this is also a little stupid
                 }
 
                 try {
+                    fpsLimit.tick();
                     pGraph->execute();
                 } catch (std::runtime_error& err) {
                     simcoe::logError("render exception: {}", err.what());

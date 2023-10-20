@@ -1,5 +1,6 @@
 #pragma once
 
+#include "editor/debug/debug.h"
 #include "engine/input/input.h"
 
 namespace editor::game {
@@ -17,9 +18,10 @@ namespace editor::game {
 
         void onInput(const input::State& newState) override;
 
-        void debugDraw();
-
     private:
+        void debug();
+        debug::UserHandle debugHandle = debug::addHandle("Input", [this] { debug(); });
+
         Event shootKeyboardEvent;
         Event shootGamepadEvent;
 

@@ -73,7 +73,6 @@ namespace simcoe::math {
         Resolution() : Resolution(T(0)) { }
         Resolution(T width, T height) : width(width), height(height) { }
         Resolution(T it) : Resolution(it, it) { }
-        Resolution(const T *pData) : Resolution(pData[0], pData[1]) { }
 
         constexpr static Resolution from(T width, T height) { return { width, height }; }
         constexpr static Resolution from(T it) { return from(it, it); }
@@ -107,7 +106,6 @@ namespace simcoe::math {
         constexpr Vec2() : Vec2(T(0)) { }
         constexpr Vec2(T x, T y) : x(x), y(y) { }
         constexpr Vec2(T it) : Vec2(it, it) { }
-        constexpr Vec2(const T *pData) : Vec2(pData[0], pData[1]) { }
 
         constexpr static Vec2 from(T x, T y) { return { x, y }; }
         constexpr static Vec2 from(T it) { return from(it, it); }
@@ -177,7 +175,6 @@ namespace simcoe::math {
         constexpr Vec3() : Vec3(T(0)) { }
         constexpr Vec3(T x, T y, T z) : x(x), y(y), z(z) { }
         constexpr Vec3(T it) : Vec3(it, it, it){ }
-        constexpr Vec3(const T *pData) : Vec3(pData[0], pData[1], pData[2]) { }
 
         static constexpr Vec3 from(T x, T y, T z) { return { x, y, z }; }
         static constexpr Vec3 from(T it) { return from(it, it, it); }
@@ -247,7 +244,6 @@ namespace simcoe::math {
         constexpr Vec4() : Vec4(T(0)) { }
         constexpr Vec4(T x, T y, T z, T w) : x(x), y(y), z(z), w(w) { }
         constexpr Vec4(T it) : Vec4(it, it, it, it) { }
-        constexpr Vec4(const T *pData) : Vec4(pData[0], pData[1], pData[2], pData[3]) { }
 
         static constexpr Vec4 from(T x, T y, T z, T w) { return { x, y, z, w }; }
         static constexpr Vec4 from(T it) { return from(it, it, it, it); }

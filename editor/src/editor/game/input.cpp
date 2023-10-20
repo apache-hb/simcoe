@@ -48,45 +48,41 @@ void GameInputClient::onInput(const input::State& newState) {
     shootGamepadEvent.update(state.buttons[Button::ePadButtonDown]);
 }
 
-void GameInputClient::debugDraw() {
-    if (ImGui::Begin("Input")) {
-        ImGui::Text("updates: %zu", updates.load());
-        ImGui::Text("device: %s", input::toString(state.device).data());
-        ImGui::SeparatorText("buttons");
+void GameInputClient::debug() {
+    ImGui::Text("updates: %zu", updates.load());
+    ImGui::Text("device: %s", input::toString(state.device).data());
+    ImGui::SeparatorText("buttons");
 
-        if (ImGui::BeginTable("buttons", 2, kTableFlags)) {
+    if (ImGui::BeginTable("buttons", 2, kTableFlags)) {
+        ImGui::TableNextColumn();
+        ImGui::Text("button");
+        ImGui::TableNextColumn();
+        ImGui::Text("state");
+
+        for (size_t i = 0; i < state.buttons.size(); i++) {
             ImGui::TableNextColumn();
-            ImGui::Text("button");
+            ImGui::Text("%s", input::toString(input::Button(i)).data());
             ImGui::TableNextColumn();
-            ImGui::Text("state");
-
-            for (size_t i = 0; i < state.buttons.size(); i++) {
-                ImGui::TableNextColumn();
-                ImGui::Text("%s", input::toString(input::Button(i)).data());
-                ImGui::TableNextColumn();
-                ImGui::Text("%zu", state.buttons[i]);
-            }
-
-            ImGui::EndTable();
+            ImGui::Text("%zu", state.buttons[i]);
         }
 
-        ImGui::SeparatorText("axes");
-        if (ImGui::BeginTable("axes", 2, kTableFlags)) {
-            ImGui::TableNextColumn();
-            ImGui::Text("axis");
-            ImGui::TableNextColumn();
-            ImGui::Text("value");
-
-            for (size_t i = 0; i < state.axes.size(); i++) {
-                ImGui::TableNextColumn();
-                ImGui::Text("%s", input::toString(input::Axis(i)).data());
-                ImGui::TableNextColumn();
-                ImGui::Text("%f", state.axes[i]);
-            }
-
-            ImGui::EndTable();
-        }
+        ImGui::EndTable();
     }
 
-    ImGui::End();
+    ImGui::SeparatorText("axes");
+    if (ImGui::BeginTable("axes", 2, kTableFlags)) {
+        ImGui::TableNextColumn();
+        ImGui::Text("axis");
+        ImGui::TableNextColumn();
+        ImGui::Text("value");
+
+        for (size_t i = 0; i < state.axes.size(); i++) {
+            ImGui::TableNextColumn();
+            ImGui::Text("%s", input::toString(input::Axis(i)).data());
+            ImGui::TableNextColumn();
+            ImGui::Text("%f", state.axes[i]);
+        }
+
+        ImGui::EndTable();
+    }
 }
