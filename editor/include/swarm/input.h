@@ -3,12 +3,20 @@
 #include "editor/debug/debug.h"
 #include "engine/input/input.h"
 
-namespace editor::game {
+using namespace editor;
+
+namespace swarm {
     using namespace simcoe;
     using namespace simcoe::input;
 
-    struct GameInputClient final : input::IClient {
+    struct InputClient final : input::IClient {
         bool isShootPressed() const;
+        bool isQuitPressed() const;
+
+        bool consumeMoveUp();
+        bool consumeMoveDown();
+        bool consumeMoveLeft();
+        bool consumeMoveRight();
 
         float getHorizontalAxis() const;
         float getVerticalAxis() const;
@@ -25,8 +33,17 @@ namespace editor::game {
         Event shootKeyboardEvent;
         Event shootGamepadEvent;
 
+        Event quitEventKey, quitEventGamepad;
+
+        Event moveUpEventKey, moveUpEventArrow;
+        Event moveDownEventKey, moveDownEventArrow;
+        Event moveLeftEventKey, moveLeftEventArrow;
+        Event moveRightEventKey, moveRightEventArrow;
+
         std::atomic_size_t updates = 0;
 
         input::State state;
     };
+
+    InputClient *getInputClient();
 }

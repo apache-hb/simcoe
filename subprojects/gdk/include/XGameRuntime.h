@@ -2,7 +2,7 @@
 
 #pragma once
 
-#pragma comment(lib,"xgameruntime.lib") 
+#pragma comment(lib,"xgameruntime.lib")
 
 #include <GRDK.h>
 

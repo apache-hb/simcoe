@@ -129,8 +129,8 @@ namespace simcoe::input {
         bool isPressed() const;
 
     private:
-        size_t lastValue = 0;
-        bool bSendPressEvent = false;
-        bool bSendReleaseEvent = false;
+        std::atomic_size_t lastValue = 0;
+        std::atomic_bool bSendPressEvent = false;
+        std::atomic_bool bSendReleaseEvent = false;
     };
 }

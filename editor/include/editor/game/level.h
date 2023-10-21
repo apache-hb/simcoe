@@ -1,7 +1,9 @@
 #pragma once
 
 #include "editor/debug/debug.h"
-#include "editor/game/object.h"
+#include "editor/graph/assets.h"
+#include "editor/graph/mesh.h"
+
 #include "engine/os/system.h"
 
 #include "imgui/imgui.h"
@@ -9,44 +11,49 @@
 #include <unordered_set>
 
 namespace editor::game {
+    using namespace simcoe;
+    using namespace simcoe::math;
+
+    namespace fs = assets::fs;
+
     ///
     /// view matrices
     ///
 
     struct ICamera {
-        virtual math::float4x4 getViewMatrix() const = 0;
+        virtual float4x4 getViewMatrix() const = 0;
     };
 
     struct TrackingCamera final : ICamera {
-        TrackingCamera(math::float3 eye, math::float3 target, math::float3 up)
+        TrackingCamera(float3 eye, float3 target, float3 up)
             : eye(eye)
             , target(target)
             , up(up)
         { }
 
-        math::float4x4 getViewMatrix() const override {
-            return math::float4x4::lookAtRH(eye, target, up);
+        float4x4 getViewMatrix() const override {
+            return float4x4::lookAtRH(eye, target, up);
         }
 
-        math::float3 eye;
-        math::float3 target;
-        math::float3 up;
+        float3 eye;
+        float3 target;
+        float3 up;
     };
 
     struct FreeCamera final : ICamera {
-        FreeCamera(math::float3 eye, math::float3 direction, math::float3 up)
+        FreeCamera(float3 eye, float3 direction, float3 up)
             : eye(eye)
             , direction(direction)
             , up(up)
         { }
 
-        math::float4x4 getViewMatrix() const override {
-            return math::float4x4::lookToRH(eye, direction, up);
+        float4x4 getViewMatrix() const override {
+            return float4x4::lookToRH(eye, direction, up);
         }
 
-        math::float3 eye;
-        math::float3 direction;
-        math::float3 up;
+        float3 eye;
+        float3 direction;
+        float3 up;
     };
 
     ///
@@ -54,12 +61,14 @@ namespace editor::game {
     ///
 
     struct IProjection {
+        virtual ~IProjection() = default;
+
         template<typename F>
         IProjection(const char *name, F&& func)
             : debugHandle(std::make_unique<debug::DebugHandle>(name, [this, func] { debug(); func(); }))
         { }
 
-        virtual math::float4x4 getProjectionMatrix(float aspectRatio) const = 0;
+        virtual float4x4 getProjectionMatrix(float aspectRatio) const = 0;
         debug::DebugHandle *getDebugHandle() { return debugHandle.get(); }
 
     protected:
@@ -81,8 +90,8 @@ namespace editor::game {
             , fov(fov)
         { }
 
-        math::float4x4 getProjectionMatrix(float aspectRatio) const override {
-            return math::float4x4::perspectiveRH(fov * math::kDegToRad<float>, aspectRatio, 0.1f, 1000.f);
+        float4x4 getProjectionMatrix(float aspectRatio) const override {
+            return float4x4::perspectiveRH(fov * kDegToRad<float>, aspectRatio, 0.1f, 1000.f);
         }
 
     private:
@@ -98,8 +107,8 @@ namespace editor::game {
             , height(height)
         { }
 
-        math::float4x4 getProjectionMatrix(float aspectRatio) const override {
-            return math::float4x4::orthographicRH(width * aspectRatio, height, 0.1f, 125.f);
+        float4x4 getProjectionMatrix(float aspectRatio) const override {
+            return float4x4::orthographicRH(width * aspectRatio, height, 0.1f, 125.f);
         }
 
     private:
@@ -116,37 +125,31 @@ namespace editor::game {
     struct GameLevel;
 
     struct IGameObject {
-        IGameObject(GameLevel *pLevel, std::string name)
-            : pLevel(pLevel)
-            , name(name)
-            , debugHandle(std::make_unique<debug::DebugHandle>(name, [this] { debug(); }))
-        { }
-
-        template<typename F>
-        IGameObject(GameLevel *pLevel, std::string name, F&& func)
-            : pLevel(pLevel)
-            , name(name)
-            , debugHandle(std::make_unique<debug::DebugHandle>(name, [this, func] { debug(); func(); }))
-        { }
+        IGameObject(GameLevel *pLevel, std::string name);
 
         virtual ~IGameObject() = default;
 
-        math::float3 position = { 0.0f, 0.0f, 0.0f };
-        math::float3 rotation = { 0.0f, 0.0f, 0.0f }; // rotate around z-axis
-        math::float3 scale = { 1.f, 1.f, 1.f };
+        float3 position = { 0.0f, 0.0f, 0.0f };
+        float3 rotation = { 0.0f, 0.0f, 0.0f }; // rotate around z-axis
+        float3 scale = { 1.f, 1.f, 1.f };
 
         std::string_view getName() const { return name; }
         render::IMeshBufferHandle *getMesh() const { return pMesh; }
-        size_t getTexture() const { return textureId; }
+        render::ResourceWrapper<graph::TextureHandle> *getTexture() const { return pTexture; }
 
         virtual void tick(float delta) { }
+        virtual void debug() { }
 
         bool canCull() const { return bShouldCull; }
         debug::DebugHandle *getDebugHandle() { return debugHandle.get(); }
 
     protected:
-        void setTextureId(size_t id) { textureId = id; }
-        void setMesh(render::IMeshBufferHandle *pNewMesh) { pMesh = pNewMesh; }
+        void setTexture(const fs::path& path);
+        void setMesh(const fs::path& path);
+
+        void setTextureHandle(render::ResourceWrapper<graph::TextureHandle> *pNewTexture) { pTexture = pNewTexture; }
+        void setMeshHandle(render::IMeshBufferHandle *pNewMesh) { pMesh = pNewMesh; }
+
         void setShouldCull(bool bShould) { bShouldCull = bShould; }
 
         GameLevel *pLevel;
@@ -155,17 +158,17 @@ namespace editor::game {
         std::string name;
         bool bShouldCull = true;
 
-        render::IMeshBufferHandle *pMesh = nullptr;
-        size_t textureId = SIZE_MAX;
+        std::atomic<render::ResourceWrapper<graph::TextureHandle>*> pTexture = nullptr;
+        std::atomic<render::IMeshBufferHandle*> pMesh = nullptr;
 
-        void debug();
+        void objectDebug();
         bool bLockScale = false;
         debug::LocalHandle debugHandle;
     };
 
     struct GameLevel {
-        math::float3 cameraPosition = { -10.0f, 0.0f, 0.0f };
-        math::float3 cameraRotation = { 1.0f, 0.0f, 0.0f };
+        float3 cameraPosition = { -10.0f, 0.0f, 0.0f };
+        float3 cameraRotation = { 1.0f, 0.0f, 0.0f };
 
         IProjection *pProjection = nullptr;
 
@@ -203,6 +206,10 @@ namespace editor::game {
 
         float getCurrentTime() const { return clock.now(); }
 
+        virtual void tick(float delta) { }
+        virtual void pause() { simcoe::logInfo("pause"); }
+        virtual void resume() { simcoe::logInfo("resume"); }
+
     private:
         Clock clock;
 
@@ -210,7 +217,11 @@ namespace editor::game {
         std::unordered_set<IGameObject*> pending;
         std::unordered_set<IGameObject*> retired;
 
+    public:
         std::vector<IGameObject*> objects;
         std::recursive_mutex lock;
+
+        const char *name = "GameLevel";
+        virtual void debug();
     };
 }

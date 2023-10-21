@@ -1,4 +1,5 @@
 #include "editor/game/level.h"
+#include "editor/game/game.h"
 
 #include "imgui/imgui.h"
 
@@ -22,7 +23,29 @@ void Orthographic::debug() {
 
 // object
 
-void IGameObject::debug() {
+IGameObject::IGameObject(GameLevel *pLevel, std::string name)
+    : pLevel(pLevel)
+    , name(name)
+    , debugHandle(std::make_unique<debug::DebugHandle>(name, [this] { objectDebug(); }))
+{
+    game::Instance *pInstance = game::getInstance();
+    pMesh = pInstance->getDefaultMesh();
+    pTexture = pInstance->getDefaultTexture();
+}
+
+void IGameObject::setTexture(const fs::path& path) {
+    game::getInstance()->loadTexture(path, [this](auto *pTexture) {
+        this->pTexture = pTexture;
+    });
+}
+
+void IGameObject::setMesh(const fs::path& path) {
+    game::getInstance()->loadMesh(path, [this](auto *pMesh) {
+        this->pMesh = pMesh;
+    });
+}
+
+void IGameObject::objectDebug() {
     ImGui::InputFloat3("Position", position.data());
     ImGui::InputFloat3("Rotation", rotation.data());
 
@@ -35,6 +58,8 @@ void IGameObject::debug() {
     } else {
         ImGui::InputFloat3("Scale", scale.data());
     }
+
+    debug();
 }
 
 // level
@@ -62,4 +87,17 @@ void GameLevel::endTick() {
     }
 
     retired.clear();
+}
+
+void GameLevel::debug() {
+    if (ImGui::CollapsingHeader("Objects")) {
+        useEachObject([](IGameObject *pObject) {
+            debug::DebugHandle *pDebug = pObject->getDebugHandle();
+            ImGui::SeparatorText(pDebug->getName());
+
+            ImGui::PushID(pObject);
+            pDebug->draw();
+            ImGui::PopID();
+        });
+    }
 }

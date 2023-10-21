@@ -9,7 +9,7 @@ using namespace editor;
 using namespace editor::graph;
 
 namespace {
-    std::recursive_mutex imguiLock;
+    std::recursive_mutex gImguiLock;
 
     constexpr ImGuiConfigFlags kConfig = ImGuiConfigFlags_DockingEnable
                                        | ImGuiConfigFlags_NavEnableKeyboard;
@@ -46,7 +46,7 @@ void IGuiPass::create() {
 
     auto *pHeap = ctx->getSrvHeap();
 
-    std::lock_guard guard(imguiLock);
+    std::lock_guard guard(gImguiLock);
     ImGui_ImplWin32_Init(createInfo.hWindow);
     ImGui_ImplDX12_Init(ctx->getDevice()->getDevice(),
         createInfo.backBufferCount,
@@ -60,7 +60,7 @@ void IGuiPass::create() {
 void IGuiPass::destroy() {
     auto *pHeap = ctx->getSrvHeap();
 
-    std::lock_guard guard(imguiLock);
+    std::lock_guard guard(gImguiLock);
 
     ImGui_ImplDX12_Shutdown();
     ImGui_ImplWin32_Shutdown();
@@ -71,7 +71,7 @@ void IGuiPass::destroy() {
 void IGuiPass::execute() {
     rhi::Commands *pCommands = ctx->getDirectCommands();
 
-    std::lock_guard guard(imguiLock);
+    std::lock_guard guard(gImguiLock);
 
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -87,6 +87,6 @@ void IGuiPass::execute() {
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 LRESULT IGuiPass::handleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    std::lock_guard guard(imguiLock);
+    std::lock_guard guard(gImguiLock);
     return ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);
 }

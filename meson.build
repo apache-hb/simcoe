@@ -19,6 +19,7 @@ is_release = get_option('buildtype').startswith('release')
 directx = subproject('directx').get_variable('directx')
 xinput = subproject('xinput').get_variable('xinput')
 gdk = subproject('gdk').get_variable('gdk')
+win32 = subproject('win32').get_variable('win32')
 stb = subproject('stb').get_variable('stb')
 moodycamel = subproject('atomic-queue').get_variable('queue')
 threads = dependency('threads')
@@ -59,6 +60,7 @@ src = [
 
     # tasks
     'engine/src/tasks/task.cpp',
+    'engine/src/tasks/exclude.cpp',
 
     # assets
     'engine/src/assets/assets.cpp',
@@ -85,6 +87,9 @@ inc = [
 ]
 
 deps = [
+    # win32
+    win32,
+
     # input
     xinput, gdk,
 
@@ -166,6 +171,9 @@ src = [
 
     # render graph objects
     'editor/src/editor/graph/assets.cpp',
+    'editor/src/editor/graph/mesh/obj.cpp',
+
+    # render graph passes
     'editor/src/editor/graph/post.cpp',
     'editor/src/editor/graph/scene.cpp',
     'editor/src/editor/graph/gui.cpp',
@@ -173,16 +181,18 @@ src = [
     #'editor/src/editor/graph/mipmap.cpp',
 
     # game objects
-    'editor/src/editor/game/obj.cpp',
-    'editor/src/editor/game/gltf.cpp',
+    #'editor/src/editor/game/gltf.cpp',
 
     # game debug
     'editor/src/editor/debug/debug.cpp',
 
-    # game logic
+    # game framework
+    'editor/src/editor/game/game.cpp',
     'editor/src/editor/game/level.cpp',
-    'editor/src/editor/game/input.cpp',
-    'editor/src/editor/game/swarm.cpp',
+
+    # game logic
+    'editor/src/swarm/objects.cpp',
+    'editor/src/swarm/input.cpp',
 
     # shaders
     hlsl_vs.process('data/shaders/blit.hlsl'),
@@ -194,16 +204,20 @@ src = [
     #hlsl_cs.process('data/shaders/mipmap.hlsl'),
 
     # textures
+    copy.process('data/images/assets/default.png'),
     copy.process('data/images/assets/uv-coords.png'),
     copy.process('data/images/assets/player.png'),
     copy.process('data/images/assets/cross.png'),
     copy.process('data/images/assets/alien.png'),
+    copy.process('data/images/assets/death.png'),
 
     # models
+    copy.process('data/models/default.model'),
     copy.process('data/models/cross.model'),
     copy.process('data/models/grid.model'),
     copy.process('data/models/ship.model'),
     copy.process('data/models/alien.model'),
+    copy.process('data/models/plane.model'),
 
     copy.process('data/models/bullet.model'),
     copy.process('data/models/egg-small.model'),
@@ -225,7 +239,7 @@ src = [
     copy.process('data/images/store/splash.png'),
 
     # imgui config
-    copy.process('imgui.ini')
+    copy.process('data/config/imgui.ini')
 ]
 
 deps = [
@@ -247,9 +261,7 @@ editor = executable('editor', src,
 ### client
 ###
 
-src = [
-    'client/src/main.cpp'
-]
+src = [ 'client/src/main.cpp' ]
 
 client = executable('client', src,
     dependencies : engine,

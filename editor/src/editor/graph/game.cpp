@@ -1,5 +1,7 @@
 #include "editor/graph/game.h"
 
+#include "editor/game/game.h"
+
 #include <array>
 
 using namespace editor;
@@ -39,13 +41,14 @@ void ObjectUniformHandle::update(IGameObject *pObject) {
     IUniformHandle::update(&data);
 }
 
-GameLevelPass::GameLevelPass(Graph *ctx, GameLevel *pLevel, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<IDSVHandle> *pDepthTarget, GameRenderInfo info)
+GameLevelPass::GameLevelPass(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<IDSVHandle> *pDepthTarget)
     : IRenderPass(ctx, "game.level")
-    , pCameraUniform(addAttachment(info.pCameraUniform, rhi::ResourceState::eUniform))
-    , pLevel(pLevel)
 {
     setRenderTargetHandle(pRenderTarget);
     setDepthStencilHandle(pDepthTarget);
+
+    pCameraBuffer = graph->addResource<CameraUniformHandle>();
+    pCameraAttachment = addAttachment(pCameraBuffer, rhi::ResourceState::eUniform);
 }
 
 void GameLevelPass::create() {
@@ -87,7 +90,10 @@ void GameLevelPass::destroy() {
 }
 
 void GameLevelPass::execute() {
-    CameraUniformHandle *pCamera = pCameraUniform->getInner();
+    game::GameLevel *pLevel = game::getInstance()->getActiveLevel();
+    if (pLevel == nullptr) return;
+
+    CameraUniformHandle *pCamera = pCameraAttachment->getInner();
 
     pCamera->update(pLevel);
 
@@ -102,12 +108,10 @@ void GameLevelPass::execute() {
     std::unordered_set<IGameObject*> usedHandles;
 
     pLevel->useEachObject([&](IGameObject *pObject) {
-        auto *pTextureHandle = textureAttachments[pObject->getTexture()];
-        auto *pTexture = pTextureHandle->getInner();
-
+        auto *pTexture = getObjectTexture(pObject);
+        auto *pUniform = getObjectUniform(pObject); // get object uniform (create if not exists)
         auto *pMesh = pObject->getMesh();
 
-        auto *pUniform = getObjectUniform(pObject); // get object uniform (create if not exists)
         pUniform->update(pObject);
 
         usedHandles.emplace(pObject);
@@ -120,26 +124,38 @@ void GameLevelPass::execute() {
         ctx->drawIndexed(pMesh->getIndexCount());
     });
 
-    // remove unused object uniforms
-    for (auto it = objectUniforms.begin(); it != objectUniforms.end();) {
-        auto& [pObject, pAttachment] = *it;
-        if (!usedHandles.contains(it->first)) {
-            graph->removeResource(pAttachment->getResourceHandle());
-            std::erase(inputs, pAttachment);
-            it = objectUniforms.erase(it);
-        } else {
-            ++it;
-        }
-    }
+    // TODO: this causes a TDR :)
+    // // remove unused object uniforms
+    // for (auto it = objectUniforms.begin(); it != objectUniforms.end();) {
+    //     auto& [pObject, pAttachment] = *it;
+    //     if (!usedHandles.contains(it->first)) {
+    //         graph->removeResource(pAttachment->getResourceHandle());
+    //         std::erase(inputs, pAttachment);
+    //         it = objectUniforms.erase(it);
+    //     } else {
+    //         ++it;
+    //     }
+    // }
+
+    // // remove unused object textures
+    // for (auto it = objectTextures.begin(); it != objectTextures.end();) {
+    //     auto& [pObject, pAttachment] = *it;
+    //     if (!usedHandles.contains(it->first)) {
+    //         graph->removeResource(pAttachment->getResourceHandle());
+    //         std::erase(inputs, pAttachment);
+    //         it = objectTextures.erase(it);
+    //     } else {
+    //         ++it;
+    //     }
+    // }
 }
 
-size_t GameLevelPass::addTexture(ResourceWrapper<TextureHandle> *pTexture) {
-    auto *pAttachment = addAttachment(pTexture, rhi::ResourceState::eTextureRead);
-    textureAttachments.push_back(pAttachment);
-    return textureAttachments.size() - 1;
-}
+///
+/// uniform handling
+///
 
 ObjectUniformHandle *GameLevelPass::getObjectUniform(IGameObject *pObject) {
+    lock.verify();
     if (!objectUniforms.contains(pObject)) {
         createObjectUniform(pObject);
     }
@@ -149,6 +165,28 @@ ObjectUniformHandle *GameLevelPass::getObjectUniform(IGameObject *pObject) {
 }
 
 void GameLevelPass::createObjectUniform(IGameObject *pObject) {
+    lock.verify();
     auto *pUniform = graph->addResource<ObjectUniformHandle>(pObject->getName());
     objectUniforms.emplace(pObject, addAttachment(pUniform, rhi::ResourceState::eUniform));
+}
+
+///
+/// texture handling
+///
+
+TextureHandle *GameLevelPass::getObjectTexture(game::IGameObject *pObject) {
+    lock.verify();
+    ResourceWrapper<graph::TextureHandle> *pTextureHandle = pObject->getTexture();
+    if (!objectTextures.contains(pTextureHandle->getInner())) {
+        createObjectTexture(pTextureHandle);
+    }
+
+    auto *pAttachment = objectTextures.at(pTextureHandle->getInner());
+    return pAttachment->getInner();
+}
+
+void GameLevelPass::createObjectTexture(ResourceWrapper<graph::TextureHandle> *pTexture) {
+    lock.verify();
+    auto *pAttachment = addAttachment(pTexture, rhi::ResourceState::eTextureRead);
+    objectTextures.emplace(pTexture->getInner(), pAttachment);
 }

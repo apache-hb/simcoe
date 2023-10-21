@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/engine.h"
+#include "imgui/imgui.h"
 
 #ifdef assert
 #   undef assert
@@ -693,12 +694,12 @@ inline bool ImGui::FileBrowser::HasSelected() const noexcept
 
 inline bool ImGui::FileBrowser::SetPwd(const std::filesystem::path &pwd)
 {
-    //try
+    try
     {
         SetPwdUncatched(pwd);
         return true;
     }
-    /*catch(const std::exception &err)
+    catch(const std::exception &err)
     {
         statusStr_ = std::string("last error: ") + err.what();
     }
@@ -708,7 +709,7 @@ inline bool ImGui::FileBrowser::SetPwd(const std::filesystem::path &pwd)
     }
 
     SetPwdUncatched(std::filesystem::current_path());
-    return false;*/
+    return false;
 }
 
 inline const class std::filesystem::path &ImGui::FileBrowser::GetPwd() const noexcept

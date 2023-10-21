@@ -342,7 +342,7 @@ namespace simcoe::render {
         }
 
         template<std::derived_from<IGraphObject> T, typename... A>
-        T *addObject(A&&... args) {
+        T *newGraphObject(A&&... args) {
             T *pObject = new T(this, std::forward<A>(args)...);
             addGraphObject(pObject);
             return pObject;
@@ -355,6 +355,7 @@ namespace simcoe::render {
         // getters
 
         Context *getContext() const { return ctx; }
+        const RenderCreateInfo &getCreateInfo() const { return ctx->getCreateInfo(); }
 
         // setters
 
@@ -386,15 +387,22 @@ namespace simcoe::render {
 
         template<typename F>
         void changeData(StateDep dep, F&& func) {
+            withLock([=] {
+                ctx->waitForDirectQueue();
+                ctx->waitForCopyQueue();
+
+                destroyIf(dep);
+                func();
+                createIf(dep);
+            });
+        }
+
+        template<typename F>
+        void withLock(F&& func) {
             lock = true;
             std::lock_guard guard(renderLock);
 
-            ctx->waitForDirectQueue();
-            ctx->waitForCopyQueue();
-
-            destroyIf(dep);
             func();
-            createIf(dep);
 
             lock = false;
         }

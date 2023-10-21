@@ -1,5 +1,7 @@
 #include "engine/engine.h"
 
+#include "engine/os/system.h"
+
 #include <iostream>
 #include <vector>
 
@@ -7,14 +9,17 @@
 
 using namespace simcoe;
 
-std::vector<ILogSink*> gSinks;
-std::mutex lock;
+namespace {
+    std::vector<ILogSink*> gSinks;
+    std::mutex gLock;
+}
 
 static void innerLog(std::string_view prefix, std::string_view msg) {
-    std::lock_guard guard(lock);
-    std::cout << prefix << ": " << msg << std::endl;
+    std::lock_guard guard(gLock);
+    auto it = std::format("[{}:{}]: {}", simcoe::getThreadName(), prefix, msg);
+    std::cout << it << std::endl;
     for (auto sink : gSinks) {
-        sink->accept(std::format("{}: {}", prefix, msg));
+        sink->accept(it);
     }
 }
 

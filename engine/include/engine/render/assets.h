@@ -35,7 +35,7 @@ namespace simcoe::render {
             pIndexBuffer = pBuffer;
         }
     private:
-        rhi::VertexBuffer *pVertexBuffer;
-        rhi::IndexBuffer *pIndexBuffer;
+        rhi::VertexBuffer *pVertexBuffer = nullptr;
+        rhi::IndexBuffer *pIndexBuffer = nullptr;
     };
 }

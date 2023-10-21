@@ -1,6 +1,6 @@
 #pragma once
 
-#include <atomic>
+#include <vector>
 #include <windows.h>
 
 #include "engine/math/math.h"
@@ -97,6 +97,9 @@ namespace simcoe {
 
     std::string getErrorName(HRESULT hr);
     std::string getWin32ErrorName(DWORD dwErrorCode);
+
+    std::vector<std::string> getBacktrace();
+    void printBacktrace();
 
     void setThreadName(const char *name);
     std::string getThreadName();

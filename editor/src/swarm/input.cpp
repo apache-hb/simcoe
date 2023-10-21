@@ -1,29 +1,48 @@
-#include "editor/game/input.h"
+#include "swarm/input.h"
 
 #include "imgui/imgui.h"
 
-using namespace editor;
-using namespace editor::game;
+using namespace swarm;
 
 static constexpr ImGuiTableFlags kTableFlags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV;
 
-bool GameInputClient::isShootPressed() const {
+bool InputClient::isShootPressed() const {
     return shootKeyboardEvent.isPressed() || shootGamepadEvent.isPressed();
 }
 
-float GameInputClient::getHorizontalAxis() const {
+bool InputClient::isQuitPressed() const {
+    return quitEventKey.isPressed() || quitEventGamepad.isPressed();
+}
+
+bool InputClient::consumeMoveUp() {
+    return moveUpEventKey.beginPress() || moveUpEventArrow.beginPress();
+}
+
+bool InputClient::consumeMoveDown() {
+    return moveDownEventKey.beginPress() || moveDownEventArrow.beginPress();
+}
+
+bool InputClient::consumeMoveLeft() {
+    return moveLeftEventKey.beginPress() || moveLeftEventArrow.beginPress();
+}
+
+bool InputClient::consumeMoveRight() {
+    return moveRightEventKey.beginPress() || moveRightEventArrow.beginPress();
+}
+
+float InputClient::getHorizontalAxis() const {
     return getButtonAxis(Button::eKeyA, Button::eKeyD)
          + getButtonAxis(Button::eKeyLeft, Button::eKeyRight)
          + getStickAxis(Axis::eGamepadLeftX);
 }
 
-float GameInputClient::getVerticalAxis() const {
+float InputClient::getVerticalAxis() const {
     return getButtonAxis(Button::eKeyS, Button::eKeyW)
          + getButtonAxis(Button::eKeyDown, Button::eKeyUp)
          + getStickAxis(Axis::eGamepadLeftY);
 }
 
-float GameInputClient::getButtonAxis(Button neg, Button pos) const {
+float InputClient::getButtonAxis(Button neg, Button pos) const {
     size_t negIdx = state.buttons[neg];
     size_t posIdx = state.buttons[pos];
 
@@ -36,19 +55,32 @@ float GameInputClient::getButtonAxis(Button neg, Button pos) const {
     }
 }
 
-float GameInputClient::getStickAxis(Axis axis) const {
+float InputClient::getStickAxis(Axis axis) const {
     return state.axes[axis];
 }
 
-void GameInputClient::onInput(const input::State& newState) {
+void InputClient::onInput(const input::State& newState) {
     state = newState;
     updates += 1;
 
+    quitEventKey.update(state.buttons[Button::eKeyEscape]);
+    quitEventGamepad.update(state.buttons[Button::ePadBack]);
+
     shootKeyboardEvent.update(state.buttons[Button::eKeySpace]);
     shootGamepadEvent.update(state.buttons[Button::ePadButtonDown]);
+
+    moveUpEventKey.update(state.buttons[Button::eKeyW]);
+    moveDownEventKey.update(state.buttons[Button::eKeyS]);
+    moveLeftEventKey.update(state.buttons[Button::eKeyA]);
+    moveRightEventKey.update(state.buttons[Button::eKeyD]);
+
+    moveUpEventArrow.update(state.buttons[Button::eKeyUp]);
+    moveDownEventArrow.update(state.buttons[Button::eKeyDown]);
+    moveLeftEventArrow.update(state.buttons[Button::eKeyLeft]);
+    moveRightEventArrow.update(state.buttons[Button::eKeyRight]);
 }
 
-void GameInputClient::debug() {
+void InputClient::debug() {
     ImGui::Text("updates: %zu", updates.load());
     ImGui::Text("device: %s", input::toString(state.device).data());
     ImGui::SeparatorText("buttons");
@@ -85,4 +117,9 @@ void GameInputClient::debug() {
 
         ImGui::EndTable();
     }
+}
+
+InputClient *swarm::getInputClient() {
+    static InputClient client;
+    return &client;
 }

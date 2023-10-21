@@ -6,8 +6,8 @@ namespace simcoe::util {
     /**
      * @brief manages the time between ticks
      */
-    struct TimeStepper {
-        TimeStepper(float minimumDelta);
+    struct TimeStep {
+        TimeStep(float minimumDelta);
 
         /**
          * @brief tick the time stepper, blocks until the time since the last tick is more than minimumDelta
@@ -15,6 +15,8 @@ namespace simcoe::util {
          * @return float the time since the last tick
          */
         float tick();
+
+        float getDelta() const { return minimumDelta; }
     private:
         Clock clock;
 

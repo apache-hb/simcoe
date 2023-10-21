@@ -1,4 +1,5 @@
 // os and system
+#include "editor/game/game.h"
 #include "engine/engine.h"
 #include "engine/os/system.h"
 
@@ -30,8 +31,8 @@
 #include "moodycamel/concurrentqueue.h"
 
 // game logic
-#include "editor/game/input.h"
-#include "editor/game/swarm.h"
+#include "swarm/input.h"
+#include "swarm/levels.h"
 
 #include <functional>
 #include <array>
@@ -45,16 +46,6 @@ using namespace editor::game;
 
 namespace gdk = microsoft::gdk;
 namespace fs = std::filesystem;
-
-namespace ImGui {
-    bool CollapsingHeader(ImGuiID id, const char* label) {
-        ImGuiWindow* window = GetCurrentWindow();
-        if (window->SkipItems)
-            return false;
-
-        return TreeNodeBehavior(id, ImGuiTreeNodeFlags_CollapsingHeader, label);
-    }
-}
 
 enum WindowMode : int {
     eModeWindowed,
@@ -70,7 +61,6 @@ static constexpr auto kWindowHeight = 1080;
 
 // system
 static simcoe::System *pSystem = nullptr;
-static std::atomic_bool gRunning = true;
 
 // window mode
 static simcoe::Window *pWindow = nullptr;
@@ -81,7 +71,6 @@ static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless
 static tasks::WorkQueue *pMainQueue = nullptr;
 static tasks::WorkThread *pWorkThread = nullptr;
 static tasks::WorkThread *pRenderThread = nullptr;
-static tasks::WorkThread *pGameThread = nullptr;
 
 /// input
 static input::Win32Keyboard *pKeyboard = nullptr;
@@ -92,8 +81,12 @@ static input::Manager *pInput = nullptr;
 /// rendering
 static render::Graph *pGraph = nullptr;
 
-/// game level
-static game::SwarmGame *pSwarm = nullptr;
+template<typename T>
+struct Cleanup {
+    Cleanup(T *ptr) : ptr(ptr) { }
+    ~Cleanup() { delete ptr; }
+    T *ptr;
+};
 
 template<typename F>
 tasks::WorkThread *newTask(const char *name, F&& func) {
@@ -130,13 +123,16 @@ struct FileLogger final : ILogSink {
 
 struct GuiLogger final : ILogSink {
     void accept(std::string_view message) override {
+        std::lock_guard lock(mutex);
         buffer.push_back(std::string(message));
     }
 
 private:
+    std::mutex mutex;
     std::vector<std::string> buffer;
 
     void debug() {
+        std::lock_guard lock(mutex);
         for (const auto& message : buffer) {
             ImGui::Text("%s", message.c_str());
         }
@@ -150,12 +146,14 @@ static FileLogger *pFileLogger;
 
 struct GameWindow final : IWindowCallbacks {
     std::atomic_bool bWindowOpen = true;
+    tasks::ThreadLock threadLock;
+
     void onClose() override {
         bWindowOpen = false;
 
-        delete pGameThread;
         delete pWorkThread;
         delete pRenderThread;
+        delete getInstance();
         pSystem->quit();
     }
 
@@ -171,6 +169,8 @@ struct GameWindow final : IWindowCallbacks {
     }
 
     bool onEvent(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) override {
+        threadLock.verify();
+
         pKeyboard->handleMsg(uMsg, wParam, lParam);
         return graph::IGuiPass::handleMsg(hWnd, uMsg, wParam, lParam);
     }
@@ -212,7 +212,8 @@ struct GameGui final : graph::IGuiPass {
     int currentAdapter = 0;
     std::vector<const char*> adapterNames;
 
-    ImGui::FileBrowser fileBrowser;
+    ImGui::FileBrowser objFileBrowser;
+    ImGui::FileBrowser imguiFileBrowser{ImGuiFileBrowserFlags_EnterNewFilename};
 
     PassAttachment<ISRVHandle> *pSceneSource = nullptr;
 
@@ -327,11 +328,16 @@ struct GameGui final : graph::IGuiPass {
             ImGui::Separator();
 
             if (ImGui::BeginMenu("File")) {
-                ImGui::MenuItem("Save");
+                if (ImGui::MenuItem("Save ImGui Config")) {
+                    imguiFileBrowser.SetTitle("Save ImGui Config");
+                    imguiFileBrowser.SetTypeFilters({ ".ini" });
+                    imguiFileBrowser.Open();
+                }
+
                 if (ImGui::MenuItem("Open")) {
-                    fileBrowser.SetTitle("Open OBJ File");
-                    fileBrowser.SetTypeFilters({ ".obj" });
-                    fileBrowser.Open();
+                    objFileBrowser.SetTitle("Open OBJ File");
+                    objFileBrowser.SetTypeFilters({ ".obj" });
+                    objFileBrowser.Open();
                 }
                 ImGui::EndMenu();
             }
@@ -359,12 +365,21 @@ struct GameGui final : graph::IGuiPass {
     }
 
     void showFilePicker() {
-        fileBrowser.Display();
+        imguiFileBrowser.Display();
+        objFileBrowser.Display();
 
-        if (fileBrowser.HasSelected()) {
-            auto path = fileBrowser.GetSelected();
+        if (objFileBrowser.HasSelected()) {
+            auto path = objFileBrowser.GetSelected();
             simcoe::logInfo("selected: {}", path.string());
-            fileBrowser.ClearSelected();
+            objFileBrowser.ClearSelected();
+        }
+
+        if (imguiFileBrowser.HasSelected()) {
+            auto path = imguiFileBrowser.GetSelected();
+            simcoe::logInfo("selected: {}", path.string());
+            imguiFileBrowser.ClearSelected();
+
+            ImGui::SaveIniSettingsToDisk(path.string().c_str());
         }
     }
 
@@ -580,24 +595,15 @@ CommandLine getCommandLine() {
     return args;
 }
 
-static void createGameThread() {
-    pGameThread = newTask("game", [](tasks::WorkQueue *pSelf, auto token) {
-        while (!token.stop_requested()) {
-            pSwarm->tick();
-        }
-    });
-}
-
 ///
 /// entry point
 ///
 
 static void commonMain(const std::filesystem::path& path) {
-    pMainQueue = new tasks::WorkQueue(64);
+    Cleanup mainQueue(pMainQueue = new tasks::WorkQueue(64));
     pWorkThread = new tasks::WorkThread(64, "work");
 
     GdkInit gdkInit;
-    GameInputClient inputClient;
 
     auto assets = path / "editor.exe.p";
     assets::Assets depot = { assets };
@@ -613,14 +619,14 @@ static void commonMain(const std::filesystem::path& path) {
         .pCallbacks = &gWindowCallbacks
     };
 
-    pWindow = pSystem->createWindow(windowCreateInfo);
+    Cleanup window(pWindow = pSystem->createWindow(windowCreateInfo));
     auto [realWidth, realHeight] = pWindow->getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
 
-    pInput = new input::Manager();
+    Cleanup input(pInput = new input::Manager());
     pInput->addSource(pKeyboard = new input::Win32Keyboard());
     pInput->addSource(pMouse = new input::Win32Mouse(pWindow, true));
     pInput->addSource(pGamepad0 = new input::XInputGamepad(0));
-    pInput->addClient(&inputClient);
+    pInput->addClient(swarm::getInputClient());
 
     const render::RenderCreateInfo renderCreateInfo = {
         .hWindow = pWindow->getHandle(),
@@ -636,11 +642,13 @@ static void commonMain(const std::filesystem::path& path) {
         .renderHeight = 1080 * 2
     };
 
-    pSwarm = new SwarmGame();
-
     // move the render context into the render thread to prevent hangs on shutdown
     render::Context *pContext = render::Context::create(renderCreateInfo);
-    pRenderThread = newTask("render", [pContext, &inputClient](tasks::WorkQueue *pSelf, std::stop_token token) {
+    pGraph = new Graph(pContext);
+
+    game::setInstance(new game::Instance(pGraph));
+
+    pRenderThread = newTask("render", [](tasks::WorkQueue *pSelf, std::stop_token token) {
         size_t faultCount = 0;
         size_t faultLimit = 3;
 
@@ -648,53 +656,20 @@ static void commonMain(const std::filesystem::path& path) {
 
         // TODO: this is a little stupid
         try {
-            pGraph = new Graph(pContext);
             auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
             auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
             auto *pDepthTarget = pGraph->addResource<graph::DepthTargetHandle>();
 
-            auto *pPlayerTexture = pGraph->addResource<graph::TextureHandle>("player.png");
-            auto *pCrossTexture = pGraph->addResource<graph::TextureHandle>("cross.png");
-            auto *pAlienTexture = pGraph->addResource<graph::TextureHandle>("alien.png");
-
-            const graph::GameRenderInfo gameRenderConfig = {
-                .pCameraUniform = pGraph->addResource<graph::CameraUniformHandle>()
-            };
-
             pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>());
 
-            auto *pGamePass = pGraph->addPass<graph::GameLevelPass>(pSwarm, pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>(), gameRenderConfig);
+            pGraph->addPass<graph::GameLevelPass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
 
             //pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
             pGraph->addPass<graph::PresentPass>(pBackBuffers);
 
-            // TODO: the render thread should really just be a render thread
-            SwarmGameInfo createInfo = {
-                .pAlienMesh = pGraph->addObject<ObjMesh>("alien.model"),
-                .pPlayerMesh = pGraph->addObject<ObjMesh>("ship.model"),
-                .pBulletMesh = pGraph->addObject<ObjMesh>("bullet.model"),
-                .pGridMesh = pGraph->addObject<ObjMesh>("grid.model"),
-
-                .pEggSmallMesh = pGraph->addObject<ObjMesh>("egg-small.model"),
-                .pEggMediumMesh = pGraph->addObject<ObjMesh>("egg-medium.model"),
-                .pEggLargeMesh = pGraph->addObject<ObjMesh>("egg-large.model"),
-
-                .alienTextureId = pGamePass->addTexture(pAlienTexture),
-                .playerTextureId = pGamePass->addTexture(pPlayerTexture),
-                .bulletTextureId = createInfo.playerTextureId,
-                .gridTextureId = pGamePass->addTexture(pCrossTexture),
-
-                .eggSmallTextureId = createInfo.alienTextureId,
-                .eggMediumTextureId = createInfo.alienTextureId,
-                .eggLargeTextureId = createInfo.alienTextureId,
-
-                .pInputClient = &inputClient
-            };
-
-            pMainQueue->add("create-level", [createInfo] {
-                pSwarm->create(createInfo);
-                pMainQueue->add("start-game", createGameThread);
+            game::getInstance()->add("create-level", [] {
+                game::getInstance()->pushLevel(new swarm::PlayLevel());
             });
 
             // TODO: if the render loop throws an exception, the program will std::terminate
@@ -727,13 +702,11 @@ static void commonMain(const std::filesystem::path& path) {
                     break;
                 }
             }
+            pSystem->quit();
         } catch (std::runtime_error& err) {
             simcoe::logError("render thread exception during startup: {}", err.what());
+            pSystem->quit();
         }
-
-        delete pGraph;
-
-        gRunning = false;
     });
 
     std::jthread inputThread([](auto token) {
@@ -748,12 +721,12 @@ static void commonMain(const std::filesystem::path& path) {
         pSystem->dispatchEvent();
         pMainQueue->process();
 
-        if (!gRunning) {
+        if (getInstance()->shouldQuit()) {
             break;
         }
     }
 
-    delete pMainQueue;
+    delete pGraph;
 }
 
 static fs::path getGameDir() {
@@ -762,7 +735,9 @@ static fs::path getGameDir() {
     return fs::path(gamePath).parent_path();
 }
 
-static int innerMain() try {
+static int innerMain(HINSTANCE hInstance, int nCmdShow) try {
+    Cleanup system(pSystem = new simcoe::System(hInstance, nCmdShow));
+
     setThreadName("main");
     pFileLogger = new FileLogger();
     pGuiLogger = new GuiLogger();
@@ -787,13 +762,11 @@ static int innerMain() try {
 // gui entry point
 
 int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
-    pSystem = new simcoe::System(hInstance, nCmdShow);
-    return innerMain();
+    return innerMain(hInstance, nCmdShow);
 }
 
 // command line entry point
 
 int main(int argc, const char **argv) {
-    pSystem = new simcoe::System(GetModuleHandle(nullptr), SW_SHOWDEFAULT);
-    return innerMain();
+    return innerMain(GetModuleHandle(nullptr), SW_SHOWDEFAULT);
 }

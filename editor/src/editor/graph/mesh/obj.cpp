@@ -1,11 +1,13 @@
-#include "editor/game/object.h"
+#include "editor/graph/mesh.h"
 
 #include "tinyobj/loader.h"
 #include <unordered_map>
 
-#include <random>
-
 using namespace editor;
+using namespace editor::graph;
+
+using namespace simcoe;
+using namespace simcoe::math;
 
 template<>
 struct std::hash<ObjVertex> {
@@ -14,8 +16,8 @@ struct std::hash<ObjVertex> {
     }
 };
 
-ObjMesh::ObjMesh(render::Graph *ctx, const fs::path& path)
-    : IMeshBufferHandle(ctx, path.string())
+ObjMesh::ObjMesh(render::Graph *graph, const fs::path& path)
+    : ISingleMeshBufferHandle(graph, path.string())
     , path(path)
 {
     loadAsset();
@@ -117,12 +119,11 @@ void ObjMesh::loadAsset() {
     }
 
     simcoe::logInfo("buffer sizes (vertices={} indices={})", vertexData.size(), indexData.size());
-
 }
 
 void ObjMesh::create() {
-    pVertexBuffer = ctx->createVertexBuffer(vertexData.size(), sizeof(ObjVertex));
-    pIndexBuffer = ctx->createIndexBuffer(indexData.size(), rhi::TypeFormat::eUint16);
+    rhi::VertexBuffer *pVertexBuffer = ctx->createVertexBuffer(vertexData.size(), sizeof(ObjVertex));
+    rhi::IndexBuffer *pIndexBuffer = ctx->createIndexBuffer(indexData.size(), rhi::TypeFormat::eUint16);
 
     std::unique_ptr<rhi::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(vertexData.data(), vertexData.size() * sizeof(ObjVertex))};
     std::unique_ptr<rhi::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(indexData.data(), indexData.size() * sizeof(uint16_t))};
@@ -137,9 +138,7 @@ void ObjMesh::create() {
     ctx->copyBuffer(pVertexBuffer, pVertexStaging.get());
     ctx->copyBuffer(pIndexBuffer, pIndexStaging.get());
     ctx->endCopy();
-}
 
-void ObjMesh::destroy() {
-    delete pVertexBuffer;
-    delete pIndexBuffer;
+    setVertexBuffer(pVertexBuffer);
+    setIndexBuffer(pIndexBuffer);
 }

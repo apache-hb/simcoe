@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/tasks/exclude.h"
+
 #include "editor/graph/assets.h"
 
 #include "editor/game/level.h"
@@ -30,17 +32,11 @@ namespace editor::graph {
         void update(game::IGameObject *pObject);
     };
 
-    struct GameRenderInfo {
-        ResourceWrapper<CameraUniformHandle> *pCameraUniform;
-    };
-
     struct GameLevelPass final : IRenderPass {
         GameLevelPass(
             Graph *ctx,
-            game::GameLevel *pLevel,
             ResourceWrapper<IRTVHandle> *pRenderTarget,
-            ResourceWrapper<IDSVHandle> *pDepthTarget,
-            GameRenderInfo info
+            ResourceWrapper<IDSVHandle> *pDepthTarget
         );
 
         void create() override;
@@ -48,22 +44,23 @@ namespace editor::graph {
 
         void execute() override;
 
-        size_t addTexture(ResourceWrapper<TextureHandle> *pTexture);
-
     private:
         using TextureAttachment = PassAttachment<TextureHandle>;
         using ObjectAttachment = PassAttachment<ObjectUniformHandle>;
 
-        PassAttachment<CameraUniformHandle> *pCameraUniform;
+        tasks::ThreadLock lock;
 
-        std::vector<TextureAttachment*> textureAttachments;
+        ResourceWrapper<CameraUniformHandle> *pCameraBuffer;
+        PassAttachment<CameraUniformHandle> *pCameraAttachment;
 
         std::unordered_map<game::IGameObject*, ObjectAttachment*> objectUniforms;
         ObjectUniformHandle *getObjectUniform(game::IGameObject *pObject);
         void createObjectUniform(game::IGameObject *pObject);
 
-        rhi::PipelineState *pPipeline;
+        std::unordered_map<ITextureHandle*, TextureAttachment*> objectTextures;
+        TextureHandle *getObjectTexture(game::IGameObject *pObject);
+        void createObjectTexture(ResourceWrapper<graph::TextureHandle> *pTexture);
 
-        game::GameLevel *pLevel;
+        rhi::PipelineState *pPipeline;
     };
 }

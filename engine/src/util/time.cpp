@@ -3,12 +3,12 @@
 using namespace simcoe;
 using namespace simcoe::util;
 
-TimeStepper::TimeStepper(float minimumDelta)
+TimeStep::TimeStep(float minimumDelta)
     : minimumDelta(minimumDelta)
     , lastTime(clock.now())
 { }
 
-float TimeStepper::tick() {
+float TimeStep::tick() {
     float time = clock.now();
     float delta = time - lastTime;
 

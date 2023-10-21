@@ -3,6 +3,7 @@
 
 #include <intsafe.h>
 #include <comdef.h>
+#include <dbghelp.h>
 #include <stdexcept>
 
 using namespace simcoe;
@@ -122,7 +123,7 @@ Window::Window(HINSTANCE hInstance, int nCmdShow, const WindowCreateInfo& create
     );
 
     if (!hWindow) {
-        throw std::runtime_error("failed to create window");
+        throw std::runtime_error(std::format("failed to create window: {}", getWin32ErrorName(GetLastError())));
     }
 
     ShowWindow(hWindow, nCmdShow);
@@ -222,6 +223,8 @@ System::System(HINSTANCE hInstance, int nCmdShow)
     : hInstance(hInstance)
     , nCmdShow(nCmdShow)
 {
+    SymInitialize(GetCurrentProcess(), NULL, TRUE);
+
     if (!SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)) {
         throw std::runtime_error(std::format("failed to set dpi awareness: {}", getWin32ErrorName(GetLastError())));
     }
@@ -301,6 +304,79 @@ std::string simcoe::getWin32ErrorName(DWORD dwErrorCode) {
 }
 
 ///
+/// backtrace
+///
+
+static constexpr size_t kNameLength = 512;
+
+static BOOL getFrame(STACKFRAME *frame, CONTEXT *ctx, HANDLE process, HANDLE thread) {
+    return StackWalk(
+        /* MachineType = */ IMAGE_FILE_MACHINE_AMD64,
+        /* hProcess = */ process,
+        /* kThread = */ thread,
+        /* StackFrame = */ frame,
+        /* Context = */ ctx,
+        /* ReadMemoryRoutine = */ NULL,
+        /* FunctionTableAccessRoutine = */ SymFunctionTableAccess64,
+        /* GetModuleBaseRoutine = */ SymGetModuleBase64,
+        /* TranslateAddress = */ NULL
+    );
+}
+
+std::vector<std::string> simcoe::getBacktrace() {
+    HANDLE thread = GetCurrentThread();
+    HANDLE process = GetCurrentProcess();
+
+    IMAGEHLP_SYMBOL *symbol = (IMAGEHLP_SYMBOL*)malloc(sizeof(IMAGEHLP_SYMBOL) + kNameLength);
+    symbol->SizeOfStruct = sizeof(IMAGEHLP_SYMBOL);
+    symbol->Address = 0;
+    symbol->Size = 0;
+    symbol->Flags = SYMF_FUNCTION;
+    symbol->MaxNameLength = kNameLength;
+
+    DWORD64 disp = 0;
+
+    CONTEXT ctx = { 0 };
+    RtlCaptureContext(&ctx);
+
+    STACKFRAME frame = {
+        .AddrPC = {
+            .Offset = ctx.Rip,
+            .Mode = AddrModeFlat
+        },
+        .AddrFrame = {
+            .Offset = ctx.Rbp,
+            .Mode = AddrModeFlat
+        },
+        .AddrStack = {
+            .Offset = ctx.Rsp,
+            .Mode = AddrModeFlat
+        }
+    };
+
+    std::vector<std::string> result;
+    while (getFrame(&frame, &ctx, process, thread)) {
+        char name[kNameLength] = { 0 };
+
+        SymGetSymFromAddr(process, frame.AddrPC.Offset, &disp, symbol);
+        UnDecorateSymbolName(symbol->Name, name, kNameLength, UNDNAME_COMPLETE);
+
+        result.push_back(std::format("{} (0x{:x})", name, frame.AddrPC.Offset));
+    }
+
+    free(symbol);
+
+    return result;
+}
+
+void simcoe::printBacktrace() {
+    auto backtrace = getBacktrace();
+    for (auto &line : backtrace) {
+        simcoe::logInfo("{}", line);
+    }
+}
+
+///
 /// thread naming
 /// the depths of windows engineers insanity knows no bounds
 ///
@@ -340,16 +416,15 @@ void simcoe::setThreadName(const char *name) {
 }
 
 std::string simcoe::getThreadName() {
-    // get name for PIX
     PWSTR wide;
     if (HRESULT hr = GetThreadDescription(GetCurrentThread(), &wide); SUCCEEDED(hr)) {
         auto result = util::narrow(wide);
         LocalFree(wide);
 
         if (result.length() > 0) {
-            return std::format("tid(0x{:x}) `{}`", GetCurrentThreadId(), result);
+            return result;
         }
     }
 
-    return std::format("tid(0x{:x})", GetCurrentThreadId());
+    return std::format("0x{:x}", GetCurrentThreadId());
 }

@@ -1,5 +1,3 @@
-#pragma once
-
 #include "editor/graph/post.h"
 
 #include <array>
