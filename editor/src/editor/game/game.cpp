@@ -20,11 +20,6 @@ Instance::Instance(render::Graph *pGraph)
 Instance::~Instance() {
     quit();
     stop();
-
-    gameLock.migrate();
-    while (!levels.empty()) {
-        popLevel();
-    }
 }
 
 // tasks::WorkThread
@@ -32,10 +27,12 @@ void Instance::run(std::stop_token token) {
     assetLock.migrate();
     gameLock.migrate();
 
-    while (!token.stop_requested() && !bShouldQuit) {
+    while (!token.stop_requested()) {
         if (process()) {
             continue;
         }
+
+        if (bShouldQuit) break;
 
         tick(updateRate.tick() * timeScale);
     }

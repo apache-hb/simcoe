@@ -322,7 +322,9 @@ namespace simcoe::render {
         { }
 
         ~Graph() {
-            destroyIf(eDepDevice); // everything depends on device
+            withLock([this]{
+                destroyIf(eDepDevice); // everything depends on device
+            });
         }
 
         // state management

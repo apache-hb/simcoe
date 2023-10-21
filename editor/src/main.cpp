@@ -153,7 +153,6 @@ struct GameWindow final : IWindowCallbacks {
 
         delete pWorkThread;
         delete pRenderThread;
-        delete getInstance();
         pSystem->quit();
     }
 
@@ -702,11 +701,13 @@ static void commonMain(const std::filesystem::path& path) {
                     break;
                 }
             }
-            pSystem->quit();
         } catch (std::runtime_error& err) {
             simcoe::logError("render thread exception during startup: {}", err.what());
-            pSystem->quit();
         }
+
+        pSystem->quit();
+        delete game::getInstance();
+        delete pGraph;
     });
 
     std::jthread inputThread([](auto token) {
@@ -725,8 +726,6 @@ static void commonMain(const std::filesystem::path& path) {
             break;
         }
     }
-
-    delete pGraph;
 }
 
 static fs::path getGameDir() {
