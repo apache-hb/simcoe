@@ -13,10 +13,20 @@ using namespace simcoe::math;
 using namespace editor;
 
 namespace swarm {
-    struct OAlien : game::IGameObject {
+    struct OSwarmObject : game::IGameObject {
+        OSwarmObject(game::GameLevel *pLevel, std::string name)
+            : game::IGameObject(pLevel, name)
+        { }
+
+        virtual void onHit() = 0;
+    };
+
+    struct OAlien : OSwarmObject {
         OAlien(game::GameLevel *pLevel, std::string name);
 
         void tick(float delta) override;
+
+        void onHit() override { pLevel->deleteObject(this); }
 
     private:
         // config
@@ -59,12 +69,12 @@ namespace swarm {
         OLife(game::GameLevel *pLevel, size_t life);
     };
 
-    struct OPlayer : game::IGameObject {
+    struct OPlayer : OSwarmObject {
         OPlayer(game::GameLevel *pLevel, std::string name);
 
         void tick(float delta) override;
 
-        void onHit();
+        void onHit() override;
 
     private:
         // config
@@ -99,10 +109,12 @@ namespace swarm {
         void debug() override;
     };
 
-    struct OEgg : game::IGameObject {
+    struct OEgg : OSwarmObject {
         OEgg(game::GameLevel *pLevel, std::string name);
 
         void tick(float delta) override;
+
+        void onHit() override { pLevel->deleteObject(this); }
 
     private:
         // config
@@ -122,10 +134,12 @@ namespace swarm {
         float timeAlive = 0.f;
     };
 
-    struct OAggroAlien : game::IGameObject {
+    struct OAggroAlien : OSwarmObject {
         OAggroAlien(game::GameLevel *pLevel, game::IGameObject *pParent);
 
         void tick(float delta) override;
+
+        void onHit() override { pLevel->deleteObject(this); }
 
     private:
         game::IGameObject *pParent;

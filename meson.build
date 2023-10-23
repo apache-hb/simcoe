@@ -21,6 +21,7 @@ xinput = subproject('xinput').get_variable('xinput')
 gdk = subproject('gdk').get_variable('gdk')
 win32 = subproject('win32').get_variable('win32')
 stb = subproject('stb').get_variable('stb')
+simdjson = subproject('simdjson').get_variable('simdjson')
 moodycamel = subproject('atomic-queue').get_variable('queue')
 threads = dependency('threads')
 
@@ -33,7 +34,6 @@ args = [ ]
 if not is_release
     args += [ '-DDEBUG_RENDER=1' ]
 endif
-
 
 ###
 ### engine
@@ -97,7 +97,7 @@ deps = [
     moodycamel, threads,
 
     # assets
-    stb,
+    stb, simdjson,
 
     # render
     directx

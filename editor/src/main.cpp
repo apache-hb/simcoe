@@ -81,13 +81,6 @@ static input::Manager *pInput = nullptr;
 /// rendering
 static render::Graph *pGraph = nullptr;
 
-template<typename T>
-struct Cleanup {
-    Cleanup(T *ptr) : ptr(ptr) { }
-    ~Cleanup() { delete ptr; }
-    T *ptr;
-};
-
 template<typename F>
 tasks::WorkThread *newTask(const char *name, F&& func) {
     struct WorkImpl final : tasks::WorkThread {
@@ -382,13 +375,13 @@ struct GameGui final : graph::IGuiPass {
         }
     }
 
-    static void showHeapSlots(bool *pOpen, const char *name, const simcoe::BitMap& alloc) {
-        if (*pOpen) {
+    static void showHeapSlots(bool& open, const char *name, const simcoe::BitMap& alloc) {
+        if (open) {
             ImGui::SetNextItemOpen(true);
         }
 
         if (ImGui::CollapsingHeader(name)) {
-            *pOpen = true;
+            open = true;
             // show a grid of slots
             auto size = alloc.getSize();
             auto rows = size / 8;
@@ -407,23 +400,23 @@ struct GameGui final : graph::IGuiPass {
                 ImGui::EndTable();
             }
         } else {
-            *pOpen = false;
+            open = false;
         }
     }
 
     template<typename T, typename F>
-    static void showGraphObjects(bool *pOpen, const char *name, const std::vector<T>& objects, F&& showObject) {
-        if (*pOpen) {
+    static void showGraphObjects(bool& open, const char *name, const std::vector<T>& objects, F&& showObject) {
+        if (open) {
             ImGui::SetNextItemOpen(true);
         }
 
         if (ImGui::CollapsingHeader(name)) {
-            *pOpen = true;
+            open = true;
             for (auto& object : objects) {
                 showObject(object);
             }
         } else {
-            *pOpen = false;
+            open = false;
         }
     }
 
@@ -443,7 +436,7 @@ struct GameGui final : graph::IGuiPass {
 
             int currentWindowMode = gWindowMode;
             if (ImGui::Combo("Window mode", &currentWindowMode, kWindowModeNames.data(), kWindowModeNames.size())) {
-                pMainQueue->add("change-window-mode", [oldMode = gWindowMode, newMode = currentWindowMode] {
+                pRenderThread->add("change-window-mode", [oldMode = gWindowMode, newMode = currentWindowMode] {
                     changeWindowMode(WindowMode(oldMode), WindowMode(newMode));
                 });
             }
@@ -492,21 +485,21 @@ struct GameGui final : graph::IGuiPass {
             auto& dsvAlloc = pDsvHeap->allocator;
             auto& srvAlloc = pSrvHeap->allocator;
 
-            showHeapSlots(&bRtvOpen, std::format("RTV heap {}", rtvAlloc.getSize()).c_str(), rtvAlloc);
-            showHeapSlots(&bDsvOpen, std::format("DSV heap {}", dsvAlloc.getSize()).c_str(), dsvAlloc);
-            showHeapSlots(&bSrvOpen, std::format("SRV heap {}", srvAlloc.getSize()).c_str(), srvAlloc);
+            showHeapSlots(bRtvOpen, std::format("RTV heap {}", rtvAlloc.getSize()).c_str(), rtvAlloc);
+            showHeapSlots(bDsvOpen, std::format("DSV heap {}", dsvAlloc.getSize()).c_str(), dsvAlloc);
+            showHeapSlots(bSrvOpen, std::format("SRV heap {}", srvAlloc.getSize()).c_str(), srvAlloc);
 
             ImGui::SeparatorText("RenderGraph state");
             const auto& resources = pGraph->resources;
             const auto& passes = pGraph->passes;
             const auto& objects = pGraph->objects;
 
-            showGraphObjects(&bResourcesOpen, std::format("resources: {}", resources.size()).c_str(), resources, [](render::IResourceHandle *pResource) {
+            showGraphObjects(bResourcesOpen, std::format("resources: {}", resources.size()).c_str(), resources, [](render::IResourceHandle *pResource) {
                 auto name = pResource->getName();
                 ImGui::Text("%s (state: %s)", name.data(), rhi::toString(pResource->getCurrentState()).data());
             });
 
-            showGraphObjects(&bPassesOpen, std::format("passes: {}", passes.size()).c_str(), passes, [](render::ICommandPass *pPass) {
+            showGraphObjects(bPassesOpen, std::format("passes: {}", passes.size()).c_str(), passes, [](render::ICommandPass *pPass) {
                 auto name = pPass->getName();
                 ImGui::Text("pass: %s", name.data());
                 for (auto& resource : pPass->inputs) {
@@ -516,7 +509,7 @@ struct GameGui final : graph::IGuiPass {
                 }
             });
 
-            showGraphObjects(&bObjectsOpen, std::format("objects: {}", objects.size()).c_str(), objects, [](render::IGraphObject *pObject) {
+            showGraphObjects(bObjectsOpen, std::format("objects: {}", objects.size()).c_str(), objects, [](render::IGraphObject *pObject) {
                 auto name = pObject->getName();
                 ImGui::Text("%s", name.data());
             });
@@ -529,13 +522,8 @@ struct GameGui final : graph::IGuiPass {
 static GameWindow gWindowCallbacks;
 
 struct GdkInit {
-    GdkInit()
-        : failureReason(gdk::init())
-    { }
-
-    ~GdkInit() {
-        gdk::deinit();
-    }
+    GdkInit() : failureReason(gdk::init()) { }
+    ~GdkInit() { gdk::deinit(); }
 
 private:
     void debug() {
@@ -599,7 +587,7 @@ CommandLine getCommandLine() {
 ///
 
 static void commonMain(const std::filesystem::path& path) {
-    Cleanup mainQueue(pMainQueue = new tasks::WorkQueue(64));
+    std::unique_ptr<tasks::WorkQueue> mainQueue{pMainQueue = new tasks::WorkQueue(64)};
     pWorkThread = new tasks::WorkThread(64, "work");
 
     GdkInit gdkInit;
@@ -618,10 +606,10 @@ static void commonMain(const std::filesystem::path& path) {
         .pCallbacks = &gWindowCallbacks
     };
 
-    Cleanup window(pWindow = pSystem->createWindow(windowCreateInfo));
+    std::unique_ptr<Window> window{pWindow = pSystem->createWindow(windowCreateInfo)};
     auto [realWidth, realHeight] = pWindow->getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
 
-    Cleanup input(pInput = new input::Manager());
+    std::unique_ptr<input::Manager> input{pInput = new input::Manager()};
     pInput->addSource(pKeyboard = new input::Win32Keyboard());
     pInput->addSource(pMouse = new input::Win32Mouse(pWindow, true));
     pInput->addSource(pGamepad0 = new input::XInputGamepad(0));
@@ -692,9 +680,7 @@ static void commonMain(const std::filesystem::path& path) {
 
                     pRenderThread->add("resume", [] {
                         pGraph->resumeFromFault();
-                        pMainQueue->add("resume", [] {
-                            changeWindowMode(eNone, WindowMode(gWindowMode));
-                        });
+                        changeWindowMode(eNone, WindowMode(gWindowMode));
                     });
                 } catch (...) {
                     simcoe::logError("unknown thread exception. exiting");
@@ -735,7 +721,7 @@ static fs::path getGameDir() {
 }
 
 static int innerMain(HINSTANCE hInstance, int nCmdShow) try {
-    Cleanup system(pSystem = new simcoe::System(hInstance, nCmdShow));
+    std::unique_ptr<System> system{pSystem = new simcoe::System(hInstance, nCmdShow)};
 
     setThreadName("main");
     pFileLogger = new FileLogger();

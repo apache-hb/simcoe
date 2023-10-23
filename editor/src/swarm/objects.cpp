@@ -20,7 +20,7 @@ namespace {
 // alien
 
 OAlien::OAlien(GameLevel *pLevel, std::string name)
-    : IGameObject(pLevel, name)
+    : OSwarmObject(pLevel, name)
 {
     const auto *pSwarm = getPlayLevel(pLevel);
 
@@ -92,6 +92,19 @@ OBullet::OBullet(GameLevel *pLevel, IGameObject *pParent, float2 velocity)
 
 void OBullet::tick(float delta) {
     position += float3::from(0.f, velocity * delta);
+
+    for (auto *pObject : pLevel->getObjects()) {
+        if (isParent(pObject)) continue;
+
+        if (OSwarmObject *pSelf = dynamic_cast<OSwarmObject*>(pObject); pSelf != nullptr) {
+            float distance = (pSelf->position.yz() - position.yz()).length();
+            if (distance < 0.3f) {
+                pSelf->onHit();
+                pLevel->deleteObject(this);
+                return;
+            }
+        }
+    }
 }
 
 bool OBullet::isParent(IGameObject *pObject) const {
@@ -111,7 +124,7 @@ OLife::OLife(GameLevel *pLevel, size_t life)
 // player
 
 OPlayer::OPlayer(GameLevel *pLevel, std::string name)
-    : IGameObject(pLevel, name)
+    : OSwarmObject(pLevel, name)
 {
     auto *pSwarm = getPlayLevel(pLevel);
 
@@ -237,7 +250,7 @@ void OPlayer::debug() {
 // eggs
 
 OEgg::OEgg(GameLevel *pLevel, std::string name)
-    : IGameObject(pLevel, name)
+    : OSwarmObject(pLevel, name)
 {
     setMesh("egg-small.model");
     setTexture("alien.png");
@@ -273,7 +286,7 @@ float2 OEgg::getShootVector(IGameObject *pTarget) const {
 // aggro alien
 
 OAggroAlien::OAggroAlien(game::GameLevel *pLevel, game::IGameObject *pParent)
-    : IGameObject(pLevel, "aggro-alien")
+    : OSwarmObject(pLevel, "aggro-alien")
     , pParent(pParent)
 {
     setMesh("alien.model");

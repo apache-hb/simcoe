@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <vector>
+#include <unordered_map>
 
 namespace simcoe::assets {
     namespace fs = std::filesystem;

@@ -199,6 +199,9 @@ namespace editor::game {
             func(objects);
         }
 
+        // only use this on the game thread pretty please
+        std::span<IGameObject*> getObjects() { return objects; }
+
         void deleteObject(IGameObject *pObject);
 
         void beginTick();
