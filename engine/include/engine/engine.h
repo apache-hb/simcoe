@@ -29,14 +29,15 @@ namespace simcoe {
     void logError(std::string_view msg, T&&... args) {
         logError(std::vformat(msg, std::make_format_args(args...)));
     }
+
+    void logAssert(std::string_view msg);
 }
 
 #define ASSERTF(expr, ...) \
     do { \
         if (!(expr)) { \
-            auto msg = std::format("assert: {}", __VA_ARGS__); \
-            simcoe::logError(msg); \
-            throw std::runtime_error(msg); \
+            auto msg = std::format(__VA_ARGS__); \
+            logAssert(msg); \
         } \
     } while (0)
 

@@ -38,3 +38,9 @@ void simcoe::logWarn(std::string_view msg) {
 void simcoe::logError(std::string_view msg) {
     innerLog("ERROR", msg);
 }
+
+void simcoe::logAssert(std::string_view msg) {
+    innerLog("ASSERT", msg);
+    printBacktrace();
+    throw std::runtime_error(std::string(msg));
+}

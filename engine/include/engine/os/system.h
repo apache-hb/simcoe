@@ -6,10 +6,7 @@
 #include "engine/math/math.h"
 
 namespace simcoe {
-    struct ResizeEvent {
-        int width;
-        int height;
-    };
+    using ResizeEvent = math::Resolution<int>;
 
     struct IWindowCallbacks {
         virtual ~IWindowCallbacks() = default;
@@ -92,6 +89,7 @@ namespace simcoe {
         HINSTANCE hInstance;
         int nCmdShow;
 
+        bool bHasNewMessage = false;
         MSG msg;
     };
 

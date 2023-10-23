@@ -107,7 +107,11 @@ LRESULT CALLBACK Window::callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 // window api
 
-Window::Window(HINSTANCE hInstance, int nCmdShow, const WindowCreateInfo& createInfo) : pCallbacks(createInfo.pCallbacks) {
+Window::Window(HINSTANCE hInstance, int nCmdShow, const WindowCreateInfo& createInfo)
+    : pCallbacks(createInfo.pCallbacks)
+{
+    ASSERTF(pCallbacks != nullptr, "window callbacks must be provided");
+
     hWindow = CreateWindow(
         /* lpClassName = */ kClassName,
         /* lpWindowName = */ createInfo.title,
@@ -139,10 +143,7 @@ Window::~Window() {
 // callbacks
 
 void Window::doResize(int width, int height, bool fullscreen) {
-    pCallbacks->onResize({
-        .width = width,
-        .height = height
-    });
+    pCallbacks->onResize(ResizeEvent::from(width, height));
 }
 
 void Window::doSizeChange(WPARAM wParam, int width, int height) {
@@ -256,10 +257,18 @@ RECT System::nearestDisplayCoords(Window *pWindow) {
 }
 
 bool System::getEvent() {
-    return (GetMessage(&msg, nullptr, 0, 0) != 0);
+    bHasNewMessage = PeekMessageA(&msg, nullptr, 0, 0, PM_REMOVE) != 0;
+
+    if (bHasNewMessage) {
+        return msg.message != WM_QUIT;
+    }
+
+    return true;
 }
 
 void System::dispatchEvent() {
+    if (!bHasNewMessage) { return; }
+
     TranslateMessage(&msg);
     DispatchMessage(&msg);
 }

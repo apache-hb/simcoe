@@ -118,9 +118,7 @@ namespace simcoe::render {
         void changeBackBufferCount(UINT count);
         void changeAdapter(size_t index);
 
-        void removeDevice() {
-            pDevice->remove();
-        }
+        void removeDevice() { pDevice->remove(); }
 
         void resumeFromFault();
         void reportFaultInfo();
