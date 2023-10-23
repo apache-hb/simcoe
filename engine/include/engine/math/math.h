@@ -135,7 +135,7 @@ namespace simcoe::math {
         constexpr Vec2 negate() const { return from(-x, -y); }
         constexpr T length() const { return std::sqrt(x * x + y * y); }
 
-        constexpr Vec2 normalize() const {
+        constexpr Vec2 normal() const {
             auto len = length();
             return from(x / len, y / len);
         }
@@ -210,7 +210,7 @@ namespace simcoe::math {
         constexpr Vec3 negate() const { return from(-x, -y, -z); }
         constexpr T length() const { return std::sqrt(x * x + y * y + z * z); }
 
-        constexpr Vec3 normalize() const {
+        constexpr Vec3 normal() const {
             auto len = length();
             return from(x / len, y / len, z / len);
         }
@@ -277,7 +277,7 @@ namespace simcoe::math {
         constexpr T length() const { return std::sqrt(x * x + y * y + z * z + w * w); }
         constexpr Vec4 negate() const { return from(-x, -y, -z, -w); }
 
-        constexpr Vec4 normalize() const {
+        constexpr Vec4 normal() const {
             auto len = length();
             return from(x / len, y / len, z / len, w / len);
         }
@@ -553,8 +553,8 @@ namespace simcoe::math {
             ASSERT(!eye.isinf());
             ASSERT(!up.isinf());
 
-            auto r2 = dir.normalize();
-            auto r0 = Row3::cross(up, r2).normalize();
+            auto r2 = dir.normal();
+            auto r0 = Row3::cross(up, r2).normal();
             auto r1 = Row3::cross(r2, r0);
 
             auto negEye = eye.negate();

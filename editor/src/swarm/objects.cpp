@@ -277,8 +277,7 @@ float2 OEgg::getShootVector(IGameObject *pTarget) const {
     float2 targetPos = pTarget->position.yz();
     float2 eggPos = position.yz();
 
-    float2 delta = targetPos - eggPos;
-    float2 dir = delta.normalize();
+    float2 dir = (targetPos - eggPos).normal();
 
     return dir * bulletSpeed;
 }

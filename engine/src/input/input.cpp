@@ -32,8 +32,6 @@ std::string_view input::toString(Axis axis) {
 ///
 
 void Manager::poll() {
-    std::lock_guard guard(lock);
-
     bool bDirty = false;
     for (ISource *pSource : sources) {
         if (pSource->poll(state)) {
@@ -47,6 +45,14 @@ void Manager::poll() {
     for (IClient *pClient : clients) {
         pClient->onInput(state);
     }
+}
+
+void Manager::addSource(ISource *pSource) {
+    sources.push_back(pSource);
+}
+
+void Manager::addClient(IClient *pClient) {
+    clients.push_back(pClient);
 }
 
 ///

@@ -1,10 +1,8 @@
 #pragma once
 
 #include <array>
-#include <mutex>
-#include <unordered_set>
 #include <vector>
-#include <span>
+#include <atomic>
 #include <string_view>
 
 namespace simcoe::input {
@@ -80,31 +78,13 @@ namespace simcoe::input {
     struct Manager {
         void poll();
 
-        ISource *addSource(ISource *pSource) {
-            std::lock_guard guard(lock);
-
-            sources.insert(pSource);
-            return pSource;
-        }
-
-        void removeSource(ISource *pSource) {
-            std::lock_guard guard(lock);
-
-            sources.erase(pSource);
-        }
-
-        void addClient(IClient *pClient) {
-            std::lock_guard guard(lock);
-            clients.push_back(pClient);
-        }
-
+        void addSource(ISource *pSource);
+        void addClient(IClient *pClient);
         const State& getState() const { return state; }
 
     private:
-        std::mutex lock;
-
-        std::unordered_set<ISource *> sources;
-        std::vector<IClient *> clients;
+        std::vector<ISource*> sources;
+        std::vector<IClient*> clients;
 
         State state = {};
     };

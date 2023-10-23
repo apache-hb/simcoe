@@ -134,15 +134,3 @@ PresentPass::PresentPass(Graph *ctx, ResourceWrapper<SwapChainHandle> *pBackBuff
     : ICommandPass(ctx, "present")
     , pBackBuffers(addAttachment(pBackBuffers, rhi::ResourceState::ePresent))
 { }
-
-void PresentPass::create() {
-
-}
-
-void PresentPass::destroy() {
-
-}
-
-void PresentPass::execute() {
-
-}

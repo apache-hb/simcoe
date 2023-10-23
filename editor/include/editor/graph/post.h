@@ -27,9 +27,9 @@ namespace editor::graph {
     struct PresentPass final : ICommandPass {
         PresentPass(Graph *ctx, ResourceWrapper<SwapChainHandle> *pBackBuffers);
 
-        void create() override;
-        void destroy() override;
-        void execute() override;
+        void create() override { }
+        void destroy() override { }
+        void execute() override { }
 
     private:
         PassAttachment<SwapChainHandle> *pBackBuffers;

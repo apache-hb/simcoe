@@ -36,7 +36,7 @@ namespace simcoe::input {
         math::int2 mouseOrigin = {};
         math::int2 mouseAbsolute = {};
 
-        size_t totalEventsToSend = 0; ///< index of the last mouse move event
+        size_t totalEventsToSend = 0; ///< a bit of a hacky way to make sure we send mouse events properly
 
         bool bMouseCaptured = false; ///< is the mouse captured (locked to the center of the screen)
         bool bMouseEnabled = false; ///< is the mouse enabled (should we read from it)
