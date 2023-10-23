@@ -24,9 +24,6 @@ Instance::~Instance() {
 
 // tasks::WorkThread
 void Instance::run(std::stop_token token) {
-    assetLock.migrate();
-    gameLock.migrate();
-
     while (!token.stop_requested()) {
         if (process()) {
             continue;
@@ -43,7 +40,6 @@ void Instance::run(std::stop_token token) {
 ///
 
 void Instance::pushLevel(GameLevel *pLevel) {
-    gameLock.verify();
     if (GameLevel *pCurrent = getActiveLevel()) {
         pCurrent->pause();
     }
@@ -55,8 +51,6 @@ void Instance::pushLevel(GameLevel *pLevel) {
 }
 
 void Instance::popLevel() {
-    gameLock.verify();
-
     if (GameLevel *pCurrent = getActiveLevel()) {
         pCurrent->pause();
 
@@ -79,7 +73,6 @@ void Instance::quit() {
 
 void Instance::loadMesh(const fs::path& path, std::function<void(render::IMeshBufferHandle*)> callback) {
     add("load-mesh", [this, path, callback] {
-        assetLock.verify();
         if (auto it = meshes.find(path); it != meshes.end()) {
             callback(it->second);
             return;
@@ -93,7 +86,6 @@ void Instance::loadMesh(const fs::path& path, std::function<void(render::IMeshBu
 
 void Instance::loadTexture(const fs::path& path, std::function<void(ResourceWrapper<graph::TextureHandle>*)> callback) {
     add("load-texture", [this, path, callback] {
-        assetLock.verify();
         if (auto it = textures.find(path); it != textures.end()) {
             callback(it->second);
             return;
@@ -121,7 +113,6 @@ ResourceWrapper<graph::TextureHandle> *Instance::newTexture(const fs::path& path
 ///
 
 void Instance::tick(float delta) {
-    gameLock.verify();
     lastTick = delta;
 
     if (GameLevel *pCurrent = getActiveLevel()) {

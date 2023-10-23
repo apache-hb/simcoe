@@ -4,8 +4,6 @@
 #include <string>
 #include <thread>
 
-#include "engine/tasks/exclude.h"
-
 #include "moodycamel/concurrentqueue.h"
 
 namespace simcoe::tasks {
@@ -26,8 +24,6 @@ namespace simcoe::tasks {
         }
 
         bool process() {
-            threadLock.verify();
-
             if (workQueue.try_dequeue(message)) {
                 message.item();
                 return true;
@@ -44,9 +40,6 @@ namespace simcoe::tasks {
 
         WorkMessage message;
         moodycamel::ConcurrentQueue<WorkMessage> workQueue{64};
-
-    protected:
-        ThreadLock threadLock;
     };
 
     struct WorkThread : WorkQueue {
@@ -64,7 +57,6 @@ namespace simcoe::tasks {
         }
 
         void stop() {
-            workThread.request_stop();
             workThread.join();
         }
 

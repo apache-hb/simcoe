@@ -11,7 +11,6 @@ std::jthread WorkThread::start(const char *name) {
         simcoe::logInfo("thread `{}` started", name);
 
         setThreadName(name);
-        threadLock.migrate();
 
         this->run(token);
 

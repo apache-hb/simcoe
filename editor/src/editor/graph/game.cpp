@@ -155,7 +155,6 @@ void GameLevelPass::execute() {
 ///
 
 ObjectUniformHandle *GameLevelPass::getObjectUniform(IGameObject *pObject) {
-    lock.verify();
     if (!objectUniforms.contains(pObject)) {
         createObjectUniform(pObject);
     }
@@ -165,7 +164,6 @@ ObjectUniformHandle *GameLevelPass::getObjectUniform(IGameObject *pObject) {
 }
 
 void GameLevelPass::createObjectUniform(IGameObject *pObject) {
-    lock.verify();
     auto *pUniform = graph->addResource<ObjectUniformHandle>(pObject->getName());
     objectUniforms.emplace(pObject, addAttachment(pUniform, rhi::ResourceState::eUniform));
 }
@@ -175,7 +173,6 @@ void GameLevelPass::createObjectUniform(IGameObject *pObject) {
 ///
 
 TextureHandle *GameLevelPass::getObjectTexture(game::IGameObject *pObject) {
-    lock.verify();
     ResourceWrapper<graph::TextureHandle> *pTextureHandle = pObject->getTexture();
     if (!objectTextures.contains(pTextureHandle->getInner())) {
         createObjectTexture(pTextureHandle);
@@ -186,7 +183,6 @@ TextureHandle *GameLevelPass::getObjectTexture(game::IGameObject *pObject) {
 }
 
 void GameLevelPass::createObjectTexture(ResourceWrapper<graph::TextureHandle> *pTexture) {
-    lock.verify();
     auto *pAttachment = addAttachment(pTexture, rhi::ResourceState::eTextureRead);
     objectTextures.emplace(pTexture->getInner(), pAttachment);
 }

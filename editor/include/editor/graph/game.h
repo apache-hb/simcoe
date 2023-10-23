@@ -1,7 +1,5 @@
 #pragma once
 
-#include "engine/tasks/exclude.h"
-
 #include "editor/graph/assets.h"
 
 #include "editor/game/level.h"
@@ -47,8 +45,6 @@ namespace editor::graph {
     private:
         using TextureAttachment = PassAttachment<TextureHandle>;
         using ObjectAttachment = PassAttachment<ObjectUniformHandle>;
-
-        tasks::ThreadLock lock;
 
         ResourceWrapper<CameraUniformHandle> *pCameraBuffer;
         PassAttachment<CameraUniformHandle> *pCameraAttachment;

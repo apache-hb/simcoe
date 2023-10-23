@@ -60,7 +60,6 @@ src = [
 
     # tasks
     'engine/src/tasks/task.cpp',
-    'engine/src/tasks/exclude.cpp',
 
     # assets
     'engine/src/assets/assets.cpp',

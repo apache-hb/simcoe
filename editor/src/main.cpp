@@ -139,7 +139,6 @@ static FileLogger *pFileLogger;
 
 struct GameWindow final : IWindowCallbacks {
     std::atomic_bool bWindowOpen = true;
-    tasks::ThreadLock threadLock;
 
     void onClose() override {
         bWindowOpen = false;
@@ -161,8 +160,6 @@ struct GameWindow final : IWindowCallbacks {
     }
 
     bool onEvent(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) override {
-        threadLock.verify();
-
         pKeyboard->handleMsg(uMsg, wParam, lParam);
         return graph::IGuiPass::handleMsg(hWnd, uMsg, wParam, lParam);
     }

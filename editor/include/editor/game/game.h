@@ -36,7 +36,6 @@ namespace editor::game {
         }
 
     private:
-        tasks::ThreadLock gameLock;
         std::mutex gameMutex;
         std::atomic_bool bShouldQuit = false;
         std::vector<GameLevel*> levels;
@@ -55,8 +54,6 @@ namespace editor::game {
     private:
         graph::ObjMesh *newObjMesh(const fs::path& path);
         ResourceWrapper<graph::TextureHandle> *newTexture(const fs::path& path);
-
-        tasks::ThreadLock assetLock;
 
         render::IMeshBufferHandle *pDefaultMesh = nullptr;
         ResourceWrapper<graph::TextureHandle> *pDefaultTexture = nullptr;
