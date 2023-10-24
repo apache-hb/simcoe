@@ -7,27 +7,37 @@ using namespace swarm;
 static constexpr ImGuiTableFlags kTableFlags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV;
 
 bool InputClient::isShootPressed() const {
-    return shootKeyboardEvent.isPressed() || shootGamepadEvent.isPressed();
+    return shootKeyboardEvent.isPressed()
+        || shootGamepadEvent.isPressed();
 }
 
 bool InputClient::isQuitPressed() const {
-    return quitEventKey.isPressed() || quitEventGamepad.isPressed();
+    return quitEventKey.isPressed()
+        || quitEventGamepad.isPressed();
 }
 
 bool InputClient::consumeMoveUp() {
-    return moveUpEventKey.beginPress() || moveUpEventArrow.beginPress();
+    return moveUpEventKey.beginPress()
+        || moveUpEventArrow.beginPress()
+        || moveUpEventPad.beginPress();
 }
 
 bool InputClient::consumeMoveDown() {
-    return moveDownEventKey.beginPress() || moveDownEventArrow.beginPress();
+    return moveDownEventKey.beginPress()
+        || moveDownEventArrow.beginPress()
+        || moveDownEventPad.beginPress();
 }
 
 bool InputClient::consumeMoveLeft() {
-    return moveLeftEventKey.beginPress() || moveLeftEventArrow.beginPress();
+    return moveLeftEventKey.beginPress()
+        || moveLeftEventArrow.beginPress()
+        || moveLeftEventPad.beginPress();
 }
 
 bool InputClient::consumeMoveRight() {
-    return moveRightEventKey.beginPress() || moveRightEventArrow.beginPress();
+    return moveRightEventKey.beginPress()
+        || moveRightEventArrow.beginPress()
+        || moveRightEventPad.beginPress();
 }
 
 float InputClient::getHorizontalAxis() const {
@@ -78,6 +88,11 @@ void InputClient::onInput(const input::State& newState) {
     moveDownEventArrow.update(state.buttons[Button::eKeyDown]);
     moveLeftEventArrow.update(state.buttons[Button::eKeyLeft]);
     moveRightEventArrow.update(state.buttons[Button::eKeyRight]);
+
+    moveUpEventPad.update(state.buttons[Button::ePadDirectionUp]);
+    moveDownEventPad.update(state.buttons[Button::ePadDirectionDown]);
+    moveLeftEventPad.update(state.buttons[Button::ePadDirectionLeft]);
+    moveRightEventPad.update(state.buttons[Button::ePadDirectionRight]);
 }
 
 void InputClient::debug() {

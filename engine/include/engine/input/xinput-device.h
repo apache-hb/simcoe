@@ -26,10 +26,6 @@ namespace simcoe::input {
          */
         bool updateButton(State& result, Button button, WORD mask, WORD state);
 
-        system::Clock clock;
-        bool bDeviceConnected = true;
-        util::Retry retryOnDisconnect = 3.f;
-
         DWORD dwIndex;
         size_t keyPressIndex = 0;
 

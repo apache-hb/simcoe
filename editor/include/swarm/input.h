@@ -35,10 +35,10 @@ namespace swarm {
 
         Event quitEventKey, quitEventGamepad;
 
-        Event moveUpEventKey, moveUpEventArrow;
-        Event moveDownEventKey, moveDownEventArrow;
-        Event moveLeftEventKey, moveLeftEventArrow;
-        Event moveRightEventKey, moveRightEventArrow;
+        Event moveUpEventKey,    moveUpEventArrow,    moveUpEventPad;
+        Event moveDownEventKey,  moveDownEventArrow,  moveDownEventPad;
+        Event moveLeftEventKey,  moveLeftEventArrow,  moveLeftEventPad;
+        Event moveRightEventKey, moveRightEventArrow, moveRightEventPad;
 
         std::atomic_size_t updates = 0;
 

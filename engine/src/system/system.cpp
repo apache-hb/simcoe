@@ -264,7 +264,7 @@ RECT System::nearestDisplayCoords(Window *pWindow) {
 }
 
 bool System::getEvent() {
-    return GetMessage(&msg, NULL, 0, 0) != 0;
+    return PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) != 0;
 }
 
 void System::dispatchEvent() {
