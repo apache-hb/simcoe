@@ -52,3 +52,12 @@ Image Assets::loadImage(const std::filesystem::path& path) const {
 
     return image;
 }
+
+Font Assets::loadFont(const std::filesystem::path& path) const {
+    return Font((root / path).string().c_str());
+}
+
+Font Assets::loadSystemFont(std::string_view name) const {
+    fs::path path = std::format("C:\\Windows\\Fonts\\{}.ttf", name);
+    return Font(path.string().c_str());
+}

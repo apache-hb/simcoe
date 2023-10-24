@@ -115,18 +115,15 @@ TextureHandle::TextureHandle(Graph *graph, std::string name)
     , name(name)
 {
     const auto& createInfo = ctx->getCreateInfo();
-    assets::Image image = createInfo.depot.loadImage(name);
-
-    size = { UINT(image.width), UINT(image.height) };
-    data = image.data;
+    image = createInfo.depot.loadImage(name);
 
     simcoe::logInfo("texture {} ({}x{})", name, image.width, image.height);
 }
 
 void TextureHandle::create() {
     const rhi::TextureInfo textureInfo = {
-        .width = size.x,
-        .height = size.y,
+        .width = image.width,
+        .height = image.height,
 
         .format = rhi::TypeFormat::eRGBA8
     };
@@ -144,12 +141,66 @@ void TextureHandle::create() {
 
     ctx->beginCopy();
 
-    ctx->copyTexture(pResource, pTextureStaging.get(), textureInfo, data);
+    ctx->copyTexture(pResource, pTextureStaging.get(), textureInfo, image.data);
 
     ctx->endCopy();
 }
 
 void TextureHandle::destroy() {
+    ISingleSRVHandle::destroy(ctx);
+    ISingleResourceHandle::destroy();
+}
+
+
+///
+/// font handle
+///
+
+namespace {
+    assets::Font loadFont(const RenderCreateInfo& createInfo, std::string_view name) {
+        assets::Font font = createInfo.depot.loadSystemFont(name);
+        UINT dpi = GetDpiForWindow(createInfo.hWindow);
+        font.setFontSize(32, dpi);
+        return font;
+    }
+}
+
+TextHandle::TextHandle(Graph *ctx, std::string_view name, std::u32string text)
+    : ISingleResourceHandle(ctx, std::string(name))
+    , font(loadFont(ctx->getCreateInfo(), name))
+    , text(text)
+{
+    bitmap = font.drawText(text);
+    simcoe::logInfo("font (ttf={}, bitmap={}x{})", name, bitmap.width, bitmap.height);
+}
+
+void TextHandle::create() {
+    const rhi::TextureInfo textureInfo = {
+        .width = bitmap.width,
+        .height = bitmap.height,
+
+        .format = rhi::TypeFormat::eRGBA8
+    };
+
+    auto *pResource = ctx->createTexture(textureInfo);
+
+    setResource(pResource);
+    setSrvIndex(ctx->mapTexture(pResource));
+    setCurrentState(rhi::ResourceState::eCopyDest);
+
+    std::unique_ptr<rhi::UploadBuffer> pTextureStaging{ctx->createTextureUploadBuffer(textureInfo)};
+
+    pResource->setName("text");
+    pTextureStaging->setName("staging(text)");
+
+    ctx->beginCopy();
+
+    ctx->copyTexture(pResource, pTextureStaging.get(), textureInfo, bitmap.data);
+
+    ctx->endCopy();
+}
+
+void TextHandle::destroy() {
     ISingleSRVHandle::destroy(ctx);
     ISingleResourceHandle::destroy();
 }

@@ -202,12 +202,18 @@ struct GameGui final : graph::IGuiPass {
 
     PassAttachment<ISRVHandle> *pSceneSource = nullptr;
 
+    ResourceWrapper<graph::TextHandle> *pTextHandle = nullptr;
+    PassAttachment<graph::TextHandle> *pTextAttachment = nullptr;
+
     GameGui(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
         : IGuiPass(ctx, pRenderTarget)
         , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTextureRead))
-    { }
+    {
+        pTextHandle = graph->addResource<graph::TextHandle>("arial", U"Hello world using freetype2 & harfbuzz! \u263a");
+        pTextAttachment = addAttachment(pTextHandle, rhi::ResourceState::eTextureRead);
+    }
 
-    void debug() {
+    void sceneDebug() {
         ISRVHandle *pHandle = pSceneSource->getInner();
         auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getSrvIndex());
         const auto &createInfo = ctx->getCreateInfo();
@@ -228,7 +234,30 @@ struct GameGui final : graph::IGuiPass {
         ImGui::Image((ImTextureID)offset, { totalWidth, totalHeight });
     }
 
-    debug::GlobalHandle debugHandle = debug::addGlobalHandle("Scene", [this] { debug(); });
+    debug::GlobalHandle debugHandle = debug::addGlobalHandle("Scene", [this] { sceneDebug(); });
+
+    void textDebug() {
+        graph::TextHandle *pHandle = pTextAttachment->getInner();
+        auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getSrvIndex());
+        const auto &createInfo = ctx->getCreateInfo();
+        float aspect = float(createInfo.renderWidth) / createInfo.renderHeight;
+
+        float availWidth = ImGui::GetWindowWidth() - 32;
+        float availHeight = ImGui::GetWindowHeight() - 32;
+
+        float totalWidth = availWidth;
+        float totalHeight = availHeight;
+
+        if (availWidth > availHeight * aspect) {
+            totalWidth = availHeight * aspect;
+        } else {
+            totalHeight = availWidth / aspect;
+        }
+
+        ImGui::Image((ImTextureID)offset, { totalWidth, totalHeight });
+    }
+
+    debug::GlobalHandle textDebugHandle = debug::addGlobalHandle("Text", [this] { textDebug(); });
 
     void create() override {
         IGuiPass::create();

@@ -50,7 +50,6 @@ void Instance::updateRender() {
 
         if (renderFaultCount >= renderFaultLimit) {
             simcoe::logError("render fault exceeded limit of {}. exiting...", renderFaultLimit);
-            throw;
         }
 
         simcoe::logError("attempting to recover...");

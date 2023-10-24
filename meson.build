@@ -89,6 +89,7 @@ src = [
 
     # assets
     'engine/src/assets/assets.cpp',
+    'engine/src/assets/font.cpp',
 
     # physics
     'engine/src/physics/world.cpp',

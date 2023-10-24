@@ -7,10 +7,13 @@
 
 namespace simcoe::math {
     template<typename T>
-    constexpr T kRadToDeg = T(180) / std::numbers::pi_v<T>;
+    constexpr T kPi = std::numbers::pi_v<T>;
 
     template<typename T>
-    constexpr T kDegToRad = std::numbers::pi_v<T> / T(180);
+    constexpr T kRadToDeg = T(180) / kPi<T>;
+
+    template<typename T>
+    constexpr T kDegToRad = kPi<T> / T(180);
 
     template<typename T>
     T clamp(T it, T low, T high) {
@@ -70,9 +73,9 @@ namespace simcoe::math {
         T width;
         T height;
 
-        Resolution() : Resolution(T(0)) { }
-        Resolution(T width, T height) : width(width), height(height) { }
-        Resolution(T it) : Resolution(it, it) { }
+        constexpr Resolution() : Resolution(T(0)) { }
+        constexpr Resolution(T width, T height) : width(width), height(height) { }
+        constexpr Resolution(T it) : Resolution(it, it) { }
 
         constexpr static Resolution from(T width, T height) { return { width, height }; }
         constexpr static Resolution from(T it) { return from(it, it); }

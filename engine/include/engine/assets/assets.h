@@ -4,20 +4,10 @@
 #include <vector>
 #include <unordered_map>
 
+#include "engine/assets/font.h"
+
 namespace simcoe::assets {
     namespace fs = std::filesystem;
-
-    enum struct ImageFormat {
-        eRGBA8
-    };
-
-    struct Image {
-        ImageFormat format;
-        size_t width;
-        size_t height;
-
-        std::vector<std::byte> data;
-    };
 
     struct Assets {
         Assets(const fs::path& root) : root(root) { }
@@ -27,6 +17,9 @@ namespace simcoe::assets {
         std::vector<std::byte> loadBlob(const fs::path& path) const;
 
         Image loadImage(const fs::path& path) const;
+
+        Font loadFont(const fs::path& path) const;
+        Font loadSystemFont(std::string_view name) const;
     private:
         fs::path root;
     };

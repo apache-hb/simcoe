@@ -14,6 +14,7 @@ namespace simcoe {
     void logInfo(std::string_view msg);
     void logWarn(std::string_view msg);
     void logError(std::string_view msg);
+    void logAssert(std::string_view msg);
 
     template<typename... T>
     void logInfo(std::string_view msg, T&&... args) {
@@ -30,7 +31,10 @@ namespace simcoe {
         logError(std::vformat(msg, std::make_format_args(args...)));
     }
 
-    void logAssert(std::string_view msg);
+    template<typename... T>
+    void logAssert(std::string_view msg, T&&... args) {
+        logAssert(std::vformat(msg, std::make_format_args(args...)));
+    }
 }
 
 #define ASSERTF(expr, ...) \

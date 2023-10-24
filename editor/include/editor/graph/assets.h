@@ -9,6 +9,7 @@ using namespace simcoe::render;
 using namespace simcoe::math;
 
 namespace editor::graph {
+    namespace fs = assets::fs;
     using ITextureHandle = ISingleResourceHandle<rhi::TextureBuffer>;
 
     struct Vertex {
@@ -81,14 +82,25 @@ namespace editor::graph {
         void create() override;
         void destroy() override;
 
-        uint2 getSize() const { return size; }
+        uint2 getSize() const { return uint2::from(image.width, image.height); }
 
     private:
         // image path
         std::string name;
 
         // image data
-        uint2 size;
-        std::vector<std::byte> data;
+        assets::Image image;
+    };
+
+    struct TextHandle final : ITextureHandle, ISingleSRVHandle {
+        TextHandle(Graph *ctx, std::string_view name, std::u32string text);
+
+        void create() override;
+        void destroy() override;
+
+    private:
+        assets::Font font;
+        assets::Image bitmap;
+        std::u32string text;
     };
 }
