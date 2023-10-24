@@ -23,8 +23,9 @@ void Orthographic::debug() {
 
 // object
 
-IGameObject::IGameObject(GameLevel *pLevel, std::string name)
+IGameObject::IGameObject(GameLevel *pLevel, std::string name, size_t id)
     : pLevel(pLevel)
+    , id(id)
     , name(name)
     , debugHandle(std::make_unique<debug::DebugHandle>(name, [this] { objectDebug(); }))
 {
@@ -34,12 +35,20 @@ IGameObject::IGameObject(GameLevel *pLevel, std::string name)
 }
 
 void IGameObject::setTexture(const fs::path& path) {
+    if (currentTexture == path)
+        return;
+
+    currentTexture = path;
     game::getInstance()->loadTexture(path, [this](auto *pNewTexture) {
         pTexture = pNewTexture;
     });
 }
 
 void IGameObject::setMesh(const fs::path& path) {
+    if (currentMesh == path)
+        return;
+
+    currentMesh = path;
     game::getInstance()->loadMesh(path, [this](auto *pNewMesh) {
         pMesh = pNewMesh;
     });

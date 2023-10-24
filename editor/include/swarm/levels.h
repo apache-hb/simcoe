@@ -27,9 +27,13 @@ namespace swarm {
 
         void tick(float delta) override;
 
-        template<std::derived_from<game::IGameObject> T, typename... A> requires std::is_constructible_v<T, PlayLevel*, A...>
+        template<std::derived_from<swarm::OSwarmObject> T, typename... A>
         T *newObject(A&&... args) {
             T *pObject = GameLevel::addObject<T>(args...);
+
+            if constexpr (!std::is_same_v<T, swarm::OBullet>)
+                nonBulletObjects.push_back(pObject);
+
             pObject->scale *= getWorldScale();
             return pObject;
         }
@@ -76,6 +80,10 @@ namespace swarm {
         swarm::OAlien *pAlien = nullptr;
         swarm::OPlayer *pPlayer = nullptr;
         swarm::OGrid *pGrid = nullptr;
+
+    public:
+        // how horrible
+        std::vector<swarm::OSwarmObject*> nonBulletObjects;
 
         bool shouldCullObject(game::IGameObject *pObject) const;
     };

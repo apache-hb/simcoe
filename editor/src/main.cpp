@@ -438,10 +438,6 @@ struct GameGui final : graph::IGuiPass {
             ImGui::Checkbox("Allow tearing", &bTearing);
             ctx->bAllowTearing = bTearing;
 
-            int currentSyncInterval = ctx->syncInterval;
-            ImGui::SliderInt("Sync interval", (int*)&currentSyncInterval, 0, 4);
-            ctx->syncInterval = currentSyncInterval;
-
             ImGui::Text("DXGI reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
 
             if (ImGui::SliderInt2("Internal resolution", renderSize, 64, 4096)) {
@@ -648,78 +644,35 @@ static void commonMain(const std::filesystem::path& path) {
     pGame->setupGame();
     pGame->pushLevel(new swarm::PlayLevel());
 
-    // pRenderThread = newTask("render", [](tasks::WorkQueue *pSelf, std::stop_token token) {
-    //     size_t faultCount = 0;
-    //     size_t faultLimit = 3;
+    std::jthread inputThread([](auto token) {
+        system::setThreadName("input");
 
-    //     simcoe::logInfo("render fault limit: {} faults", faultLimit);
+        while (!token.stop_requested()) {
+            pInput->poll();
+        }
+    });
 
-    //     // TODO: this is a little stupid
-    //     try {
-    //         auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
-    //         auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
-    //         auto *pDepthTarget = pGraph->addResource<graph::DepthTargetHandle>();
+    std::jthread gameThread([](auto token) {
+        system::setThreadName("game");
 
-    //         pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>());
+        while (!token.stop_requested()) {
+            pGame->updateGame();
+        }
+    });
 
-    //         pGraph->addPass<graph::GameLevelPass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
+    std::jthread renderThread([](auto token) {
+        system::setThreadName("render");
 
-    //         //pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
-    //         pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
-    //         pGraph->addPass<graph::PresentPass>(pBackBuffers);
-
-    //         game::getInstance()->pushLevel(new swarm::PlayLevel());
-
-    //         while (!token.stop_requested()) {
-    //             if (pSelf->process()) {
-    //                 continue; // TODO: this is also a little stupid
-    //             }
-
-    //             try {
-    //                 pGraph->execute();
-    //             } catch (std::runtime_error& err) {
-    //                 simcoe::logError("render exception: {}", err.what());
-
-    //                 faultCount += 1;
-    //                 simcoe::logError("render fault. {} total fault{}", faultCount, faultCount > 1 ? "s" : "");
-    //                 if (faultCount > faultLimit) {
-    //                     simcoe::logError("render thread fault limit reached. exiting");
-    //                     break;
-    //                 }
-
-    //                 pRenderThread->add("resume", [] {
-    //                     pGraph->resumeFromFault();
-    //                     changeWindowMode(eNone, WindowMode(gWindowMode));
-    //                 });
-    //             } catch (...) {
-    //                 simcoe::logError("unknown thread exception. exiting");
-    //                 break;
-    //             }
-    //         }
-    //     } catch (std::runtime_error& err) {
-    //         simcoe::logError("render thread exception during startup: {}", err.what());
-    //     }
-
-    //     delete game::getInstance();
-    //     delete pGraph;
-    // });
-
-    // std::jthread inputThread([](auto token) {
-    //     system::setThreadName("input");
-
-    //     while (!token.stop_requested()) {
-    //         pInput->poll();
-    //     }
-    // });
+        while (!token.stop_requested()) {
+            pGame->updateRender();
+        }
+    });
 
     while (!pGame->shouldQuit()) {
         if (pSystem->getEvent())
             pSystem->dispatchEvent();
 
         pMainQueue->process();
-        pGame->updateRender();
-        pGame->updateGame();
-        pInput->poll();
     }
 }
 

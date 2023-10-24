@@ -12,7 +12,8 @@ void game::setInstance(Instance *pInstance) { gInstance = pInstance; }
 Instance::Instance(render::Graph *pGraph)
     : pGraph(pGraph)
 {
-
+    pDefaultMesh = newObjMesh("default.model");
+    pDefaultTexture = newTexture("default.png");
 }
 
 Instance::~Instance() {
@@ -20,12 +21,13 @@ Instance::~Instance() {
 }
 
 void Instance::setupGame() {
-    pDefaultMesh = newObjMesh("default.model");
-    pDefaultTexture = newTexture("default.png");
+
 }
 
 void Instance::updateGame() {
-    pGameQueue->process();
+    if (pGameQueue->process()) {
+        return;
+    }
 
     float now = clock.now();
     float delta = now - lastTime;
@@ -34,13 +36,28 @@ void Instance::updateGame() {
 }
 
 void Instance::setupRender() {
-
+    simcoe::logInfo("render thread fault limit: {}", renderFaultLimit);
 }
 
 void Instance::updateRender() {
-    pRenderQueue->process();
+    if (pRenderQueue->process()) {
+        return;
+    }
 
-    pGraph->execute();
+    try {
+        pGraph->execute();
+    } catch (std::runtime_error& err) {
+        renderFaultCount += 1;
+        simcoe::logError("render fault. {} total fault{}", renderFaultCount, renderFaultCount > 1 ? "s" : "");
+
+        if (renderFaultCount >= renderFaultLimit) {
+            simcoe::logError("render fault exceeded limit of {}. exiting...", renderFaultLimit);
+            throw;
+        }
+
+        simcoe::logError("attempting to recover...");
+        pGraph->resumeFromFault();
+    }
 }
 
 ///
@@ -141,7 +158,8 @@ void Instance::debug() {
     ImGui::Text("Current Time: %f", clock.now());
 
     if (GameLevel *pCurrent = getActiveLevel()) {
-        ImGui::SeparatorText(pCurrent->name);
+        auto name = pCurrent->getName();
+        ImGui::SeparatorText(name.data());
         pCurrent->debug();
     }
 }

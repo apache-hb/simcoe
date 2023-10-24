@@ -246,7 +246,7 @@ void Context::beginRender() {
 }
 
 void Context::endRender() {
-    pDisplayQueue->present(bReportedFullscreen ? false : bAllowTearing.load(), syncInterval);
+    pDisplayQueue->present(bReportedFullscreen ? false : bAllowTearing.load(), 0);
 }
 
 void Context::beginDirect() {

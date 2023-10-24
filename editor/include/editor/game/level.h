@@ -124,8 +124,8 @@ namespace editor::game {
 
     struct GameLevel;
 
-    struct IGameObject : std::enable_shared_from_this<IGameObject> {
-        IGameObject(GameLevel *pLevel, std::string name);
+    struct IGameObject {
+        IGameObject(GameLevel *pLevel, std::string name, size_t id = SIZE_MAX);
 
         virtual ~IGameObject() = default;
 
@@ -134,6 +134,8 @@ namespace editor::game {
         float3 scale = { 1.f, 1.f, 1.f };
 
         std::string_view getName() const { return name; }
+        size_t getId() const { return id; }
+
         render::IMeshBufferHandle *getMesh() const { return pMesh; }
         render::ResourceWrapper<graph::TextureHandle> *getTexture() const {
             return pTexture;
@@ -158,8 +160,12 @@ namespace editor::game {
         GameLevel *pLevel;
 
     private:
+        size_t id = 0;
         std::string name;
         bool bShouldCull = true;
+
+        fs::path currentTexture;
+        fs::path currentMesh;
 
         std::atomic<render::ResourceWrapper<graph::TextureHandle>*> pTexture = nullptr;
         std::atomic<render::IMeshBufferHandle*> pMesh = nullptr;
@@ -170,13 +176,17 @@ namespace editor::game {
     };
 
     struct GameLevel {
+        GameLevel(std::string_view name)
+            : name(name)
+        { }
+
         float3 cameraPosition = { -10.0f, 0.0f, 0.0f };
         float3 cameraRotation = { 1.0f, 0.0f, 0.0f };
 
         IProjection *pProjection = nullptr;
 
         template<std::derived_from<IGameObject> T, typename... A>
-            requires std::is_constructible_v<T, GameLevel*, A...>
+            //requires std::is_constructible_v<T, GameLevel*, A...>
         T *addObject(A&&... args) {
             auto pObject = new T(this, args...);
             simcoe::logInfo("adding object: {}", (void*)pObject);
@@ -226,11 +236,13 @@ namespace editor::game {
         std::unordered_set<IGameObject*> pending;
         std::unordered_set<IGameObject*> retired;
 
+        std::string_view name = "GameLevel";
+
     public:
         std::vector<IGameObject*> objects;
         std::recursive_mutex lock;
 
-        const char *name = "GameLevel";
+        std::string_view getName() const { return name; }
         virtual void debug();
     };
 }

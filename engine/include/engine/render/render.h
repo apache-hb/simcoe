@@ -413,7 +413,6 @@ namespace simcoe::render {
     public:
         // modifiable state
         std::atomic_bool bAllowTearing = false;
-        std::atomic_uint syncInterval = 1;
 
         // info
         bool bReportedFullscreen = false;

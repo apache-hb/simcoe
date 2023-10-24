@@ -13,12 +13,23 @@ using namespace simcoe::math;
 using namespace editor;
 
 namespace swarm {
+    enum ObjectType {
+        eAlien,
+        ePlayer,
+        eEgg,
+        eAggroAlien,
+        eBullet,
+        eLife,
+        eGrid,
+        eGameOver
+    };
+
     struct OSwarmObject : game::IGameObject {
-        OSwarmObject(game::GameLevel *pLevel, std::string name)
-            : game::IGameObject(pLevel, name)
+        OSwarmObject(game::GameLevel *pLevel, std::string name, ObjectType type)
+            : game::IGameObject(pLevel, name, size_t(type))
         { }
 
-        virtual void onHit() = 0;
+        virtual void onHit() { }
     };
 
     struct OAlien : OSwarmObject {
@@ -26,7 +37,7 @@ namespace swarm {
 
         void tick(float delta) override;
 
-        void onHit() override { pLevel->deleteObject(this); }
+        void onHit() override { retire(); }
 
     private:
         // config
@@ -52,12 +63,12 @@ namespace swarm {
         std::uniform_real_distribution<float> dist;
     };
 
-    struct OBullet : game::IGameObject {
+    struct OBullet : OSwarmObject {
         OBullet(game::GameLevel *pLevel, IGameObject *pParent, float2 velocity);
 
         void tick(float delta) override;
 
-        bool isParent(IGameObject *pObject) const;
+        bool canCollide(IGameObject *pOther) const;
 
     private:
         // bullet logic
@@ -65,8 +76,10 @@ namespace swarm {
         float2 velocity; // velocity vector
     };
 
-    struct OLife : game::IGameObject {
+    struct OLife : OSwarmObject {
         OLife(game::GameLevel *pLevel, size_t life);
+
+        void onHit() override { }
     };
 
     struct OPlayer : OSwarmObject {
@@ -88,7 +101,7 @@ namespace swarm {
         void tryShootBullet(float angle);
 
         float lastFire = 0.f;
-        float fireRate = 0.3f;
+        float fireRate = 0.01f; // seconds between shots
 
         ///////////////////////////////////
         /// life handling logic
@@ -161,7 +174,7 @@ namespace swarm {
         bool bMovingRight = false;
     };
 
-    struct OGrid : game::IGameObject {
+    struct OGrid : OSwarmObject {
         OGrid(game::GameLevel *pLevel, std::string name);
     };
 

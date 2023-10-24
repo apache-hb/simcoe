@@ -13,14 +13,14 @@ namespace {
     static constexpr auto kProjectionNames = std::to_array({ "Perspective", "Orthographic" });
 
     PlayLevel *getPlayLevel(GameLevel *pLevel) {
-        return static_cast<PlayLevel*>(pLevel);
+        return reinterpret_cast<PlayLevel*>(pLevel);
     }
 }
 
 // alien
 
 OAlien::OAlien(GameLevel *pLevel, std::string name)
-    : OSwarmObject(pLevel, name)
+    : OSwarmObject(pLevel, name, eAlien)
 {
     const auto *pSwarm = getPlayLevel(pLevel);
 
@@ -79,7 +79,7 @@ bool OAlien::canSpawnEgg() const {
 // bullet
 
 OBullet::OBullet(GameLevel *pLevel, IGameObject *pParent, float2 velocity)
-    : IGameObject(pLevel, "bullet")
+    : OSwarmObject(pLevel, "bullet", eBullet)
     , pParent(pParent)
     , velocity(velocity)
 {
@@ -93,28 +93,32 @@ OBullet::OBullet(GameLevel *pLevel, IGameObject *pParent, float2 velocity)
 void OBullet::tick(float delta) {
     position += float3::from(0.f, velocity * delta);
 
-    for (auto pObject : pLevel->getObjects()) {
-        if (isParent(pObject)) continue;
+    auto *pSwarm = getPlayLevel(pLevel);
+    for (IGameObject *pObject : pSwarm->nonBulletObjects) {
+        if (!canCollide(pObject)) continue;
 
-        if (auto pSelf = dynamic_cast<OSwarmObject*>(pObject); pSelf != nullptr) {
-            float distance = (pSelf->position.yz() - position.yz()).length();
-            if (distance < 0.3f) {
-                pSelf->onHit();
-                this->retire();
-                return;
-            }
+        float distance = (pObject->position.yz() - position.yz()).length();
+        if (distance > 0.3f) continue;
+
+        if (auto pHit = dynamic_cast<OSwarmObject*>(pObject); pHit != nullptr) {
+            pHit->onHit();
+            this->retire();
+            return;
+        } else {
+            simcoe::logInfo("hit non-swarm object: {}", pObject->getName());
         }
     }
 }
 
-bool OBullet::isParent(IGameObject *pObject) const {
-    return pParent == pObject;
+bool OBullet::canCollide(IGameObject *pOther) const {
+    return pOther->getId() != getId() // dont collide with self
+        && pOther->getId() != pParent->getId(); // dont collide with parent
 }
 
 // lives
 
 OLife::OLife(GameLevel *pLevel, size_t life)
-    : IGameObject(pLevel, std::format("life-{}", life))
+    : OSwarmObject(pLevel, std::format("life-{}", life), eLife)
 {
     setMesh("ship.model");
     setTexture("player.png");
@@ -124,7 +128,7 @@ OLife::OLife(GameLevel *pLevel, size_t life)
 // player
 
 OPlayer::OPlayer(GameLevel *pLevel, std::string name)
-    : OSwarmObject(pLevel, name)
+    : OSwarmObject(pLevel, name, ePlayer)
 {
     auto *pSwarm = getPlayLevel(pLevel);
 
@@ -249,7 +253,7 @@ void OPlayer::debug() {
 // eggs
 
 OEgg::OEgg(GameLevel *pLevel, std::string name)
-    : OSwarmObject(pLevel, name)
+    : OSwarmObject(pLevel, name, eEgg)
 {
     setMesh("egg-small.model");
     setTexture("alien.png");
@@ -284,7 +288,7 @@ float2 OEgg::getShootVector(IGameObject *pTarget) const {
 // aggro alien
 
 OAggroAlien::OAggroAlien(game::GameLevel *pLevel, IGameObject *pParent)
-    : OSwarmObject(pLevel, "aggro-alien")
+    : OSwarmObject(pLevel, "aggro-alien", eAggroAlien)
     , pParent(pParent)
 {
     setMesh("alien.model");
@@ -341,7 +345,7 @@ void OAggroAlien::hitPlayer() {
 // grid
 
 OGrid::OGrid(GameLevel *pLevel, std::string name)
-    : IGameObject(pLevel, name)
+    : OSwarmObject(pLevel, name, eGrid)
 {
     setMesh("grid.model");
     setTexture("cross.png");
@@ -350,7 +354,7 @@ OGrid::OGrid(GameLevel *pLevel, std::string name)
 // plane
 
 OGameOver::OGameOver(game::GameLevel *pLevel, std::string name)
-    : IGameObject(pLevel, name)
+    : IGameObject(pLevel, name, eGameOver)
 {
     setMesh("plane.model");
     setTexture("death.png");
@@ -372,8 +376,9 @@ void OGameOver::tick(float delta) {
 
 // game level
 
-PlayLevel::PlayLevel() {
-    name = "Swarm:PlayLevel";
+PlayLevel::PlayLevel()
+    : GameLevel("Swarm:PlayLevel")
+{
     pProjection = projections[currentProjection];
 
     pAlien = newObject<OAlien>("alien");
@@ -423,8 +428,9 @@ void PlayLevel::debug() {
 
 // game over
 
-GameOverLevel::GameOverLevel() {
-    name = "Swarm:GameOverLevel";
+GameOverLevel::GameOverLevel()
+    : GameLevel("Swarm:GameOverLevel")
+{
     pProjection = new game::Orthographic(24.f, 24.f);
 
     addObject<OGameOver>("game-over");

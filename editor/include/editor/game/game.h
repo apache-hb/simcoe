@@ -16,14 +16,20 @@ namespace editor::game {
         Instance(Graph *pGraph);
         ~Instance();
 
+        // game thread
         tasks::WorkQueue *pGameQueue = new tasks::WorkQueue{64};
         void setupGame();
         void updateGame();
 
+        // render thread
         tasks::WorkQueue *pRenderQueue = new tasks::WorkQueue{64};
         void setupRender();
         void updateRender();
+    private:
+        size_t renderFaultLimit = 3;
+        size_t renderFaultCount = 0;
 
+    public:
         ///
         /// state machine
         ///
