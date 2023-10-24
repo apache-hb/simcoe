@@ -93,7 +93,7 @@ namespace editor::graph {
     };
 
     struct TextHandle final : ITextureHandle, ISingleSRVHandle {
-        TextHandle(Graph *ctx, std::string_view name, std::u32string text);
+        TextHandle(Graph *ctx, std::string_view name, utf8::StaticText text);
 
         void create() override;
         void destroy() override;
@@ -101,6 +101,6 @@ namespace editor::graph {
     private:
         assets::Font font;
         assets::Image bitmap;
-        std::u32string text;
+        utf8::StaticText text;
     };
 }

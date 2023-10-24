@@ -165,7 +165,7 @@ namespace {
     }
 }
 
-TextHandle::TextHandle(Graph *ctx, std::string_view name, std::u32string text)
+TextHandle::TextHandle(Graph *ctx, std::string_view name, utf8::StaticText text)
     : ISingleResourceHandle(ctx, std::string(name))
     , font(loadFont(ctx->getCreateInfo(), name))
     , text(text)

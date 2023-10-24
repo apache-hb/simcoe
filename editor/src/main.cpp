@@ -209,7 +209,7 @@ struct GameGui final : graph::IGuiPass {
         : IGuiPass(ctx, pRenderTarget)
         , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTextureRead))
     {
-        pTextHandle = graph->addResource<graph::TextHandle>("arial", U"Hello world using freetype2 & harfbuzz! \u263a");
+        pTextHandle = graph->addResource<graph::TextHandle>("segoeui", u8"Hello world using freetype2 & harfbuzz! \u2182");
         pTextAttachment = addAttachment(pTextHandle, rhi::ResourceState::eTextureRead);
     }
 

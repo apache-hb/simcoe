@@ -6,7 +6,7 @@
 
 #include "engine/assets/image.h"
 
-#include <string_view>
+#include "engine/util/text.h"
 
 namespace simcoe::assets {
     struct Font {
@@ -15,7 +15,7 @@ namespace simcoe::assets {
 
         void setFontSize(int pt, int dpi);
 
-        Image drawText(std::u32string_view text);
+        Image drawText(utf8::StaticText text);
 
     private:
         FT_Library library;
