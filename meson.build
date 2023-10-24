@@ -10,7 +10,23 @@ project('simcoe', 'cpp',
 ### config
 ###
 
-is_release = get_option('buildtype').startswith('release')
+buildtype = get_option('buildtype')
+is_release = buildtype.contains('release')
+is_debug = buildtype.contains('debug')
+
+# if we're building in release mode, we dont want render debugging
+debug_render = get_option('debug-render').disable_auto_if(is_release)
+
+# if we're building in release mode, we want a gui app
+gui_app = get_option('gui-app').enable_auto_if(is_release)
+
+# if we're building for release, we want a windows store bundle
+package_app = get_option('windows-store').enable_auto_if(is_release)
+
+message('buildtype:', buildtype)
+message('render debug layers:', debug_render.allowed())
+message('building as a windows gui app:', gui_app.enabled())
+message('packaging for windows store deploy:', package_app.enabled())
 
 ###
 ### deps
@@ -31,7 +47,7 @@ threads = dependency('threads')
 
 args = [ ]
 
-if not is_release
+if debug_render.allowed()
     args += [ '-DDEBUG_RENDER=1' ]
 endif
 
@@ -255,11 +271,15 @@ deps = [
     tinyobj, fastgltf,
 ]
 
+editor_args = args + [
+    '-DEDITOR=1'
+]
+
 editor = executable('editor', src,
     dependencies : deps,
     include_directories : [ 'editor/include' ],
-    cpp_args : args,
-    gui_app : is_release
+    cpp_args : editor_args,
+    gui_app : gui_app.enabled()
 )
 
 ###
@@ -268,13 +288,18 @@ editor = executable('editor', src,
 
 src = [ 'client/src/main.cpp' ]
 
+client_args = args + [
+    '-DCLIENT=1'
+]
+
 client = executable('client', src,
     dependencies : engine,
-    include_directories : [ 'client/include' ]
+    include_directories : [ 'client/include' ],
+    cpp_args : client_args,
+    gui_app : gui_app.enabled()
 )
 
-if is_release
-    layout = data_dir/'config/layout.xml'
+if package_app.enabled()
     # mkdir bundle
     # makepkg pack /f data/config/layout.xml /lt /d build /nogameos /pc /pd bundle
     # wdapp install bundle\32190Simcoe.Swarm1983_1.0.0.0_x64__7vy8vpnrb1vvr.msixvc /bootstrapper

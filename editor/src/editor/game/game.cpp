@@ -29,10 +29,7 @@ void Instance::updateGame() {
         return;
     }
 
-    float now = clock.now();
-    float delta = now - lastTime;
-    lastTime = now;
-    tick(delta);
+    tick(gameUpdateStep.tick());
 }
 
 void Instance::setupRender() {
@@ -45,6 +42,7 @@ void Instance::updateRender() {
     }
 
     try {
+        renderUpdateStep.tick();
         pGraph->execute();
     } catch (std::runtime_error& err) {
         renderFaultCount += 1;

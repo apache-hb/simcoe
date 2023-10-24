@@ -9,15 +9,14 @@ TimeStep::TimeStep(float minimumDelta)
 { }
 
 float TimeStep::tick() {
-    float time = clock.now();
-    float delta = time - lastTime;
+    // sleep until the time since the last tick is more than minimumDelta
 
-    while (delta < minimumDelta) {
-        time = clock.now();
-        delta = time - lastTime;
-    }
+    float beforeSleep = lastTime;
+    float timeSinceLastTick = clock.now() - lastTime;
 
-    lastTime = time;
+    std::this_thread::sleep_for(std::chrono::duration<float>(minimumDelta - timeSinceLastTick));
 
-    return delta;
+    lastTime = clock.now();
+
+    return lastTime - beforeSleep;
 }

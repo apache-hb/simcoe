@@ -18,11 +18,13 @@ namespace editor::game {
 
         // game thread
         tasks::WorkQueue *pGameQueue = new tasks::WorkQueue{64};
+        util::TimeStep gameUpdateStep{1.f / 60.f};
         void setupGame();
         void updateGame();
 
         // render thread
         tasks::WorkQueue *pRenderQueue = new tasks::WorkQueue{64};
+        util::TimeStep renderUpdateStep{1.f / 240.f};
         void setupRender();
         void updateRender();
     private:
@@ -80,10 +82,7 @@ namespace editor::game {
 
     private:
         system::Clock clock;
-        float lastTime = 0.f;
         float timeScale = 1.f;
-
-
 
         ///
         /// debug

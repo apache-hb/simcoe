@@ -101,7 +101,7 @@ namespace swarm {
         void tryShootBullet(float angle);
 
         float lastFire = 0.f;
-        float fireRate = 0.01f; // seconds between shots
+        float fireRate = 0.25f; // seconds between shots
 
         ///////////////////////////////////
         /// life handling logic

@@ -1,0 +1,17 @@
+option('debug-render',
+    description : 'enable render debug layers',
+    type : 'feature',
+    value : 'auto'
+)
+
+option('gui-app',
+    description : 'enable gui app',
+    type : 'feature',
+    value : 'auto'
+)
+
+option('windows-store',
+    description : 'package for windows store',
+    type : 'feature',
+    value : 'auto'
+)
