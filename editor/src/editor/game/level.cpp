@@ -34,15 +34,19 @@ IGameObject::IGameObject(GameLevel *pLevel, std::string name)
 }
 
 void IGameObject::setTexture(const fs::path& path) {
-    game::getInstance()->loadTexture(path, [this](auto *pTexture) {
-        this->pTexture = pTexture;
+    game::getInstance()->loadTexture(path, [this](auto *pNewTexture) {
+        pTexture = pNewTexture;
     });
 }
 
 void IGameObject::setMesh(const fs::path& path) {
-    game::getInstance()->loadMesh(path, [this](auto *pMesh) {
-        this->pMesh = pMesh;
+    game::getInstance()->loadMesh(path, [this](auto *pNewMesh) {
+        pMesh = pNewMesh;
     });
+}
+
+void IGameObject::retire() {
+    pLevel->deleteObject(this);
 }
 
 void IGameObject::objectDebug() {
@@ -72,7 +76,7 @@ void GameLevel::deleteObject(IGameObject *pObject) {
 void GameLevel::beginTick() {
     std::lock_guard guard(lock);
 
-    for (auto *pObject : pending)
+    for (IGameObject *pObject : pending)
         objects.emplace_back(pObject);
 
     pending.clear();
@@ -81,9 +85,9 @@ void GameLevel::beginTick() {
 void GameLevel::endTick() {
     std::lock_guard guard(lock);
 
-    for (auto *pObject : retired) {
+    for (IGameObject *pObject : retired) {
         std::erase(objects, pObject);
-        delete pObject;
+        //delete pObject; TODO: make sure all async tasks related to this object are done
     }
 
     retired.clear();
@@ -91,7 +95,7 @@ void GameLevel::endTick() {
 
 void GameLevel::debug() {
     if (ImGui::CollapsingHeader("Objects")) {
-        useEachObject([](IGameObject *pObject) {
+        useEachObject([](auto pObject) {
             debug::DebugHandle *pDebug = pObject->getDebugHandle();
             ImGui::SeparatorText(pDebug->getName());
 

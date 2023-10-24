@@ -12,14 +12,17 @@ namespace editor::game {
 
     namespace fs = assets::fs;
 
-    struct Instance : tasks::WorkThread {
+    struct Instance {
         Instance(Graph *pGraph);
         ~Instance();
 
-        // tasks::WorkThread
-        void run(std::stop_token token) override;
+        tasks::WorkQueue *pGameQueue = new tasks::WorkQueue{64};
+        void setupGame();
+        void updateGame();
 
-
+        tasks::WorkQueue *pRenderQueue = new tasks::WorkQueue{64};
+        void setupRender();
+        void updateRender();
 
         ///
         /// state machine
@@ -71,8 +74,7 @@ namespace editor::game {
 
     private:
         system::Clock clock;
-        util::TimeStep updateRate{1 / 120.f};
-        float lastTick = 0.f;
+        float lastTime = 0.f;
         float timeScale = 1.f;
 
 

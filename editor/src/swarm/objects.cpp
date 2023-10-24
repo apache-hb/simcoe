@@ -67,7 +67,7 @@ void OAlien::spawnEgg() {
     float vertical = roundf(dist(rng));
     float horizontal = roundf(position.y);
 
-    auto *pEgg = pSwarm->newObject<OEgg>("egg");
+    auto pEgg = pSwarm->newObject<OEgg>("egg");
     pEgg->position = float3::from(2.f, horizontal, vertical);
 }
 
@@ -93,14 +93,14 @@ OBullet::OBullet(GameLevel *pLevel, IGameObject *pParent, float2 velocity)
 void OBullet::tick(float delta) {
     position += float3::from(0.f, velocity * delta);
 
-    for (auto *pObject : pLevel->getObjects()) {
+    for (auto pObject : pLevel->getObjects()) {
         if (isParent(pObject)) continue;
 
-        if (OSwarmObject *pSelf = dynamic_cast<OSwarmObject*>(pObject); pSelf != nullptr) {
+        if (auto pSelf = dynamic_cast<OSwarmObject*>(pObject); pSelf != nullptr) {
             float distance = (pSelf->position.yz() - position.yz()).length();
             if (distance < 0.3f) {
                 pSelf->onHit();
-                pLevel->deleteObject(this);
+                this->retire();
                 return;
             }
         }
@@ -197,7 +197,7 @@ void OPlayer::addLife() {
 
     auto *pSwarm = getPlayLevel(pLevel);
 
-    OLife *pLife = pSwarm->newObject<OLife>(currentLives);
+    auto pLife = pSwarm->newObject<OLife>(currentLives);
     pLife->position = pSwarm->getWorldPos(float(pSwarm->getWidth() - currentLives - 1), -1.f);
     pLife->rotation = { -90 * kDegToRad<float>, 0.f, 0.f };
     lifeObjects.push_back(pLife);
@@ -206,14 +206,13 @@ void OPlayer::addLife() {
 
 void OPlayer::removeLife() {
     if (currentLives == 0) {
-        game::getInstance()->add("game-over", [] {
-            game::getInstance()->pushLevel(new GameOverLevel());
-        });
+        game::Instance *pGame = game::getInstance();
+        pGame->pushLevel(new GameOverLevel());
         return;
     }
 
     currentLives -= 1;
-    pLevel->deleteObject(lifeObjects.back());
+    lifeObjects.back()->retire();
     lifeObjects.pop_back();
 }
 
@@ -226,7 +225,7 @@ void OPlayer::tryShootBullet(float angle) {
 
         float2 velocity = float2::from(std::cos(angle), std::sin(angle)) * bulletSpeed;
 
-        auto *pBullet = pSwarm->newObject<OBullet>(this, velocity);
+        auto pBullet = pSwarm->newObject<OBullet>(this, velocity);
         pBullet->position = position;
         pBullet->rotation = rotation;
     }
@@ -262,10 +261,10 @@ void OEgg::tick(float delta) {
     timeAlive += delta;
 
     if (timeAlive > timeToHatch) {
-        auto *pBullet = pSwarm->newObject<OAggroAlien>(pSwarm->getAlien());
+        auto pBullet = pSwarm->newObject<OAggroAlien>(pSwarm->getAlien());
         pBullet->position = position;
 
-        pLevel->deleteObject(this);
+        this->retire();
     } else if (timeAlive > timeToLarge) {
         setMesh("egg-large.model");
     } else if (timeAlive > timeToMedium) {
@@ -284,7 +283,7 @@ float2 OEgg::getShootVector(IGameObject *pTarget) const {
 
 // aggro alien
 
-OAggroAlien::OAggroAlien(game::GameLevel *pLevel, game::IGameObject *pParent)
+OAggroAlien::OAggroAlien(game::GameLevel *pLevel, IGameObject *pParent)
     : OSwarmObject(pLevel, "aggro-alien")
     , pParent(pParent)
 {
@@ -329,13 +328,13 @@ bool OAggroAlien::canMove() const {
 }
 
 void OAggroAlien::hitPlayer() {
-    auto *pSwarm = getPlayLevel(pLevel);
-    auto *pPlayer = pSwarm->getPlayer();
+    auto pSwarm = getPlayLevel(pLevel);
+    auto pPlayer = pSwarm->getPlayer();
 
     float distance = (pPlayer->position.yz() - position.yz()).length();
     if (distance < 0.3f) {
         pPlayer->onHit();
-        pLevel->deleteObject(this);
+        this->retire();
     }
 }
 
@@ -365,13 +364,9 @@ void OGameOver::tick(float delta) {
     auto *pInput = swarm::getInputClient();
 
     if (pInput->isShootPressed()) {
-        game::getInstance()->add("play-level", [] {
-            game::getInstance()->pushLevel(new swarm::PlayLevel());
-        });
+        game::getInstance()->pushLevel(new swarm::PlayLevel());
     } else if (pInput->isQuitPressed()) {
-        game::getInstance()->add("quit", [] {
-            game::getInstance()->quit();
-        });
+        game::getInstance()->quit();
     }
 }
 
@@ -391,7 +386,7 @@ PlayLevel::PlayLevel() {
 }
 
 void PlayLevel::tick(float delta) {
-    useEachObject([this, delta](IGameObject *pObject) {
+    useEachObject([this, delta](auto pObject) {
         if (shouldCullObject(pObject))
             deleteObject(pObject);
         else
@@ -436,7 +431,7 @@ GameOverLevel::GameOverLevel() {
 }
 
 void GameOverLevel::tick(float delta) {
-    useEachObject([delta](IGameObject *pObject) {
+    useEachObject([delta](auto pObject) {
         pObject->tick(delta);
     });
 }

@@ -10,29 +10,37 @@ Instance* game::getInstance() { return gInstance; }
 void game::setInstance(Instance *pInstance) { gInstance = pInstance; }
 
 Instance::Instance(render::Graph *pGraph)
-    : tasks::WorkThread(64, "game")
-    , pGraph(pGraph)
+    : pGraph(pGraph)
 {
-    pDefaultMesh = newObjMesh("default.model");
-    pDefaultTexture = newTexture("default.png");
+
 }
 
 Instance::~Instance() {
     quit();
-    stop();
 }
 
-// tasks::WorkThread
-void Instance::run(std::stop_token token) {
-    while (!token.stop_requested()) {
-        if (process()) {
-            continue;
-        }
+void Instance::setupGame() {
+    pDefaultMesh = newObjMesh("default.model");
+    pDefaultTexture = newTexture("default.png");
+}
 
-        if (bShouldQuit) break;
+void Instance::updateGame() {
+    pGameQueue->process();
 
-        tick(updateRate.tick() * timeScale);
-    }
+    float now = clock.now();
+    float delta = now - lastTime;
+    lastTime = now;
+    tick(delta);
+}
+
+void Instance::setupRender() {
+
+}
+
+void Instance::updateRender() {
+    pRenderQueue->process();
+
+    pGraph->execute();
 }
 
 ///
@@ -40,27 +48,31 @@ void Instance::run(std::stop_token token) {
 ///
 
 void Instance::pushLevel(GameLevel *pLevel) {
-    if (GameLevel *pCurrent = getActiveLevel()) {
-        pCurrent->pause();
-    }
+    pGameQueue->add("push-level", [this, pLevel] {
+        if (GameLevel *pCurrent = getActiveLevel()) {
+            pCurrent->pause();
+        }
 
-    pLevel->resume();
+        pLevel->resume();
 
-    std::lock_guard lock(gameMutex);
-    levels.push_back(pLevel);
+        std::lock_guard lock(gameMutex);
+        levels.push_back(pLevel);
+    });
 }
 
 void Instance::popLevel() {
-    if (GameLevel *pCurrent = getActiveLevel()) {
-        pCurrent->pause();
+    pGameQueue->add("pop-level", [this] {
+        if (GameLevel *pCurrent = getActiveLevel()) {
+            pCurrent->pause();
 
-        std::lock_guard lock(gameMutex);
-        levels.pop_back();
-    }
+            std::lock_guard lock(gameMutex);
+            levels.pop_back();
+        }
 
-    if (GameLevel *pCurrent = getActiveLevel()) {
-        pCurrent->resume();
-    }
+        if (GameLevel *pCurrent = getActiveLevel()) {
+            pCurrent->resume();
+        }
+    });
 }
 
 void Instance::quit() {
@@ -72,7 +84,7 @@ void Instance::quit() {
 ///
 
 void Instance::loadMesh(const fs::path& path, std::function<void(render::IMeshBufferHandle*)> callback) {
-    add("load-mesh", [this, path, callback] {
+    pRenderQueue->add("load-mesh", [this, path, callback] {
         if (auto it = meshes.find(path); it != meshes.end()) {
             callback(it->second);
             return;
@@ -85,7 +97,7 @@ void Instance::loadMesh(const fs::path& path, std::function<void(render::IMeshBu
 }
 
 void Instance::loadTexture(const fs::path& path, std::function<void(ResourceWrapper<graph::TextureHandle>*)> callback) {
-    add("load-texture", [this, path, callback] {
+    pRenderQueue->add("load-texture", [this, path, callback] {
         if (auto it = textures.find(path); it != textures.end()) {
             callback(it->second);
             return;
@@ -113,8 +125,6 @@ ResourceWrapper<graph::TextureHandle> *Instance::newTexture(const fs::path& path
 ///
 
 void Instance::tick(float delta) {
-    lastTick = delta;
-
     if (GameLevel *pCurrent = getActiveLevel()) {
         pCurrent->beginTick();
         pCurrent->tick(delta * timeScale);
@@ -128,8 +138,6 @@ void Instance::tick(float delta) {
 
 void Instance::debug() {
     ImGui::SliderFloat("Time Scale", &timeScale, 0.f, 2.f);
-    ImGui::Text("Updates per second: %f", 1.f / lastTick);
-    ImGui::Text("Update Rate: %f", updateRate.getDelta());
     ImGui::Text("Current Time: %f", clock.now());
 
     if (GameLevel *pCurrent = getActiveLevel()) {

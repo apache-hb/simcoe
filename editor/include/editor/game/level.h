@@ -124,7 +124,7 @@ namespace editor::game {
 
     struct GameLevel;
 
-    struct IGameObject {
+    struct IGameObject : std::enable_shared_from_this<IGameObject> {
         IGameObject(GameLevel *pLevel, std::string name);
 
         virtual ~IGameObject() = default;
@@ -135,13 +135,16 @@ namespace editor::game {
 
         std::string_view getName() const { return name; }
         render::IMeshBufferHandle *getMesh() const { return pMesh; }
-        render::ResourceWrapper<graph::TextureHandle> *getTexture() const { return pTexture; }
+        render::ResourceWrapper<graph::TextureHandle> *getTexture() const {
+            return pTexture;
+        }
 
         virtual void tick(float delta) { }
         virtual void debug() { }
 
         bool canCull() const { return bShouldCull; }
         debug::DebugHandle *getDebugHandle() { return debugHandle.get(); }
+        void retire();
 
     protected:
         void setTexture(const fs::path& path);
@@ -172,9 +175,11 @@ namespace editor::game {
 
         IProjection *pProjection = nullptr;
 
-        template<std::derived_from<IGameObject> T, typename... A> requires std::is_constructible_v<T, GameLevel*, A...>
+        template<std::derived_from<IGameObject> T, typename... A>
+            requires std::is_constructible_v<T, GameLevel*, A...>
         T *addObject(A&&... args) {
-            T *pObject = new T(this, args...);
+            auto pObject = new T(this, args...);
+            simcoe::logInfo("adding object: {}", (void*)pObject);
 
             std::lock_guard guard(lock);
             pending.emplace(pObject);
@@ -182,6 +187,7 @@ namespace editor::game {
         }
 
         void removeObject(IGameObject *pObject) {
+            simcoe::logInfo("deleting object: {}", (void*)pObject);
             std::lock_guard guard(lock);
             std::erase(objects, pObject);
         }
@@ -189,7 +195,7 @@ namespace editor::game {
         template<typename F> requires std::invocable<F, IGameObject*>
         void useEachObject(F&& func) {
             std::lock_guard guard(lock);
-            for (auto& pObject : objects)
+            for (auto pObject : objects)
                 func(pObject);
         }
 

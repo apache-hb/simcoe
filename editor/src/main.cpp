@@ -61,6 +61,7 @@ static constexpr auto kWindowHeight = 1080;
 
 // system
 static system::System *pSystem = nullptr;
+static game::Instance *pGame = nullptr;
 
 // window mode
 static system::Window *pWindow = nullptr;
@@ -69,8 +70,6 @@ static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless
 
 /// threads
 static tasks::WorkQueue *pMainQueue = nullptr;
-static tasks::WorkThread *pWorkThread = nullptr;
-static tasks::WorkThread *pRenderThread = nullptr;
 
 /// input
 static input::Win32Keyboard *pKeyboard = nullptr;
@@ -143,17 +142,14 @@ struct GameWindow final : system::IWindowCallbacks {
     void onClose() override {
         bWindowOpen = false;
 
-        delete pWorkThread;
-        delete pRenderThread;
-        pSystem->quit();
+        pGame->quit();
     }
 
     void onResize(const system::ResizeEvent& event) override {
         if (!bWindowOpen) return;
-        if (!pRenderThread) return;
-        if (!pGraph) return;
+        if (!pGame) return;
 
-        pRenderThread->add("resize-display", [&, w = event.width, h = event.height] {
+        pGame->pRenderQueue->add("resize-display", [&, w = event.width, h = event.height] {
             pGraph->resizeDisplay(w, h);
             logInfo("resize-display: {}x{}", w, h);
         });
@@ -433,7 +429,7 @@ struct GameGui final : graph::IGuiPass {
 
             int currentWindowMode = gWindowMode;
             if (ImGui::Combo("Window mode", &currentWindowMode, kWindowModeNames.data(), kWindowModeNames.size())) {
-                pRenderThread->add("change-window-mode", [oldMode = gWindowMode, newMode = currentWindowMode] {
+                pGame->pRenderQueue->add("change-window-mode", [oldMode = gWindowMode, newMode = currentWindowMode] {
                     changeWindowMode(WindowMode(oldMode), WindowMode(newMode));
                 });
             }
@@ -449,21 +445,21 @@ struct GameGui final : graph::IGuiPass {
             ImGui::Text("DXGI reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
 
             if (ImGui::SliderInt2("Internal resolution", renderSize, 64, 4096)) {
-                pRenderThread->add("resize-render", [this] {
+                pGame->pRenderQueue->add("resize-render", [this] {
                     pGraph->resizeRender(renderSize[0], renderSize[1]);
                     logInfo("resize-render: {}x{}", renderSize[0], renderSize[1]);
                 });
             }
 
             if (ImGui::SliderInt("backbuffer count", &backBufferCount, 2, 8)) {
-                pRenderThread->add("change-backbuffers", [this] {
+                pGame->pRenderQueue->add("change-backbuffers", [this] {
                     pGraph->changeBackBufferCount(backBufferCount);
                     logInfo("change-backbuffer-count: {}", backBufferCount);
                 });
             }
 
             if (ImGui::Combo("Adapter", &currentAdapter, adapterNames.data(), adapterNames.size())) {
-                pRenderThread->add("change-adapter", [this] {
+                pGame->pRenderQueue->add("change-adapter", [this] {
                     pGraph->changeAdapter(currentAdapter);
                     logInfo("change-adapter: {}", currentAdapter);
                 });
@@ -584,8 +580,7 @@ CommandLine getCommandLine() {
 ///
 
 static void commonMain(const std::filesystem::path& path) {
-    std::unique_ptr<tasks::WorkQueue> mainQueue{pMainQueue = new tasks::WorkQueue(64)};
-    pWorkThread = new tasks::WorkThread(64, "work");
+    pMainQueue = new tasks::WorkQueue(64);
 
     GdkInit gdkInit;
 
@@ -603,10 +598,10 @@ static void commonMain(const std::filesystem::path& path) {
         .pCallbacks = &gWindowCallbacks
     };
 
-    std::unique_ptr<system::Window> window{pWindow = pSystem->createWindow(windowCreateInfo)};
+    pWindow = pSystem->createWindow(windowCreateInfo);
     auto [realWidth, realHeight] = pWindow->getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
 
-    std::unique_ptr<input::Manager> input{pInput = new input::Manager()};
+    pInput = new input::Manager();
     pInput->addSource(pKeyboard = new input::Win32Keyboard());
     pInput->addSource(pMouse = new input::Win32Mouse(pWindow, true));
     pInput->addSource(pGamepad0 = new input::XInputGamepad(0));
@@ -629,82 +624,102 @@ static void commonMain(const std::filesystem::path& path) {
     // move the render context into the render thread to prevent hangs on shutdown
     render::Context *pContext = render::Context::create(renderCreateInfo);
     pGraph = new Graph(pContext);
+    pGame = new game::Instance(pGraph);
+    game::setInstance(pGame);
 
-    game::setInstance(new game::Instance(pGraph));
+    // setup render
 
-    pRenderThread = newTask("render", [](tasks::WorkQueue *pSelf, std::stop_token token) {
-        size_t faultCount = 0;
-        size_t faultLimit = 3;
+    pGame->setupRender();
 
-        simcoe::logInfo("render fault limit: {} faults", faultLimit);
+    auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
+    auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
+    auto *pDepthTarget = pGraph->addResource<graph::DepthTargetHandle>();
 
-        // TODO: this is a little stupid
-        try {
-            auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
-            auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
-            auto *pDepthTarget = pGraph->addResource<graph::DepthTargetHandle>();
+    pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>());
 
-            pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>());
+    pGraph->addPass<graph::GameLevelPass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
 
-            pGraph->addPass<graph::GameLevelPass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
+    //pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
+    pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
+    pGraph->addPass<graph::PresentPass>(pBackBuffers);
 
-            //pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
-            pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
-            pGraph->addPass<graph::PresentPass>(pBackBuffers);
+    // setup game
 
-            game::getInstance()->add("create-level", [] {
-                game::getInstance()->pushLevel(new swarm::PlayLevel());
-            });
+    pGame->setupGame();
+    pGame->pushLevel(new swarm::PlayLevel());
 
-            while (!token.stop_requested()) {
-                if (pSelf->process()) {
-                    continue; // TODO: this is also a little stupid
-                }
+    // pRenderThread = newTask("render", [](tasks::WorkQueue *pSelf, std::stop_token token) {
+    //     size_t faultCount = 0;
+    //     size_t faultLimit = 3;
 
-                try {
-                    pGraph->execute();
-                } catch (std::runtime_error& err) {
-                    simcoe::logError("render exception: {}", err.what());
+    //     simcoe::logInfo("render fault limit: {} faults", faultLimit);
 
-                    faultCount += 1;
-                    simcoe::logError("render fault. {} total fault{}", faultCount, faultCount > 1 ? "s" : "");
-                    if (faultCount > faultLimit) {
-                        simcoe::logError("render thread fault limit reached. exiting");
-                        break;
-                    }
+    //     // TODO: this is a little stupid
+    //     try {
+    //         auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
+    //         auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
+    //         auto *pDepthTarget = pGraph->addResource<graph::DepthTargetHandle>();
 
-                    pRenderThread->add("resume", [] {
-                        pGraph->resumeFromFault();
-                        changeWindowMode(eNone, WindowMode(gWindowMode));
-                    });
-                } catch (...) {
-                    simcoe::logError("unknown thread exception. exiting");
-                    break;
-                }
-            }
-        } catch (std::runtime_error& err) {
-            simcoe::logError("render thread exception during startup: {}", err.what());
-        }
+    //         pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>());
 
-        delete game::getInstance();
-        delete pGraph;
-    });
+    //         pGraph->addPass<graph::GameLevelPass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
 
-    std::jthread inputThread([](auto token) {
-        system::setThreadName("input");
+    //         //pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
+    //         pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
+    //         pGraph->addPass<graph::PresentPass>(pBackBuffers);
 
-        while (!token.stop_requested()) {
-            pInput->poll();
-        }
-    });
+    //         game::getInstance()->pushLevel(new swarm::PlayLevel());
 
-    while (pSystem->getEvent()) {
-        pSystem->dispatchEvent();
+    //         while (!token.stop_requested()) {
+    //             if (pSelf->process()) {
+    //                 continue; // TODO: this is also a little stupid
+    //             }
+
+    //             try {
+    //                 pGraph->execute();
+    //             } catch (std::runtime_error& err) {
+    //                 simcoe::logError("render exception: {}", err.what());
+
+    //                 faultCount += 1;
+    //                 simcoe::logError("render fault. {} total fault{}", faultCount, faultCount > 1 ? "s" : "");
+    //                 if (faultCount > faultLimit) {
+    //                     simcoe::logError("render thread fault limit reached. exiting");
+    //                     break;
+    //                 }
+
+    //                 pRenderThread->add("resume", [] {
+    //                     pGraph->resumeFromFault();
+    //                     changeWindowMode(eNone, WindowMode(gWindowMode));
+    //                 });
+    //             } catch (...) {
+    //                 simcoe::logError("unknown thread exception. exiting");
+    //                 break;
+    //             }
+    //         }
+    //     } catch (std::runtime_error& err) {
+    //         simcoe::logError("render thread exception during startup: {}", err.what());
+    //     }
+
+    //     delete game::getInstance();
+    //     delete pGraph;
+    // });
+
+    // std::jthread inputThread([](auto token) {
+    //     system::setThreadName("input");
+
+    //     while (!token.stop_requested()) {
+    //         pInput->poll();
+    //     }
+    // });
+
+    while (!pGame->shouldQuit()) {
+        if (pSystem->getEvent())
+            pSystem->dispatchEvent();
+
         pMainQueue->process();
-
-        if (getInstance()->shouldQuit()) {
-            break;
-        }
+        pGame->updateRender();
+        pGame->updateGame();
+        pInput->poll();
     }
 }
 
@@ -715,7 +730,7 @@ static fs::path getGameDir() {
 }
 
 static int innerMain(HINSTANCE hInstance, int nCmdShow) try {
-    std::unique_ptr<system::System> system{pSystem = new system::System(hInstance, nCmdShow)};
+    pSystem = new system::System(hInstance, nCmdShow);
 
     system::setThreadName("main");
     pFileLogger = new FileLogger();
