@@ -4,7 +4,7 @@
 #include "editor/graph/assets.h"
 #include "editor/graph/mesh.h"
 
-#include "engine/os/system.h"
+#include "engine/system/system.h"
 
 #include "imgui/imgui.h"
 
@@ -214,7 +214,7 @@ namespace editor::game {
         virtual void resume() { simcoe::logInfo("resume"); }
 
     private:
-        Clock clock;
+        system::Clock clock;
 
         // object management
         std::unordered_set<IGameObject*> pending;

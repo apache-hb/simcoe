@@ -4,8 +4,8 @@
 
 extern "C" {
     // load the agility sdk
-    DLLEXPORT extern const UINT D3D12SDKVersion = 602;
-    DLLEXPORT extern const char* D3D12SDKPath = ".\\data\\libs\\agility\\";
+    DLLEXPORT extern const UINT D3D12SDKVersion = 611;
+    DLLEXPORT extern const char* D3D12SDKPath = ".\\editor.exe.p\\";
 }
 
 extern "C" {

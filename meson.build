@@ -43,7 +43,7 @@ src = [
     'engine/src/engine.cpp',
 
     # os
-    'engine/src/os/system.cpp',
+    'engine/src/system/system.cpp',
 
     # util
     'engine/src/util/retry.cpp',
@@ -227,6 +227,11 @@ src = [
     # libraries
     copy.process('data/libs/warp/d3d10warp.dll'),
     copy.process('data/libs/warp/d3d10warp.pdb'),
+
+    copy.process('data/libs/agility/D3D12Core.dll'),
+    copy.process('data/libs/agility/D3D12Core.pdb'),
+    copy.process('data/libs/agility/d3d12SDKLayers.dll'),
+    copy.process('data/libs/agility/d3d12SDKLayers.pdb'),
 
     # config
     copy.process('data/config/MicrosoftGame.Config'),

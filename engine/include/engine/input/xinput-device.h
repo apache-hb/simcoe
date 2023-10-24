@@ -1,7 +1,7 @@
 #pragma once
 
 #include "engine/input/input.h"
-#include "engine/os/system.h"
+#include "engine/system/system.h"
 #include "engine/util/retry.h"
 
 #include <windows.h>
@@ -26,7 +26,7 @@ namespace simcoe::input {
          */
         bool updateButton(State& result, Button button, WORD mask, WORD state);
 
-        Clock clock;
+        system::Clock clock;
         bool bDeviceConnected = true;
         util::Retry retryOnDisconnect = 3.f;
 

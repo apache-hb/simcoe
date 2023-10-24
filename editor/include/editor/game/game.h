@@ -70,7 +70,7 @@ namespace editor::game {
         void tick(float delta);
 
     private:
-        Clock clock;
+        system::Clock clock;
         util::TimeStep updateRate{1 / 120.f};
         float lastTick = 0.f;
         float timeScale = 1.f;

@@ -1,6 +1,6 @@
 #include "vendor/microsoft/gdk.h"
 
-#include "engine/os/system.h"
+#include "engine/system/system.h"
 
 #include "XGameRuntime.h"
 #include "XGameRuntimeFeature.h"
@@ -39,7 +39,7 @@ namespace {
         case E_GAMERUNTIME_WINDOW_NOT_FOREGROUND: return "gdk:window-not-foreground";
         case E_GAMERUNTIME_SUSPENDED: return "gdk:suspended";
 
-        default: return simcoe::getErrorName(hr);
+        default: return system::getErrorName(hr);
         }
     }
 }

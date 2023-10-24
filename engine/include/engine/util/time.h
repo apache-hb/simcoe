@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine/os/system.h"
+#include "engine/system/system.h"
 
 namespace simcoe::util {
     /**
@@ -18,7 +18,7 @@ namespace simcoe::util {
 
         float getDelta() const { return minimumDelta; }
     private:
-        Clock clock;
+        system::Clock clock;
 
         float minimumDelta;
 

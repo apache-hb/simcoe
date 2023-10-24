@@ -1,7 +1,7 @@
 // os and system
 #include "editor/game/game.h"
 #include "engine/engine.h"
-#include "engine/os/system.h"
+#include "engine/system/system.h"
 
 // threads
 #include "engine/tasks/task.h"
@@ -60,10 +60,10 @@ static constexpr auto kWindowWidth = 1920;
 static constexpr auto kWindowHeight = 1080;
 
 // system
-static simcoe::System *pSystem = nullptr;
+static system::System *pSystem = nullptr;
 
 // window mode
-static simcoe::Window *pWindow = nullptr;
+static system::Window *pWindow = nullptr;
 static WindowMode gWindowMode = eModeWindowed;
 static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless", "Fullscreen" });
 
@@ -137,7 +137,7 @@ private:
 static GuiLogger *pGuiLogger;
 static FileLogger *pFileLogger;
 
-struct GameWindow final : IWindowCallbacks {
+struct GameWindow final : system::IWindowCallbacks {
     std::atomic_bool bWindowOpen = true;
 
     void onClose() override {
@@ -148,7 +148,7 @@ struct GameWindow final : IWindowCallbacks {
         pSystem->quit();
     }
 
-    void onResize(const ResizeEvent& event) override {
+    void onResize(const system::ResizeEvent& event) override {
         if (!bWindowOpen) return;
         if (!pRenderThread) return;
         if (!pGraph) return;
@@ -177,10 +177,10 @@ static void changeWindowMode(WindowMode oldMode, WindowMode newMode) {
 
     switch (newMode) {
     case eModeWindowed:
-        pWindow->setStyle(simcoe::WindowStyle::eWindowed);
+        pWindow->setStyle(system::WindowStyle::eWindowed);
         break;
     case eModeBorderless:
-        pWindow->setStyle(simcoe::WindowStyle::eBorderlessFixed);
+        pWindow->setStyle(system::WindowStyle::eBorderlessFixed);
         break;
     case eModeFullscreen:
         pGraph->setFullscreen(true);
@@ -593,9 +593,9 @@ static void commonMain(const std::filesystem::path& path) {
     assets::Assets depot = { assets };
     simcoe::logInfo("depot: {}", assets.string());
 
-    const simcoe::WindowCreateInfo windowCreateInfo = {
+    const system::WindowCreateInfo windowCreateInfo = {
         .title = "simcoe",
-        .style = simcoe::WindowStyle::eWindowed,
+        .style = system::WindowStyle::eWindowed,
 
         .width = kWindowWidth,
         .height = kWindowHeight,
@@ -603,7 +603,7 @@ static void commonMain(const std::filesystem::path& path) {
         .pCallbacks = &gWindowCallbacks
     };
 
-    std::unique_ptr<Window> window{pWindow = pSystem->createWindow(windowCreateInfo)};
+    std::unique_ptr<system::Window> window{pWindow = pSystem->createWindow(windowCreateInfo)};
     auto [realWidth, realHeight] = pWindow->getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
 
     std::unique_ptr<input::Manager> input{pInput = new input::Manager()};
@@ -656,8 +656,6 @@ static void commonMain(const std::filesystem::path& path) {
                 game::getInstance()->pushLevel(new swarm::PlayLevel());
             });
 
-            // TODO: if the render loop throws an exception, the program will std::terminate
-            // we should handle this case and restart the render loop
             while (!token.stop_requested()) {
                 if (pSelf->process()) {
                     continue; // TODO: this is also a little stupid
@@ -688,13 +686,12 @@ static void commonMain(const std::filesystem::path& path) {
             simcoe::logError("render thread exception during startup: {}", err.what());
         }
 
-        pSystem->quit();
         delete game::getInstance();
         delete pGraph;
     });
 
     std::jthread inputThread([](auto token) {
-        setThreadName("input");
+        system::setThreadName("input");
 
         while (!token.stop_requested()) {
             pInput->poll();
@@ -718,9 +715,9 @@ static fs::path getGameDir() {
 }
 
 static int innerMain(HINSTANCE hInstance, int nCmdShow) try {
-    std::unique_ptr<System> system{pSystem = new simcoe::System(hInstance, nCmdShow)};
+    std::unique_ptr<system::System> system{pSystem = new system::System(hInstance, nCmdShow)};
 
-    setThreadName("main");
+    system::setThreadName("main");
     pFileLogger = new FileLogger();
     pGuiLogger = new GuiLogger();
 

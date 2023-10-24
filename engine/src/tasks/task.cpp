@@ -1,6 +1,6 @@
 #include "engine/tasks/task.h"
 
-#include "engine/os/system.h"
+#include "engine/system/system.h"
 #include "engine/engine.h"
 
 using namespace simcoe;
@@ -8,9 +8,8 @@ using namespace simcoe::tasks;
 
 std::jthread WorkThread::start(const char *name) {
     return std::jthread([this, name](std::stop_token token) {
+        system::setThreadName(name);
         simcoe::logInfo("thread `{}` started", name);
-
-        setThreadName(name);
 
         this->run(token);
 

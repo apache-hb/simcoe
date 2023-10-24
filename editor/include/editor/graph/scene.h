@@ -2,7 +2,7 @@
 
 #include "editor/graph/assets.h"
 
-#include "engine/os/system.h"
+#include "engine/system/system.h"
 
 namespace editor::graph {
     struct ScenePass final : IRenderPass {

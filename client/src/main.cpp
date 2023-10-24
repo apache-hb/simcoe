@@ -1,12 +1,12 @@
 // core
 #include "engine/engine.h"
-#include "engine/os/system.h"
+#include "engine/system/system.h"
 
 using namespace simcoe;
 
 // globals
-static System *pSystem = nullptr;
-static Window *pWindow = nullptr;
+static system::System *pSystem = nullptr;
+static system::Window *pWindow = nullptr;
 
 // helpers
 template<typename T>
@@ -18,7 +18,7 @@ struct Cleanup {
 
 // callbacks
 
-struct GameWindowCallbacks final : IWindowCallbacks {
+struct GameWindowCallbacks final : system::IWindowCallbacks {
     void onClose() override {
         pSystem->quit();
     }
@@ -33,9 +33,9 @@ static GameWindowCallbacks gWindowCallbacks;
 static void commonMain() {
     simcoe::logInfo("main");
 
-    const WindowCreateInfo createInfo = {
+    const system::WindowCreateInfo createInfo = {
         .title = "Client",
-        .style = WindowStyle::eWindowed,
+        .style = system::WindowStyle::eWindowed,
         .width = 1280,
         .height = 720,
 
@@ -50,7 +50,7 @@ static void commonMain() {
 }
 
 static int innerMain(HINSTANCE hInstance, int nCmdShow) try {
-    Cleanup system(pSystem = new System(hInstance, nCmdShow));
+    Cleanup system(pSystem = new system::System(hInstance, nCmdShow));
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
     simcoe::logInfo("startup");
     commonMain();

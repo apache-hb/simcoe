@@ -1,9 +1,9 @@
 #include "engine/rhi/rhi.h"
 
-#include "engine/os/system.h"
+#include "engine/system/system.h"
 #include "engine/engine.h"
 
-#include <directx/d3dx12.h>
+#include <directx/d3dx12/d3dx12.h>
 #include <wrl.h>
 
 #include <stdexcept>
@@ -17,7 +17,7 @@ using namespace simcoe::rhi;
 #define HR_CHECK(expr) \
     do { \
         if (HRESULT hr = (expr); FAILED(hr)) { \
-            auto msg = std::format("{} ({})", #expr, simcoe::getErrorName(hr)); \
+            auto msg = std::format("{} ({})", #expr, simcoe::system::getErrorName(hr)); \
             simcoe::logError(msg); \
             throw std::runtime_error(msg); \
         } \
@@ -455,12 +455,12 @@ void DisplayQueue::present(bool allowTearing, UINT syncInterval) {
         failedFrames = 0;
     } else {
         failedFrames += 1; // count consecutive failed frames
-        simcoe::logInfo("present failed: {}", simcoe::getErrorName(hr));
+        simcoe::logInfo("present failed: {}", system::getErrorName(hr));
     }
 
     if (failedFrames > 3) {
         simcoe::logError("too many failed frames, exiting");
-        throw std::runtime_error(std::format("too many failed frames, last error {}", simcoe::getErrorName(hr)));
+        throw std::runtime_error(std::format("too many failed frames, last error {}", system::getErrorName(hr)));
     }
 }
 
@@ -487,7 +487,7 @@ void Device::remove() {
 
 void Device::reportFaultInfo() {
     HRESULT hr = get()->GetDeviceRemovedReason();
-    simcoe::logInfo("device removed reason: {}", getErrorName(hr));
+    simcoe::logInfo("device removed reason: {}", system::getErrorName(hr));
 
     if (!(createFlags & eCreateExtendedInfo)) {
         return;
@@ -495,14 +495,14 @@ void Device::reportFaultInfo() {
 
     ComPtr<ID3D12DeviceRemovedExtendedData> pData = nullptr;
     if (HRESULT hr = get()->QueryInterface(IID_PPV_ARGS(&pData)); FAILED(hr)) {
-        simcoe::logWarn("failed to retrieve ID3D12DeviceRemovedExtendedData interface ({})", getErrorName(hr));
+        simcoe::logWarn("failed to retrieve ID3D12DeviceRemovedExtendedData interface ({})", system::getErrorName(hr));
         return;
     }
 
     D3D12_DRED_AUTO_BREADCRUMBS_OUTPUT breadOutput = {};
 
     if (HRESULT hr = pData->GetAutoBreadcrumbsOutput(&breadOutput); FAILED(hr)) {
-        simcoe::logWarn("failed to retrieve auto breadcrumbs ({})", getErrorName(hr));
+        simcoe::logWarn("failed to retrieve auto breadcrumbs ({})", system::getErrorName(hr));
         return;
     }
 
@@ -521,7 +521,7 @@ void Device::reportFaultInfo() {
     D3D12_DRED_PAGE_FAULT_OUTPUT faultOutput = {};
 
     if (HRESULT hr = pData->GetPageFaultAllocationOutput(&faultOutput); FAILED(hr)) {
-        simcoe::logWarn("failed to retrieve page fault allocation ({})", getErrorName(hr));
+        simcoe::logWarn("failed to retrieve page fault allocation ({})", system::getErrorName(hr));
         return;
     }
 
