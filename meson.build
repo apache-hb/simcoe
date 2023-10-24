@@ -2,6 +2,7 @@ project('simcoe', 'cpp',
     default_options : [
         'cpp_std=c++20',
         'default_library=static',
+        'cpp_eh=default',
         'b_vscrt=static_from_buildtype'
     ]
 )
@@ -39,6 +40,14 @@ win32 = subproject('win32').get_variable('win32')
 stb = subproject('stb').get_variable('stb')
 simdjson = subproject('simdjson').get_variable('simdjson')
 moodycamel = subproject('atomic-queue').get_variable('queue')
+freetype2 = subproject('freetype2').get_variable('freetype_dep')
+
+harfbuzz_opts = [
+    'tests=disabled',
+    'cpp_eh=default'
+]
+harfbuzz = subproject('harfbuzz', default_options : harfbuzz_opts).get_variable('libharfbuzz_dep')
+
 threads = dependency('threads')
 
 ###
@@ -113,7 +122,7 @@ deps = [
     moodycamel, threads,
 
     # assets
-    stb, simdjson,
+    stb, simdjson, freetype2, harfbuzz,
 
     # render
     directx

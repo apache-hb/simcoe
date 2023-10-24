@@ -24,6 +24,7 @@
 !*.md
 !*.build
 !meson_options.txt
+!subprojects/*.wrap
 
 # dont ignore config files
 !.clangd
@@ -45,3 +46,10 @@
 .vscode/
 *build/
 *bundle*/*
+
+# ignore subprojects
+subprojects/freetype*/
+subprojects/harfbuzz*/
+subprojects/libpng*/
+subprojects/zlib*/
+subprojects/packagecache
