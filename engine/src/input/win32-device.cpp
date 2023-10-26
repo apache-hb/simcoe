@@ -188,7 +188,7 @@ void Win32Keyboard::setXButton(WORD key, size_t value) {
 ///
 
 namespace {
-    math::int2 getWindowCenter(system::Window *pWindow) {
+    math::int2 getWindowCenter(Window *pWindow) {
         auto rect = pWindow->getClientCoords();
 
         int centerX = (rect.right - rect.left) / 2;
@@ -204,7 +204,7 @@ namespace {
     }
 }
 
-Win32Mouse::Win32Mouse(system::Window *pWindow, bool bEnabled)
+Win32Mouse::Win32Mouse(Window *pWindow, bool bEnabled)
     : ISource(DeviceTags::eWin32)
     , pWindow(pWindow)
     , bMouseEnabled(bEnabled)

@@ -18,7 +18,6 @@ namespace simcoe::assets {
         Image drawText(utf8::StaticText text);
 
     private:
-        FT_Library library;
         FT_Face face;
 
         int pt;

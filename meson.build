@@ -66,7 +66,8 @@ src = [
     'engine/src/service/config.cpp',
 
     # os
-    'engine/src/system/system.cpp',
+    'engine/src/service/platform.cpp',
+    'engine/src/service/debug.cpp',
 
     # util
     'engine/src/util/retry.cpp',
@@ -86,6 +87,7 @@ src = [
     'engine/src/tasks/exclude.cpp',
 
     # assets
+    'engine/src/service/freetype.cpp',
     'engine/src/assets/assets.cpp',
     'engine/src/assets/font.cpp',
 
@@ -101,13 +103,12 @@ src = [
     'engine/src/render/graph.cpp',
     'engine/src/render/assets.cpp',
 
-    # vendor
-    'vendor/src/microsoft/gdk.cpp'
+    # gdk
+    'engine/src/service/gdk.cpp'
 ]
 
 inc = [
-    'engine/include',
-    'vendor/include'
+    'engine/include'
 ]
 
 deps = [

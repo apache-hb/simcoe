@@ -1,7 +1,13 @@
 // os and system
 #include "editor/game/game.h"
 #include "engine/engine.h"
-#include "engine/system/system.h"
+
+// services
+#include "engine/service/service.h"
+#include "engine/service/debug.h"
+#include "engine/service/platform.h"
+#include "engine/service/freetype.h"
+#include "engine/service/gdk.h"
 
 // threads
 #include "engine/tasks/task.h"
@@ -27,7 +33,6 @@
 #include "imfiles/imfilebrowser.h"
 
 // vendor
-#include "vendor/microsoft/gdk.h"
 #include "moodycamel/concurrentqueue.h"
 
 // game logic
@@ -44,7 +49,6 @@ using namespace simcoe::math;
 using namespace editor;
 using namespace editor::game;
 
-namespace gdk = microsoft::gdk;
 namespace fs = std::filesystem;
 
 enum WindowMode : int {
@@ -60,11 +64,10 @@ static constexpr auto kWindowWidth = 1920;
 static constexpr auto kWindowHeight = 1080;
 
 // system
-static system::System *pSystem = nullptr;
 static game::Instance *pGame = nullptr;
 
 // window mode
-static system::Window *pWindow = nullptr;
+static Window *pWindow = nullptr;
 static WindowMode gWindowMode = eModeWindowed;
 static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless", "Fullscreen" });
 
@@ -136,7 +139,7 @@ private:
 static GuiLogger *pGuiLogger;
 static FileLogger *pFileLogger;
 
-struct GameWindow final : system::IWindowCallbacks {
+struct GameWindow final : IWindowCallbacks {
     std::atomic_bool bWindowOpen = true;
 
     void onClose() override {
@@ -145,7 +148,7 @@ struct GameWindow final : system::IWindowCallbacks {
         pGame->quit();
     }
 
-    void onResize(const system::ResizeEvent& event) override {
+    void onResize(const WindowSize& event) override {
         if (!bWindowOpen) return;
         if (!pGame) return;
 
@@ -173,10 +176,10 @@ static void changeWindowMode(WindowMode oldMode, WindowMode newMode) {
 
     switch (newMode) {
     case eModeWindowed:
-        pWindow->setStyle(system::WindowStyle::eWindowed);
+        pWindow->setStyle(WindowStyle::eWindowed);
         break;
     case eModeBorderless:
-        pWindow->setStyle(system::WindowStyle::eBorderlessFixed);
+        pWindow->setStyle(WindowStyle::eBorderlessFixed);
         break;
     case eModeFullscreen:
         pGraph->setFullscreen(true);
@@ -539,50 +542,42 @@ struct GameGui final : graph::IGuiPass {
 
 static GameWindow gWindowCallbacks;
 
-struct GdkInit {
-    GdkInit() : failureReason(gdk::init()) { }
-    ~GdkInit() { gdk::deinit(); }
-
-private:
-    void debug() {
-        if (!gdk::enabled()) {
-            ImGui::Text("GDK init failed: %s", failureReason.c_str());
-            return;
-        }
-
-        auto info = gdk::getAnalyticsInfo();
-        auto id = gdk::getConsoleId();
-        const auto& features = gdk::getFeatures();
-
-        auto [osMajor, osMinor, osBuild, osRevision] = info.osVersion;
-        ImGui::Text("os: %u.%u.%u - %u", osMajor, osMinor, osBuild, osRevision);
-        auto [hostMajor, hostMinor, hostBuild, hostRevision] = info.hostingOsVersion;
-        ImGui::Text("host: %u.%u.%u - %u", hostMajor, hostMinor, hostBuild, hostRevision);
-        ImGui::Text("family: %s", info.family);
-        ImGui::Text("form: %s", info.form);
-        ImGui::Text("id: %s", id.data());
-
-        ImGui::SeparatorText("features");
-
-        if (ImGui::BeginTable("features", 2)) {
-            ImGui::TableNextColumn();
-            ImGui::Text("name");
-            ImGui::TableNextColumn();
-            ImGui::Text("enabled");
-
-            for (const auto& [name, enabled] : features) {
-                ImGui::TableNextColumn();
-                ImGui::Text("%s", name.data());
-                ImGui::TableNextColumn();
-                ImGui::Text("%s", enabled ? "true" : "false");
-            }
-            ImGui::EndTable();
-        }
+void gdkServiceDebug() {
+    if (!GdkService::isEnabled()) {
+        auto failureReason = GdkService::getFailureReason();
+        ImGui::Text("GDK init failed: %s", failureReason.data());
+        return;
     }
 
-    debug::GlobalHandle debugHandle = debug::addGlobalHandle("GDK", [this] { debug(); });
-    std::string failureReason;
-};
+    auto info = GdkService::getAnalyticsInfo();
+    auto id = GdkService::getConsoleId();
+    const auto& features = GdkService::getFeatures();
+
+    auto [osMajor, osMinor, osBuild, osRevision] = info.osVersion;
+    ImGui::Text("os: %u.%u.%u - %u", osMajor, osMinor, osBuild, osRevision);
+    auto [hostMajor, hostMinor, hostBuild, hostRevision] = info.hostingOsVersion;
+    ImGui::Text("host: %u.%u.%u - %u", hostMajor, hostMinor, hostBuild, hostRevision);
+    ImGui::Text("family: %s", info.family);
+    ImGui::Text("form: %s", info.form);
+    ImGui::Text("id: %s", id.data());
+
+    ImGui::SeparatorText("features");
+
+    if (ImGui::BeginTable("features", 2)) {
+        ImGui::TableNextColumn();
+        ImGui::Text("name");
+        ImGui::TableNextColumn();
+        ImGui::Text("enabled");
+
+        for (const auto& [name, bEnabled] : features) {
+            ImGui::TableNextColumn();
+            ImGui::Text("%s", name.data());
+            ImGui::TableNextColumn();
+            ImGui::Text("%s", bEnabled ? "enabled" : "disabled");
+        }
+        ImGui::EndTable();
+    }
+}
 
 using CommandLine = std::vector<std::string>;
 
@@ -605,25 +600,22 @@ CommandLine getCommandLine() {
 ///
 
 static void commonMain(const std::filesystem::path& path) {
+    debug::GlobalHandle debugHandle = debug::addGlobalHandle("GDK", [] { gdkServiceDebug(); });
     pMainQueue = new tasks::WorkQueue(64);
-
-    GdkInit gdkInit;
 
     auto assets = path / "editor.exe.p";
     assets::Assets depot = { assets };
     simcoe::logInfo("depot: {}", assets.string());
 
-    const system::WindowCreateInfo windowCreateInfo = {
+    const WindowCreateInfo windowCreateInfo = {
         .title = "simcoe",
-        .style = system::WindowStyle::eWindowed,
-
-        .width = kWindowWidth,
-        .height = kWindowHeight,
+        .style = WindowStyle::eWindowed,
+        .size = { kWindowWidth, kWindowHeight },
 
         .pCallbacks = &gWindowCallbacks
     };
 
-    pWindow = pSystem->createWindow(windowCreateInfo);
+    pWindow = new Window(windowCreateInfo); // pSystem->createWindow(windowCreateInfo);
     auto [realWidth, realHeight] = pWindow->getSize().as<UINT>(); // if opened in windowed mode the client size will be smaller than the window size
 
     pInput = new input::Manager();
@@ -674,7 +666,7 @@ static void commonMain(const std::filesystem::path& path) {
     pGame->pushLevel(new swarm::PlayLevel());
 
     std::jthread inputThread([](auto token) {
-        system::setThreadName("input");
+        DebugService::setThreadName("input");
 
         while (!token.stop_requested()) {
             pInput->poll();
@@ -682,7 +674,7 @@ static void commonMain(const std::filesystem::path& path) {
     });
 
     std::jthread gameThread([](auto token) {
-        system::setThreadName("game");
+        DebugService::setThreadName("game");
 
         while (!token.stop_requested()) {
             pGame->updateGame();
@@ -690,7 +682,7 @@ static void commonMain(const std::filesystem::path& path) {
     });
 
     std::jthread renderThread([](auto token) {
-        system::setThreadName("render");
+        DebugService::setThreadName("render");
 
         while (!token.stop_requested()) {
             pGame->updateRender();
@@ -698,8 +690,8 @@ static void commonMain(const std::filesystem::path& path) {
     });
 
     while (!pGame->shouldQuit()) {
-        if (pSystem->getEvent())
-            pSystem->dispatchEvent();
+        if (PlatformService::getEvent())
+            PlatformService::dispatchEvent();
 
         pMainQueue->process();
     }
@@ -711,10 +703,16 @@ static fs::path getGameDir() {
     return fs::path(gamePath).parent_path();
 }
 
-static int innerMain(HINSTANCE hInstance, int nCmdShow) try {
-    pSystem = new system::System(hInstance, nCmdShow);
+static int innerMain() try {
+    auto engineServices = std::to_array({
+        DebugService::service(),
+        PlatformService::service(),
+        GdkService::service(),
+        FreeTypeService::service()
+    });
+    ServiceRuntime runtime{engineServices};
 
-    system::setThreadName("main");
+    DebugService::setThreadName("main");
     pFileLogger = new FileLogger();
     pGuiLogger = new GuiLogger();
 
@@ -738,11 +736,13 @@ static int innerMain(HINSTANCE hInstance, int nCmdShow) try {
 // gui entry point
 
 int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
-    return innerMain(hInstance, nCmdShow);
+    PlatformService::setup(hInstance, nCmdShow);
+    return innerMain();
 }
 
 // command line entry point
 
 int main(int argc, const char **argv) {
-    return innerMain(GetModuleHandle(nullptr), SW_SHOWDEFAULT);
+    PlatformService::setup(GetModuleHandle(nullptr), SW_SHOWDEFAULT);
+    return innerMain();
 }

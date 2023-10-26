@@ -8,16 +8,16 @@
 #include FT_FREETYPE_H
 
 namespace simcoe {
-    struct TrueTypeService final : IStaticService<TrueTypeService> {
+    struct FreeTypeService final : IStaticService<FreeTypeService> {
         // IStaticService
-        static constexpr std::string_view kServiceName = "truetype";
+        static constexpr std::string_view kServiceName = "freetype";
         static constexpr std::array<std::string_view, 0> kServiceDeps = {};
 
         // IService
         void createService() override;
         void destroyService() override;
 
-        // TrueTypeService
+        // FreeTypeService
         static FT_Library getLibrary() {
             return USE_SERVICE(library);
         }

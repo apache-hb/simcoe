@@ -1,5 +1,7 @@
 #include "engine/assets/font.h"
 
+#include "engine/service/freetype.h"
+
 #include "engine/math/math.h"
 
 #include "engine/engine.h"
@@ -30,25 +32,19 @@ namespace {
 }
 
 Font::Font(const char *path) {
-    FT_Error error = FT_Init_FreeType(&library);
-    if (error) {
-        logAssert("failed to initialize FreeType library (fterr={})", FT_Error_String(error));
-    }
+    FT_Library library = FreeTypeService::getLibrary();
 
-    error = FT_New_Face(library, path, 0, &face);
-    if (error) {
+    if (FT_Error error = FT_New_Face(library, path, 0, &face)) {
         logAssert("failed to load font face from `{}` (fterr={})", path, FT_Error_String(error));
     }
 
-    error = FT_Select_Charmap(face, FT_ENCODING_UNICODE);
-    if (error) {
+    if (FT_Error error = FT_Select_Charmap(face, FT_ENCODING_UNICODE)) {
         logAssert("failed to select unicode charmap (fterr={})", FT_Error_String(error));
     }
 }
 
 Font::~Font() {
     FT_Done_Face(face);
-    FT_Done_FreeType(library);
 }
 
 void Font::setFontSize(int newPt, int newDpi) {

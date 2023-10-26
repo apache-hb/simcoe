@@ -81,7 +81,7 @@ namespace editor::game {
         void tick(float delta);
 
     private:
-        system::Clock clock;
+        Clock clock;
         float timeScale = 1.f;
 
         ///

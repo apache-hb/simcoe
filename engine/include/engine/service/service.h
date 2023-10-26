@@ -49,12 +49,16 @@ namespace simcoe {
             return &instance;
         }
 
+        static IService *service() {
+            return static_cast<IService*>(get());
+        }
+
         static T *use(const char *fn) {
             ASSERTF(isCreated(), "service {} not created, cannot call {}", T::kServiceName, fn);
             return get();
         }
 
-        static bool isCreated() { return get()->isCreated(); }
+        static bool isCreated() { return get()->IService::isCreated(); }
     };
 
     struct ServiceRuntime {

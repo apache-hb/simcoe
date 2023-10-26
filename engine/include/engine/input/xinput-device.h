@@ -1,7 +1,6 @@
 #pragma once
 
 #include "engine/input/input.h"
-#include "engine/system/system.h"
 #include "engine/util/retry.h"
 
 #include <windows.h>

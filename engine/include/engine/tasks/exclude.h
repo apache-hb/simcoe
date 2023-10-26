@@ -2,18 +2,18 @@
 
 #include <thread>
 
-#include "engine/system/system.h"
+#include "engine/service/debug.h"
 
 namespace simcoe::tasks {
     struct ThreadExclusiveRegion {
         ThreadExclusiveRegion(
             std::thread::id expectedId = std::this_thread::get_id(),
-            std::string expectedName = system::getThreadName()
+            std::string expectedName = DebugService::getThreadName()
         );
 
         void migrate(
             std::thread::id expectedId = std::this_thread::get_id(),
-            std::string expectedName = system::getThreadName()
+            std::string expectedName = DebugService::getThreadName()
         );
 
         void verify(std::string_view info = "");

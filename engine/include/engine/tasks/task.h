@@ -43,7 +43,7 @@ namespace simcoe::tasks {
     };
 
     struct WorkThread : WorkQueue {
-        WorkThread(size_t size, const char *name)
+        WorkThread(size_t size, std::string_view name)
             : WorkQueue(size)
             , workThread(start(name))
         { }
@@ -61,7 +61,7 @@ namespace simcoe::tasks {
         }
 
     private:
-        std::jthread start(const char *name);
+        std::jthread start(std::string_view name);
 
         std::jthread workThread;
     };

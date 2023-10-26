@@ -1,6 +1,6 @@
 #include "engine/engine.h"
 
-#include "engine/system/system.h"
+#include "engine/service/debug.h"
 
 #include <iostream>
 #include <vector>
@@ -16,7 +16,7 @@ namespace {
 
 static void innerLog(std::string_view prefix, std::string_view msg) {
     std::lock_guard guard(gLock);
-    auto it = std::format("[{}:{}]: {}", system::getThreadName(), prefix, msg);
+    auto it = std::format("[{}:{}]: {}", DebugService::getThreadName(), prefix, msg);
     std::cout << it << std::endl;
     for (auto sink : gSinks) {
         sink->accept(it);
@@ -41,6 +41,8 @@ void simcoe::logError(std::string_view msg) {
 
 void simcoe::logAssert(std::string_view msg) {
     innerLog("ASSERT", msg);
-    system::printBacktrace();
+    for (const auto& frame : DebugService::backtrace()) {
+        logInfo(" - {} @ {}", frame.symbol, frame.pc);
+    }
     throw std::runtime_error(std::string(msg));
 }

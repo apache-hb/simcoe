@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine/system/system.h"
+#include "engine/service/platform.h"
 #include "engine/math/math.h"
 #include "engine/input/input.h"
 
@@ -20,7 +20,7 @@ namespace simcoe::input {
     };
 
     struct Win32Mouse final : ISource {
-        Win32Mouse(system::Window *pWindow, bool bEnabled);
+        Win32Mouse(Window *pWindow, bool bEnabled);
 
         bool poll(State& state) override;
 
@@ -31,7 +31,7 @@ namespace simcoe::input {
 
         void updateMouseAbsolute(math::int2 mousePoint);
 
-        system::Window *pWindow;
+        Window *pWindow;
 
         math::int2 mouseOrigin = {};
         math::int2 mouseAbsolute = {};

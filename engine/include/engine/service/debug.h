@@ -1,8 +1,11 @@
 #pragma once
 
-#include "engine/service/platform.h"
+#include "engine/service/service.h"
 
 #include <vector>
+#include <array>
+
+#include <windows.h>
 
 namespace simcoe {
     struct StackFrame {
@@ -10,11 +13,10 @@ namespace simcoe {
         size_t pc = 0;
     };
 
-    // TODO: does debug depend on platform or does platform depend on debug
     struct DebugService final : IStaticService<DebugService> {
         // IStaticService
         static constexpr std::string_view kServiceName = "debug";
-        static constexpr std::array<std::string_view, 1> kServiceDeps = { PlatformService::kServiceName };
+        static constexpr std::array<std::string_view, 0> kServiceDeps = { };
 
         // IService
         void createService() override;
@@ -25,7 +27,15 @@ namespace simcoe {
             return USE_SERVICE(getBacktrace)();
         }
 
+        static void setThreadName(std::string_view name);
+        static std::string getThreadName();
+
+        static std::string getResultName(HRESULT hr);
+        static std::string getErrorName(DWORD err = GetLastError());
+
     private:
         std::vector<StackFrame> getBacktrace();
     };
+
+    void throwError(std::string_view msg, DWORD err = GetLastError());
 }

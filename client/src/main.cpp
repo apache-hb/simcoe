@@ -1,12 +1,13 @@
 // core
 #include "engine/engine.h"
-#include "engine/system/system.h"
+
+#include "engine/service/debug.h"
+#include "engine/service/platform.h"
 
 using namespace simcoe;
 
 // globals
-static system::System *pSystem = nullptr;
-static system::Window *pWindow = nullptr;
+static Window *pWindow = nullptr;
 
 // helpers
 template<typename T>
@@ -18,9 +19,9 @@ struct Cleanup {
 
 // callbacks
 
-struct GameWindowCallbacks final : system::IWindowCallbacks {
+struct GameWindowCallbacks final : IWindowCallbacks {
     void onClose() override {
-        pSystem->quit();
+        PlatformService::quit();
     }
 };
 
@@ -33,24 +34,28 @@ static GameWindowCallbacks gWindowCallbacks;
 static void commonMain() {
     simcoe::logInfo("main");
 
-    const system::WindowCreateInfo createInfo = {
+    const WindowCreateInfo createInfo = {
         .title = "Client",
-        .style = system::WindowStyle::eWindowed,
-        .width = 1280,
-        .height = 720,
+        .style = WindowStyle::eWindowed,
+        .size = { 1280, 720 },
 
         .pCallbacks = &gWindowCallbacks
     };
 
-    Cleanup window(pWindow = pSystem->createWindow(createInfo));
+    Cleanup window(pWindow = new Window(createInfo));
 
-    while (pSystem->getEvent()) {
-        pSystem->dispatchEvent();
+    while (PlatformService::getEvent()) {
+        PlatformService::dispatchEvent();
     }
 }
 
-static int innerMain(HINSTANCE hInstance, int nCmdShow) try {
-    Cleanup system(pSystem = new system::System(hInstance, nCmdShow));
+static int innerMain() try {
+    auto engineServices = std::to_array({
+        DebugService::service(),
+        PlatformService::service()
+    });
+    ServiceRuntime runtime{engineServices};
+
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
     simcoe::logInfo("startup");
     commonMain();
@@ -68,11 +73,13 @@ static int innerMain(HINSTANCE hInstance, int nCmdShow) try {
 // gui entry point
 
 int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
-    return innerMain(hInstance, nCmdShow);
+    PlatformService::setup(hInstance, nCmdShow);
+    return innerMain();
 }
 
 // command line entry point
 
 int main(int argc, const char **argv) {
-    return innerMain(GetModuleHandle(nullptr), SW_SHOWDEFAULT);
+    PlatformService::setup(GetModuleHandle(nullptr), SW_SHOWDEFAULT);
+    return innerMain();
 }

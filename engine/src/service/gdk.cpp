@@ -1,16 +1,10 @@
-#include "vendor/microsoft/gdk.h"
-
-#include "engine/system/system.h"
+#include "engine/service/gdk.h"
 
 #include "XGameRuntime.h"
 #include "XGameRuntimeFeature.h"
 #include "XGameErr.h"
 
-#include <array>
-
 using namespace simcoe;
-
-namespace gdk = microsoft::gdk;
 
 #define HR_CHECK(expr) \
     do { \
@@ -24,12 +18,6 @@ namespace gdk = microsoft::gdk;
 #define E_GAME_MISSING_GAME_CONFIG ((HRESULT)0x87E5001FL)
 
 namespace {
-    bool gEnabled = false;
-    gdk::FeatureArray gFeatures = {};
-
-    XSystemAnalyticsInfo gInfo = {};
-    std::array<char, XSystemConsoleIdBytes + 1> gConsoleId = {};
-
     std::string gdkErrorString(HRESULT hr) {
         switch (hr) {
         case E_GAME_MISSING_GAME_CONFIG: return "gdk:config-missing";
@@ -39,28 +27,28 @@ namespace {
         case E_GAMERUNTIME_WINDOW_NOT_FOREGROUND: return "gdk:window-not-foreground";
         case E_GAMERUNTIME_SUSPENDED: return "gdk:suspended";
 
-        default: return system::getErrorName(hr);
+        default: return DebugService::getResultName(hr);
         }
     }
 }
 
 #define CHECK_FEATURE(key) \
     do { \
-        gFeatures[size_t(XGameRuntimeFeature::key)] = { .name = #key, .enabled = XGameRuntimeIsFeatureAvailable(XGameRuntimeFeature::key) }; \
+        features[size_t(XGameRuntimeFeature::key)] = { .name = #key, .bEnabled = XGameRuntimeIsFeatureAvailable(XGameRuntimeFeature::key) }; \
     } while (false)
 
-std::string gdk::init() {
+void GdkService::createService() {
     if (HRESULT hr = XGameRuntimeInitialize(); FAILED(hr)) {
         auto err = gdkErrorString(hr);
         simcoe::logError("XGameRuntimeInitialize() = {}", err);
-        return err;
+        return;
     }
 
-    gInfo = XSystemGetAnalyticsInfo();
+    analyticsInfo = XSystemGetAnalyticsInfo();
 
-    size_t size = gConsoleId.size();
-    HR_CHECK(XSystemGetConsoleId(gConsoleId.size(), gConsoleId.data(), &size));
-    gConsoleId[size] = '\0';
+    size_t size = consoleId.size();
+    HR_CHECK(XSystemGetConsoleId(consoleId.size(), consoleId.data(), &size));
+    consoleId[size] = '\0';
 
     CHECK_FEATURE(XAccessibility);
     CHECK_FEATURE(XAppCapture);
@@ -85,26 +73,9 @@ std::string gdk::init() {
     CHECK_FEATURE(XGameEvent);
     CHECK_FEATURE(XGameStreaming);
 
-    gEnabled = true;
-    return "";
+    bEnabled = true;
 }
 
-void gdk::deinit() {
+void GdkService::destroyService() {
     XGameRuntimeUninitialize();
-}
-
-bool gdk::enabled() {
-    return gEnabled;
-}
-
-XSystemAnalyticsInfo& gdk::getAnalyticsInfo() {
-    return gInfo;
-}
-
-const gdk::FeatureArray& gdk::getFeatures() {
-    return gFeatures;
-}
-
-std::string_view gdk::getConsoleId() {
-    return gConsoleId.data();
 }

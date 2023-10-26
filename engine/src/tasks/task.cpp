@@ -1,14 +1,14 @@
 #include "engine/tasks/task.h"
 
-#include "engine/system/system.h"
+#include "engine/service/debug.h"
 #include "engine/engine.h"
 
 using namespace simcoe;
 using namespace simcoe::tasks;
 
-std::jthread WorkThread::start(const char *name) {
+std::jthread WorkThread::start(std::string_view name) {
     return std::jthread([this, name](std::stop_token token) {
-        system::setThreadName(name);
+        DebugService::setThreadName(name);
         simcoe::logInfo("thread `{}` started", name);
 
         this->run(token);
