@@ -40,14 +40,8 @@ win32 = subproject('win32').get_variable('win32')
 stb = subproject('stb').get_variable('stb')
 simdjson = subproject('simdjson').get_variable('simdjson')
 moodycamel = subproject('atomic-queue').get_variable('queue')
+argo = subproject('argo').get_variable('argo')
 freetype2 = subproject('freetype2').get_variable('freetype_dep')
-
-harfbuzz_opts = [
-    'tests=disabled',
-    'cpp_eh=default'
-]
-harfbuzz = subproject('harfbuzz', default_options : harfbuzz_opts).get_variable('libharfbuzz_dep')
-
 threads = dependency('threads')
 
 ###
@@ -66,6 +60,10 @@ endif
 
 src = [
     'engine/src/engine.cpp',
+
+    # service
+    'engine/src/service/service.cpp',
+    'engine/src/service/config.cpp',
 
     # os
     'engine/src/system/system.cpp',
@@ -116,6 +114,9 @@ deps = [
     # win32
     win32,
 
+    # config
+    argo,
+
     # input
     xinput, gdk,
 
@@ -123,7 +124,7 @@ deps = [
     moodycamel, threads,
 
     # assets
-    stb, simdjson, freetype2, harfbuzz,
+    stb, simdjson, freetype2,
 
     # render
     directx

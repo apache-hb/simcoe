@@ -102,5 +102,3 @@ Image Font::drawText(utf8::StaticText text) {
 
     return result;
 }
-
-char c[] = "";
