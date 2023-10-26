@@ -1,7 +1,7 @@
 #include "engine/rhi/rhi.h"
 
 #include "engine/service/debug.h"
-#include "engine/engine.h"
+#include "engine/service/logging.h"
 
 #include <directx/d3dx12/d3dx12.h>
 #include <wrl.h>
@@ -18,7 +18,7 @@ using namespace simcoe::rhi;
     do { \
         if (HRESULT hr = (expr); FAILED(hr)) { \
             auto msg = std::format("{} ({})", #expr, DebugService::getResultName(hr)); \
-            simcoe::logError(msg); \
+            LOG_ERROR(msg); \
             throw std::runtime_error(msg); \
         } \
     } while (false)
@@ -186,20 +186,20 @@ static void debugCallback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERIT
     switch (severity) {
     case D3D12_MESSAGE_SEVERITY_CORRUPTION:
     case D3D12_MESSAGE_SEVERITY_ERROR:
-        simcoe::logError("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
+        LOG_ERROR("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
         break;
 
     case D3D12_MESSAGE_SEVERITY_WARNING:
-        simcoe::logWarn("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
+        LOG_WARN("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
         break;
 
     case D3D12_MESSAGE_SEVERITY_INFO:
     case D3D12_MESSAGE_SEVERITY_MESSAGE:
-        simcoe::logInfo("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
+        LOG_INFO("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
         break;
 
     default:
-        simcoe::logInfo("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
+        LOG_INFO("{}: {} ({}): {}", categoryStr, severityStr, UINT(id), desc);
         break;
     }
 }
@@ -447,19 +447,19 @@ void DisplayQueue::present(bool allowTearing, UINT syncInterval) {
     HRESULT hr = (pSwapChain->Present(syncInterval, flags));
     if (hr == DXGI_ERROR_INVALID_CALL) {
         failedFrames += 1; // count consecutive failed frames
-        simcoe::logError("consecutive failed presents: {}", failedFrames.load());
+        LOG_ERROR("consecutive failed presents: {}", failedFrames.load());
     } else if (hr == DXGI_ERROR_DEVICE_REMOVED) {
-        simcoe::logInfo("device removed, cannot present");
+        LOG_INFO("device removed, cannot present");
         throw std::runtime_error("device removed during present");
     } else if (SUCCEEDED(hr)) {
         failedFrames = 0;
     } else {
         failedFrames += 1; // count consecutive failed frames
-        simcoe::logInfo("present failed: {}", DebugService::getResultName(hr));
+        LOG_INFO("present failed: {}", DebugService::getResultName(hr));
     }
 
     if (failedFrames > 3) {
-        simcoe::logError("too many failed frames, exiting");
+        LOG_ERROR("too many failed frames, exiting");
         throw std::runtime_error(std::format("too many failed frames, last error {}", DebugService::getResultName(hr)));
     }
 }
@@ -477,17 +477,17 @@ DisplayQueue::~DisplayQueue() {
 void Device::remove() {
     ID3D12Device5 *pDevice5 = nullptr;
     if (HRESULT hr = get()->QueryInterface(IID_PPV_ARGS(&pDevice5)); SUCCEEDED(hr)) {
-        simcoe::logInfo("removing device");
+        LOG_INFO("removing device");
         pDevice5->RemoveDevice();
         pDevice5->Release();
     } else {
-        simcoe::logWarn("failed to retrieve ID3D12Device5 interface (hr={:x})", unsigned(hr));
+        LOG_WARN("failed to retrieve ID3D12Device5 interface (hr={:x})", unsigned(hr));
     }
 }
 
 void Device::reportFaultInfo() {
     HRESULT hr = get()->GetDeviceRemovedReason();
-    simcoe::logInfo("device removed reason: {}", DebugService::getResultName(hr));
+    LOG_INFO("device removed reason: {}", DebugService::getResultName(hr));
 
     if (!(createFlags & eCreateExtendedInfo)) {
         return;
@@ -495,25 +495,25 @@ void Device::reportFaultInfo() {
 
     ComPtr<ID3D12DeviceRemovedExtendedData> pData = nullptr;
     if (HRESULT hr = get()->QueryInterface(IID_PPV_ARGS(&pData)); FAILED(hr)) {
-        simcoe::logWarn("failed to retrieve ID3D12DeviceRemovedExtendedData interface ({})", DebugService::getResultName(hr));
+        LOG_WARN("failed to retrieve ID3D12DeviceRemovedExtendedData interface ({})", DebugService::getResultName(hr));
         return;
     }
 
     D3D12_DRED_AUTO_BREADCRUMBS_OUTPUT breadOutput = {};
 
     if (HRESULT hr = pData->GetAutoBreadcrumbsOutput(&breadOutput); FAILED(hr)) {
-        simcoe::logWarn("failed to retrieve auto breadcrumbs ({})", DebugService::getResultName(hr));
+        LOG_WARN("failed to retrieve auto breadcrumbs ({})", DebugService::getResultName(hr));
         return;
     }
 
-    simcoe::logInfo("auto breadcrumbs:");
+    LOG_INFO("auto breadcrumbs:");
     const D3D12_AUTO_BREADCRUMB_NODE *pNode = breadOutput.pHeadAutoBreadcrumbNode;
     while (pNode != nullptr) {
-        simcoe::logInfo("  objects: (queue={}, list={})", pNode->pCommandQueueDebugNameA, pNode->pCommandListDebugNameA);
-        simcoe::logInfo("  count: {}", pNode->BreadcrumbCount);
+        LOG_INFO("  objects: (queue={}, list={})", pNode->pCommandQueueDebugNameA, pNode->pCommandListDebugNameA);
+        LOG_INFO("  count: {}", pNode->BreadcrumbCount);
         for (UINT32 i = 0; i < pNode->BreadcrumbCount; i++) {
             const D3D12_AUTO_BREADCRUMB_OP &op = pNode->pCommandHistory[i];
-            simcoe::logInfo("    op[{}]: {}", int(op));
+            LOG_INFO("    op[{}]: {}", int(op));
         }
         pNode = pNode->pNext;
     }
@@ -521,11 +521,11 @@ void Device::reportFaultInfo() {
     D3D12_DRED_PAGE_FAULT_OUTPUT faultOutput = {};
 
     if (HRESULT hr = pData->GetPageFaultAllocationOutput(&faultOutput); FAILED(hr)) {
-        simcoe::logWarn("failed to retrieve page fault allocation ({})", DebugService::getResultName(hr));
+        LOG_WARN("failed to retrieve page fault allocation ({})", DebugService::getResultName(hr));
         return;
     }
 
-    simcoe::logInfo("page fault at 0x{:X}", faultOutput.PageFaultVA);
+    LOG_INFO("page fault at 0x{:X}", faultOutput.PageFaultVA);
 }
 
 DeviceQueue *Device::createQueue(CommandType type) {
@@ -683,10 +683,10 @@ PipelineState *Device::createGraphicsPipeline(const GraphicsPipelineInfo& create
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> error;
     if (HRESULT hr = D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, rootSignatureVersion, &signature, &error); FAILED(hr)) {
-        simcoe::logError("Failed to serialize root signature: {:X}", unsigned(hr));
+        LOG_ERROR("Failed to serialize root signature: {:X}", unsigned(hr));
 
         std::string_view msg{static_cast<LPCSTR>(error->GetBufferPointer()), error->GetBufferSize() / sizeof(char)};
-        simcoe::logError("{}", msg);
+        LOG_ERROR("{}", msg);
 
         return nullptr;
     }
@@ -831,10 +831,10 @@ PipelineState *Device::createComputePipeline(const ComputePipelineInfo& createIn
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> error;
     if (HRESULT hr = D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, rootSignatureVersion, &signature, &error); FAILED(hr)) {
-        simcoe::logError("Failed to serialize root signature: {:X}", unsigned(hr));
+        LOG_ERROR("Failed to serialize root signature: {:X}", unsigned(hr));
 
         std::string_view msg{static_cast<LPCSTR>(error->GetBufferPointer()), error->GetBufferSize() / sizeof(char)};
-        simcoe::logError("{}", msg);
+        LOG_ERROR("{}", msg);
 
         return nullptr;
     }
@@ -1121,10 +1121,10 @@ static ID3D12Debug *getDeviceDebugInterface() {
     ID3D12Debug *pDebug = nullptr;
 
     if (HRESULT hr = D3D12GetDebugInterface(IID_PPV_ARGS(&pDebug)); SUCCEEDED(hr)) {
-        simcoe::logInfo("enabling d3d12 debug layer");
+        LOG_INFO("enabling d3d12 debug layer");
         pDebug->EnableDebugLayer();
     } else {
-        simcoe::logWarn("failed to enable d3d12 debug layer");
+        LOG_WARN("failed to enable d3d12 debug layer");
     }
 
     return pDebug;
@@ -1134,10 +1134,10 @@ static ID3D12InfoQueue1 *getDeviceInfoQueue(DWORD *pCookie, ID3D12Device *pDevic
     ID3D12InfoQueue1 *pInfoQueue = nullptr;
 
     if (HRESULT hr = pDevice->QueryInterface(IID_PPV_ARGS(&pInfoQueue)); SUCCEEDED(hr)) {
-        simcoe::logInfo("enabling d3d12 info queue");
+        LOG_INFO("enabling d3d12 info queue");
         HR_CHECK(pInfoQueue->RegisterMessageCallback(debugCallback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, pCookie));
     } else {
-        simcoe::logWarn("failed to enable d3d12 info queue");
+        LOG_WARN("failed to enable d3d12 info queue");
     }
 
     return pInfoQueue;
@@ -1147,12 +1147,12 @@ static void setupDred() {
     ID3D12DeviceRemovedExtendedDataSettings *pSettings = nullptr;
 
     if (HRESULT hr = D3D12GetDebugInterface(IID_PPV_ARGS(&pSettings)); SUCCEEDED(hr)) {
-        simcoe::logInfo("enabling d3d12 device removed extended data");
+        LOG_INFO("enabling d3d12 device removed extended data");
         pSettings->SetAutoBreadcrumbsEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
         pSettings->SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
         pSettings->Release();
     } else {
-        simcoe::logWarn("failed to enable d3d12 device removed extended data");
+        LOG_WARN("failed to enable d3d12 device removed extended data");
     }
 }
 
@@ -1223,10 +1223,10 @@ Adapter::~Adapter() {
 
 void Context::reportLiveObjects() {
     if (pDebug != nullptr) {
-        logInfo("reporting dxgi live objects");
+        LOG_INFO("reporting dxgi live objects");
         pDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
     } else {
-        logWarn("cannot report dxgi live objects");
+        LOG_INFO("cannot report dxgi live objects");
     }
 }
 
@@ -1252,10 +1252,10 @@ static IDXGIDebug1 *getDebugInterface() {
     IDXGIDebug1 *pDebug = nullptr;
 
     if (HRESULT hr = DXGIGetDebugInterface1(0, IID_PPV_ARGS(&pDebug)); SUCCEEDED(hr)) {
-        simcoe::logInfo("enabling dxgi debug layer");
+        LOG_INFO("enabling dxgi debug layer");
         pDebug->EnableLeakTrackingForThread();
     } else {
-        simcoe::logWarn("failed to enable dxgi debug layer");
+        LOG_WARN("failed to enable dxgi debug layer");
     }
 
     return pDebug;
@@ -1274,7 +1274,7 @@ Context *Context::create(CreateFlags flags) {
     if (flags & eCreateDebug) {
         pDebug = getDebugInterface();
     } else {
-        simcoe::logInfo("dxgi debug layer not enabled");
+        LOG_INFO("dxgi debug layer not enabled");
     }
 
     return new Context(pFactory, pDebug);

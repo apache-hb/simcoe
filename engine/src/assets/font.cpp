@@ -1,10 +1,9 @@
 #include "engine/assets/font.h"
 
 #include "engine/service/freetype.h"
+#include "engine/service/logging.h"
 
 #include "engine/math/math.h"
-
-#include "engine/engine.h"
 
 using namespace simcoe;
 using namespace simcoe::assets;
@@ -35,11 +34,11 @@ Font::Font(const char *path) {
     FT_Library library = FreeTypeService::getLibrary();
 
     if (FT_Error error = FT_New_Face(library, path, 0, &face)) {
-        logAssert("failed to load font face from `{}` (fterr={})", path, FT_Error_String(error));
+        LOG_ASSERT("failed to load font face from `{}` (fterr={})", path, FT_Error_String(error));
     }
 
     if (FT_Error error = FT_Select_Charmap(face, FT_ENCODING_UNICODE)) {
-        logAssert("failed to select unicode charmap (fterr={})", FT_Error_String(error));
+        LOG_ASSERT("failed to select unicode charmap (fterr={})", FT_Error_String(error));
     }
 }
 
@@ -54,10 +53,9 @@ void Font::setFontSize(int newPt, int newDpi) {
     pt = newPt;
     dpi = newDpi;
 
-    simcoe::logInfo("setting font size to {}pt (dpi={})", pt, dpi);
-    FT_Error error = FT_Set_Char_Size(face, pt * 64, 0, dpi, 0);
-    if (error) {
-        logAssert("failed to set font size (fterr={})", FT_Error_String(error));
+    LOG_INFO("setting font size to {}pt (dpi={})", pt, dpi);
+    if (FT_Error error = FT_Set_Char_Size(face, pt * 64, 0, dpi, 0)) {
+        LOG_ASSERT("failed to set font size (fterr={})", FT_Error_String(error));
     }
 }
 
@@ -86,7 +84,7 @@ Image Font::drawText(utf8::StaticText text) {
         FT_Set_Transform(face, &matrix, &pen);
 
         if (FT_Error error = FT_Load_Char(face, codepoint, FT_LOAD_RENDER)) {
-            logAssert("failed to load glyph (codepoint={}, fterr={})", uint32_t(codepoint), FT_Error_String(error));
+            LOG_ASSERT("failed to load glyph (codepoint={}, fterr={})", uint32_t(codepoint), FT_Error_String(error));
         }
 
         FT_Bitmap *bitmap = &slot->bitmap;

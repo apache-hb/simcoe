@@ -99,6 +99,9 @@ namespace simcoe {
         static HINSTANCE getInstanceHandle() { return USE_SERVICE(hInstance); }
         static int getShowCmd() { return USE_SERVICE(nCmdShow); }
 
+        // PlatformService message box
+        static void message(std::string_view title, std::string_view body);
+
     private:
         HINSTANCE hInstance = nullptr;
         int nCmdShow = -1;

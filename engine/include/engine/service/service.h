@@ -1,10 +1,10 @@
 #pragma once
 
+#include "engine/core/panic.h"
+
 #include <span>
 #include <string_view>
 #include <atomic>
-
-#include "engine/engine.h"
 
 namespace simcoe {
     using NameSpan = std::span<const std::string_view>;
@@ -13,19 +13,10 @@ namespace simcoe {
         virtual ~IService() = default;
 
         virtual std::string_view getName() const = 0;
-        virtual NameSpan deps() const = 0; // TODO: implement deps
+        virtual NameSpan getDeps() const = 0;
 
-        void create() {
-            ASSERTF(!bCreated, "service {} already created", getName());
-            createService();
-            bCreated = true;
-        }
-
-        void destroy() {
-            ASSERTF(bCreated, "service {} not created", getName());
-            destroyService();
-            bCreated = false;
-        }
+        void create();
+        void destroy();
 
     protected:
         virtual void createService() = 0;
@@ -42,7 +33,7 @@ namespace simcoe {
         using IService::IService;
 
         std::string_view getName() const override { return T::kServiceName; }
-        NameSpan deps() const override { return T::kServiceDeps; }
+        NameSpan getDeps() const override { return T::kServiceDeps; }
 
         static T *get() {
             static T instance;

@@ -1,5 +1,7 @@
 #include "engine/service/gdk.h"
 
+#include "engine/service/logging.h"
+
 #include "XGameRuntime.h"
 #include "XGameRuntimeFeature.h"
 #include "XGameErr.h"
@@ -10,7 +12,7 @@ using namespace simcoe;
     do { \
         if (HRESULT hr = (expr); FAILED(hr)) { \
             auto msg = std::format("gdk-error: {} ({})", #expr, gdkErrorString(hr)); \
-            simcoe::logError(msg); \
+            LOG_ERROR(msg); \
             throw std::runtime_error(msg); \
         } \
     } while (false)
@@ -40,7 +42,7 @@ namespace {
 void GdkService::createService() {
     if (HRESULT hr = XGameRuntimeInitialize(); FAILED(hr)) {
         auto err = gdkErrorString(hr);
-        simcoe::logError("XGameRuntimeInitialize() = {}", err);
+        LOG_ERROR("XGameRuntimeInitialize() = {}", err);
         return;
     }
 

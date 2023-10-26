@@ -1,5 +1,7 @@
 #include "editor/graph/mesh.h"
 
+#include "engine/core/panic.h"
+
 #include "tinyobj/loader.h"
 #include <unordered_map>
 
@@ -37,19 +39,19 @@ void ObjMesh::loadAsset() {
     bool ok = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &error, assetPath.string().c_str(), assetPath.parent_path().string().c_str());
 
     if (!warn.empty()) {
-        simcoe::logWarn("tinyobj warn {}", warn);
+        LOG_WARN("tinyobj warn {}", warn);
     }
 
     if (!error.empty()) {
-        simcoe::logError("tinyobj error {}", error);
+        LOG_ERROR("tinyobj error {}", error);
     }
 
     if (!ok) {
-        simcoe::logError("failed to load obj {}", path.string());
+        LOG_ERROR("failed to load obj {}", path.string());
         throw std::runtime_error("failed to load obj");
     }
 
-    simcoe::logInfo("loaded obj {} (shapes={})", path.string(), shapes.size());
+    LOG_INFO("loaded obj {} (shapes={})", path.string(), shapes.size());
     ASSERT(shapes.size() >= 1);
 
     const auto& shape = shapes[0];
@@ -61,7 +63,7 @@ void ObjMesh::loadAsset() {
     ASSERT(vertices.size() % 3 == 0);
     ASSERT(indices.size() % 3 == 0);
 
-    simcoe::logInfo("(vertices={} uvs={} indices={})", vertices.size(), texcoords.size(), indices.size());
+    LOG_INFO("(vertices={} uvs={} indices={})", vertices.size(), texcoords.size(), indices.size());
 
     auto getUvCoord = [&](int idx) {
         if (idx != -1) {
@@ -118,7 +120,7 @@ void ObjMesh::loadAsset() {
         offset += verts;
     }
 
-    simcoe::logInfo("buffer sizes (vertices={} indices={})", vertexData.size(), indexData.size());
+    LOG_INFO("buffer sizes (vertices={} indices={})", vertexData.size(), indexData.size());
 }
 
 void ObjMesh::create() {

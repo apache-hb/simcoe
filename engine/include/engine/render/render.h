@@ -4,6 +4,8 @@
 #include "engine/rhi/rhi.h"
 #include "engine/memory/bitmap.h"
 
+#include "engine/service/logging.h"
+
 namespace simcoe::render {
     // forward declarations
 
@@ -338,7 +340,7 @@ namespace simcoe::render {
 
             auto *pAdapter = adapters[createInfo.adapterIndex];
             auto info = pAdapter->getInfo();
-            simcoe::logInfo("selected adapter: {}", info.name);
+            LOG_INFO("selected adapter: {}", info.name);
             return pAdapter;
         }
 

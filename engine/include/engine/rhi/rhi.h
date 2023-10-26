@@ -1,13 +1,12 @@
 #pragma once
 
-#include "engine/engine.h"
-
 #include "engine/math/math.h"
 #include "engine/util/strings.h"
 
 #include <string>
 #include <vector>
 #include <span>
+#include <atomic>
 #include <unordered_map>
 
 #include <directx/d3d12.h>

@@ -9,7 +9,6 @@ using namespace simcoe::render;
 using namespace simcoe::math;
 
 namespace editor::graph {
-    namespace fs = assets::fs;
     using ITextureHandle = ISingleResourceHandle<rhi::TextureBuffer>;
 
     struct Vertex {

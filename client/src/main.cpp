@@ -1,8 +1,7 @@
 // core
-#include "engine/engine.h"
-
 #include "engine/service/debug.h"
 #include "engine/service/platform.h"
+#include "engine/service/logging.h"
 
 using namespace simcoe;
 
@@ -32,7 +31,7 @@ static GameWindowCallbacks gWindowCallbacks;
 ///
 
 static void commonMain() {
-    simcoe::logInfo("main");
+    LOG_INFO("main");
 
     const WindowCreateInfo createInfo = {
         .title = "Client",
@@ -52,21 +51,22 @@ static void commonMain() {
 static int innerMain() try {
     auto engineServices = std::to_array({
         DebugService::service(),
+        LoggingService::service(),
         PlatformService::service()
     });
     ServiceRuntime runtime{engineServices};
 
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
-    simcoe::logInfo("startup");
+    LOG_INFO("startup");
     commonMain();
-    simcoe::logInfo("shutdown");
+    LOG_INFO("shutdown");
 
     return 0;
 } catch (const std::exception& err) {
-    simcoe::logError("unhandled exception: {}", err.what());
+    LOG_ERROR("unhandled exception: {}", err.what());
     return 99;
 } catch (...) {
-    simcoe::logError("unhandled exception");
+    LOG_ERROR("unhandled exception");
     return 99;
 }
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine/engine.h"
+#include "engine/core/panic.h"
 #include "imgui/imgui.h"
 
 #ifdef assert

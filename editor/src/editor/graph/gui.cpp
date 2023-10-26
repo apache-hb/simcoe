@@ -31,7 +31,7 @@ IGuiPass::IGuiPass(Graph *graph, ResourceWrapper<IRTVHandle> *pHandle)
     io.ConfigFlags |= kConfig;
     io.IniFilename = iniPath.c_str();
 
-    simcoe::logInfo("imgui.ini path: {}", iniPath);
+    LOG_INFO("imgui.ini path: {}", iniPath);
 
     ImGui::StyleColorsDark();
 }

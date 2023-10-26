@@ -1,7 +1,5 @@
 #include "engine/render/render.h"
 
-#include "engine/engine.h"
-
 #include <DirectXMath.h>
 
 using namespace simcoe;
@@ -44,7 +42,7 @@ Context::Context(const RenderCreateInfo& createInfo) : createInfo(createInfo) {
 // create data that depends on the context
 void Context::createContextData() {
     adapters = pContext->getAdapters();
-    simcoe::logInfo("found {} adapters, selecting adapter #{}", adapters.size(), createInfo.adapterIndex + 1);
+    LOG_INFO("found {} adapters, selecting adapter #{}", adapters.size(), createInfo.adapterIndex + 1);
 }
 
 void Context::destroyContextData() {

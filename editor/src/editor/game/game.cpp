@@ -33,7 +33,7 @@ void Instance::updateGame() {
 }
 
 void Instance::setupRender() {
-    simcoe::logInfo("render thread fault limit: {}", renderFaultLimit);
+    LOG_INFO("render thread fault limit: {}", renderFaultLimit);
 }
 
 void Instance::updateRender() {
@@ -46,13 +46,13 @@ void Instance::updateRender() {
         pGraph->execute();
     } catch (std::runtime_error& err) {
         renderFaultCount += 1;
-        simcoe::logError("render fault. {} total fault{}", renderFaultCount, renderFaultCount > 1 ? "s" : "");
+        LOG_ERROR("render fault. {} total fault{}", renderFaultCount, renderFaultCount > 1 ? "s" : "");
 
         if (renderFaultCount >= renderFaultLimit) {
-            simcoe::logError("render fault exceeded limit of {}. exiting...", renderFaultLimit);
+            LOG_ERROR("render fault exceeded limit of {}. exiting...", renderFaultLimit);
         }
 
-        simcoe::logError("attempting to recover...");
+        LOG_ERROR("attempting to recover...");
         pGraph->resumeFromFault();
     }
 }

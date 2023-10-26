@@ -105,7 +105,7 @@ void OBullet::tick(float delta) {
             this->retire();
             return;
         } else {
-            simcoe::logInfo("hit non-swarm object: {}", pObject->getName());
+            LOG_INFO("hit non-swarm object: {}", pObject->getName());
         }
     }
 }

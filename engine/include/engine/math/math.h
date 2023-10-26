@@ -3,7 +3,7 @@
 #include <cmath>
 #include <numbers>
 
-#include "engine/engine.h"
+#include "engine/core/panic.h"
 
 namespace simcoe::math {
     template<typename T>

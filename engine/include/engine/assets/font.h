@@ -6,7 +6,7 @@
 
 #include "engine/assets/image.h"
 
-#include "engine/util/text.h"
+#include "engine/core/utf8.h"
 
 namespace simcoe::assets {
     struct Font {

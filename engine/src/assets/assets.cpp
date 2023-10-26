@@ -1,5 +1,7 @@
 #include "engine/assets/assets.h"
 
+#include "engine/service/logging.h"
+
 #include <stb/stb_image.h>
 
 #include <fstream>
@@ -8,6 +10,17 @@ using namespace simcoe::assets;
 
 namespace {
     constexpr size_t kChannels = 4;
+
+    const fs::path kSystemFontDir = "C:\\Windows\\Fonts";
+
+    Font getFontFile(fs::path path) {
+        path.replace_extension("ttf");
+        if (!fs::exists(path)) {
+            LOG_ASSERT("font file `{}` does not exist", path.string());
+        }
+
+        return Font(path.string().c_str());
+    }
 }
 
 fs::path Assets::getAssetPath(const fs::path& path) const {
@@ -54,10 +67,9 @@ Image Assets::loadImage(const std::filesystem::path& path) const {
 }
 
 Font Assets::loadFont(const std::filesystem::path& path) const {
-    return Font((root / path).string().c_str());
+    return getFontFile(root / path);
 }
 
 Font Assets::loadSystemFont(std::string_view name) const {
-    fs::path path = std::format("C:\\Windows\\Fonts\\{}.ttf", name);
-    return Font(path.string().c_str());
+    return getFontFile(kSystemFontDir / name);
 }

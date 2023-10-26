@@ -59,7 +59,9 @@ endif
 ###
 
 src = [
-    'engine/src/engine.cpp',
+    # core
+    'engine/src/core/panic.cpp',
+    'engine/src/core/utf8.cpp',
 
     # service
     'engine/src/service/service.cpp',
@@ -68,6 +70,9 @@ src = [
     # os
     'engine/src/service/platform.cpp',
     'engine/src/service/debug.cpp',
+
+    # logging
+    'engine/src/service/logging.cpp',
 
     # util
     'engine/src/util/retry.cpp',
@@ -230,6 +235,9 @@ src = [
     hlsl_ps.process('data/shaders/object.hlsl'),
 
     #hlsl_cs.process('data/shaders/mipmap.hlsl'),
+
+    # fonts
+    copy.process('data/fonts/SwarmFace-Regular.ttf'),
 
     # textures
     copy.process('data/images/assets/default.png'),

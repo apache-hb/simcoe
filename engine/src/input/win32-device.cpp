@@ -1,6 +1,8 @@
 #include "engine/input/win32-device.h"
 #include "common.h"
 
+#include "engine/service/logging.h"
+
 #include <unordered_map>
 
 using namespace simcoe;
@@ -162,7 +164,7 @@ void Win32Keyboard::handleMsg(UINT uMsg, WPARAM wParam, LPARAM lParam) {
 void Win32Keyboard::setKey(WORD key, size_t value) {
     auto it = kDesktopButtons.find(key);
     if (it == kDesktopButtons.end()) {
-        logWarn("Unknown key: {}", key);
+        LOG_WARN("Unknown key: {}", key);
         return;
     }
 

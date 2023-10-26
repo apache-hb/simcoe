@@ -3,6 +3,8 @@
 
 #include "engine/util/strings.h"
 
+#include "engine/core/panic.h"
+
 #include <intsafe.h> // DWORD_MAX
 #include <comdef.h> // _com_error
 #include <dbghelp.h>
@@ -74,6 +76,10 @@ void PlatformService::quit(int code) {
 
 size_t PlatformService::queryCounter() {
     return getClockCounter();
+}
+
+void PlatformService::message(std::string_view title, std::string_view body) {
+    MessageBox(nullptr, body.data(), title.data(), MB_ICONERROR | MB_SYSTEMMODAL);
 }
 
 // clock

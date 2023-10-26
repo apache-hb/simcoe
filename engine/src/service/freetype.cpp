@@ -1,4 +1,5 @@
 #include "engine/service/freetype.h"
+#include "engine/service/logging.h"
 
 using namespace simcoe;
 
@@ -6,7 +7,7 @@ using namespace simcoe;
 
 void FreeTypeService::createService() {
     if (FT_Error error = FT_Init_FreeType(&library); error) {
-        logAssert("failed to initialize FreeType library (fterr={})", FT_Error_String(error));
+        LOG_ASSERT("failed to initialize FreeType library (fterr={})", FT_Error_String(error));
     }
 }
 

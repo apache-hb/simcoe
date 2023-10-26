@@ -117,7 +117,7 @@ TextureHandle::TextureHandle(Graph *graph, std::string name)
     const auto& createInfo = ctx->getCreateInfo();
     image = createInfo.depot.loadImage(name);
 
-    simcoe::logInfo("texture {} ({}x{})", name, image.width, image.height);
+    LOG_INFO("texture {} ({}x{})", name, image.width, image.height);
 }
 
 void TextureHandle::create() {
@@ -158,7 +158,7 @@ void TextureHandle::destroy() {
 
 namespace {
     assets::Font loadFont(const RenderCreateInfo& createInfo, std::string_view name) {
-        assets::Font font = createInfo.depot.loadSystemFont(name);
+        assets::Font font = createInfo.depot.loadFont(name);
         UINT dpi = GetDpiForWindow(createInfo.hWindow);
         font.setFontSize(32, dpi);
         return font;
@@ -171,7 +171,7 @@ TextHandle::TextHandle(Graph *ctx, std::string_view name, utf8::StaticText text)
     , text(text)
 {
     bitmap = font.drawText(text);
-    simcoe::logInfo("font (ttf={}, bitmap={}x{})", name, bitmap.width, bitmap.height);
+    LOG_INFO("font (ttf={}, bitmap={}x{})", name, bitmap.width, bitmap.height);
 }
 
 void TextHandle::create() {

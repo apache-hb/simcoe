@@ -1,10 +1,10 @@
 // os and system
 #include "editor/game/game.h"
-#include "engine/engine.h"
 
 // services
 #include "engine/service/service.h"
 #include "engine/service/debug.h"
+#include "engine/service/logging.h"
 #include "engine/service/platform.h"
 #include "engine/service/freetype.h"
 #include "engine/service/gdk.h"
@@ -42,6 +42,7 @@
 #include <functional>
 #include <array>
 #include <fstream>
+#include <iostream>
 
 using namespace simcoe;
 using namespace simcoe::math;
@@ -104,7 +105,7 @@ tasks::WorkThread *newTask(const char *name, F&& func) {
     return new WorkImpl(name, std::move(func));
 }
 
-struct FileLogger final : ILogSink {
+struct FileLogger final : ISink {
     FileLogger()
         : file("game.log")
     { }
@@ -116,7 +117,7 @@ struct FileLogger final : ILogSink {
     std::ofstream file;
 };
 
-struct GuiLogger final : ILogSink {
+struct GuiLogger final : ISink {
     void accept(std::string_view message) override {
         std::lock_guard lock(mutex);
         buffer.push_back(std::string(message));
@@ -136,8 +137,15 @@ private:
     debug::GlobalHandle debugHandle = debug::addGlobalHandle("Logs", [this] { debug(); });
 };
 
-static GuiLogger *pGuiLogger;
-static FileLogger *pFileLogger;
+struct ConsoleLogger final : ISink {
+    void accept(std::string_view msg) override {
+        std::cout << msg << std::endl;
+    }
+};
+
+static ConsoleLogger *pConsoleLogger = nullptr;
+static GuiLogger *pGuiLogger = nullptr;
+static FileLogger *pFileLogger = nullptr;
 
 struct GameWindow final : IWindowCallbacks {
     std::atomic_bool bWindowOpen = true;
@@ -154,7 +162,7 @@ struct GameWindow final : IWindowCallbacks {
 
         pGame->pRenderQueue->add("resize-display", [&, w = event.width, h = event.height] {
             pGraph->resizeDisplay(w, h);
-            logInfo("resize-display: {}x{}", w, h);
+            LOG_INFO("resize-display: {}x{}", w, h);
         });
     }
 
@@ -191,6 +199,8 @@ static void changeWindowMode(WindowMode oldMode, WindowMode newMode) {
     }
 }
 
+constexpr char32_t kXboneLogo = 0xE001;
+
 struct GameGui final : graph::IGuiPass {
     using graph::IGuiPass::IGuiPass;
 
@@ -212,7 +222,7 @@ struct GameGui final : graph::IGuiPass {
         : IGuiPass(ctx, pRenderTarget)
         , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTextureRead))
     {
-        pTextHandle = graph->addResource<graph::TextHandle>("segoeui", u8"Hello world using freetype2 & harfbuzz! \u2182");
+        pTextHandle = graph->addResource<graph::TextHandle>("SwarmFace-Regular", u8"SWARM \uE001");
         pTextAttachment = addAttachment(pTextHandle, rhi::ResourceState::eTextureRead);
     }
 
@@ -387,13 +397,13 @@ struct GameGui final : graph::IGuiPass {
 
         if (objFileBrowser.HasSelected()) {
             auto path = objFileBrowser.GetSelected();
-            simcoe::logInfo("selected: {}", path.string());
+            LOG_INFO("selected: {}", path.string());
             objFileBrowser.ClearSelected();
         }
 
         if (imguiFileBrowser.HasSelected()) {
             auto path = imguiFileBrowser.GetSelected();
-            simcoe::logInfo("selected: {}", path.string());
+            LOG_INFO("selected: {}", path.string());
             imguiFileBrowser.ClearSelected();
 
             ImGui::SaveIniSettingsToDisk(path.string().c_str());
@@ -475,21 +485,21 @@ struct GameGui final : graph::IGuiPass {
             if (ImGui::SliderInt2("Internal resolution", renderSize, 64, 4096)) {
                 pGame->pRenderQueue->add("resize-render", [this] {
                     pGraph->resizeRender(renderSize[0], renderSize[1]);
-                    logInfo("resize-render: {}x{}", renderSize[0], renderSize[1]);
+                    LOG_INFO("resize-render: {}x{}", renderSize[0], renderSize[1]);
                 });
             }
 
             if (ImGui::SliderInt("backbuffer count", &backBufferCount, 2, 8)) {
                 pGame->pRenderQueue->add("change-backbuffers", [this] {
                     pGraph->changeBackBufferCount(backBufferCount);
-                    logInfo("change-backbuffer-count: {}", backBufferCount);
+                    LOG_INFO("change-backbuffer-count: {}", backBufferCount);
                 });
             }
 
             if (ImGui::Combo("Adapter", &currentAdapter, adapterNames.data(), adapterNames.size())) {
                 pGame->pRenderQueue->add("change-adapter", [this] {
                     pGraph->changeAdapter(currentAdapter);
-                    logInfo("change-adapter: {}", currentAdapter);
+                    LOG_INFO("change-adapter: {}", currentAdapter);
                 });
             }
 
@@ -605,7 +615,7 @@ static void commonMain(const std::filesystem::path& path) {
 
     auto assets = path / "editor.exe.p";
     assets::Assets depot = { assets };
-    simcoe::logInfo("depot: {}", assets.string());
+    LOG_INFO("depot: {}", assets.string());
 
     const WindowCreateInfo windowCreateInfo = {
         .title = "simcoe",
@@ -704,7 +714,14 @@ static fs::path getGameDir() {
 }
 
 static int innerMain() try {
+    DebugService::setThreadName("main");
+
+    pConsoleLogger = LoggingService::newSink<ConsoleLogger>();
+    pFileLogger = LoggingService::newSink<FileLogger>();
+    pGuiLogger = LoggingService::newSink<GuiLogger>();
+
     auto engineServices = std::to_array({
+        LoggingService::service(),
         DebugService::service(),
         PlatformService::service(),
         GdkService::service(),
@@ -712,24 +729,17 @@ static int innerMain() try {
     });
     ServiceRuntime runtime{engineServices};
 
-    DebugService::setThreadName("main");
-    pFileLogger = new FileLogger();
-    pGuiLogger = new GuiLogger();
-
-    simcoe::addSink(pFileLogger);
-    simcoe::addSink(pGuiLogger);
-
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
-    simcoe::logInfo("startup");
+    LOG_INFO("startup");
     commonMain(getGameDir());
-    simcoe::logInfo("shutdown");
+    LOG_INFO("shutdown");
 
     return 0;
 } catch (const std::exception& err) {
-    simcoe::logError("unhandled exception: {}", err.what());
+    LOG_ERROR("unhandled exception: {}", err.what());
     return 99;
 } catch (...) {
-    simcoe::logError("unhandled exception");
+    LOG_ERROR("unhandled exception");
     return 99;
 }
 

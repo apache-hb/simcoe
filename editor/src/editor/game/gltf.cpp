@@ -27,13 +27,13 @@ namespace {
             asset = parser.loadBinaryGLTF(&dataBuffer, path.parent_path(), kLoadOpts);
             break;
         default:
-            simcoe::logError("failed to determine gltf file type {}", path.string());
+            LOG_ERROR("failed to determine gltf file type {}", path.string());
             return false;
         }
 
         if (asset.error() != fg::Error::None) {
-            simcoe::logError("failed to load gltf {}", path.string());
-            simcoe::logError("{}", fg::getErrorMessage(asset.error()));
+            LOG_ERROR("failed to load gltf {}", path.string());
+            LOG_ERROR("{}", fg::getErrorMessage(asset.error()));
             return false;
         }
 

@@ -16,7 +16,7 @@ namespace simcoe::tasks {
             std::string expectedName = DebugService::getThreadName()
         );
 
-        void verify(std::string_view info = "");
+        void verify(std::string_view detail = "");
 
         std::string_view getExpectedThreadName() const { return expectedThreadName; }
 

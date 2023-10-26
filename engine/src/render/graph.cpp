@@ -1,5 +1,7 @@
 #include "engine/render/graph.h"
 
+#include "engine/core/panic.h"
+
 using namespace simcoe;
 using namespace simcoe::render;
 
@@ -147,7 +149,7 @@ void Graph::changeAdapter(UINT index) {
 }
 
 void Graph::resumeFromFault() {
-    simcoe::logInfo("resuming from fault");
+    LOG_INFO("resuming from fault");
     ctx->reportFaultInfo();
 
     changeData(StateDep::eDepDevice, [=] {

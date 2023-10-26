@@ -5,6 +5,7 @@
 #include "editor/graph/mesh.h"
 
 #include "engine/service/platform.h"
+#include "engine/service/logging.h"
 
 #include "imgui/imgui.h"
 
@@ -189,7 +190,7 @@ namespace editor::game {
             //requires std::is_constructible_v<T, GameLevel*, A...>
         T *addObject(A&&... args) {
             auto pObject = new T(this, args...);
-            simcoe::logInfo("adding object: {}", (void*)pObject);
+            LOG_INFO("adding object: {}", (void*)pObject);
 
             std::lock_guard guard(lock);
             pending.emplace(pObject);
@@ -197,7 +198,7 @@ namespace editor::game {
         }
 
         void removeObject(IGameObject *pObject) {
-            simcoe::logInfo("deleting object: {}", (void*)pObject);
+            LOG_INFO("deleting object: {}", (void*)pObject);
             std::lock_guard guard(lock);
             std::erase(objects, pObject);
         }
@@ -226,8 +227,8 @@ namespace editor::game {
         float getCurrentTime() const { return clock.now(); }
 
         virtual void tick(float delta) { }
-        virtual void pause() { simcoe::logInfo("pause"); }
-        virtual void resume() { simcoe::logInfo("resume"); }
+        virtual void pause() { LOG_INFO("pause"); }
+        virtual void resume() { LOG_INFO("resume"); }
 
     private:
         Clock clock;
