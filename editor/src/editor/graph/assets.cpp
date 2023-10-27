@@ -171,11 +171,10 @@ namespace {
     }
 }
 
-TextHandle::TextHandle(Graph *ctx, std::string_view name, utf8::StaticText text)
-    : ISingleResourceHandle(ctx, std::string(name))
-    , ttf(name)
-    , font(loadFont(ctx->getCreateInfo(), name))
-    , text(text)
+TextHandle::TextHandle(Graph *ctx, std::string_view ttf)
+    : ISingleResourceHandle(ctx, std::string(ttf))
+    , ttf(ttf)
+    , font(loadFont(ctx->getCreateInfo(), ttf))
 {
     draw();
 }
@@ -194,7 +193,7 @@ void TextHandle::setFontSize(size_t pt) {
 }
 
 void TextHandle::draw() {
-    bitmap = font.drawText(segments, start, size, angle);
+    bitmap = font.drawText(segments, start, size);
     LOG_INFO("font (ttf={}, bitmap={}x{})", ttf, bitmap.width, bitmap.height);
 }
 
@@ -234,17 +233,11 @@ void TextHandle::debug() {
     static int pt = 32;
     ImGui::InputInt("pt", &pt);
 
-    static char text[256] = "SWARM \uE001 \uE002 \uE003";
-    ImGui::InputTextMultiline("text", text, sizeof(text));
-
-    ImGui::SliderFloat("angle", &angle, -360.f, 360.f);
-
     if (ImGui::Button("draw")) {
         game::Instance *pInstance = game::getInstance();
 
         pInstance->pRenderQueue->add("update-text", [this] {
             this->size = { size_t(size[0]), size_t(size[1]) };
-            this->text = (char8_t*)text;
             this->start = { size_t(startPos[0]), size_t(startPos[1]) };
 
             setFontSize(pt);

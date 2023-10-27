@@ -92,7 +92,7 @@ namespace editor::graph {
     };
 
     struct TextHandle final : ITextureHandle, ISingleSRVHandle {
-        TextHandle(Graph *ctx, std::string_view name, utf8::StaticText text);
+        TextHandle(Graph *ctx, std::string_view ttf);
 
         void setFontSize(size_t pt);
 
@@ -117,8 +117,6 @@ namespace editor::graph {
             { u8"\uE001 \uE002 \uE003", math::float4(0.f, 1.f, 0.f, 1.f) }
         };
 
-        float angle = 0.f;
-        utf8::StaticText text;
         assets::CanvasPoint start = { 0, 0 };
         assets::CanvasSize size = { 1920, 1080 };
 

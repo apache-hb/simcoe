@@ -213,7 +213,7 @@ struct GameGui final : graph::IGuiPass {
         : IGuiPass(ctx, pRenderTarget)
         , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTextureRead))
     {
-        pTextHandle = graph->addResource<graph::TextHandle>("SwarmFace-Regular", u8"SWARM \uE001 \uE002 \uE003");
+        pTextHandle = graph->addResource<graph::TextHandle>("SwarmFace-Regular");
         pTextAttachment = addAttachment(pTextHandle, rhi::ResourceState::eTextureRead);
     }
 

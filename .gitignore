@@ -16,6 +16,7 @@
 !data/libs/warp/*
 !data/config/*
 !data/models/*
+!data/fonts/*
 
 # gameinput
 !subprojects/gdk/lib/*

@@ -235,7 +235,7 @@ src = [
     #hlsl_cs.process('data/shaders/mipmap.hlsl'),
 
     # fonts
-    copy.process('data/fonts/SwarmFace/OpenType-TT/SwarmFace-Regular.ttf'),
+    copy.process('data/fonts/SwarmFace-Regular.ttf'),
 
     # textures
     copy.process('data/images/assets/default.png'),
