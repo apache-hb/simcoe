@@ -3,7 +3,8 @@
 #include "engine/input/input.h"
 #include "engine/util/retry.h"
 
-#include <windows.h>
+#include "engine/core/win32.h"
+
 #include <Xinput.h>
 
 namespace simcoe::input {

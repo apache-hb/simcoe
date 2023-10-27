@@ -1,6 +1,6 @@
 #include "swarm/levels.h"
 
-#include "editor/game/game.h"
+#include "game/game.h"
 
 #include "imgui/imgui.h"
 

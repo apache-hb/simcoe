@@ -4,8 +4,9 @@
 
 #include "engine/math/math.h"
 
+#include "engine/core/win32.h"
+
 #include <array>
-#include <windows.h>
 
 namespace simcoe {
     using WindowSize = math::Resolution<int>;
@@ -74,6 +75,8 @@ namespace simcoe {
         size_t start;
     };
 
+    using CommandLine = std::vector<std::string>;
+
     struct PlatformService final : IStaticService<PlatformService> {
         // IStaticService
         static constexpr std::string_view kServiceName = "platform";
@@ -85,6 +88,7 @@ namespace simcoe {
 
         // PlatformService
         static void setup(HINSTANCE hInstance, int nCmdShow);
+        static CommandLine getCommandLine();
 
         // PlatformService win32 event loop
         static bool getEvent();
@@ -92,12 +96,20 @@ namespace simcoe {
         static void quit(int code = 0);
 
         // PlatformService win32 timer info
-        static size_t getFrequency() { return USE_SERVICE(frequency); }
+        static size_t getFrequency() {
+            return USE_SERVICE(eServiceCreated, frequency);
+        }
+
         static size_t queryCounter();
 
         // PlatformService win32 window creation
-        static HINSTANCE getInstanceHandle() { return USE_SERVICE(hInstance); }
-        static int getShowCmd() { return USE_SERVICE(nCmdShow); }
+        static HINSTANCE getInstanceHandle() {
+            return USE_SERVICE(eServiceSetup | eServiceCreated, hInstance);
+        }
+
+        static int getShowCmd() {
+            return USE_SERVICE(eServiceSetup | eServiceCreated, nCmdShow);
+        }
 
         // PlatformService message box
         static void message(std::string_view title, std::string_view body);

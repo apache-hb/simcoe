@@ -8,6 +8,7 @@
 
 #include <intsafe.h> // DWORD_MAX
 #include <comdef.h> // _com_error
+#include <shellapi.h> // CommandLineToArgvW
 #include <iostream>
 
 using namespace simcoe;
@@ -59,29 +60,49 @@ void PlatformService::destroyService() {
 }
 
 void PlatformService::setup(HINSTANCE hInstance, int nCmdShow) {
+    ENSURE_STATE(eServiceInitial);
     get()->hInstance = hInstance;
     get()->nCmdShow = nCmdShow;
 }
 
+CommandLine PlatformService::getCommandLine() {
+    ENSURE_STATE(eServiceCreated);
+
+    CommandLine args;
+
+    int argc;
+    auto **argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+
+    for (int i = 0; i < argc; i++) {
+        args.push_back(util::narrow(argv[i]));
+    }
+
+    LocalFree(argv);
+    return args;
+}
+
 bool PlatformService::getEvent() {
-    return PeekMessage(&USE_SERVICE(msg), NULL, 0, 0, PM_REMOVE) != 0;
+    return PeekMessage(&USE_SERVICE(eServiceCreated, msg), NULL, 0, 0, PM_REMOVE) != 0;
 }
 
 void PlatformService::dispatchEvent() {
-    MSG msg = USE_SERVICE(msg);
+    MSG msg = USE_SERVICE(eServiceCreated, msg);
     TranslateMessage(&msg);
     DispatchMessage(&msg);
 }
 
 void PlatformService::quit(int code) {
+    ENSURE_STATE(eServiceCreated);
     PostQuitMessage(code);
 }
 
 size_t PlatformService::queryCounter() {
+    ENSURE_STATE(eServiceCreated);
     return getClockCounter();
 }
 
 void PlatformService::message(std::string_view title, std::string_view body) {
+    ENSURE_STATE(eServiceCreated | eServiceSetup);
     MessageBox(nullptr, body.data(), title.data(), MB_ICONERROR | MB_SYSTEMMODAL);
     std::cout << title << ": " << body << std::endl;
 }

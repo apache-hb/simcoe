@@ -11,21 +11,22 @@ using namespace simcoe;
 // service base
 
 void IService::create() {
-    ASSERTF(!bCreated, "service {} already created", getName());
+    ASSERTF(state == eServiceInitial, "service {} already created", getName());
 
     if (createService()) {
         LOG_INFO("loaded {} service", getName());
-        bCreated = true;
+        state = eServiceCreated;
     } else {
         LOG_ERROR("failed to load {} service", getName());
+        state = eServiceFaulted;
     }
 }
 
 void IService::destroy() {
-    ASSERTF(bCreated, "service {} not created", getName());
+    ASSERTF(state != eServiceInitial, "service {} not created", getName());
     LOG_INFO("unloading {} service", getName());
     destroyService();
-    bCreated = false;
+    state = eServiceInitial;
 }
 
 // service runtime

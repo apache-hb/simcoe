@@ -1,5 +1,5 @@
-#include "editor/game/level.h"
-#include "editor/game/game.h"
+#include "game/level.h"
+#include "game/game.h"
 
 #include "imgui/imgui.h"
 

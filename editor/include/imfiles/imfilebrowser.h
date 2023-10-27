@@ -957,9 +957,9 @@ inline std::string ImGui::FileBrowser::u8StrToStr(std::string s)
 #define IMGUI_FILEBROWSER_UNDEF_WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 
-#endif // #ifndef WIN32_LEAN_AND_MEAN
+#include "engine/core/win32.h"
 
-#include <windows.h>
+#endif // #ifndef WIN32_LEAN_AND_MEAN
 
 #ifdef IMGUI_FILEBROWSER_UNDEF_WIN32_LEAN_AND_MEAN
 #undef IMGUI_FILEBROWSER_UNDEF_WIN32_LEAN_AND_MEAN

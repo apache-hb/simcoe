@@ -1,4 +1,4 @@
-#include "editor/game/game.h"
+#include "game/game.h"
 
 #include "editor/graph/mesh.h"
 

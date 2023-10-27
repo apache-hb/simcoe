@@ -1,6 +1,6 @@
 #pragma once
 
-#include "editor/game/level.h"
+#include "game/level.h"
 
 #include "swarm/objects.h"
 #include "swarm/input.h"

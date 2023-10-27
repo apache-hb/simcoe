@@ -19,7 +19,7 @@ namespace simcoe {
 
         // FreeTypeService
         static FT_Library getLibrary() {
-            return USE_SERVICE(library);
+            return USE_SERVICE(eServiceCreated, library);
         }
 
     private:

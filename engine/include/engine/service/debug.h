@@ -5,7 +5,7 @@
 #include <vector>
 #include <array>
 
-#include <windows.h>
+#include "engine/core/win32.h"
 
 namespace simcoe {
     struct StackFrame {
@@ -24,7 +24,7 @@ namespace simcoe {
 
         // DebugService
         static std::vector<StackFrame> backtrace() {
-            return USE_SERVICE(getBacktrace)();
+            return USE_SERVICE(eServiceCreated, getBacktrace)();
         }
 
         static void setThreadName(std::string_view name);

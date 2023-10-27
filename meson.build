@@ -97,9 +97,6 @@ src = [
     'engine/src/assets/assets.cpp',
     'engine/src/assets/font.cpp',
 
-    # physics
-    'engine/src/physics/world.cpp',
-
     # rhi
     'engine/src/rhi/render.cpp',
     'engine/src/rhi/vendor.cpp',
@@ -211,15 +208,18 @@ src = [
     'editor/src/editor/graph/game.cpp',
     #'editor/src/editor/graph/mipmap.cpp',
 
-    # game objects
-    #'editor/src/editor/game/gltf.cpp',
-
     # game debug
     'editor/src/editor/debug/debug.cpp',
 
     # game framework
-    'editor/src/editor/game/game.cpp',
-    'editor/src/editor/game/level.cpp',
+    'editor/src/game/game.cpp',
+    'editor/src/game/level.cpp',
+
+    # game2
+    'editor/src/game2/object.cpp',
+    'editor/src/game2/physics.cpp',
+    'editor/src/game2/components/collider.cpp',
+    'editor/src/game2/components/scene.cpp',
 
     # game logic
     'editor/src/swarm/objects.cpp',

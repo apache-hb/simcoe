@@ -1,5 +1,5 @@
 // os and system
-#include "editor/game/game.h"
+#include "game/game.h"
 
 // services
 #include "engine/service/service.h"
@@ -69,6 +69,7 @@ static game::Instance *pGame = nullptr;
 
 // window mode
 static Window *pWindow = nullptr;
+static std::atomic_bool bWindowOpen = true;
 static WindowMode gWindowMode = eModeWindowed;
 static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless", "Fullscreen" });
 
@@ -141,8 +142,6 @@ static GuiLogger *pGuiLogger = nullptr;
 static FileLogger *pFileLogger = nullptr;
 
 struct GameWindow final : IWindowCallbacks {
-    std::atomic_bool bWindowOpen = true;
-
     void onClose() override {
         bWindowOpen = false;
 
@@ -521,7 +520,7 @@ struct GameGui final : graph::IGuiPass {
 static GameWindow gWindowCallbacks;
 
 void gdkServiceDebug() {
-    if (!GdkService::isCreated()) {
+    if (GdkService::getState() & eServiceFaulted) {
         auto failureReason = GdkService::getFailureReason();
         ImGui::Text("GDK init failed: %s", failureReason.data());
         return;
@@ -555,22 +554,6 @@ void gdkServiceDebug() {
         }
         ImGui::EndTable();
     }
-}
-
-using CommandLine = std::vector<std::string>;
-
-CommandLine getCommandLine() {
-    CommandLine args;
-
-    int argc;
-    auto **argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-
-    for (int i = 0; i < argc; i++) {
-        args.push_back(util::narrow(argv[i]));
-    }
-
-    LocalFree(argv);
-    return args;
 }
 
 ///
@@ -662,7 +645,7 @@ static void commonMain(const std::filesystem::path& path) {
     std::jthread renderThread([](auto token) {
         DebugService::setThreadName("render");
 
-        while (!token.stop_requested()) {
+        while (!token.stop_requested() && bWindowOpen) {
             pGame->updateRender();
         }
     });
@@ -673,6 +656,10 @@ static void commonMain(const std::filesystem::path& path) {
 
         pMainQueue->process();
     }
+
+    inputThread.request_stop();
+    gameThread.request_stop();
+    renderThread.request_stop();
 
     PlatformService::quit();
 }

@@ -1,6 +1,6 @@
 #include "editor/graph/game.h"
 
-#include "editor/game/game.h"
+#include "game/game.h"
 
 #include <array>
 

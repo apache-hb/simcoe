@@ -1,6 +1,6 @@
 #pragma once
 
-#include "editor/game/game.h"
+#include "game/game.h"
 
 namespace swarm {
 

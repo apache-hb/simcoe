@@ -2,7 +2,7 @@
 
 #include "editor/graph/assets.h"
 
-#include "editor/game/level.h"
+#include "game/level.h"
 
 namespace editor::graph {
     struct UNIFORM_BUFFER CameraUniform {

@@ -9,6 +9,13 @@
 namespace simcoe {
     using NameSpan = std::span<const std::string_view>;
 
+    enum ServiceState {
+        eServiceInitial = (1 << 0), // service has not been setup yet
+        eServiceSetup   = (1 << 1), // service has been setup
+        eServiceCreated = (1 << 2), // service has been created
+        eServiceFaulted = (1 << 3) // service has been created but failed to initialize
+    };
+
     struct IService {
         virtual ~IService() = default;
 
@@ -22,10 +29,14 @@ namespace simcoe {
         virtual bool createService() = 0;
         virtual void destroyService() = 0;
 
-        bool isCreated() const { return bCreated; }
+        ServiceState getState() const { return state; }
+
+        void ensureState(ServiceState validStates, const char *fn) const {
+            ASSERTF(state & validStates, "service {} not in valid state, cannot call {}", getName(), fn);
+        }
 
     private:
-        std::atomic<bool> bCreated = false;
+        std::atomic<ServiceState> state = eServiceInitial;
     };
 
     template<typename T>
@@ -44,12 +55,19 @@ namespace simcoe {
             return static_cast<IService*>(get());
         }
 
-        static T *use(const char *fn) {
-            ASSERTF(isCreated(), "service {} not created, cannot call {}", T::kServiceName, fn);
-            return get();
+        static T *use(ServiceState validStates, const char *fn) {
+            T *pService = get();
+            pService->ensureState(validStates, fn);
+            return pService;
         }
 
-        static bool isCreated() { return get()->IService::isCreated(); }
+        static ServiceState getState() {
+            return get()->IService::getState();
+        }
+
+        static void ensureState(ServiceState validStates, const char *fn) {
+            get()->IService::ensureState(validStates, fn);
+        }
     };
 
     struct ServiceRuntime {
@@ -61,5 +79,8 @@ namespace simcoe {
     };
 }
 
-#define USE_SERVICE(fn) \
-    use(#fn)->fn
+#define USE_SERVICE(state, fn) \
+    use(ServiceState(state), #fn)->fn
+
+#define ENSURE_STATE(state) \
+    ensureState(ServiceState(state), __func__)

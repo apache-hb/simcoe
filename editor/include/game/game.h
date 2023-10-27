@@ -3,7 +3,8 @@
 #include "engine/tasks/task.h"
 #include "engine/util/time.h"
 
-#include "editor/game/level.h"
+#include "game/level.h"
+
 #include "editor/graph/assets.h"
 
 namespace editor::game {
@@ -15,6 +16,12 @@ namespace editor::game {
     struct Instance {
         Instance(Graph *pGraph);
         ~Instance();
+
+        // physics thread
+        tasks::WorkQueue *pPhysicsQueue = new tasks::WorkQueue{64};
+        util::TimeStep physicsUpdateStep{1.f / 30.f};
+        void setupPhysics();
+        void updatePhysics();
 
         // game thread
         tasks::WorkQueue *pGameQueue = new tasks::WorkQueue{64};

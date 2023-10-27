@@ -23,11 +23,21 @@ namespace simcoe {
         void destroyService() override;
 
         // GdkService
-        static std::string_view getFailureReason() { return USE_SERVICE(failureReason); }
+        static std::string_view getFailureReason() {
+            return USE_SERVICE(eServiceFaulted, failureReason);
+        }
 
-        static XSystemAnalyticsInfo& getAnalyticsInfo() { return USE_SERVICE(analyticsInfo); }
-        static const GdkFeatureSet& getFeatures() { return USE_SERVICE(features); }
-        static std::string_view getConsoleId() { return USE_SERVICE(consoleId).data(); }
+        static XSystemAnalyticsInfo& getAnalyticsInfo() {
+            return USE_SERVICE(eServiceCreated, analyticsInfo);
+        }
+
+        static const GdkFeatureSet& getFeatures() {
+            return USE_SERVICE(eServiceCreated, features);
+        }
+
+        static std::string_view getConsoleId() {
+            return USE_SERVICE(eServiceCreated, consoleId).data();
+        }
 
     private:
         // initialized when gdk is disabled

@@ -8,6 +8,12 @@
 namespace simcoe::physics {
     using namespace simcoe::math;
 
+    // cube collider
+    struct Collider {
+        float3 min;
+        float3 max;
+    };
+
     struct RigidBody {
         float3 origin;
         float3 velocity;
@@ -18,7 +24,7 @@ namespace simcoe::physics {
 
         void tick(float delta);
 
-        void addBody(RigidBody *pBody);
+        void addCollider(Collider *pCollider);
 
     private:
         void updateBody(RigidBody *pBody);

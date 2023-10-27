@@ -1,6 +1,6 @@
 #include "editor/graph/assets.h"
 
-#include "editor/game/game.h"
+#include "game/game.h"
 
 using namespace editor;
 using namespace editor::graph;
@@ -152,7 +152,6 @@ void TextureHandle::destroy() {
     ISingleSRVHandle::destroy(ctx);
     ISingleResourceHandle::destroy();
 }
-
 
 ///
 /// font handle

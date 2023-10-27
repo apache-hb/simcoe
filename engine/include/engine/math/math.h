@@ -210,6 +210,8 @@ namespace simcoe::math {
 
         bool isinf() const { return std::isinf(x) || std::isinf(y) || std::isinf(z); }
 
+        constexpr bool isUniform() const { return x == y && y == z; }
+
         constexpr Vec3 negate() const { return from(-x, -y, -z); }
         constexpr T length() const { return std::sqrt(x * x + y * y + z * z); }
 
@@ -228,6 +230,30 @@ namespace simcoe::math {
 
         static constexpr T dot(const Vec3& lhs, const Vec3& rhs) {
             return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
+        }
+
+        static constexpr Vec3 rotate(const Vec3& point, const Vec3& origin, const Vec3& rotate) {
+            auto [x, y, z] = point - origin;
+
+            auto sinX = std::sin(rotate.x);
+            auto cosX = std::cos(rotate.x);
+
+            auto sinY = std::sin(rotate.y);
+            auto cosY = std::cos(rotate.y);
+
+            auto sinZ = std::sin(rotate.z);
+            auto cosZ = std::cos(rotate.z);
+
+            auto x1 = x * cosZ - y * sinZ;
+            auto y1 = x * sinZ + y * cosZ;
+
+            auto x2 = x1 * cosY + z * sinY;
+            auto z2 = x1 * -sinY + z * cosY;
+
+            auto y3 = y1 * cosX - z2 * sinX;
+            auto z3 = y1 * sinX + z2 * cosX;
+
+            return from(x2, y3, z3) + origin;
         }
 
         constexpr T *data() { return &x; } // TODO: this is UB

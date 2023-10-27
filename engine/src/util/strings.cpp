@@ -1,6 +1,6 @@
 #include "engine/util/strings.h"
 
-#include <windows.h>
+#include "engine/core/win32.h"
 
 using namespace simcoe;
 

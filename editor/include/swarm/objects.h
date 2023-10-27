@@ -1,7 +1,8 @@
 #pragma once
 
 #include "editor/debug/debug.h"
-#include "editor/game/level.h"
+
+#include "game/level.h"
 
 #include "engine/util/time.h"
 
