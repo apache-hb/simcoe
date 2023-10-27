@@ -36,11 +36,17 @@ namespace game {
         IObject *pObject = nullptr;
     };
 
+    struct ObjectCreateInfo {
+        std::string name = "";
+        Level *pLevel = nullptr;
+    };
+
     /**
      * @brief any game object that can tick
      */
     struct IObject {
         virtual ~IObject() = default;
+        IObject(const ObjectCreateInfo& info);
 
         void acceptTick(float delta) {
             for (auto *pComponent : components) {
