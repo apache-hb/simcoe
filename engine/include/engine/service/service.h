@@ -19,7 +19,7 @@ namespace simcoe {
         void destroy();
 
     protected:
-        virtual void createService() = 0;
+        virtual bool createService() = 0;
         virtual void destroyService() = 0;
 
         bool isCreated() const { return bCreated; }

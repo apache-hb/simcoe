@@ -10,10 +10,10 @@ using namespace simcoe;
 // fall back between services depending on whats available
 
 void core::panic(const PanicInfo &info, std::string_view msg) {
-    std::vector<StackFrame> stacktrace
-        = DebugService::isCreated()
-        ? DebugService::backtrace()
-        : std::vector<StackFrame>{};
+    std::vector<StackFrame> stacktrace;
+    if (DebugService::isCreated()) {
+        stacktrace = DebugService::backtrace();
+    }
 
     if (LoggingService::isCreated()) {
         for (const auto &frame : stacktrace) {
@@ -28,6 +28,6 @@ void core::panic(const PanicInfo &info, std::string_view msg) {
         throw std::runtime_error(std::string(msg));
     }
 
-    std::cerr << "[PANIC " << info.file << ":" << info.line << " @ " << info.fn << "] " << msg << std::endl;
+    std::cout << "[PANIC " << info.file << ":" << info.line << " @ " << info.fn << "] " << msg << std::endl;
     throw std::runtime_error(std::string(msg));
 }

@@ -1,5 +1,7 @@
 #include "editor/graph/assets.h"
 
+#include "editor/game/game.h"
+
 using namespace editor;
 using namespace editor::graph;
 
@@ -157,9 +159,13 @@ void TextureHandle::destroy() {
 ///
 
 namespace {
+    UINT getWindowDpi(const RenderCreateInfo& createInfo) {
+        return GetDpiForWindow(createInfo.hWindow);
+    }
+
     assets::Font loadFont(const RenderCreateInfo& createInfo, std::string_view name) {
         assets::Font font = createInfo.depot.loadFont(name);
-        UINT dpi = GetDpiForWindow(createInfo.hWindow);
+        UINT dpi = getWindowDpi(createInfo);
         font.setFontSize(32, dpi);
         return font;
     }
@@ -167,14 +173,32 @@ namespace {
 
 TextHandle::TextHandle(Graph *ctx, std::string_view name, utf8::StaticText text)
     : ISingleResourceHandle(ctx, std::string(name))
+    , ttf(name)
     , font(loadFont(ctx->getCreateInfo(), name))
     , text(text)
 {
-    bitmap = font.drawText(text);
-    LOG_INFO("font (ttf={}, bitmap={}x{})", name, bitmap.width, bitmap.height);
+    draw();
 }
 
 void TextHandle::create() {
+    upload();
+}
+
+void TextHandle::destroy() {
+    ISingleSRVHandle::destroy(ctx);
+    ISingleResourceHandle::destroy();
+}
+
+void TextHandle::setFontSize(size_t pt) {
+    font.setFontSize(pt, getWindowDpi(ctx->getCreateInfo()));
+}
+
+void TextHandle::draw() {
+    bitmap = font.drawText(segments, start, size, angle);
+    LOG_INFO("font (ttf={}, bitmap={}x{})", ttf, bitmap.width, bitmap.height);
+}
+
+void TextHandle::upload() {
     const rhi::TextureInfo textureInfo = {
         .width = bitmap.width,
         .height = bitmap.height,
@@ -200,7 +224,56 @@ void TextHandle::create() {
     ctx->endCopy();
 }
 
-void TextHandle::destroy() {
-    ISingleSRVHandle::destroy(ctx);
-    ISingleResourceHandle::destroy();
+void TextHandle::debug() {
+    static int size[2] = { int(bitmap.width), int(bitmap.height) };
+    ImGui::InputInt2("size", size);
+
+    static int startPos[2] = { int(start.x), int(start.y) };
+    ImGui::InputInt2("start", startPos);
+
+    static int pt = 32;
+    ImGui::InputInt("pt", &pt);
+
+    static char text[256] = "SWARM \uE001 \uE002 \uE003";
+    ImGui::InputTextMultiline("text", text, sizeof(text));
+
+    ImGui::SliderFloat("angle", &angle, -360.f, 360.f);
+
+    if (ImGui::Button("draw")) {
+        game::Instance *pInstance = game::getInstance();
+
+        pInstance->pRenderQueue->add("update-text", [this] {
+            this->size = { size_t(size[0]), size_t(size[1]) };
+            this->text = (char8_t*)text;
+            this->start = { size_t(startPos[0]), size_t(startPos[1]) };
+
+            setFontSize(pt);
+            draw();
+            upload();
+        });
+    }
+
+    auto offset = ctx->getSrvHeap()->deviceOffset(getSrvIndex());
+
+    float aspect = float(bitmap.width) / float(bitmap.height);
+    float availWidth = ImGui::GetWindowWidth() - 32;
+    float availHeight = ImGui::GetWindowHeight() - 32;
+
+    float totalWidth = availWidth;
+    float totalHeight = availHeight;
+
+    if (availWidth > availHeight * aspect) {
+        totalWidth = availHeight * aspect;
+    } else {
+        totalHeight = availWidth / aspect;
+    }
+
+    ImGui::Image(
+        /*user_texture_id=*/ (ImTextureID)offset,
+        /*size=*/ { totalWidth, totalHeight },
+        /*uv0=*/ ImVec2(0, 0),
+        /*uv1=*/ ImVec2(1, 1),
+        /*tint_col=*/ ImVec4(1.f, 1.f, 1.f, 1.f),
+        /*border_col=*/ ImVec4(1.f, 1.f, 1.f, 1.f)
+    );
 }

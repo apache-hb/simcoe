@@ -1,5 +1,6 @@
 #include "engine/service/platform.h"
 #include "engine/service/debug.h"
+#include "engine/service/logging.h"
 
 #include "engine/util/strings.h"
 
@@ -7,7 +8,7 @@
 
 #include <intsafe.h> // DWORD_MAX
 #include <comdef.h> // _com_error
-#include <dbghelp.h>
+#include <iostream>
 
 using namespace simcoe;
 
@@ -29,7 +30,7 @@ namespace {
     }
 }
 
-void PlatformService::createService() {
+bool PlatformService::createService() {
     ASSERTF(hInstance, "hInstance is not set, please call PlatformService::setup()");
     ASSERTF(nCmdShow != -1, "nCmdShow is not set, please call PlatformService::setup()");
 
@@ -49,6 +50,8 @@ void PlatformService::createService() {
     if (RegisterClassA(&kClass) == 0) {
         throwError("failed to register window class");
     }
+
+    return true;
 }
 
 void PlatformService::destroyService() {
@@ -80,6 +83,7 @@ size_t PlatformService::queryCounter() {
 
 void PlatformService::message(std::string_view title, std::string_view body) {
     MessageBox(nullptr, body.data(), title.data(), MB_ICONERROR | MB_SYSTEMMODAL);
+    std::cout << title << ": " << body << std::endl;
 }
 
 // clock

@@ -40,7 +40,9 @@ win32 = subproject('win32').get_variable('win32')
 stb = subproject('stb').get_variable('stb')
 simdjson = subproject('simdjson').get_variable('simdjson')
 moodycamel = subproject('atomic-queue').get_variable('queue')
-argo = subproject('argo').get_variable('argo')
+
+# argo = subproject('argo').get_variable('argo') TODO: config
+
 freetype2 = subproject('freetype2').get_variable('freetype_dep')
 threads = dependency('threads')
 
@@ -65,7 +67,6 @@ src = [
 
     # service
     'engine/src/service/service.cpp',
-    'engine/src/service/config.cpp',
 
     # os
     'engine/src/service/platform.cpp',
@@ -119,9 +120,6 @@ inc = [
 deps = [
     # win32
     win32,
-
-    # config
-    argo,
 
     # input
     xinput, gdk,
@@ -237,7 +235,7 @@ src = [
     #hlsl_cs.process('data/shaders/mipmap.hlsl'),
 
     # fonts
-    copy.process('data/fonts/SwarmFace-Regular.ttf'),
+    copy.process('data/fonts/SwarmFace/OpenType-TT/SwarmFace-Regular.ttf'),
 
     # textures
     copy.process('data/images/assets/default.png'),

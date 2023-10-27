@@ -82,6 +82,7 @@ namespace editor::game {
 
     private:
         Clock clock;
+        bool bPaused = false;
         float timeScale = 1.f;
 
         ///

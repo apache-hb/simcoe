@@ -19,7 +19,7 @@ namespace simcoe {
         static constexpr std::array<std::string_view, 0> kServiceDeps = { };
 
         // IService
-        void createService() override;
+        bool createService() override;
         void destroyService() override;
 
         // DebugService

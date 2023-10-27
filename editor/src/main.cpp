@@ -137,13 +137,6 @@ private:
     debug::GlobalHandle debugHandle = debug::addGlobalHandle("Logs", [this] { debug(); });
 };
 
-struct ConsoleLogger final : ISink {
-    void accept(std::string_view msg) override {
-        std::cout << msg << std::endl;
-    }
-};
-
-static ConsoleLogger *pConsoleLogger = nullptr;
 static GuiLogger *pGuiLogger = nullptr;
 static FileLogger *pFileLogger = nullptr;
 
@@ -199,8 +192,6 @@ static void changeWindowMode(WindowMode oldMode, WindowMode newMode) {
     }
 }
 
-constexpr char32_t kXboneLogo = 0xE001;
-
 struct GameGui final : graph::IGuiPass {
     using graph::IGuiPass::IGuiPass;
 
@@ -222,7 +213,7 @@ struct GameGui final : graph::IGuiPass {
         : IGuiPass(ctx, pRenderTarget)
         , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTextureRead))
     {
-        pTextHandle = graph->addResource<graph::TextHandle>("SwarmFace-Regular", u8"SWARM \uE001");
+        pTextHandle = graph->addResource<graph::TextHandle>("SwarmFace-Regular", u8"SWARM \uE001 \uE002 \uE003");
         pTextAttachment = addAttachment(pTextHandle, rhi::ResourceState::eTextureRead);
     }
 
@@ -248,29 +239,6 @@ struct GameGui final : graph::IGuiPass {
     }
 
     debug::GlobalHandle debugHandle = debug::addGlobalHandle("Scene", [this] { sceneDebug(); });
-
-    void textDebug() {
-        graph::TextHandle *pHandle = pTextAttachment->getInner();
-        auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getSrvIndex());
-        const auto &createInfo = ctx->getCreateInfo();
-        float aspect = float(createInfo.renderWidth) / createInfo.renderHeight;
-
-        float availWidth = ImGui::GetWindowWidth() - 32;
-        float availHeight = ImGui::GetWindowHeight() - 32;
-
-        float totalWidth = availWidth;
-        float totalHeight = availHeight;
-
-        if (availWidth > availHeight * aspect) {
-            totalWidth = availHeight * aspect;
-        } else {
-            totalHeight = availWidth / aspect;
-        }
-
-        ImGui::Image((ImTextureID)offset, { totalWidth, totalHeight });
-    }
-
-    debug::GlobalHandle textDebugHandle = debug::addGlobalHandle("Text", [this] { textDebug(); });
 
     void create() override {
         IGuiPass::create();
@@ -553,7 +521,7 @@ struct GameGui final : graph::IGuiPass {
 static GameWindow gWindowCallbacks;
 
 void gdkServiceDebug() {
-    if (!GdkService::isEnabled()) {
+    if (!GdkService::isCreated()) {
         auto failureReason = GdkService::getFailureReason();
         ImGui::Text("GDK init failed: %s", failureReason.data());
         return;
@@ -705,6 +673,8 @@ static void commonMain(const std::filesystem::path& path) {
 
         pMainQueue->process();
     }
+
+    PlatformService::quit();
 }
 
 static fs::path getGameDir() {
@@ -716,7 +686,6 @@ static fs::path getGameDir() {
 static int innerMain() try {
     DebugService::setThreadName("main");
 
-    pConsoleLogger = LoggingService::newSink<ConsoleLogger>();
     pFileLogger = LoggingService::newSink<FileLogger>();
     pGuiLogger = LoggingService::newSink<GuiLogger>();
 

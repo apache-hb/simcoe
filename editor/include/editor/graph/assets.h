@@ -94,12 +94,35 @@ namespace editor::graph {
     struct TextHandle final : ITextureHandle, ISingleSRVHandle {
         TextHandle(Graph *ctx, std::string_view name, utf8::StaticText text);
 
+        void setFontSize(size_t pt);
+
+        void draw();
+        void upload();
+
         void create() override;
         void destroy() override;
 
     private:
+        std::string_view ttf;
+
         assets::Font font;
         assets::Image bitmap;
+
+        std::vector<assets::TextSegment> segments = {
+            { u8"SWARM ", math::float4(1.f, 1.f, 1.f, 1.f) },
+            { u8"\uE001 \uE002 \uE003", math::float4(0.f, 1.f, 0.f, 1.f) },
+            { u8"\nSWARM ", math::float4(1.f, 1.f, 1.f, 1.f) },
+            { u8"\uE001 \uE002 \uE003", math::float4(0.f, 1.f, 0.f, 1.f) },
+            { u8"\nSWARM ", math::float4(1.f, 1.f, 1.f, 1.f) },
+            { u8"\uE001 \uE002 \uE003", math::float4(0.f, 1.f, 0.f, 1.f) }
+        };
+
+        float angle = 0.f;
         utf8::StaticText text;
+        assets::CanvasPoint start = { 0, 0 };
+        assets::CanvasSize size = { 1920, 1080 };
+
+        void debug();
+        debug::GlobalHandle debugHandle = debug::addGlobalHandle("Text", [this] { debug(); });
     };
 }

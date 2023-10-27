@@ -139,6 +139,8 @@ ResourceWrapper<graph::TextureHandle> *Instance::newTexture(const fs::path& path
 ///
 
 void Instance::tick(float delta) {
+    if (bPaused) return;
+
     if (GameLevel *pCurrent = getActiveLevel()) {
         pCurrent->beginTick();
         pCurrent->tick(delta * timeScale);
@@ -151,6 +153,8 @@ void Instance::tick(float delta) {
 ///
 
 void Instance::debug() {
+    ImGui::Checkbox("Paused", &bPaused);
+
     ImGui::SliderFloat("Time Scale", &timeScale, 0.f, 2.f);
     ImGui::Text("Current Time: %f", clock.now());
 

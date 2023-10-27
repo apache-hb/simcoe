@@ -1,5 +1,7 @@
 #include "engine/service/service.h"
 
+#include "engine/service/logging.h"
+
 #include "engine/core/panic.h"
 
 #include <unordered_set>
@@ -10,12 +12,18 @@ using namespace simcoe;
 
 void IService::create() {
     ASSERTF(!bCreated, "service {} already created", getName());
-    createService();
-    bCreated = true;
+
+    if (createService()) {
+        LOG_INFO("loaded {} service", getName());
+        bCreated = true;
+    } else {
+        LOG_ERROR("failed to load {} service", getName());
+    }
 }
 
 void IService::destroy() {
     ASSERTF(bCreated, "service {} not created", getName());
+    LOG_INFO("unloading {} service", getName());
     destroyService();
     bCreated = false;
 }
@@ -25,6 +33,7 @@ void IService::destroy() {
 ServiceRuntime::ServiceRuntime(std::span<IService*> services)
     : services(services)
 {
+    LOG_INFO("loading {} services", services.size());
     std::unordered_set<std::string_view> loaded;
 
     for (IService *pService : services) {
@@ -41,7 +50,7 @@ ServiceRuntime::ServiceRuntime(std::span<IService*> services)
 }
 
 ServiceRuntime::~ServiceRuntime() {
-    for (IService *pService : services) {
-        pService->destroy();
+    for (size_t i = services.size(); i-- > 0;) {
+        services[i]->destroy();
     }
 }

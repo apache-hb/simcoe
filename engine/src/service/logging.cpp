@@ -1,24 +1,35 @@
 #include "engine/service/logging.h"
 
+#include <iostream>
+#include <unordered_map>
+
 using namespace simcoe;
 
 // logging
 
 namespace {
-    std::string_view getLevelName(LogLevel level) {
-        switch (level) {
-        case simcoe::eDebug: return "DEBUG";
-        case simcoe::eInfo: return "INFO";
-        case simcoe::eWarn: return "WARN";
-        case simcoe::eError: return "ERROR";
-        case simcoe::eAssert: return "ASSERT";
-        default: return "UNKNOWN";
-        }
-    }
+    const std::unordered_map<LogLevel, std::string_view> kLevelNames = {
+        { eAssert, "ASSERT" },
+        { eError, "ERROR" },
+        { eWarn, "WARN" },
+        { eInfo, "INFO" },
+        { eDebug, "DEBUG" },
+    };
 }
 
-void LoggingService::createService() {
+// sinks
 
+void ConsoleSink::accept(std::string_view msg) {
+    std::cout << msg << std::endl;
+}
+
+LoggingService::LoggingService() {
+    addLogSink(new ConsoleSink());
+}
+
+bool LoggingService::createService() {
+    LOG_INFO("log level: {}", kLevelNames.at(level));
+    return true;
 }
 
 void LoggingService::destroyService() {
@@ -28,7 +39,7 @@ void LoggingService::destroyService() {
 // private interface
 
 void LoggingService::sendMessage(LogLevel level, std::string_view msg) {
-    auto it = std::format("[{}:{}]: {}", DebugService::getThreadName(), getLevelName(level), msg);
+    auto it = std::format("[{}:{}]: {}", DebugService::getThreadName(), kLevelNames.at(level), msg);
     std::lock_guard guard(lock);
     for (ISink *pSink : sinks) {
         pSink->accept(it);

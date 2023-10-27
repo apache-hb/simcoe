@@ -39,11 +39,11 @@ namespace {
         features[size_t(XGameRuntimeFeature::key)] = { .name = #key, .bEnabled = XGameRuntimeIsFeatureAvailable(XGameRuntimeFeature::key) }; \
     } while (false)
 
-void GdkService::createService() {
+bool GdkService::createService() {
     if (HRESULT hr = XGameRuntimeInitialize(); FAILED(hr)) {
         auto err = gdkErrorString(hr);
         LOG_ERROR("XGameRuntimeInitialize() = {}", err);
-        return;
+        return false;
     }
 
     analyticsInfo = XSystemGetAnalyticsInfo();
@@ -75,7 +75,7 @@ void GdkService::createService() {
     CHECK_FEATURE(XGameEvent);
     CHECK_FEATURE(XGameStreaming);
 
-    bEnabled = true;
+    return true;
 }
 
 void GdkService::destroyService() {
