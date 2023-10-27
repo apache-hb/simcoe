@@ -14,9 +14,8 @@ namespace game {
     };
 
     struct ICollider : ISceneComponent {
-        ICollider(ISceneComponent *pParent)
-            : ISceneComponent(pParent)
-        { }
+        ICollider(ISceneComponent *pParent);
+        ~ICollider();
 
         /**
          * @brief check if ray intersects with this collider

@@ -7,6 +7,8 @@
 namespace game {
     using namespace simcoe::math;
 
+    struct ISceneComponent;
+
     struct Transform {
         float3 position = float3::zero();
         float3 rotation = float3::zero();

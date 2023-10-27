@@ -19,6 +19,14 @@ namespace {
 
 /// collider
 
+ICollider::ICollider(ISceneComponent *pParentComponent)
+    : ISceneComponent(pParentComponent)
+{ }
+
+ICollider::~ICollider() {
+
+}
+
 float3 ICollider::getColliderCenter() const {
     return getWorldPosition();
 }

@@ -9,13 +9,6 @@ namespace game {
 
     struct Level;
 
-    struct CreateInfo {
-        std::string name;
-
-        IObject *pParentObject = nullptr;
-        Level *pLevel = nullptr;
-    };
-
     /**
      * @brief a component attached to an object
      */
