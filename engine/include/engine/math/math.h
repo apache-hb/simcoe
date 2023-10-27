@@ -135,6 +135,8 @@ namespace simcoe::math {
 
         bool isinf() const { return std::isinf(x) || std::isinf(y); }
 
+        constexpr bool isUniform() const { return x == y; }
+
         constexpr Vec2 negate() const { return from(-x, -y); }
         constexpr T length() const { return std::sqrt(x * x + y * y); }
 
@@ -302,6 +304,7 @@ namespace simcoe::math {
         constexpr Vec3<T> xyz() const { return Vec3<T>::from(x, y, z); }
 
         bool isinf() const { return std::isinf(x) || std::isinf(y) || std::isinf(z) || std::isinf(w); }
+        constexpr bool isUniform() const { return x == y && y == z && z == w; }
 
         constexpr T length() const { return std::sqrt(x * x + y * y + z * z + w * w); }
         constexpr Vec4 negate() const { return from(-x, -y, -z, -w); }
@@ -471,19 +474,19 @@ namespace simcoe::math {
         }
 
         ///
-        /// scaling related functions
+        /// scale related functions
         ///
 
-        static constexpr Mat4x4 scaling(const Row3& scale) {
-            return scaling(scale.x, scale.y, scale.z);
+        static constexpr Mat4x4 scale(const Row3& scale) {
+            return Mat4x4::scale(scale.x, scale.y, scale.z);
         }
 
-        static constexpr Mat4x4 scaling(T x, T y, T z) {
+        static constexpr Mat4x4 scale(T x, T y, T z) {
             auto row0 = Row::from(x, 0, 0, 0);
             auto row1 = Row::from(0, y, 0, 0);
             auto row2 = Row::from(0, 0, z, 0);
             auto row3 = Row::from(0, 0, 0, 1);
-            return from(row0, row1, row2, row3);
+            return Mat4x4::from(row0, row1, row2, row3);
         }
 
         constexpr Row3 getScale() const {
@@ -509,7 +512,7 @@ namespace simcoe::math {
             auto row1 = Row::from(0, 1, 0, y);
             auto row2 = Row::from(0, 0, 1, z);
             auto row3 = Row::from(0, 0, 0, 1);
-            return from(row0, row1, row2, row3);
+            return Mat4x4::from(row0, row1, row2, row3);
         }
 
         constexpr Row3 getTranslation() const {
@@ -564,7 +567,7 @@ namespace simcoe::math {
             auto r1 = Row::from(rows[0].y, rows[1].y, rows[2].y, rows[3].y);
             auto r2 = Row::from(rows[0].z, rows[1].z, rows[2].z, rows[3].z);
             auto r3 = Row::from(rows[0].w, rows[1].w, rows[2].w, rows[3].w);
-            return from(r0, r1, r2, r3);
+            return Mat4x4::from(r0, r1, r2, r3);
         }
 
         static constexpr Mat4x4 identity() {
@@ -572,7 +575,7 @@ namespace simcoe::math {
             auto row1 = Row::from(0, 1, 0, 0);
             auto row2 = Row::from(0, 0, 1, 0);
             auto row3 = Row::from(0, 0, 0, 1);
-            return from(row0, row1, row2, row3);
+            return Mat4x4::from(row0, row1, row2, row3);
         }
 
         static constexpr Mat4x4 lookToLH(const Row3& eye, const Row3& dir, const Row3& up) {
@@ -601,11 +604,11 @@ namespace simcoe::math {
         }
 
         static constexpr Mat4x4 lookToRH(const Row3& eye, const Row3& dir, const Row3& up) {
-            return lookToLH(eye, dir.negate(), up);
+            return Mat4x4::lookToLH(eye, dir.negate(), up);
         }
 
         static constexpr Mat4x4 lookAtRH(const Row3& eye, const Row3& focus, const Row3& up) {
-            return lookToLH(eye, eye - focus, up);
+            return Mat4x4::lookToLH(eye, eye - focus, up);
         }
 
         static constexpr Mat4x4 perspectiveRH(T fov, T aspect, T nearLimit, T farLimit) {

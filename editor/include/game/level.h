@@ -1,5 +1,7 @@
 #pragma once
 
+#include "game/entity.h"
+
 #include "editor/debug/debug.h"
 #include "editor/graph/assets.h"
 #include "editor/graph/mesh.h"
@@ -14,8 +16,6 @@
 namespace editor::game {
     using namespace simcoe;
     using namespace simcoe::math;
-
-    namespace fs = assets::fs;
 
     ///
     /// view matrices
@@ -123,59 +123,6 @@ namespace editor::game {
     /// game level
     ///
 
-    struct GameLevel;
-
-    struct IGameObject {
-        IGameObject(GameLevel *pLevel, std::string name, size_t id = SIZE_MAX);
-
-        virtual ~IGameObject() = default;
-
-        float3 position = { 0.0f, 0.0f, 0.0f };
-        float3 rotation = { 0.0f, 0.0f, 0.0f }; // rotate around z-axis
-        float3 scale = { 1.f, 1.f, 1.f };
-
-        std::string_view getName() const { return name; }
-        size_t getId() const { return id; }
-
-        render::IMeshBufferHandle *getMesh() const { return pMesh; }
-        render::ResourceWrapper<graph::TextureHandle> *getTexture() const {
-            return pTexture;
-        }
-
-        virtual void tick(float delta) { }
-        virtual void debug() { }
-
-        bool canCull() const { return bShouldCull; }
-        debug::DebugHandle *getDebugHandle() { return debugHandle.get(); }
-        void retire();
-
-    protected:
-        void setTexture(const fs::path& path);
-        void setMesh(const fs::path& path);
-
-        void setTextureHandle(render::ResourceWrapper<graph::TextureHandle> *pNewTexture) { pTexture = pNewTexture; }
-        void setMeshHandle(render::IMeshBufferHandle *pNewMesh) { pMesh = pNewMesh; }
-
-        void setShouldCull(bool bShould) { bShouldCull = bShould; }
-
-        GameLevel *pLevel;
-
-    private:
-        size_t id = 0;
-        std::string name;
-        bool bShouldCull = true;
-
-        fs::path currentTexture;
-        fs::path currentMesh;
-
-        std::atomic<render::ResourceWrapper<graph::TextureHandle>*> pTexture = nullptr;
-        std::atomic<render::IMeshBufferHandle*> pMesh = nullptr;
-
-        void objectDebug();
-        bool bLockScale = false;
-        debug::LocalHandle debugHandle;
-    };
-
     struct GameLevel {
         GameLevel(std::string_view name)
             : name(name)
@@ -186,8 +133,8 @@ namespace editor::game {
 
         IProjection *pProjection = nullptr;
 
-        template<std::derived_from<IGameObject> T, typename... A>
-            //requires std::is_constructible_v<T, GameLevel*, A...>
+        template<std::derived_from<IEntity> T, typename... A>
+            requires std::is_constructible_v<T, GameLevel*, A...>
         T *addObject(A&&... args) {
             auto pObject = new T(this, args...);
             LOG_INFO("adding object: {}", (void*)pObject);
@@ -197,29 +144,29 @@ namespace editor::game {
             return pObject;
         }
 
-        void removeObject(IGameObject *pObject) {
+        void removeObject(IEntity *pObject) {
             LOG_INFO("deleting object: {}", (void*)pObject);
             std::lock_guard guard(lock);
             std::erase(objects, pObject);
         }
 
-        template<typename F> requires std::invocable<F, IGameObject*>
+        template<typename F> requires std::invocable<F, IEntity*>
         void useEachObject(F&& func) {
             std::lock_guard guard(lock);
             for (auto pObject : objects)
                 func(pObject);
         }
 
-        template<typename F> requires std::invocable<F, std::span<IGameObject*>>
+        template<typename F> requires std::invocable<F, std::span<IEntity*>>
         void useObjects(F&& func) {
             std::lock_guard guard(lock);
             func(objects);
         }
 
         // only use this on the game thread pretty please
-        std::span<IGameObject*> getObjects() { return objects; }
+        std::span<IEntity*> getObjects() { return objects; }
 
-        void deleteObject(IGameObject *pObject);
+        void deleteObject(IEntity *pObject);
 
         void beginTick();
         void endTick();
@@ -234,13 +181,13 @@ namespace editor::game {
         Clock clock;
 
         // object management
-        std::unordered_set<IGameObject*> pending;
-        std::unordered_set<IGameObject*> retired;
+        std::unordered_set<IEntity*> pending;
+        std::unordered_set<IEntity*> retired;
 
         std::string_view name = "GameLevel";
 
     public:
-        std::vector<IGameObject*> objects;
+        std::vector<IEntity*> objects;
         std::recursive_mutex lock;
 
         std::string_view getName() const { return name; }

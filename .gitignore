@@ -53,4 +53,5 @@ subprojects/freetype*/
 subprojects/harfbuzz*/
 subprojects/libpng*/
 subprojects/zlib*/
+subprojects/icu*/
 subprojects/packagecache

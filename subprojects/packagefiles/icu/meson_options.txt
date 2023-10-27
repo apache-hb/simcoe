@@ -1,0 +1,5 @@
+option('programs', type : 'array',
+    description : 'icu tools to build',
+    choices : [ 'ctestfw', 'icuinfo', 'icupkg', 'pkgdata', 'genbrk', 'genccode', 'gencmn' ],
+    value : [ 'ctestfw', 'icuinfo', 'icupkg', 'pkgdata', 'genbrk', 'genccode', 'gencmn' ]
+)

@@ -3,7 +3,17 @@ project('simcoe', 'cpp',
         'cpp_std=c++20',
         'default_library=static',
         'cpp_eh=default',
-        'b_vscrt=static_from_buildtype'
+        'b_vscrt=static_from_buildtype',
+
+        'libpng:tests=disabled',
+        'zlib:tests=disabled',
+
+        'icu:programs=genccode',
+
+        'harfbuzz:tests=disabled',
+        'harfbuzz:freetype=disabled',
+
+        'freetype:harfbuzz=enabled'
     ]
 )
 
@@ -33,18 +43,27 @@ message('packaging for windows store deploy:', package_app.enabled())
 ### deps
 ###
 
+# argo = subproject('argo').get_variable('argo') TODO: config
+
+# windows deps
 directx = subproject('directx').get_variable('directx')
 xinput = subproject('xinput').get_variable('xinput')
 gdk = subproject('gdk').get_variable('gdk')
 win32 = subproject('win32').get_variable('win32')
+
+# asset loading
 stb = subproject('stb').get_variable('stb')
-simdjson = subproject('simdjson').get_variable('simdjson')
+
+
+# the three font muskeeters
+icu = subproject('icu').get_variable('icuuc_dep')
+harfbuzz = subproject('harfbuzz').get_variable('libharfbuzz_icu_dep')
+freetype2 = subproject('freetype2').get_variable('freetype_dep')
+
+# threading
+threads = dependency('threads')
 moodycamel = subproject('atomic-queue').get_variable('queue')
 
-# argo = subproject('argo').get_variable('argo') TODO: config
-
-freetype2 = subproject('freetype2').get_variable('freetype_dep')
-threads = dependency('threads')
 
 ###
 ### args
@@ -118,6 +137,9 @@ deps = [
     # win32
     win32,
 
+    # text
+    icu,
+
     # input
     xinput, gdk,
 
@@ -125,7 +147,7 @@ deps = [
     moodycamel, threads,
 
     # assets
-    stb, simdjson, freetype2,
+    stb, harfbuzz, freetype2,
 
     # render
     directx
@@ -148,7 +170,7 @@ engine = declare_dependency(
 ###
 
 tinyobj = subproject('tinyobj').get_variable('tinyobj')
-fastgltf = subproject('fastgltf').get_variable('fastgltf')
+# fastgltf = subproject('fastgltf').get_variable('fastgltf')
 
 python3 = find_program('python3')
 mt = find_program('mt')
@@ -286,7 +308,7 @@ deps = [
     engine,
 
     # render
-    tinyobj, fastgltf,
+    tinyobj
 ]
 
 editor_args = args + [

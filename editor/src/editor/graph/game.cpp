@@ -30,11 +30,11 @@ void CameraUniformHandle::update(GameLevel *pLevel) {
     IUniformHandle::update(&data);
 }
 
-void ObjectUniformHandle::update(IGameObject *pObject) {
+void ObjectUniformHandle::update(IEntity *pObject) {
     float4x4 model = float4x4::identity();
     model *= float4x4::translation(pObject->position);
     model *= float4x4::rotation(pObject->rotation);
-    model *= float4x4::scaling(pObject->scale);
+    model *= float4x4::scale(pObject->scale);
 
     ObjectUniform data = { .model = model };
 
@@ -105,9 +105,9 @@ void GameLevelPass::execute() {
 
     ctx->setGraphicsShaderInput(cameraIndex, pCamera->getSrvIndex()); // set camera uniform
 
-    std::unordered_set<IGameObject*> usedHandles;
+    std::unordered_set<IEntity*> usedHandles;
 
-    pLevel->useEachObject([&](IGameObject *pObject) {
+    pLevel->useEachObject([&](IEntity *pObject) {
         auto *pTexture = getObjectTexture(pObject);
         auto *pUniform = getObjectUniform(pObject); // get object uniform (create if not exists)
         auto *pMesh = pObject->getMesh();
@@ -154,7 +154,7 @@ void GameLevelPass::execute() {
 /// uniform handling
 ///
 
-ObjectUniformHandle *GameLevelPass::getObjectUniform(IGameObject *pObject) {
+ObjectUniformHandle *GameLevelPass::getObjectUniform(IEntity *pObject) {
     if (!objectUniforms.contains(pObject)) {
         createObjectUniform(pObject);
     }
@@ -163,7 +163,7 @@ ObjectUniformHandle *GameLevelPass::getObjectUniform(IGameObject *pObject) {
     return pAttachment->getInner();
 }
 
-void GameLevelPass::createObjectUniform(IGameObject *pObject) {
+void GameLevelPass::createObjectUniform(IEntity *pObject) {
     auto *pUniform = graph->addResource<ObjectUniformHandle>(pObject->getName());
     objectUniforms.emplace(pObject, addAttachment(pUniform, rhi::ResourceState::eUniform));
 }
@@ -172,7 +172,7 @@ void GameLevelPass::createObjectUniform(IGameObject *pObject) {
 /// texture handling
 ///
 
-TextureHandle *GameLevelPass::getObjectTexture(game::IGameObject *pObject) {
+TextureHandle *GameLevelPass::getObjectTexture(game::IEntity *pObject) {
     ResourceWrapper<graph::TextureHandle> *pTextureHandle = pObject->getTexture();
     if (!objectTextures.contains(pTextureHandle->getInner())) {
         createObjectTexture(pTextureHandle);

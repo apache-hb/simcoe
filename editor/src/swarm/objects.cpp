@@ -78,7 +78,7 @@ bool OAlien::canSpawnEgg() const {
 
 // bullet
 
-OBullet::OBullet(GameLevel *pLevel, IGameObject *pParent, float2 velocity)
+OBullet::OBullet(GameLevel *pLevel, IEntity *pParent, float2 velocity)
     : OSwarmObject(pLevel, "bullet", eBullet)
     , pParent(pParent)
     , velocity(velocity)
@@ -94,7 +94,7 @@ void OBullet::tick(float delta) {
     position += float3::from(0.f, velocity * delta);
 
     auto *pSwarm = getPlayLevel(pLevel);
-    for (IGameObject *pObject : pSwarm->nonBulletObjects) {
+    for (IEntity *pObject : pSwarm->nonBulletObjects) {
         if (!canCollide(pObject)) continue;
 
         float distance = (pObject->position.yz() - position.yz()).length();
@@ -110,7 +110,7 @@ void OBullet::tick(float delta) {
     }
 }
 
-bool OBullet::canCollide(IGameObject *pOther) const {
+bool OBullet::canCollide(IEntity *pOther) const {
     return pOther->getId() != getId() // dont collide with self
         && pOther->getId() != pParent->getId(); // dont collide with parent
 }
@@ -276,7 +276,7 @@ void OEgg::tick(float delta) {
     }
 }
 
-float2 OEgg::getShootVector(IGameObject *pTarget) const {
+float2 OEgg::getShootVector(IEntity *pTarget) const {
     float2 targetPos = pTarget->position.yz();
     float2 eggPos = position.yz();
 
@@ -287,7 +287,7 @@ float2 OEgg::getShootVector(IGameObject *pTarget) const {
 
 // aggro alien
 
-OAggroAlien::OAggroAlien(game::GameLevel *pLevel, IGameObject *pParent)
+OAggroAlien::OAggroAlien(game::GameLevel *pLevel, IEntity *pParent)
     : OSwarmObject(pLevel, "aggro-alien", eAggroAlien)
     , pParent(pParent)
 {
@@ -354,7 +354,7 @@ OGrid::OGrid(GameLevel *pLevel, std::string name)
 // plane
 
 OGameOver::OGameOver(game::GameLevel *pLevel, std::string name)
-    : IGameObject(pLevel, name, eGameOver)
+    : IEntity(pLevel, name, eGameOver)
 {
     setMesh("plane.model");
     setTexture("death.png");
@@ -399,7 +399,7 @@ void PlayLevel::tick(float delta) {
     });
 }
 
-bool PlayLevel::shouldCullObject(IGameObject *pObject) const {
+bool PlayLevel::shouldCullObject(IEntity *pObject) const {
     if (!pObject->canCull()) return false;
 
     float2 pos = pObject->position.yz();

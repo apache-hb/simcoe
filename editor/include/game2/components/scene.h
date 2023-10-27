@@ -17,6 +17,11 @@ namespace game {
         void applyLocalTransform(const Transform& transform);
     };
 
+    struct SceneComponentCreateInfo {
+        std::string name = "";
+        ISceneComponent *pParentComponent = nullptr;
+    };
+
     struct ISceneComponent : IComponent {
         ISceneComponent(ISceneComponent *pParent)
             : IComponent(pParent->getParent())

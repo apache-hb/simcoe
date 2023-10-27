@@ -85,7 +85,7 @@ namespace swarm {
         // how horrible
         std::vector<swarm::OSwarmObject*> nonBulletObjects;
 
-        bool shouldCullObject(game::IGameObject *pObject) const;
+        bool shouldCullObject(game::IEntity *pObject) const;
     };
 
     struct GameOverLevel : game::GameLevel {

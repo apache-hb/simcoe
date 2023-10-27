@@ -23,7 +23,7 @@ void Orthographic::debug() {
 
 // object
 
-IGameObject::IGameObject(GameLevel *pLevel, std::string name, size_t id)
+IEntity::IEntity(GameLevel *pLevel, std::string name, size_t id)
     : pLevel(pLevel)
     , id(id)
     , name(name)
@@ -34,7 +34,7 @@ IGameObject::IGameObject(GameLevel *pLevel, std::string name, size_t id)
     pTexture = pInstance->getDefaultTexture();
 }
 
-void IGameObject::setTexture(const fs::path& path) {
+void IEntity::setTexture(const fs::path& path) {
     if (currentTexture == path)
         return;
 
@@ -44,7 +44,7 @@ void IGameObject::setTexture(const fs::path& path) {
     });
 }
 
-void IGameObject::setMesh(const fs::path& path) {
+void IEntity::setMesh(const fs::path& path) {
     if (currentMesh == path)
         return;
 
@@ -54,11 +54,11 @@ void IGameObject::setMesh(const fs::path& path) {
     });
 }
 
-void IGameObject::retire() {
+void IEntity::retire() {
     pLevel->deleteObject(this);
 }
 
-void IGameObject::objectDebug() {
+void IEntity::objectDebug() {
     ImGui::InputFloat3("Position", position.data());
     ImGui::InputFloat3("Rotation", rotation.data());
 
@@ -77,7 +77,7 @@ void IGameObject::objectDebug() {
 
 // level
 
-void GameLevel::deleteObject(IGameObject *pObject) {
+void GameLevel::deleteObject(IEntity *pObject) {
     std::lock_guard guard(lock);
     retired.emplace(pObject);
 }
@@ -85,7 +85,7 @@ void GameLevel::deleteObject(IGameObject *pObject) {
 void GameLevel::beginTick() {
     std::lock_guard guard(lock);
 
-    for (IGameObject *pObject : pending)
+    for (IEntity *pObject : pending)
         objects.emplace_back(pObject);
 
     pending.clear();
@@ -94,7 +94,7 @@ void GameLevel::beginTick() {
 void GameLevel::endTick() {
     std::lock_guard guard(lock);
 
-    for (IGameObject *pObject : retired) {
+    for (IEntity *pObject : retired) {
         std::erase(objects, pObject);
         //delete pObject; TODO: make sure all async tasks related to this object are done
     }

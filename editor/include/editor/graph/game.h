@@ -27,7 +27,7 @@ namespace editor::graph {
             : IUniformHandle(ctx, std::format("uniform.object.{}", name))
         { }
 
-        void update(game::IGameObject *pObject);
+        void update(game::IEntity *pObject);
     };
 
     struct GameLevelPass final : IRenderPass {
@@ -49,12 +49,12 @@ namespace editor::graph {
         ResourceWrapper<CameraUniformHandle> *pCameraBuffer;
         PassAttachment<CameraUniformHandle> *pCameraAttachment;
 
-        std::unordered_map<game::IGameObject*, ObjectAttachment*> objectUniforms;
-        ObjectUniformHandle *getObjectUniform(game::IGameObject *pObject);
-        void createObjectUniform(game::IGameObject *pObject);
+        std::unordered_map<game::IEntity*, ObjectAttachment*> objectUniforms;
+        ObjectUniformHandle *getObjectUniform(game::IEntity *pObject);
+        void createObjectUniform(game::IEntity *pObject);
 
         std::unordered_map<ITextureHandle*, TextureAttachment*> objectTextures;
-        TextureHandle *getObjectTexture(game::IGameObject *pObject);
+        TextureHandle *getObjectTexture(game::IEntity *pObject);
         void createObjectTexture(ResourceWrapper<graph::TextureHandle> *pTexture);
 
         rhi::PipelineState *pPipeline;

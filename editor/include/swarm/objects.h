@@ -25,9 +25,9 @@ namespace swarm {
         eGameOver
     };
 
-    struct OSwarmObject : game::IGameObject {
+    struct OSwarmObject : game::IEntity {
         OSwarmObject(game::GameLevel *pLevel, std::string name, ObjectType type)
-            : game::IGameObject(pLevel, name, size_t(type))
+            : game::IEntity(pLevel, name, size_t(type))
         { }
 
         virtual void onHit() { }
@@ -65,15 +65,15 @@ namespace swarm {
     };
 
     struct OBullet : OSwarmObject {
-        OBullet(game::GameLevel *pLevel, IGameObject *pParent, float2 velocity);
+        OBullet(game::GameLevel *pLevel, IEntity *pParent, float2 velocity);
 
         void tick(float delta) override;
 
-        bool canCollide(IGameObject *pOther) const;
+        bool canCollide(IEntity *pOther) const;
 
     private:
         // bullet logic
-        IGameObject *pParent; // parent object (we cant hit the parent)
+        IEntity *pParent; // parent object (we cant hit the parent)
         float2 velocity; // velocity vector
     };
 
@@ -138,7 +138,7 @@ namespace swarm {
         float timeToLarge = 3.f;
         float timeToHatch = 5.f;
 
-        float2 getShootVector(IGameObject *pTarget) const;
+        float2 getShootVector(IEntity *pTarget) const;
 
         ///////////////////////////////////
         /// hatching logic
@@ -149,14 +149,14 @@ namespace swarm {
     };
 
     struct OAggroAlien : OSwarmObject {
-        OAggroAlien(game::GameLevel *pLevel, game::IGameObject *pParent);
+        OAggroAlien(game::GameLevel *pLevel, game::IEntity *pParent);
 
         void tick(float delta) override;
 
         void onHit() override { pLevel->deleteObject(this); }
 
     private:
-        game::IGameObject *pParent;
+        game::IEntity *pParent;
 
         ///////////////////////////////////
         /// hit logic
@@ -179,7 +179,7 @@ namespace swarm {
         OGrid(game::GameLevel *pLevel, std::string name);
     };
 
-    struct OGameOver : game::IGameObject {
+    struct OGameOver : game::IEntity {
         OGameOver(game::GameLevel *pLevel, std::string name);
 
         void tick(float delta) override;
