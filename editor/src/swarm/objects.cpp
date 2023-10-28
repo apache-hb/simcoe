@@ -5,21 +5,21 @@
 #include "imgui/imgui.h"
 
 using namespace editor;
-using namespace editor::game;
+using namespace game;
 
 using namespace swarm;
 
 namespace {
     static constexpr auto kProjectionNames = std::to_array({ "Perspective", "Orthographic" });
 
-    PlayLevel *getPlayLevel(GameLevel *pLevel) {
+    PlayLevel *getPlayLevel(Level *pLevel) {
         return reinterpret_cast<PlayLevel*>(pLevel);
     }
 }
 
 // alien
 
-OAlien::OAlien(GameLevel *pLevel, std::string name)
+OAlien::OAlien(Level *pLevel, std::string name)
     : OSwarmObject(pLevel, name, eAlien)
 {
     const auto *pSwarm = getPlayLevel(pLevel);
@@ -78,7 +78,7 @@ bool OAlien::canSpawnEgg() const {
 
 // bullet
 
-OBullet::OBullet(GameLevel *pLevel, IEntity *pParent, float2 velocity)
+OBullet::OBullet(Level *pLevel, IEntity *pParent, float2 velocity)
     : OSwarmObject(pLevel, "bullet", eBullet)
     , pParent(pParent)
     , velocity(velocity)
@@ -100,13 +100,10 @@ void OBullet::tick(float delta) {
         float distance = (pObject->position.yz() - position.yz()).length();
         if (distance > 0.3f) continue;
 
-        if (auto pHit = dynamic_cast<OSwarmObject*>(pObject); pHit != nullptr) {
-            pHit->onHit();
-            this->retire();
-            return;
-        } else {
-            LOG_INFO("hit non-swarm object: {}", pObject->getName());
-        }
+        OSwarmObject *pHit = static_cast<OSwarmObject*>(pObject);
+        pHit->onHit();
+        this->retire();
+        return;
     }
 }
 
@@ -117,7 +114,7 @@ bool OBullet::canCollide(IEntity *pOther) const {
 
 // lives
 
-OLife::OLife(GameLevel *pLevel, size_t life)
+OLife::OLife(Level *pLevel, size_t life)
     : OSwarmObject(pLevel, std::format("life-{}", life), eLife)
 {
     setMesh("ship.model");
@@ -127,7 +124,7 @@ OLife::OLife(GameLevel *pLevel, size_t life)
 
 // player
 
-OPlayer::OPlayer(GameLevel *pLevel, std::string name)
+OPlayer::OPlayer(Level *pLevel, std::string name)
     : OSwarmObject(pLevel, name, ePlayer)
 {
     auto *pSwarm = getPlayLevel(pLevel);
@@ -252,7 +249,7 @@ void OPlayer::debug() {
 
 // eggs
 
-OEgg::OEgg(GameLevel *pLevel, std::string name)
+OEgg::OEgg(Level *pLevel, std::string name)
     : OSwarmObject(pLevel, name, eEgg)
 {
     setMesh("egg-small.model");
@@ -287,7 +284,7 @@ float2 OEgg::getShootVector(IEntity *pTarget) const {
 
 // aggro alien
 
-OAggroAlien::OAggroAlien(game::GameLevel *pLevel, IEntity *pParent)
+OAggroAlien::OAggroAlien(game::Level *pLevel, IEntity *pParent)
     : OSwarmObject(pLevel, "aggro-alien", eAggroAlien)
     , pParent(pParent)
 {
@@ -344,7 +341,7 @@ void OAggroAlien::hitPlayer() {
 
 // grid
 
-OGrid::OGrid(GameLevel *pLevel, std::string name)
+OGrid::OGrid(Level *pLevel, std::string name)
     : OSwarmObject(pLevel, name, eGrid)
 {
     setMesh("grid.model");
@@ -353,7 +350,7 @@ OGrid::OGrid(GameLevel *pLevel, std::string name)
 
 // plane
 
-OGameOver::OGameOver(game::GameLevel *pLevel, std::string name)
+OGameOver::OGameOver(game::Level *pLevel, std::string name)
     : IEntity(pLevel, name, eGameOver)
 {
     setMesh("plane.model");
@@ -377,7 +374,7 @@ void OGameOver::tick(float delta) {
 // game level
 
 PlayLevel::PlayLevel()
-    : GameLevel("Swarm:PlayLevel")
+    : Level("Swarm:PlayLevel")
 {
     pProjection = projections[currentProjection];
 
@@ -423,13 +420,13 @@ void PlayLevel::debug() {
         pCameraDebug->draw();
     }
 
-    GameLevel::debug();
+    Level::debug();
 }
 
 // game over
 
 GameOverLevel::GameOverLevel()
-    : GameLevel("Swarm:GameOverLevel")
+    : Level("Swarm:GameOverLevel")
 {
     pProjection = new game::Orthographic(24.f, 24.f);
 
@@ -454,5 +451,5 @@ void GameOverLevel::debug() {
     ImGui::SeparatorText(pCameraDebug->getName());
     pCameraDebug->draw();
 
-    GameLevel::debug();
+    Level::debug();
 }

@@ -13,7 +13,7 @@
 
 #include <unordered_set>
 
-namespace editor::game {
+namespace game {
     using namespace simcoe;
     using namespace simcoe::math;
 
@@ -123,8 +123,8 @@ namespace editor::game {
     /// game level
     ///
 
-    struct GameLevel {
-        GameLevel(std::string_view name)
+    struct Level {
+        Level(std::string_view name)
             : name(name)
         { }
 
@@ -134,7 +134,7 @@ namespace editor::game {
         IProjection *pProjection = nullptr;
 
         template<std::derived_from<IEntity> T, typename... A>
-            requires std::is_constructible_v<T, GameLevel*, A...>
+            requires std::is_constructible_v<T, Level*, A...>
         T *addObject(A&&... args) {
             auto pObject = new T(this, args...);
             LOG_INFO("adding object: {}", (void*)pObject);
@@ -184,7 +184,7 @@ namespace editor::game {
         std::unordered_set<IEntity*> pending;
         std::unordered_set<IEntity*> retired;
 
-        std::string_view name = "GameLevel";
+        std::string_view name = "Level";
 
     public:
         std::vector<IEntity*> objects;

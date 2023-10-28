@@ -48,7 +48,8 @@ using namespace simcoe;
 using namespace simcoe::math;
 
 using namespace editor;
-using namespace editor::game;
+
+using namespace game;
 
 namespace fs = std::filesystem;
 

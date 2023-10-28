@@ -19,7 +19,7 @@ namespace editor::graph {
             : IUniformHandle(ctx, "uniform.camera", eDepRenderSize)
         { }
 
-        void update(game::GameLevel *pLevel);
+        void update(game::Level *pLevel);
     };
 
     struct ObjectUniformHandle final : IUniformHandle<ObjectUniform> {

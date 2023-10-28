@@ -3,13 +3,13 @@ project('simcoe', 'cpp',
         'cpp_std=c++20',
         'default_library=static',
         'cpp_eh=default',
+        'cpp_rtti=false',
         'b_vscrt=static_from_buildtype',
 
         'libpng:tests=disabled',
         'zlib:tests=disabled',
 
-        'icu:programs=genccode',
-
+        'harfbuzz:cpp_std=c++20',
         'harfbuzz:tests=disabled',
         'harfbuzz:freetype=disabled',
 
@@ -53,10 +53,10 @@ win32 = subproject('win32').get_variable('win32')
 
 # asset loading
 stb = subproject('stb').get_variable('stb')
+zlib = subproject('zlib').get_variable('zlib')
+libpng = subproject('libpng').get_variable('libpng')
 
-
-# the three font muskeeters
-icu = subproject('icu').get_variable('icuuc_dep')
+# font loading
 harfbuzz = subproject('harfbuzz').get_variable('libharfbuzz_icu_dep')
 freetype2 = subproject('freetype2').get_variable('freetype_dep')
 
@@ -136,9 +136,6 @@ inc = [
 deps = [
     # win32
     win32,
-
-    # text
-    icu,
 
     # input
     xinput, gdk,
@@ -235,13 +232,8 @@ src = [
 
     # game framework
     'editor/src/game/game.cpp',
+    'editor/src/game/entity.cpp',
     'editor/src/game/level.cpp',
-
-    # game2
-    'editor/src/game2/object.cpp',
-    'editor/src/game2/physics.cpp',
-    'editor/src/game2/components/collider.cpp',
-    'editor/src/game2/components/scene.cpp',
 
     # game logic
     'editor/src/swarm/objects.cpp',

@@ -22,19 +22,29 @@ namespace swarm {
         eBullet,
         eLife,
         eGrid,
-        eGameOver
+        eGameOver,
+        eNone,
+        eTotal
+    };
+
+    struct SwarmCreateInfo : game::EntityInfo {
+
     };
 
     struct OSwarmObject : game::IEntity {
-        OSwarmObject(game::GameLevel *pLevel, std::string name, ObjectType type)
-            : game::IEntity(pLevel, name, size_t(type))
+        OSwarmObject(game::Level *pLevel, std::string name, ObjectType type)
+            : IEntity(pLevel, name, size_t(type))
+        { }
+
+        OSwarmObject(const SwarmCreateInfo& info)
+            : IEntity(info)
         { }
 
         virtual void onHit() { }
     };
 
     struct OAlien : OSwarmObject {
-        OAlien(game::GameLevel *pLevel, std::string name);
+        OAlien(game::Level *pLevel, std::string name);
 
         void tick(float delta) override;
 
@@ -65,7 +75,7 @@ namespace swarm {
     };
 
     struct OBullet : OSwarmObject {
-        OBullet(game::GameLevel *pLevel, IEntity *pParent, float2 velocity);
+        OBullet(game::Level *pLevel, IEntity *pParent, float2 velocity);
 
         void tick(float delta) override;
 
@@ -78,13 +88,13 @@ namespace swarm {
     };
 
     struct OLife : OSwarmObject {
-        OLife(game::GameLevel *pLevel, size_t life);
+        OLife(game::Level *pLevel, size_t life);
 
         void onHit() override { }
     };
 
     struct OPlayer : OSwarmObject {
-        OPlayer(game::GameLevel *pLevel, std::string name);
+        OPlayer(game::Level *pLevel, std::string name);
 
         void tick(float delta) override;
 
@@ -124,7 +134,7 @@ namespace swarm {
     };
 
     struct OEgg : OSwarmObject {
-        OEgg(game::GameLevel *pLevel, std::string name);
+        OEgg(game::Level *pLevel, std::string name);
 
         void tick(float delta) override;
 
@@ -149,7 +159,7 @@ namespace swarm {
     };
 
     struct OAggroAlien : OSwarmObject {
-        OAggroAlien(game::GameLevel *pLevel, game::IEntity *pParent);
+        OAggroAlien(game::Level *pLevel, game::IEntity *pParent);
 
         void tick(float delta) override;
 
@@ -176,11 +186,11 @@ namespace swarm {
     };
 
     struct OGrid : OSwarmObject {
-        OGrid(game::GameLevel *pLevel, std::string name);
+        OGrid(game::Level *pLevel, std::string name);
     };
 
     struct OGameOver : game::IEntity {
-        OGameOver(game::GameLevel *pLevel, std::string name);
+        OGameOver(game::Level *pLevel, std::string name);
 
         void tick(float delta) override;
     };

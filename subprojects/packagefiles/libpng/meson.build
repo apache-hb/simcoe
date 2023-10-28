@@ -2,8 +2,10 @@ project(
   'libpng',
   'c',
   version: '1.6.40', license: 'libpng',
-  meson_version: '>=0.50.0',
+  meson_version: '>=0.64.0',
 )
+
+fs = import('fs')
 
 png_versions = meson.project_version().split('.')
 png_major_version = png_versions[0]
@@ -87,29 +89,29 @@ elif host_machine.cpu_family() in ['x86', 'x86_64']
   c_args += '-DPNG_INTEL_SSE_OPT=1'
 endif
 
-libpng = library(
-  png_libname,
-  png_src,
-  version: png_libversion,
-  dependencies: libpng_deps,
-  c_args: c_args,
-  install: true,
-)
-
 pngincsubdir = 'lib' + png_libname
 pngincludedir = get_option('includedir') / pngincsubdir
 
-pkglibconf = configure_file(
-  input: 'scripts/pnglibconf.h.prebuilt',
-  output: 'pnglibconf.h',
-  copy: true,
+pkglibconf = fs.copyfile(
+  'scripts/pnglibconf.h.prebuilt', 'pnglibconf.h',
+  install_dir : pngincludedir,
+  install : true
 )
 
 install_headers(
   'png.h',
   'pngconf.h',
-  pkglibconf,
   subdir: pngincsubdir,
+)
+
+libpng = library(
+  png_libname,
+  png_src,
+  pkglibconf,
+  version: png_libversion,
+  dependencies: libpng_deps,
+  c_args: c_args,
+  install: true,
 )
 
 cdata = configuration_data()

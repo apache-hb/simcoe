@@ -6,13 +6,14 @@
 
 using namespace editor;
 using namespace editor::graph;
-using namespace editor::game;
+
+using namespace game;
 
 using namespace simcoe::math;
 
 constexpr auto kUpVector = float3::from(0.f, 0.f, 1.f); // z-up
 
-void CameraUniformHandle::update(GameLevel *pLevel) {
+void CameraUniformHandle::update(Level *pLevel) {
     const auto& createInfo = ctx->getCreateInfo();
     float width = float(createInfo.renderWidth);
     float height = float(createInfo.renderHeight);
@@ -90,7 +91,7 @@ void GameLevelPass::destroy() {
 }
 
 void GameLevelPass::execute() {
-    game::GameLevel *pLevel = game::getInstance()->getActiveLevel();
+    game::Level *pLevel = game::getInstance()->getActiveLevel();
     if (pLevel == nullptr) return;
 
     CameraUniformHandle *pCamera = pCameraAttachment->getInner();

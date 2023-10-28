@@ -11,11 +11,11 @@ using namespace simcoe::math;
 using namespace editor;
 
 namespace swarm {
-    struct MainMenu : game::GameLevel {
+    struct MainMenu : game::Level {
 
     };
 
-    struct PlayLevel : game::GameLevel {
+    struct PlayLevel : game::Level {
         enum Projection : int {
             ePerspective,
             eOrthographic
@@ -29,7 +29,7 @@ namespace swarm {
 
         template<std::derived_from<swarm::OSwarmObject> T, typename... A>
         T *newObject(A&&... args) {
-            T *pObject = GameLevel::addObject<T>(args...);
+            T *pObject = Level::addObject<T>(args...);
 
             if constexpr (!std::is_same_v<T, swarm::OBullet>)
                 nonBulletObjects.push_back(pObject);
@@ -88,7 +88,7 @@ namespace swarm {
         bool shouldCullObject(game::IEntity *pObject) const;
     };
 
-    struct GameOverLevel : game::GameLevel {
+    struct GameOverLevel : game::Level {
         GameOverLevel();
 
         void tick(float delta) override;

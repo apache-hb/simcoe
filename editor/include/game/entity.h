@@ -13,40 +13,33 @@
 
 #include <unordered_set>
 
-namespace editor::game {
+namespace game {
     using namespace simcoe;
     using namespace simcoe::math;
 
+    using namespace editor;
+
     namespace fs = assets::fs;
 
-    struct GameLevel;
+    struct World;
+    struct Level;
     struct IEntity;
     struct IEntityComponent;
 
-    struct EntityCreateInfo {
-        std::string name = "";
-        GameLevel *pLevel = nullptr;
-    };
-
-    struct ComponentCreateInfo {
+    struct EntityInfo {
         std::string name = "";
 
-        IEntity *pParent = nullptr;
-        IEntityComponent *pParentComponent = nullptr;
-    };
+        size_t type = SIZE_MAX;
+        size_t version = SIZE_MAX;
 
-    struct IEntityComponent {
-        IEntityComponent(const ComponentCreateInfo& info);
-
-    private:
-        IEntity *pParent;
-        IEntityComponent *pParentComponent;
+        Level *pLevel = nullptr;
+        World *pWorld = nullptr;
     };
 
     struct IEntity {
-        IEntity(GameLevel *pLevel, std::string name, size_t id = SIZE_MAX);
+        IEntity(Level *pLevel, std::string name, size_t id = SIZE_MAX);
 
-        IEntity(const EntityCreateInfo& info);
+        IEntity(const EntityInfo& info);
 
         virtual ~IEntity() = default;
 
@@ -78,7 +71,7 @@ namespace editor::game {
 
         void setShouldCull(bool bShould) { bShouldCull = bShould; }
 
-        GameLevel *pLevel;
+        Level *pLevel;
 
     private:
         size_t id = 0;

@@ -2,8 +2,7 @@
 
 #include "editor/graph/mesh.h"
 
-using namespace editor;
-using namespace editor::game;
+using namespace game;
 
 static Instance *gInstance = nullptr;
 Instance* game::getInstance() { return gInstance; }
@@ -61,9 +60,9 @@ void Instance::updateRender() {
 /// state machine
 ///
 
-void Instance::pushLevel(GameLevel *pLevel) {
+void Instance::pushLevel(Level *pLevel) {
     pGameQueue->add("push-level", [this, pLevel] {
-        if (GameLevel *pCurrent = getActiveLevel()) {
+        if (Level *pCurrent = getActiveLevel()) {
             pCurrent->pause();
         }
 
@@ -76,14 +75,14 @@ void Instance::pushLevel(GameLevel *pLevel) {
 
 void Instance::popLevel() {
     pGameQueue->add("pop-level", [this] {
-        if (GameLevel *pCurrent = getActiveLevel()) {
+        if (Level *pCurrent = getActiveLevel()) {
             pCurrent->pause();
 
             std::lock_guard lock(gameMutex);
             levels.pop_back();
         }
 
-        if (GameLevel *pCurrent = getActiveLevel()) {
+        if (Level *pCurrent = getActiveLevel()) {
             pCurrent->resume();
         }
     });
@@ -141,7 +140,7 @@ ResourceWrapper<graph::TextureHandle> *Instance::newTexture(const fs::path& path
 void Instance::tick(float delta) {
     if (bPaused) return;
 
-    if (GameLevel *pCurrent = getActiveLevel()) {
+    if (Level *pCurrent = getActiveLevel()) {
         pCurrent->beginTick();
         pCurrent->tick(delta * timeScale);
         pCurrent->endTick();
@@ -158,7 +157,7 @@ void Instance::debug() {
     ImGui::SliderFloat("Time Scale", &timeScale, 0.f, 2.f);
     ImGui::Text("Current Time: %f", clock.now());
 
-    if (GameLevel *pCurrent = getActiveLevel()) {
+    if (Level *pCurrent = getActiveLevel()) {
         auto name = pCurrent->getName();
         ImGui::SeparatorText(name.data());
         pCurrent->debug();

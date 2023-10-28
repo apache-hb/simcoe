@@ -7,7 +7,7 @@
 
 #include "editor/graph/assets.h"
 
-namespace editor::game {
+namespace game {
     using namespace simcoe;
     using namespace editor;
 
@@ -42,13 +42,13 @@ namespace editor::game {
         ///
         /// state machine
         ///
-        void pushLevel(GameLevel *pLevel);
+        void pushLevel(Level *pLevel);
         void popLevel();
 
         void quit();
         bool shouldQuit() const { return bShouldQuit; }
 
-        GameLevel *getActiveLevel() {
+        Level *getActiveLevel() {
             std::lock_guard lock(gameMutex);
             return levels.empty() ? nullptr : levels.back();
         }
@@ -56,7 +56,7 @@ namespace editor::game {
     private:
         std::mutex gameMutex;
         std::atomic_bool bShouldQuit = false;
-        std::vector<GameLevel*> levels;
+        std::vector<Level*> levels;
 
 
         ///
