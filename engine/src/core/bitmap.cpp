@@ -1,4 +1,4 @@
-#include "engine/memory/bitmap.h"
+#include "engine/core/bitmap.h"
 
 using namespace simcoe;
 

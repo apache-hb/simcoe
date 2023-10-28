@@ -1,6 +1,3 @@
-// os and system
-#include "game/game.h"
-
 // services
 #include "engine/service/service.h"
 #include "engine/service/debug.h"
@@ -35,12 +32,12 @@
 // vendor
 #include "moodycamel/concurrentqueue.h"
 
-// game logic
-#include "swarm/input.h"
-#include "swarm/levels.h"
+// game
+#include "game/world.h"
+#include "game/render/hud.h"
+#include "game/render/scene.h"
 
 #include <functional>
-#include <array>
 #include <fstream>
 #include <iostream>
 
@@ -51,6 +48,8 @@ using namespace editor;
 
 using namespace game;
 
+namespace gr = game::render;
+namespace sr = simcoe::render;
 namespace fs = std::filesystem;
 
 enum WindowMode : int {
@@ -65,8 +64,8 @@ enum WindowMode : int {
 static constexpr auto kWindowWidth = 1920;
 static constexpr auto kWindowHeight = 1080;
 
-// system
-static game::Instance *pGame = nullptr;
+// game
+game::World *pWorld = nullptr;
 
 // window mode
 static Window *pWindow = nullptr;
@@ -84,7 +83,8 @@ static input::XInputGamepad *pGamepad0 = nullptr;
 static input::Manager *pInput = nullptr;
 
 /// rendering
-static render::Graph *pGraph = nullptr;
+static sr::Context *pContext = nullptr;
+static sr::Graph *pGraph = nullptr;
 
 template<typename F>
 tasks::WorkThread *newTask(const char *name, F&& func) {
@@ -145,15 +145,14 @@ static FileLogger *pFileLogger = nullptr;
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
         bWindowOpen = false;
-
-        pGame->quit();
+        pWorld->shutdown();
     }
 
     void onResize(const WindowSize& event) override {
         if (!bWindowOpen) return;
-        if (!pGame) return;
+        if (!pWorld) return;
 
-        pGame->pRenderQueue->add("resize-display", [&, w = event.width, h = event.height] {
+        pWorld->pRenderQueue->add("resize-display", [&, w = event.width, h = event.height] {
             pGraph->resizeDisplay(w, h);
             LOG_INFO("resize-display: {}x{}", w, h);
         });
@@ -209,11 +208,11 @@ struct GameGui final : graph::IGuiPass {
     ResourceWrapper<graph::TextHandle> *pTextHandle = nullptr;
     PassAttachment<graph::TextHandle> *pTextAttachment = nullptr;
 
-    GameGui(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
-        : IGuiPass(ctx, pRenderTarget)
+    GameGui(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
+        : IGuiPass(pGraph, pRenderTarget)
         , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTextureRead))
     {
-        pTextHandle = graph->addResource<graph::TextHandle>("SwarmFace-Regular");
+        pTextHandle = pGraph->addResource<graph::TextHandle>("SwarmFace-Regular");
         pTextAttachment = addAttachment(pTextHandle, rhi::ResourceState::eTextureRead);
     }
 
@@ -439,7 +438,7 @@ struct GameGui final : graph::IGuiPass {
 
             int currentWindowMode = gWindowMode;
             if (ImGui::Combo("Window mode", &currentWindowMode, kWindowModeNames.data(), kWindowModeNames.size())) {
-                pGame->pRenderQueue->add("change-window-mode", [oldMode = gWindowMode, newMode = currentWindowMode] {
+                pWorld->pRenderQueue->add("change-window-mode", [oldMode = gWindowMode, newMode = currentWindowMode] {
                     changeWindowMode(WindowMode(oldMode), WindowMode(newMode));
                 });
             }
@@ -451,21 +450,21 @@ struct GameGui final : graph::IGuiPass {
             ImGui::Text("DXGI reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
 
             if (ImGui::SliderInt2("Internal resolution", renderSize, 64, 4096)) {
-                pGame->pRenderQueue->add("resize-render", [this] {
+                pWorld->pRenderQueue->add("resize-render", [this] {
                     pGraph->resizeRender(renderSize[0], renderSize[1]);
                     LOG_INFO("resize-render: {}x{}", renderSize[0], renderSize[1]);
                 });
             }
 
             if (ImGui::SliderInt("backbuffer count", &backBufferCount, 2, 8)) {
-                pGame->pRenderQueue->add("change-backbuffers", [this] {
+                pWorld->pRenderQueue->add("change-backbuffers", [this] {
                     pGraph->changeBackBufferCount(backBufferCount);
                     LOG_INFO("change-backbuffer-count: {}", backBufferCount);
                 });
             }
 
             if (ImGui::Combo("Adapter", &currentAdapter, adapterNames.data(), adapterNames.size())) {
-                pGame->pRenderQueue->add("change-adapter", [this] {
+                pWorld->pRenderQueue->add("change-adapter", [this] {
                     pGraph->changeAdapter(currentAdapter);
                     LOG_INFO("change-adapter: {}", currentAdapter);
                 });
@@ -493,12 +492,12 @@ struct GameGui final : graph::IGuiPass {
             const auto& passes = pGraph->passes;
             const auto& objects = pGraph->objects;
 
-            showGraphObjects(bResourcesOpen, std::format("resources: {}", resources.size()).c_str(), resources, [](render::IResourceHandle *pResource) {
+            showGraphObjects(bResourcesOpen, std::format("resources: {}", resources.size()).c_str(), resources, [](sr::IResourceHandle *pResource) {
                 auto name = pResource->getName();
                 ImGui::Text("%s (state: %s)", name.data(), rhi::toString(pResource->getCurrentState()).data());
             });
 
-            showGraphObjects(bPassesOpen, std::format("passes: {}", passes.size()).c_str(), passes, [](render::ICommandPass *pPass) {
+            showGraphObjects(bPassesOpen, std::format("passes: {}", passes.size()).c_str(), passes, [](sr::ICommandPass *pPass) {
                 auto name = pPass->getName();
                 ImGui::Text("pass: %s", name.data());
                 for (auto& resource : pPass->inputs) {
@@ -508,7 +507,7 @@ struct GameGui final : graph::IGuiPass {
                 }
             });
 
-            showGraphObjects(bObjectsOpen, std::format("objects: {}", objects.size()).c_str(), objects, [](render::IGraphObject *pObject) {
+            showGraphObjects(bObjectsOpen, std::format("objects: {}", objects.size()).c_str(), objects, [](sr::IGraphObject *pObject) {
                 auto name = pObject->getName();
                 ImGui::Text("%s", name.data());
             });
@@ -584,9 +583,9 @@ static void commonMain(const std::filesystem::path& path) {
     pInput->addSource(pKeyboard = new input::Win32Keyboard());
     pInput->addSource(pMouse = new input::Win32Mouse(pWindow, true));
     pInput->addSource(pGamepad0 = new input::XInputGamepad(0));
-    pInput->addClient(swarm::getInputClient());
+    // pInput->addClient(swarm::getInputClient());
 
-    const render::RenderCreateInfo renderCreateInfo = {
+    const sr::RenderCreateInfo renderCreateInfo = {
         .hWindow = pWindow->getHandle(),
         .depot = depot,
 
@@ -601,14 +600,10 @@ static void commonMain(const std::filesystem::path& path) {
     };
 
     // move the render context into the render thread to prevent hangs on shutdown
-    render::Context *pContext = render::Context::create(renderCreateInfo);
+    pContext = sr::Context::create(renderCreateInfo);
     pGraph = new Graph(pContext);
-    pGame = new game::Instance(pGraph);
-    game::setInstance(pGame);
 
     // setup render
-
-    pGame->setupRender();
 
     auto *pBackBuffers = pGraph->addResource<graph::SwapChainHandle>();
     auto *pSceneTarget = pGraph->addResource<graph::SceneTargetHandle>();
@@ -616,30 +611,34 @@ static void commonMain(const std::filesystem::path& path) {
 
     pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>());
 
-    pGraph->addPass<graph::GameLevelPass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
+    // pGraph->addPass<graph::GameLevelPass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
 
-    //pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
+    gr::ScenePass *pScenePass = pGraph->addPass<gr::ScenePass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
+    gr::HudPass *pHudPass = pGraph->addPass<gr::HudPass>(pSceneTarget->as<IRTVHandle>());
+
+    // pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
+
     pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
+
     pGraph->addPass<graph::PresentPass>(pBackBuffers);
 
-    // setup game
+    const game::WorldInfo worldInfo = {
+        .entityLimit = 0x1000,
+        .seed = 0,
 
-    pGame->setupGame();
-    pGame->pushLevel(new swarm::PlayLevel());
+        .pHudPass = pHudPass,
+        .pScenePass = pScenePass
+    };
+
+    pWorld = new game::World(worldInfo);
+
+    // setup game
 
     std::jthread inputThread([](auto token) {
         DebugService::setThreadName("input");
 
         while (!token.stop_requested()) {
-            pInput->poll();
-        }
-    });
-
-    std::jthread gameThread([](auto token) {
-        DebugService::setThreadName("game");
-
-        while (!token.stop_requested()) {
-            pGame->updateGame();
+            pWorld->tickInput();
         }
     });
 
@@ -647,20 +646,32 @@ static void commonMain(const std::filesystem::path& path) {
         DebugService::setThreadName("render");
 
         while (!token.stop_requested() && bWindowOpen) {
-            pGame->updateRender();
+            pWorld->tickRender();
         }
     });
 
-    while (!pGame->shouldQuit()) {
+    std::jthread physicsThread([](auto token) {
+        DebugService::setThreadName("physics");
+
+        while (!token.stop_requested()) {
+            pWorld->tickPhysics();
+        }
+    });
+
+    std::jthread gameThread([](auto token) {
+        DebugService::setThreadName("game");
+
+        while (!token.stop_requested()) {
+            pWorld->tickGame();
+        }
+    });
+
+    while (!pWorld->shouldQuit()) {
         if (PlatformService::getEvent())
             PlatformService::dispatchEvent();
 
         pMainQueue->process();
     }
-
-    inputThread.request_stop();
-    gameThread.request_stop();
-    renderThread.request_stop();
 
     PlatformService::quit();
 }

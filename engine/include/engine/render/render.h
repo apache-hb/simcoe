@@ -1,8 +1,9 @@
 #pragma once
 
+#include "engine/core/bitmap.h"
+
 #include "engine/assets/assets.h"
 #include "engine/rhi/rhi.h"
-#include "engine/memory/bitmap.h"
 
 #include "engine/service/logging.h"
 

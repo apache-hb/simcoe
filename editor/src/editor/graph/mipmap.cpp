@@ -5,12 +5,12 @@ using namespace editor::graph;
 
 // resources
 
-MipMapInfoHandle::MipMapInfoHandle(Graph *graph)
-    : IUniformHandle(graph, "mipmap.info")
+MipMapInfoHandle::MipMapInfoHandle(Graph *pGraph)
+    : IUniformHandle(pGraph, "mipmap.info")
 { }
 
-RwTextureHandle::RwTextureHandle(Graph *ctx, uint2 size, size_t mipLevel)
-    : ISingleResourceHandle(ctx, "rwtexture", eDepDevice)
+RwTextureHandle::RwTextureHandle(Graph *pGraph, uint2 size, size_t mipLevel)
+    : ISingleResourceHandle(pGraph, "rwtexture", eDepDevice)
     , size(size)
     , mipLevel(mipLevel)
 { }
@@ -37,20 +37,20 @@ void RwTextureHandle::destroy() {
 
 // render pass
 
-MipMapPass::MipMapPass(Graph *ctx, ResourceWrapper<TextureHandle> *pSourceTexture, size_t mipLevels)
-    : ICommandPass(ctx, "mipmap")
+MipMapPass::MipMapPass(Graph *pGraph, ResourceWrapper<TextureHandle> *pSourceTexture, size_t mipLevels)
+    : ICommandPass(pGraph, "mipmap")
     , pSourceTexture(addAttachment(pSourceTexture->as<ISRVHandle>(), rhi::ResourceState::eTextureRead))
     , mipLevels(mipLevels)
 {
     TextureHandle *pTexture = pSourceTexture->getInner();
-    pMipMapInfo = graph->addResource<MipMapInfoHandle>();
+    pMipMapInfo = pGraph->addResource<MipMapInfoHandle>();
     pMipMapInfoAttachment = addAttachment(pMipMapInfo, rhi::ResourceState::eUniform);
 
     pMipMapTargets = std::make_unique<MipMapTarget[]>(mipLevels);
     uint2 size = pTexture->getSize();
 
     for (size_t i = 0; i < mipLevels; i++) {
-        auto *pMipTexture = graph->addResource<RwTextureHandle>(size, i);
+        auto *pMipTexture = pGraph->addResource<RwTextureHandle>(size, i);
         auto *pMipAttachment = addAttachment(pMipTexture->as<IUAVHandle>(), rhi::ResourceState::eTextureWrite);
 
         size /= 2;

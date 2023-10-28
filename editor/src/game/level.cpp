@@ -1,62 +1,76 @@
 #include "game/level.h"
-#include "game/game.h"
 
-#include "imgui/imgui.h"
+#include "game/world.h"
 
-using namespace editor;
+#include "game/entity.h"
+
 using namespace game;
 
-// cameras
+ILevel::ILevel(const LevelInfo& info)
+    : pWorld(info.pWorld)
+    , entities(new EntityPtr[info.entityLimit])
+    , indices(info.entityLimit)
+{ }
 
-void Perspective::debug() {
-    ImGui::SliderFloat("fov", &fov, 0.1f, 3.14f);
-    ImGui::SliderFloat("near", &nearLimit, 0.1f, 100.f);
-    ImGui::SliderFloat("far", &farLimit, 0.1f, 1000.f);
-}
-
-void Orthographic::debug() {
-    ImGui::SliderFloat("width", &width, 0.1f, 100.f);
-    ImGui::SliderFloat("height", &height, 0.1f, 100.f);
-    ImGui::SliderFloat("near", &nearLimit, 0.1f, 100.f);
-    ImGui::SliderFloat("far", &farLimit, 0.1f, 1000.f);
-}
-
-// level
-
-void Level::deleteObject(IEntity *pObject) {
+void ILevel::retireEntity(const EntityTag& tag) {
     std::lock_guard guard(lock);
-    retired.emplace(pObject);
+    retired.emplace(tag);
 }
 
-void Level::beginTick() {
+// world lifecycle
+
+void ILevel::beginTick() {
     std::lock_guard guard(lock);
-
-    for (IEntity *pObject : pending)
-        objects.emplace_back(pObject);
-
-    pending.clear();
-}
-
-void Level::endTick() {
-    std::lock_guard guard(lock);
-
-    for (IEntity *pObject : retired) {
-        std::erase(objects, pObject);
-        //delete pObject; TODO: make sure all async tasks related to this object are done
+    for (EntityTag tag : retired) {
+        IEntity *pEntity = getEntityInner(tag);
+        indices.release(tag.slot, tag.version);
+        delete pEntity;
     }
 
     retired.clear();
 }
 
-void Level::debug() {
-    if (ImGui::CollapsingHeader("Objects")) {
-        useEachObject([](auto pObject) {
-            debug::DebugHandle *pDebug = pObject->getDebugHandle();
-            ImGui::SeparatorText(pDebug->getName());
-
-            ImGui::PushID(pObject);
-            pDebug->draw();
-            ImGui::PopID();
-        });
+void ILevel::endTick() {
+    std::lock_guard guard(lock);
+    for (IEntity *pEntity : staged) {
+        entities[EntitySlotType(pEntity->getSlot())] = pEntity;
     }
+}
+
+// entity creation
+
+EntityTag ILevel::newEntityIndex() {
+    EntityVersion version = pWorld->newEntityVersion();
+    EntitySlot slot = indices.alloc(version);
+
+    ASSERTF(slot != EntitySlot::eInvalid, "failed to allocate entity index");
+
+    return { slot, version };
+}
+
+EntityInfo ILevel::newEntityInfo(const EntityTag& tag, std::string_view name) {
+    EntityInfo info = {
+        .name = std::string(name),
+        .tag = tag,
+        .pWorld = pWorld,
+        .pLevel = this
+    };
+
+    return info;
+}
+
+// entity sanity checks
+
+IEntity *ILevel::getEntityInner(const EntityTag& tag) {
+    ASSERTF(tag.slot != EntitySlot::eInvalid, "attempting to access invalid entity: {}", tag);
+    ASSERTF(indices.test(tag.slot, tag.version), "attempting to access stale entity: {}", tag);
+
+    IEntity *pEntity = entities[EntitySlotType(tag.slot)];
+    ASSERTF(!isEntityStale(pEntity, tag.version), "entity is stale: (entity={}, world={})", pEntity->getTag(), tag);
+
+    return pEntity;
+}
+
+bool ILevel::isEntityStale(const IEntity *pEntity, EntityVersion version) const {
+    return pEntity->getVersion() != version;
 }

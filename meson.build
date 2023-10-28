@@ -83,6 +83,7 @@ src = [
     # core
     'engine/src/core/panic.cpp',
     'engine/src/core/utf8.cpp',
+    'engine/src/core/bitmap.cpp',
 
     # service
     'engine/src/service/service.cpp',
@@ -103,9 +104,6 @@ src = [
     'engine/src/input/input.cpp',
     'engine/src/input/win32-device.cpp',
     'engine/src/input/xinput-device.cpp',
-
-    # memory
-    'engine/src/memory/bitmap.cpp',
 
     # tasks
     'engine/src/tasks/task.cpp',
@@ -224,20 +222,20 @@ src = [
     'editor/src/editor/graph/post.cpp',
     'editor/src/editor/graph/scene.cpp',
     'editor/src/editor/graph/gui.cpp',
-    'editor/src/editor/graph/game.cpp',
-    #'editor/src/editor/graph/mipmap.cpp',
+    # 'editor/src/editor/graph/game.cpp',
+    # 'editor/src/editor/graph/mipmap.cpp',
 
     # game debug
     'editor/src/editor/debug/debug.cpp',
 
     # game framework
-    'editor/src/game/game.cpp',
     'editor/src/game/entity.cpp',
     'editor/src/game/level.cpp',
+    'editor/src/game/world.cpp',
 
-    # game logic
-    'editor/src/swarm/objects.cpp',
-    'editor/src/swarm/input.cpp',
+    # game rendering
+    'editor/src/game/render/hud.cpp',
+    'editor/src/game/render/scene.cpp',
 
     # shaders
     hlsl_vs.process('data/shaders/blit.hlsl'),

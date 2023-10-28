@@ -5,10 +5,13 @@
 namespace simcoe {
     namespace detail {
         template<typename T, typename P>
-        struct Storage {
+        struct BitMapStorage {
             enum struct Index : size_t { eInvalid = SIZE_MAX };
 
-            constexpr Storage(size_t bits): size(bits), pBits(new T[wordCount()]) {
+            constexpr BitMapStorage(size_t bits)
+                : size(bits)
+                , pBits(new T[wordCount()])
+            {
                 reset();
             }
 
@@ -58,16 +61,16 @@ namespace simcoe {
         };
     }
 
-    struct BitMap final : detail::Storage<std::uint64_t, BitMap> {
-        using Super = detail::Storage<std::uint64_t, BitMap>;
-        using Super::Super;
+    struct BitMap final : detail::BitMapStorage<std::uint64_t, BitMap> {
+        using Super = detail::BitMapStorage<std::uint64_t, BitMap>;
+        using Super::BitMapStorage;
 
         bool testSet(size_t index);
     };
 
-    struct AtomicBitMap final : detail::Storage<std::atomic_uint64_t, AtomicBitMap> {
-        using Super = detail::Storage<std::atomic_uint64_t, AtomicBitMap>;
-        using Super::Super;
+    struct AtomicBitMap final : detail::BitMapStorage<std::atomic_uint64_t, AtomicBitMap> {
+        using Super = detail::BitMapStorage<std::atomic_uint64_t, AtomicBitMap>;
+        using Super::BitMapStorage;
 
         bool testSet(size_t index);
     };

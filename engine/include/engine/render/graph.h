@@ -17,7 +17,7 @@ namespace simcoe::render {
     struct IGraphObject {
         virtual ~IGraphObject() = default;
 
-        IGraphObject(Graph *graph, std::string name, StateDep stateDeps = eDepDevice);
+        IGraphObject(Graph *pGraph, std::string name, StateDep stateDeps = eDepDevice);
 
         virtual void create() = 0;
         virtual void destroy() = 0;
@@ -26,7 +26,7 @@ namespace simcoe::render {
         std::string_view getName() const { return name; }
 
     protected:
-        Graph *graph;
+        Graph *pGraph;
         Context *ctx;
 
     private:
@@ -36,8 +36,8 @@ namespace simcoe::render {
 
     struct IResourceHandle : IGraphObject {
         virtual ~IResourceHandle() = default;
-        IResourceHandle(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
-            : IGraphObject(ctx, name, stateDeps)
+        IResourceHandle(Graph *pGraph, std::string name, StateDep stateDeps = eDepDevice)
+            : IGraphObject(pGraph, name, stateDeps)
         { }
 
         virtual rhi::DeviceResource* getResource() const = 0;
@@ -53,8 +53,8 @@ namespace simcoe::render {
     template<std::derived_from<rhi::DeviceResource> T>
     struct ISingleResourceHandle : IResourceHandle {
         virtual ~ISingleResourceHandle() = default;
-        ISingleResourceHandle(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
-            : IResourceHandle(ctx, name, stateDeps)
+        ISingleResourceHandle(Graph *pGraph, std::string name, StateDep stateDeps = eDepDevice)
+            : IResourceHandle(pGraph, name, stateDeps)
         { }
 
         void destroy() override {
@@ -268,8 +268,8 @@ namespace simcoe::render {
 
     struct ICommandPass : IGraphObject {
         virtual ~ICommandPass() = default;
-        ICommandPass(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
-            : IGraphObject(ctx, name, stateDeps)
+        ICommandPass(Graph *pGraph, std::string name, StateDep stateDeps = eDepDevice)
+            : IGraphObject(pGraph, name, stateDeps)
         { }
 
         virtual void executePass() { execute(); }
@@ -289,8 +289,8 @@ namespace simcoe::render {
 
     struct IRenderPass : ICommandPass {
         virtual ~IRenderPass() = default;
-        IRenderPass(Graph *ctx, std::string name, StateDep stateDeps = eDepDevice)
-            : ICommandPass(ctx, name, stateDeps)
+        IRenderPass(Graph *pGraph, std::string name, StateDep stateDeps = eDepDevice)
+            : ICommandPass(pGraph, name, stateDeps)
         { }
 
         void executePass() override;

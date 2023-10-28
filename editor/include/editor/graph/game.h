@@ -2,7 +2,7 @@
 
 #include "editor/graph/assets.h"
 
-#include "game/level.h"
+#include "game/world.h"
 
 namespace editor::graph {
     struct UNIFORM_BUFFER CameraUniform {
@@ -19,7 +19,7 @@ namespace editor::graph {
             : IUniformHandle(ctx, "uniform.camera", eDepRenderSize)
         { }
 
-        void update(game::Level *pLevel);
+        void update(game::World *pLevel);
     };
 
     struct ObjectUniformHandle final : IUniformHandle<ObjectUniform> {

@@ -16,8 +16,8 @@ namespace {
                                        //| ImGuiConfigFlags_NavEnableGamepad;
 }
 
-IGuiPass::IGuiPass(Graph *graph, ResourceWrapper<IRTVHandle> *pHandle)
-    : IRenderPass(graph, "imgui", eDepDisplaySize)
+IGuiPass::IGuiPass(Graph *pGraph, ResourceWrapper<IRTVHandle> *pHandle)
+    : IRenderPass(pGraph, "imgui", eDepDisplaySize)
 {
     setRenderTargetHandle(pHandle);
 

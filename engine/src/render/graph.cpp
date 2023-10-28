@@ -9,9 +9,9 @@ using namespace simcoe::render;
 /// graph object
 ///
 
-IGraphObject::IGraphObject(Graph *graph, std::string name, StateDep stateDeps)
-    : graph(graph)
-    , ctx(graph->getContext())
+IGraphObject::IGraphObject(Graph *pGraph, std::string name, StateDep stateDeps)
+    : pGraph(pGraph)
+    , ctx(pGraph->getContext())
     , name(name)
     , stateDeps(StateDep(stateDeps | eDepDevice))
 { }
@@ -30,12 +30,12 @@ void IResourceHandle::setCurrentState(rhi::ResourceState state) {
 
 rhi::ResourceState IResourceHandle::getResourceState(rhi::DeviceResource *pResource) const {
     ASSERTF(pResource != nullptr, "resource missing in {}", getName());
-    return graph->getResourceState(getResource());
+    return pGraph->getResourceState(getResource());
 }
 
 void IResourceHandle::setResourceState(rhi::DeviceResource *pResource, rhi::ResourceState state) {
     ASSERTF(pResource != nullptr, "resource missing in {}", getName());
-    graph->setResourceState(pResource, state);
+    pGraph->setResourceState(pResource, state);
 }
 
 ///
@@ -48,7 +48,7 @@ void IRenderPass::executePass() {
     auto rtvIndex = pNewTarget->getRtvIndex();
     auto newClear = pNewTarget->getClearColour();
 
-    IRTVHandle *pCurrentTarget = graph->pCurrentRenderTarget;
+    IRTVHandle *pCurrentTarget = pGraph->pCurrentRenderTarget;
 
     if (pDepthStencil != nullptr) {
         IDSVHandle *pDepth = pDepthStencil->getInner();
@@ -59,13 +59,13 @@ void IRenderPass::executePass() {
 
         if (pNewTarget != pCurrentTarget) {
             ctx->clearRenderTarget(rtvIndex, newClear);
-            graph->pCurrentRenderTarget = pNewTarget;
+            pGraph->pCurrentRenderTarget = pNewTarget;
         }
 
     } else if (pNewTarget != pCurrentTarget) {
         ctx->setRenderTarget(rtvIndex);
         ctx->clearRenderTarget(rtvIndex, newClear);
-        graph->pCurrentRenderTarget = pNewTarget;
+        pGraph->pCurrentRenderTarget = pNewTarget;
     }
 
     execute();

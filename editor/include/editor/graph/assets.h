@@ -119,8 +119,5 @@ namespace editor::graph {
 
         assets::CanvasPoint start = { 0, 0 };
         assets::CanvasSize size = { 1920, 1080 };
-
-        void debug();
-        debug::GlobalHandle debugHandle = debug::addGlobalHandle("Text", [this] { debug(); });
     };
 }

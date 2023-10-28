@@ -1,7 +1,5 @@
 #include "editor/graph/game.h"
 
-#include "game/game.h"
-
 #include <array>
 
 using namespace editor;
@@ -13,7 +11,7 @@ using namespace simcoe::math;
 
 constexpr auto kUpVector = float3::from(0.f, 0.f, 1.f); // z-up
 
-void CameraUniformHandle::update(Level *pLevel) {
+void CameraUniformHandle::update(World *pLevel) {
     const auto& createInfo = ctx->getCreateInfo();
     float width = float(createInfo.renderWidth);
     float height = float(createInfo.renderHeight);
@@ -60,8 +58,8 @@ void GameLevelPass::create() {
         .pixelShader = createInfo.depot.loadBlob("object.ps.cso"),
 
         .attributes = {
-            { "POSITION", offsetof(ObjVertex, position), rhi::TypeFormat::eFloat3 },
-            { "TEXCOORD", offsetof(ObjVertex, uv), rhi::TypeFormat::eFloat2 }
+            { "POSITION", offsetof(Vertex, position), rhi::TypeFormat::eFloat3 },
+            { "TEXCOORD", offsetof(Vertex, uv), rhi::TypeFormat::eFloat2 }
         },
 
         .textureInputs = {

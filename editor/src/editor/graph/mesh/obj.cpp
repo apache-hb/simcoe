@@ -18,8 +18,8 @@ struct std::hash<ObjVertex> {
     }
 };
 
-ObjMesh::ObjMesh(render::Graph *graph, const fs::path& path)
-    : ISingleMeshBufferHandle(graph, path.string())
+ObjMesh::ObjMesh(render::Graph *pGraph, const fs::path& path)
+    : ISingleMeshBufferHandle(pGraph, path.string())
     , path(path)
 {
     loadAsset();

@@ -1,15 +1,13 @@
 #include "editor/graph/assets.h"
 
-#include "game/game.h"
-
 using namespace editor;
 using namespace editor::graph;
 
 static constexpr math::float4 kRenderClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
 static constexpr math::float4 kSceneClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
 
-SwapChainHandle::SwapChainHandle(Graph *ctx)
-    : IResourceHandle(ctx, "swapchain.rtv", StateDep(eDepDisplaySize | eDepBackBufferCount))
+SwapChainHandle::SwapChainHandle(Graph *pGraph)
+    : IResourceHandle(pGraph, "swapchain.rtv", StateDep(eDepDisplaySize | eDepBackBufferCount))
 {
     setClearColour(kRenderClearColour);
 }
@@ -112,8 +110,8 @@ void DepthTargetHandle::destroy() {
 /// texture handle
 ///
 
-TextureHandle::TextureHandle(Graph *graph, std::string name)
-    : ISingleResourceHandle(graph, name)
+TextureHandle::TextureHandle(Graph *pGraph, std::string name)
+    : ISingleResourceHandle(pGraph, name)
     , name(name)
 {
     const auto& createInfo = ctx->getCreateInfo();
@@ -222,50 +220,3 @@ void TextHandle::upload() {
     ctx->endCopy();
 }
 
-void TextHandle::debug() {
-    static int size[2] = { int(bitmap.width), int(bitmap.height) };
-    ImGui::InputInt2("size", size);
-
-    static int startPos[2] = { int(start.x), int(start.y) };
-    ImGui::InputInt2("start", startPos);
-
-    static int pt = 32;
-    ImGui::InputInt("pt", &pt);
-
-    if (ImGui::Button("draw")) {
-        game::Instance *pInstance = game::getInstance();
-
-        pInstance->pRenderQueue->add("update-text", [this] {
-            this->size = { size_t(size[0]), size_t(size[1]) };
-            this->start = { size_t(startPos[0]), size_t(startPos[1]) };
-
-            setFontSize(pt);
-            draw();
-            upload();
-        });
-    }
-
-    auto offset = ctx->getSrvHeap()->deviceOffset(getSrvIndex());
-
-    float aspect = float(bitmap.width) / float(bitmap.height);
-    float availWidth = ImGui::GetWindowWidth() - 32;
-    float availHeight = ImGui::GetWindowHeight() - 32;
-
-    float totalWidth = availWidth;
-    float totalHeight = availHeight;
-
-    if (availWidth > availHeight * aspect) {
-        totalWidth = availHeight * aspect;
-    } else {
-        totalHeight = availWidth / aspect;
-    }
-
-    ImGui::Image(
-        /*user_texture_id=*/ (ImTextureID)offset,
-        /*size=*/ { totalWidth, totalHeight },
-        /*uv0=*/ ImVec2(0, 0),
-        /*uv1=*/ ImVec2(1, 1),
-        /*tint_col=*/ ImVec4(1.f, 1.f, 1.f, 1.f),
-        /*border_col=*/ ImVec4(1.f, 1.f, 1.f, 1.f)
-    );
-}
