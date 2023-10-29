@@ -16,7 +16,7 @@ namespace simcoe {
     struct GdkService final : IStaticService<GdkService> {
         // IStaticService
         static constexpr std::string_view kServiceName = "gdk";
-        static constexpr std::array<std::string_view, 0> kServiceDeps = { DebugService::kServiceName };
+        static constexpr std::array kServiceDeps = { DebugService::kServiceName };
 
         // IService
         bool createService() override;
@@ -27,7 +27,7 @@ namespace simcoe {
             return USE_SERVICE(eServiceFaulted, failureReason);
         }
 
-        static XSystemAnalyticsInfo& getAnalyticsInfo() {
+        static const XSystemAnalyticsInfo& getAnalyticsInfo() {
             return USE_SERVICE(eServiceCreated, analyticsInfo);
         }
 

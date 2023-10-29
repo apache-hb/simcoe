@@ -4,7 +4,7 @@
 
 #include <unordered_set>
 
-namespace game::render {
+namespace game::graph {
     using namespace simcoe::render;
 
     struct ISceneObject {
@@ -21,7 +21,6 @@ namespace game::render {
         void destroy() override;
 
         void execute() override;
-
 
         // public api
 

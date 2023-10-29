@@ -4,33 +4,16 @@
 #include <string>
 #include <thread>
 
-#include "moodycamel/concurrentqueue.h"
+#include "moodycamel/blockingconcurrentqueue.h"
 
-namespace simcoe::tasks {
+namespace simcoe::threads {
     using WorkItem = std::function<void()>;
 
     struct WorkQueue {
-        WorkQueue(size_t size)
-            : workQueue(size)
-        { }
+        WorkQueue(size_t size);
 
-        void add(std::string name, WorkItem item) {
-            WorkMessage message = {
-                .name = name,
-                .item = item
-            };
-
-            workQueue.enqueue(message);
-        }
-
-        bool process() {
-            if (workQueue.try_dequeue(message)) {
-                message.item();
-                return true;
-            }
-
-            return false;
-        }
+        void add(std::string name, WorkItem item);
+        bool process();
 
     private:
         struct WorkMessage {
@@ -39,7 +22,7 @@ namespace simcoe::tasks {
         };
 
         WorkMessage message;
-        moodycamel::ConcurrentQueue<WorkMessage> workQueue{64};
+        moodycamel::BlockingConcurrentQueue<WorkMessage> workQueue;
     };
 
     struct WorkThread : WorkQueue {
@@ -54,10 +37,6 @@ namespace simcoe::tasks {
             while (!token.stop_requested()) {
                 process();
             }
-        }
-
-        void stop() {
-            workThread.join();
         }
 
     private:

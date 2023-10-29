@@ -2,12 +2,36 @@
 
 #include "game/entity.h"
 
-#include "engine/tasks/task.h"
+#include "engine/threads/queue.h"
 
 #include <unordered_set>
 #include <random>
 
 namespace game {
+    struct Thread : threads::WorkThread {
+        Thread(size_t size, std::string_view name)
+            : WorkThread(size, name)
+        { }
+
+        virtual void create() = 0;
+        virtual void destroy() = 0;
+
+        virtual void tick() = 0;
+
+        void run(std::stop_token token) override {
+            create();
+            cv.notify_all();
+
+            while (!token.stop_requested()) {
+                tick();
+            }
+
+            destroy();
+        }
+
+        std::condition_variable cv;
+    };
+
     /**
      * all public methods are thread safe
      *
@@ -18,49 +42,51 @@ namespace game {
         ~World();
 
 
-        void createInput();
+        void createInput() { }
         void destroyInput();
         void tickInput();
-        tasks::WorkThread *pInputThread = new tasks::WorkThread{64, "input"};
+        threads::WorkThread *pInputThread = new threads::WorkThread{64, "input"};
 
 
-        void createRender();
+        void createRender() { }
         void destroyRender();
         void tickRender();
-        tasks::WorkThread *pRenderThread = new tasks::WorkThread{64, "render"};
+        threads::WorkThread *pRenderThread = new threads::WorkThread{64, "render"};
 
 
-        void createPhysics();
+        void createPhysics() { }
         void destroyPhysics();
         void tickPhysics();
-        tasks::WorkThread *pPhysicsThread = new tasks::WorkThread{64, "physics"};
+        threads::WorkThread *pPhysicsThread = new threads::WorkThread{64, "physics"};
 
 
-        void createGame();
+        void createGame() { }
         void destroyGame();
         void tickGame();
-        tasks::WorkThread *pGameThread = new tasks::WorkThread{64, "game"};
+        threads::WorkThread *pGameThread = new threads::WorkThread{64, "game"};
 
 
         template<std::derived_from<ILevel> T, typename... A> requires std::is_constructible_v<T, LevelInfo, A...>
         T *addLevel(A&&... args) {
             std::lock_guard guard(lock);
 
-            LevelInfo info = {
-                .entityLimit = entityLimit,
+            const LevelInfo levelInfo = {
+                .entityLimit = info.entityLimit,
                 .pWorld = this
             };
 
-            return new T(info, args...);
+            return new T(levelInfo, args...);
         }
 
         void setCurrentLevel(ILevel *pLevel);
 
         void shutdown();
-        bool shouldQuit() const;
+        bool shouldQuit() const { return bShutdown; }
 
         EntityVersion newEntityVersion();
     private:
+        std::atomic_bool bShutdown = false;
+
         // game engine lock to ensure thread safety
         std::mutex lock;
 
@@ -72,9 +98,10 @@ namespace game {
         std::unordered_set<ILevel*> levels;
         ILevel *pActiveLevel = nullptr;
 
-        // backend info
-        size_t entityLimit;
-        render::HudPass *pHudPass = nullptr;
-        render::ScenePass *pScenePass = nullptr;
+        // render bookkeeping
+        size_t renderFaults = 0;
+
+        // config
+        game::WorldInfo info;
     };
 }

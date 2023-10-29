@@ -38,7 +38,7 @@ bool PlatformService::createService() {
     frequency = getClockFrequency();
 
     if (!SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)) {
-        throwError("failed to set dpi awareness");
+        throwLastError("failed to set dpi awareness");
     }
 
     const WNDCLASSA kClass = {
@@ -49,7 +49,7 @@ bool PlatformService::createService() {
     };
 
     if (RegisterClassA(&kClass) == 0) {
-        throwError("failed to register window class");
+        throwLastError("failed to register window class");
     }
 
     return true;
@@ -102,7 +102,7 @@ size_t PlatformService::queryCounter() {
 }
 
 void PlatformService::message(std::string_view title, std::string_view body) {
-    ENSURE_STATE(eServiceCreated | eServiceSetup);
+    ENSURE_STATE(eServiceCreated | eServiceSetup | eServiceInitial);
     MessageBox(nullptr, body.data(), title.data(), MB_ICONERROR | MB_SYSTEMMODAL);
     std::cout << title << ": " << body << std::endl;
 }
@@ -203,7 +203,7 @@ Window::Window(const WindowCreateInfo& createInfo)
     );
 
     if (!hWindow) {
-        throwError("failed to create window");
+        throwLastError("failed to create window");
     }
 
     ShowWindow(hWindow, PlatformService::getShowCmd());

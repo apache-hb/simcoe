@@ -3,20 +3,33 @@
 #include "engine/math/math.h"
 #include "engine/core/slotmap.h"
 
+// fwd
+
+namespace simcoe::input {
+    struct Manager;
+}
+
+namespace simcoe::render {
+    struct Context;
+    struct Graph;
+}
+
 namespace game {
-    using namespace simcoe;
-    using namespace simcoe::math;
-
-    // fwd
-
     struct World;
     struct ILevel;
     struct IEntity;
 
-    namespace render {
+    namespace graph {
         struct HudPass;
         struct ScenePass;
     }
+}
+
+// world
+
+namespace game {
+    using namespace simcoe;
+    using namespace simcoe::math;
 
     // consts
 
@@ -47,11 +60,23 @@ namespace game {
     };
 
     struct WorldInfo {
+        // game config
         size_t entityLimit = 0x1000;
         size_t seed = 0;
 
-        render::HudPass *pHudPass = nullptr;
-        render::ScenePass *pScenePass = nullptr;
+        // input config
+        input::Manager *pInput = nullptr;
+
+        // render config
+        render::Context *pRenderContext = nullptr;
+        render::Graph *pRenderGraph = nullptr;
+        size_t renderFaultLimit = 3;
+
+        // game render config
+        graph::HudPass *pHudPass = nullptr;
+        graph::ScenePass *pScenePass = nullptr;
+
+        void verify() const;
     };
 
     struct LevelInfo {

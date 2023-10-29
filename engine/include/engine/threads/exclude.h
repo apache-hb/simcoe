@@ -4,7 +4,7 @@
 
 #include "engine/service/debug.h"
 
-namespace simcoe::tasks {
+namespace simcoe::threads {
     struct ThreadExclusiveRegion {
         ThreadExclusiveRegion(
             std::thread::id expectedId = std::this_thread::get_id(),

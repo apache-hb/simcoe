@@ -1,10 +1,32 @@
-#include "engine/tasks/task.h"
+#include "engine/threads/queue.h"
 
 #include "engine/service/debug.h"
 #include "engine/service/logging.h"
 
 using namespace simcoe;
-using namespace simcoe::tasks;
+using namespace simcoe::threads;
+
+WorkQueue::WorkQueue(size_t size)
+    : workQueue(size)
+{ }
+
+void WorkQueue::add(std::string name, WorkItem item) {
+    WorkMessage message = {
+        .name = name,
+        .item = item
+    };
+
+    workQueue.enqueue(message);
+}
+
+bool WorkQueue::process() {
+    if (workQueue.try_dequeue(message)) {
+        message.item();
+        return true;
+    }
+
+    return false;
+}
 
 std::jthread WorkThread::start(std::string_view name) {
     return std::jthread([this, name](std::stop_token token) {

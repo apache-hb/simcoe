@@ -84,3 +84,14 @@ namespace simcoe {
 
 #define ENSURE_STATE(state) \
     ensureState(ServiceState(state), __func__)
+
+/// services are a little verbose but they work well enough
+/// all methods should have both a static and non-static version, like so
+
+/// public: static void foo() { USE_SERVICE(eServiceCreated, doFoo)(); }
+/// private: void doFoo();
+
+/// and for fields, they should be private and accessed through a static getter
+
+/// public: static int getBar() { return USE_SERVICE(eServiceCreated, bar); }
+/// private: int bar = 0;

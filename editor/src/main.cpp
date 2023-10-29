@@ -7,7 +7,8 @@
 #include "engine/service/gdk.h"
 
 // threads
-#include "engine/tasks/task.h"
+#include "engine/threads/service.h"
+#include "engine/threads/queue.h"
 
 // input
 #include "engine/input/win32-device.h"
@@ -46,9 +47,7 @@ using namespace simcoe::math;
 
 using namespace editor;
 
-using namespace game;
-
-namespace gr = game::render;
+namespace gr = game::graph;
 namespace sr = simcoe::render;
 namespace fs = std::filesystem;
 
@@ -74,7 +73,7 @@ static WindowMode gWindowMode = eModeWindowed;
 static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless", "Fullscreen" });
 
 /// threads
-static tasks::WorkQueue *pMainQueue = nullptr;
+static threads::WorkQueue *pMainQueue = nullptr;
 
 /// input
 static input::Win32Keyboard *pKeyboard = nullptr;
@@ -87,8 +86,8 @@ static sr::Context *pContext = nullptr;
 static sr::Graph *pGraph = nullptr;
 
 template<typename F>
-tasks::WorkThread *newTask(const char *name, F&& func) {
-    struct WorkImpl final : tasks::WorkThread {
+threads::WorkThread *newTask(const char *name, F&& func) {
+    struct WorkImpl final : threads::WorkThread {
         WorkImpl(const char *name, F&& fn)
             : WorkThread(64, name)
             , fn(std::forward<F>(fn))
@@ -152,7 +151,7 @@ struct GameWindow final : IWindowCallbacks {
         if (!bWindowOpen) return;
         if (!pWorld) return;
 
-        pWorld->pRenderQueue->add("resize-display", [&, w = event.width, h = event.height] {
+        pWorld->pRenderThread->add("resize-display", [&, w = event.width, h = event.height] {
             pGraph->resizeDisplay(w, h);
             LOG_INFO("resize-display: {}x{}", w, h);
         });
@@ -438,7 +437,7 @@ struct GameGui final : graph::IGuiPass {
 
             int currentWindowMode = gWindowMode;
             if (ImGui::Combo("Window mode", &currentWindowMode, kWindowModeNames.data(), kWindowModeNames.size())) {
-                pWorld->pRenderQueue->add("change-window-mode", [oldMode = gWindowMode, newMode = currentWindowMode] {
+                pWorld->pRenderThread->add("change-window-mode", [oldMode = gWindowMode, newMode = currentWindowMode] {
                     changeWindowMode(WindowMode(oldMode), WindowMode(newMode));
                 });
             }
@@ -450,21 +449,21 @@ struct GameGui final : graph::IGuiPass {
             ImGui::Text("DXGI reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
 
             if (ImGui::SliderInt2("Internal resolution", renderSize, 64, 4096)) {
-                pWorld->pRenderQueue->add("resize-render", [this] {
+                pWorld->pRenderThread->add("resize-render", [this] {
                     pGraph->resizeRender(renderSize[0], renderSize[1]);
                     LOG_INFO("resize-render: {}x{}", renderSize[0], renderSize[1]);
                 });
             }
 
             if (ImGui::SliderInt("backbuffer count", &backBufferCount, 2, 8)) {
-                pWorld->pRenderQueue->add("change-backbuffers", [this] {
+                pWorld->pRenderThread->add("change-backbuffers", [this] {
                     pGraph->changeBackBufferCount(backBufferCount);
                     LOG_INFO("change-backbuffer-count: {}", backBufferCount);
                 });
             }
 
             if (ImGui::Combo("Adapter", &currentAdapter, adapterNames.data(), adapterNames.size())) {
-                pWorld->pRenderQueue->add("change-adapter", [this] {
+                pWorld->pRenderThread->add("change-adapter", [this] {
                     pGraph->changeAdapter(currentAdapter);
                     LOG_INFO("change-adapter: {}", currentAdapter);
                 });
@@ -532,8 +531,10 @@ void gdkServiceDebug() {
 
     auto [osMajor, osMinor, osBuild, osRevision] = info.osVersion;
     ImGui::Text("os: %u.%u.%u - %u", osMajor, osMinor, osBuild, osRevision);
+
     auto [hostMajor, hostMinor, hostBuild, hostRevision] = info.hostingOsVersion;
     ImGui::Text("host: %u.%u.%u - %u", hostMajor, hostMinor, hostBuild, hostRevision);
+
     ImGui::Text("family: %s", info.family);
     ImGui::Text("form: %s", info.form);
     ImGui::Text("id: %s", id.data());
@@ -562,7 +563,7 @@ void gdkServiceDebug() {
 
 static void commonMain(const std::filesystem::path& path) {
     debug::GlobalHandle debugHandle = debug::addGlobalHandle("GDK", [] { gdkServiceDebug(); });
-    pMainQueue = new tasks::WorkQueue(64);
+    pMainQueue = new threads::WorkQueue(64);
 
     auto assets = path / "editor.exe.p";
     assets::Assets depot = { assets };
@@ -623,9 +624,19 @@ static void commonMain(const std::filesystem::path& path) {
     pGraph->addPass<graph::PresentPass>(pBackBuffers);
 
     const game::WorldInfo worldInfo = {
+        // game config
         .entityLimit = 0x1000,
         .seed = 0,
 
+        // input config
+        .pInput = pInput,
+
+        // render config
+        .pRenderContext = pContext,
+        .pRenderGraph = pGraph,
+        .renderFaultLimit = 3,
+
+        // game render config
         .pHudPass = pHudPass,
         .pScenePass = pScenePass
     };
@@ -689,9 +700,10 @@ static int innerMain() try {
     pGuiLogger = LoggingService::newSink<GuiLogger>();
 
     auto engineServices = std::to_array({
-        LoggingService::service(),
         DebugService::service(),
+        LoggingService::service(),
         PlatformService::service(),
+        ThreadService::service(),
         GdkService::service(),
         FreeTypeService::service()
     });

@@ -31,7 +31,7 @@ namespace {
 
 bool DebugService::createService() {
     if (!SymInitialize(GetCurrentProcess(), nullptr, TRUE)) {
-        throwError("failed to initialize symbol engine");
+        throwLastError("failed to initialize symbol engine");
     }
 
     return true;
@@ -168,6 +168,6 @@ std::string DebugService::getErrorName(DWORD dwErrorCode) {
 
 // utils
 
-void simcoe::throwError(std::string_view msg, DWORD err) {
+void simcoe::throwLastError(std::string_view msg, DWORD err) {
     throw std::runtime_error(std::format("{}: {}", msg, DebugService::getErrorName(err)));
 }

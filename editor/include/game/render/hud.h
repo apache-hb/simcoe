@@ -2,7 +2,7 @@
 
 #include "engine/render/graph.h"
 
-namespace game::render {
+namespace game::graph {
     using namespace simcoe::render;
 
     struct HudPass final : IRenderPass {

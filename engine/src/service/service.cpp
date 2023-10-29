@@ -24,6 +24,7 @@ void IService::create() {
 
 void IService::destroy() {
     ASSERTF(state != eServiceInitial, "service {} not created", getName());
+
     LOG_INFO("unloading {} service", getName());
     destroyService();
     state = eServiceInitial;

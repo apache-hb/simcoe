@@ -39,6 +39,9 @@ message('render debug layers:', debug_render.allowed())
 message('building as a windows gui app:', gui_app.enabled())
 message('packaging for windows store deploy:', package_app.enabled())
 
+data_dir = meson.current_source_dir()/'data'
+script_dir = data_dir/'scripts'
+
 ###
 ### deps
 ###
@@ -105,9 +108,10 @@ src = [
     'engine/src/input/win32-device.cpp',
     'engine/src/input/xinput-device.cpp',
 
-    # tasks
-    'engine/src/tasks/task.cpp',
-    'engine/src/tasks/exclude.cpp',
+    # threads
+    'engine/src/threads/service.cpp',
+    'engine/src/threads/queue.cpp',
+    'engine/src/threads/exclude.cpp',
 
     # assets
     'engine/src/service/freetype.cpp',
@@ -138,7 +142,7 @@ deps = [
     # input
     xinput, gdk,
 
-    # tasks
+    # threads
     moodycamel, threads,
 
     # assets
@@ -169,9 +173,6 @@ tinyobj = subproject('tinyobj').get_variable('tinyobj')
 
 python3 = find_program('python3')
 mt = find_program('mt')
-
-data_dir = meson.current_source_dir()/'data'
-script_dir = data_dir/'scripts'
 
 hlsl_vs = generator(python3,
     output : '@BASENAME@.vs.cso',
@@ -229,6 +230,7 @@ src = [
     'editor/src/editor/debug/debug.cpp',
 
     # game framework
+    'editor/src/game/info.cpp',
     'editor/src/game/entity.cpp',
     'editor/src/game/level.cpp',
     'editor/src/game/world.cpp',

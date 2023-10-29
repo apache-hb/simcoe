@@ -1,6 +1,6 @@
 #include "game/render/scene.h"
 
-using namespace game::render;
+using namespace game::graph;
 
 ScenePass::ScenePass(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<IDSVHandle> *pDepthTarget)
     : IRenderPass(pGraph, "game.scene")

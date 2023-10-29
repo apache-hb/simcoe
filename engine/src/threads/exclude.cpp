@@ -1,9 +1,9 @@
-#include "engine/tasks/exclude.h"
+#include "engine/threads/exclude.h"
 
 #include "engine/core/panic.h"
 
 using namespace simcoe;
-using namespace simcoe::tasks;
+using namespace simcoe::threads;
 
 ThreadExclusiveRegion::ThreadExclusiveRegion(std::thread::id expectedId, std::string expectedName) {
     migrate(expectedId, expectedName);

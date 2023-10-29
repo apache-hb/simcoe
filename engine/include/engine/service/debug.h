@@ -37,5 +37,5 @@ namespace simcoe {
         std::vector<StackFrame> getBacktrace();
     };
 
-    void throwError(std::string_view msg, DWORD err = GetLastError());
+    void throwLastError(std::string_view msg, DWORD err = GetLastError());
 }

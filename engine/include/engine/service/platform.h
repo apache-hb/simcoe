@@ -80,7 +80,7 @@ namespace simcoe {
     struct PlatformService final : IStaticService<PlatformService> {
         // IStaticService
         static constexpr std::string_view kServiceName = "platform";
-        static constexpr std::array<std::string_view, 0> kServiceDeps = { DebugService::kServiceName };
+        static constexpr std::array kServiceDeps = { DebugService::kServiceName };
 
         // IService
         bool createService() override;
