@@ -56,12 +56,12 @@ win32 = subproject('win32').get_variable('win32')
 
 # asset loading
 stb = subproject('stb').get_variable('stb')
-zlib = subproject('zlib').get_variable('zlib')
-libpng = subproject('libpng').get_variable('libpng')
+zlib = dependency('zlib')
+libpng = dependency('libpng')
 
 # font loading
-harfbuzz = subproject('harfbuzz').get_variable('libharfbuzz_icu_dep')
-freetype2 = subproject('freetype2').get_variable('freetype_dep')
+harfbuzz = dependency('harfbuzz')
+freetype2 = dependency('freetype2')
 
 # threading
 threads = dependency('threads')
@@ -127,12 +127,13 @@ src = [
     'engine/src/render/graph.cpp',
     'engine/src/render/assets.cpp',
 
-    # gdk
-    'engine/src/service/gdk.cpp'
+    # vendor
+    'vendor/src/microsoft/gdk.cpp'
 ]
 
 inc = [
-    'engine/include'
+    'engine/include',
+    'vendor/include'
 ]
 
 deps = [
@@ -172,7 +173,6 @@ tinyobj = subproject('tinyobj').get_variable('tinyobj')
 # fastgltf = subproject('fastgltf').get_variable('fastgltf')
 
 python3 = find_program('python3')
-mt = find_program('mt')
 
 hlsl_vs = generator(python3,
     output : '@BASENAME@.vs.cso',
@@ -184,10 +184,10 @@ hlsl_ps = generator(python3,
     arguments : [ script_dir/'compile-hlsl.py', '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'ps', '6_0' ]
 )
 
-hlsl_cs = generator(python3,
-    output : '@BASENAME@.cs.cso',
-    arguments : [ script_dir/'compile-hlsl.py', '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'cs', '6_0' ]
-)
+# hlsl_cs = generator(python3,
+#     output : '@BASENAME@.cs.cso',
+#     arguments : [ script_dir/'compile-hlsl.py', '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'cs', '6_0' ]
+# )
 
 copy = generator(python3,
     output : '@PLAINNAME@',

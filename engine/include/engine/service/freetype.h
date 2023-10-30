@@ -18,9 +18,7 @@ namespace simcoe {
         void destroyService() override;
 
         // FreeTypeService
-        static FT_Library getLibrary() {
-            return USE_SERVICE(eServiceCreated, library);
-        }
+        static FT_Library getLibrary();
 
     private:
         FT_Library library = nullptr;

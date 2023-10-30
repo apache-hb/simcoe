@@ -35,6 +35,8 @@ namespace simcoe {
     };
 
     struct Window {
+        SM_NOCOPY(Window)
+
         Window(const WindowCreateInfo& createInfo);
         ~Window();
 
@@ -90,26 +92,18 @@ namespace simcoe {
         static void setup(HINSTANCE hInstance, int nCmdShow);
         static CommandLine getCommandLine();
 
-        // PlatformService win32 event loop
+        // win32 event loop
         static bool getEvent();
         static void dispatchEvent();
         static void quit(int code = 0);
 
-        // PlatformService win32 timer info
-        static size_t getFrequency() {
-            return USE_SERVICE(eServiceCreated, frequency);
-        }
-
+        // win32 timer info
+        static size_t getFrequency();
         static size_t queryCounter();
 
-        // PlatformService win32 window creation
-        static HINSTANCE getInstanceHandle() {
-            return USE_SERVICE(eServiceSetup | eServiceCreated, hInstance);
-        }
-
-        static int getShowCmd() {
-            return USE_SERVICE(eServiceSetup | eServiceCreated, nCmdShow);
-        }
+        // win32 window creation
+        static HINSTANCE getInstanceHandle();
+        static int getShowCmd();
 
         // PlatformService message box
         static void message(std::string_view title, std::string_view body);

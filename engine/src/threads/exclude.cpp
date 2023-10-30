@@ -5,16 +5,16 @@
 using namespace simcoe;
 using namespace simcoe::threads;
 
-ThreadExclusiveRegion::ThreadExclusiveRegion(std::thread::id expectedId, std::string expectedName) {
+ThreadExclusiveRegion::ThreadExclusiveRegion(ThreadId expectedId, std::string expectedName) {
     migrate(expectedId, expectedName);
 }
 
-void ThreadExclusiveRegion::migrate(std::thread::id expectedId, std::string expectedName) {
+void ThreadExclusiveRegion::migrate(ThreadId expectedId, std::string expectedName) {
     expectedThreadId = expectedId;
     expectedThreadName = expectedName;
 }
 
 void ThreadExclusiveRegion::verify(std::string_view detail) {
-    std::thread::id currentThreadId = std::this_thread::get_id();
+    ThreadId currentThreadId = ThreadService::getCurrentThreadId();
     ASSERTF(currentThreadId == expectedThreadId, "thread migration detected: locked to {}, visited by {} (info: {})", expectedThreadName, DebugService::getThreadName(), detail);
 }

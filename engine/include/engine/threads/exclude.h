@@ -1,18 +1,17 @@
 #pragma once
 
-#include <thread>
-
 #include "engine/service/debug.h"
+#include "engine/threads/service.h"
 
 namespace simcoe::threads {
     struct ThreadExclusiveRegion {
         ThreadExclusiveRegion(
-            std::thread::id expectedId = std::this_thread::get_id(),
+            ThreadId expectedId = ThreadService::getCurrentThreadId(),
             std::string expectedName = DebugService::getThreadName()
         );
 
         void migrate(
-            std::thread::id expectedId = std::this_thread::get_id(),
+            ThreadId expectedId = ThreadService::getCurrentThreadId(),
             std::string expectedName = DebugService::getThreadName()
         );
 
@@ -21,7 +20,7 @@ namespace simcoe::threads {
         std::string_view getExpectedThreadName() const { return expectedThreadName; }
 
     private:
-        std::thread::id expectedThreadId;
+        ThreadId expectedThreadId;
         std::string expectedThreadName;
     };
 }

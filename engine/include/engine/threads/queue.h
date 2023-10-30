@@ -2,7 +2,8 @@
 
 #include <functional>
 #include <string>
-#include <thread>
+
+#include "engine/threads/service.h"
 
 #include "moodycamel/blockingconcurrentqueue.h"
 

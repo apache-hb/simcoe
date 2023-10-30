@@ -4,7 +4,6 @@
 #include "engine/service/logging.h"
 #include "engine/service/platform.h"
 #include "engine/service/freetype.h"
-#include "engine/service/gdk.h"
 
 // threads
 #include "engine/threads/service.h"
@@ -31,7 +30,7 @@
 #include "imfiles/imfilebrowser.h"
 
 // vendor
-#include "moodycamel/concurrentqueue.h"
+#include "vendor/microsoft/gdk.h"
 
 // game
 #include "game/world.h"
@@ -46,6 +45,7 @@ using namespace simcoe;
 using namespace simcoe::math;
 
 using namespace editor;
+using namespace microsoft;
 
 namespace gr = game::graph;
 namespace sr = simcoe::render;

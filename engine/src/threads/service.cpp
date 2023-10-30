@@ -3,6 +3,7 @@
 #include "engine/service/logging.h"
 
 using namespace simcoe;
+using namespace simcoe::threads;
 
 template<typename T>
 struct std::formatter<LOGICAL_PROCESSOR_RELATIONSHIP, T> : std::formatter<std::string_view, T> {
@@ -57,27 +58,39 @@ namespace {
         return reinterpret_cast<T*>(reinterpret_cast<std::byte*>(ptr) + bytes);
     }
 
-    // GetLogicalProcessorInformationEx provides information about inter-core communication
     struct ProcessorInfoIterator {
-        ProcessorInfoIterator() { setupInfo(); }
+        ProcessorInfoIterator(SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pBuffer, DWORD remaining)
+            : pBuffer(pBuffer)
+            , remaining(remaining)
+        { }
 
-        bool next() {
-            if (remaining == 0) return false;
+        SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *operator++() {
+            ASSERTF(remaining > 0, "iterator overrun");
 
             remaining -= pBuffer->Size;
             if (remaining > 0) {
                 pBuffer = advance(pBuffer, pBuffer->Size);
             }
 
-            return true;
-        }
-
-        SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *getCurrent() const {
             return pBuffer;
         }
 
+        SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *operator*() const {
+            return pBuffer;
+        }
+
+        bool operator==(const ProcessorInfoIterator& other) const {
+            return remaining == other.remaining;
+        }
+
     private:
-        void setupInfo() {
+        SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pBuffer;
+        DWORD remaining;
+    };
+
+    // GetLogicalProcessorInformationEx provides information about inter-core communication
+    struct ProcessorInfo {
+        ProcessorInfo() {
             if (GetLogicalProcessorInformationEx(RelationAll, nullptr, &bufferSize)) {
                 throw std::runtime_error("GetLogicalProcessorInformationEx did not fail");
             }
@@ -95,6 +108,15 @@ namespace {
             remaining = bufferSize;
         }
 
+        ProcessorInfoIterator begin() const {
+            return ProcessorInfoIterator(pBuffer, remaining);
+        }
+
+        ProcessorInfoIterator end() const {
+            return ProcessorInfoIterator(pBuffer, 0);
+        }
+
+    private:
         std::unique_ptr<std::byte[]> memory;
         SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pBuffer;
         DWORD bufferSize = 0;
@@ -104,24 +126,37 @@ namespace {
 
     // GetSystemCpuSetInformation provides information about cpu speeds
     struct CpuSetIterator {
-        CpuSetIterator() { setupInfo(); }
+        CpuSetIterator(SYSTEM_CPU_SET_INFORMATION *pBuffer, ULONG remaining)
+            : pBuffer(pBuffer)
+            , remaining(remaining)
+        { }
 
-        bool next() {
-            if (remaining == 0) return false;
+        SYSTEM_CPU_SET_INFORMATION *operator++() {
+            ASSERTF(remaining > 0, "iterator overrun");
 
             remaining -= pBuffer->Size;
             if (remaining > 0) {
                 pBuffer = advance(pBuffer, pBuffer->Size);
             }
 
-            return true;
-        }
-
-        SYSTEM_CPU_SET_INFORMATION *getCurrent() const {
             return pBuffer;
         }
+
+        SYSTEM_CPU_SET_INFORMATION *operator*() const {
+            return pBuffer;
+        }
+
+        bool operator==(const CpuSetIterator& other) const {
+            return remaining == other.remaining;
+        }
+
     private:
-        void setupInfo() {
+        SYSTEM_CPU_SET_INFORMATION *pBuffer;
+        ULONG remaining;
+    };
+
+    struct CpuSetInfo {
+        CpuSetInfo() {
             if (GetSystemCpuSetInformation(nullptr, 0, &bufferSize, GetCurrentProcess(), 0)) {
                 throw std::runtime_error("GetSystemCpuSetInformation did not fail");
             }
@@ -139,6 +174,14 @@ namespace {
             remaining = bufferSize;
         }
 
+        CpuSetIterator begin() const {
+            return CpuSetIterator(pBuffer, remaining);
+        }
+
+        CpuSetIterator end() const {
+            return CpuSetIterator(pBuffer, 0);
+        }
+    private:
         std::unique_ptr<std::byte[]> memory;
         SYSTEM_CPU_SET_INFORMATION *pBuffer;
         ULONG bufferSize = 0;
@@ -152,36 +195,48 @@ namespace {
     };
 
     struct ProcessorInfoLayout {
-        size_t packageCount = 0;
-        size_t coreCount = 0;
+        size_t threadCount = 0;
         size_t cacheCount = 0;
 
-        void addProcessorCore(const PROCESSOR_RELATIONSHIP& info) {
-            bool hasSmt = info.Flags & LTP_PC_SMT;
-            LOG_INFO("RelationProcessorCore: (smt={}, class={}, groups={})", hasSmt, info.EfficiencyClass, info.GroupCount);
-            for (DWORD i = 0; i < info.GroupCount; ++i) {
-                GROUP_AFFINITY group = info.GroupMask[i];
-                LOG_INFO("  Group[{}]: group={} mask=0x{:x}", i, group.Group, group.Mask);
+        std::vector<const PROCESSOR_RELATIONSHIP*> cores;
+        std::vector<const PROCESSOR_RELATIONSHIP*> packages;
+
+        std::vector<LogicalThread> threads;
+
+        void addProcessorCore(const PROCESSOR_RELATIONSHIP *pInfo) {
+            bool hasSmt = pInfo->Flags & LTP_PC_SMT;
+            LOG_INFO("RelationProcessorCore: (smt={}, class={}, groups={})", hasSmt, pInfo->EfficiencyClass, pInfo->GroupCount);
+            for (DWORD i = 0; i < pInfo->GroupCount; ++i) {
+                GROUP_AFFINITY group = pInfo->GroupMask[i];
+                LOG_INFO("  Group[{}]: group={} mask=0b{:064b}", i, group.Group, group.Mask);
+
+                threadCount += std::popcount(group.Mask);
+
+                LogicalThread thread = {
+                    .type = hasSmt ? eThreadEfficiency : eThreadPerformance,
+                };
+
+                threads.push_back(thread);
             }
 
-            coreCount += 1;
+            cores.push_back(pInfo);
         }
 
-        void addProcessorPackage(const PROCESSOR_RELATIONSHIP& info) {
-            LOG_INFO("RelationProcessorPackage: (flags={}, class={}, groups={})", info.Flags, info.EfficiencyClass, info.GroupCount);
-            for (DWORD i = 0; i < info.GroupCount; ++i) {
-                GROUP_AFFINITY group = info.GroupMask[i];
-                LOG_INFO("  Group[{}]: group={} mask=0x{:x}", i, group.Group, group.Mask);
+        void addProcessorPackage(const PROCESSOR_RELATIONSHIP *pInfo) {
+            LOG_INFO("RelationProcessorPackage: (flags={}, class={}, groups={})", pInfo->Flags, pInfo->EfficiencyClass, pInfo->GroupCount);
+            for (DWORD i = 0; i < pInfo->GroupCount; ++i) {
+                GROUP_AFFINITY group = pInfo->GroupMask[i];
+                LOG_INFO("  Group[{}]: group={} mask=0b{:064b}", i, group.Group, group.Mask);
             }
 
-            packageCount += 1;
+            packages.push_back(pInfo);
         }
 
         void addCache(const CACHE_RELATIONSHIP& info) {
             LOG_INFO("RelationCache: (level={}, associativity={}, lineSize={}, size={}, type={})", info.Level, info.Associativity, info.LineSize, info.CacheSize, info.Type);
             for (DWORD i = 0; i < info.GroupCount; ++i) {
                 GROUP_AFFINITY group = info.GroupMasks[i];
-                LOG_INFO("  Group[{}]: group={} mask=0x{:x}", i, group.Group, group.Mask);
+                LOG_INFO("  Group[{}]: group={} mask=0b{:064b}", i, group.Group, group.Mask);
             }
 
             cacheCount += 1;
@@ -191,7 +246,7 @@ namespace {
             LOG_INFO("RelationGroup: (maximumGroupCount={}, activeGroupCount={})", info.MaximumGroupCount, info.ActiveGroupCount);
             for (DWORD i = 0; i < info.ActiveGroupCount; ++i) {
                 PROCESSOR_GROUP_INFO group = info.GroupInfo[i];
-                LOG_INFO("  ProcessorGroup[{}]: max={} active={} mask=0x{:x}", i, group.MaximumProcessorCount, group.ActiveProcessorCount, group.ActiveProcessorMask);
+                LOG_INFO("  ProcessorGroup[{}]: max={} active={} mask=0b{:064b}", i, group.MaximumProcessorCount, group.ActiveProcessorCount, group.ActiveProcessorMask);
             }
         }
 
@@ -199,7 +254,7 @@ namespace {
             LOG_INFO("RelationNumaNode: (nodeNumber={})", info.NodeNumber);
             for (DWORD i = 0; i < info.GroupCount; ++i) {
                 GROUP_AFFINITY group = info.GroupMasks[i];
-                LOG_INFO("  Group[{}]: group={} mask=0x{:x}", i, group.Group, group.Mask);
+                LOG_INFO("  Group[{}]: group={} mask=0b{:064b}", i, group.Group, group.Mask);
             }
         }
     };
@@ -207,9 +262,9 @@ namespace {
     struct CpuSetLayout {
         size_t cpuSetCount = 0;
 
-        void addCpuSet(const SYSTEM_CPU_SET_INFORMATION& info) {
-            auto cpuSet = info.CpuSet;
-            LOG_INFO("CpuSet: (id={}, group={}, procIndex={}, coreIndex={}, class={}, flags=0x{:x}, schedule={}, tag={})",
+        void addCpuSet(const SYSTEM_CPU_SET_INFORMATION *pInfo) {
+            auto cpuSet = pInfo->CpuSet;
+            LOG_INFO("CpuSet: (id={}, group={}, procIndex={}, coreIndex={}, class={}, flags=0x{:x}, schedule={}, tag={}, cache={})",
                 cpuSet.Id,
                 cpuSet.Group,
                 cpuSet.LogicalProcessorIndex,
@@ -217,7 +272,8 @@ namespace {
                 cpuSet.EfficiencyClass,
                 cpuSet.AllFlags,
                 cpuSet.SchedulingClass,
-                cpuSet.AllocationTag
+                cpuSet.AllocationTag,
+                cpuSet.LastLevelCacheIndex
             );
 
             cpuSetCount += 1;
@@ -226,58 +282,56 @@ namespace {
 }
 
 bool ThreadService::createService() {
-    ProcessorInfoIterator processorInfo;
+    ProcessorInfo processorInfo;
     ProcessorInfoLayout processorInfoLayout;
-    do {
-        auto *pCurrent = processorInfo.getCurrent();
+    for (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pRelation : processorInfo) {
 
-        switch (pCurrent->Relationship) {
+        switch (pRelation->Relationship) {
         case RelationProcessorPackage:
-            processorInfoLayout.addProcessorPackage(pCurrent->Processor);
+            processorInfoLayout.addProcessorPackage(&pRelation->Processor);
             break;
 
         case RelationProcessorCore:
-            processorInfoLayout.addProcessorCore(pCurrent->Processor);
+            processorInfoLayout.addProcessorCore(&pRelation->Processor);
             break;
 
         case RelationCache:
-            processorInfoLayout.addCache(pCurrent->Cache);
+            processorInfoLayout.addCache(pRelation->Cache);
             break;
 
         case RelationGroup:
-            processorInfoLayout.addGroup(pCurrent->Group);
+            processorInfoLayout.addGroup(pRelation->Group);
             break;
 
         case RelationNumaNode:
-            processorInfoLayout.addNumaNode(pCurrent->NumaNode);
+            processorInfoLayout.addNumaNode(pRelation->NumaNode);
             break;
 
         case RelationProcessorModule:
             break; // ignore these
 
         default:
-            LOG_INFO("Unknown processor relationship: {}", pCurrent->Relationship);
+            LOG_INFO("Unknown processor relationship: {}", pRelation->Relationship);
             break;
         }
-    } while (processorInfo.next());
+    }
 
-    LOG_INFO("CPU layout: (packages={} cores={} caches={})", processorInfoLayout.packageCount, processorInfoLayout.coreCount, processorInfoLayout.cacheCount);
+    LOG_INFO("CPU layout: (packages={} cores={} threads={} caches={})", processorInfoLayout.packages.size(), processorInfoLayout.cores.size(), processorInfoLayout.threadCount, processorInfoLayout.cacheCount);
 
-    CpuSetIterator cpuSetInfo;
+    CpuSetInfo cpuSetInfo;
     CpuSetLayout cpuSetLayout;
 
-    do {
-        auto *pCurrent = cpuSetInfo.getCurrent();
-        switch (pCurrent->Type) {
+    for (SYSTEM_CPU_SET_INFORMATION *pCpuSet : cpuSetInfo) {
+        switch (pCpuSet->Type) {
         case CpuSetInformation:
-            cpuSetLayout.addCpuSet(*pCurrent);
+            cpuSetLayout.addCpuSet(pCpuSet);
             break;
 
         default:
-            LOG_INFO("Unknown cpu set type: {}", pCurrent->Type);
+            LOG_INFO("Unknown cpu set type: {}", pCpuSet->Type);
             break;
         }
-    } while (cpuSetInfo.next());
+    }
 
     LOG_INFO("CPU sets: (count={})", cpuSetLayout.cpuSetCount);
 
@@ -287,3 +341,26 @@ bool ThreadService::createService() {
 void ThreadService::destroyService() {
 
 }
+
+ThreadId ThreadService::getCurrentThreadId() {
+    return std::this_thread::get_id();
+}
+
+
+// c1: 14
+// c2: 14
+// c3: 9
+// c4: 12
+// c5: 8
+// c6: 11
+// c7: 10
+// c8: 13
+
+// c9: 7
+// c10: 6
+// c11: 2
+// c12: 4
+// c13: 0
+// c14: 5
+// c15: 3
+// c16: 1

@@ -41,7 +41,7 @@ void DebugService::destroyService() {
     SymCleanup(GetCurrentProcess());
 }
 
-std::vector<StackFrame> DebugService::getBacktrace() {
+std::vector<StackFrame> DebugService::backtrace() {
     HANDLE hThread = GetCurrentThread();
     HANDLE hProcess = GetCurrentProcess();
 
@@ -151,7 +151,7 @@ std::string DebugService::getResultName(HRESULT hr) {
 
 std::string DebugService::getErrorName(DWORD dwErrorCode) {
     char *pMessage = nullptr;
-    FormatMessageA(
+    DWORD err = FormatMessageA(
         /* dwFlags = */ FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
         /* lpSource = */ nullptr,
         /* dwMessageId = */ dwErrorCode,
@@ -160,6 +160,10 @@ std::string DebugService::getErrorName(DWORD dwErrorCode) {
         /* nSize = */ 0,
         /* Arguments = */ nullptr
     );
+
+    if (err == 0) {
+        return std::format("0x{:x}", dwErrorCode);
+    }
 
     std::string result = pMessage;
     LocalFree(pMessage);

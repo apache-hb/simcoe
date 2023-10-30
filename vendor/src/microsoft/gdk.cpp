@@ -1,4 +1,4 @@
-#include "engine/service/gdk.h"
+#include "vendor/microsoft/gdk.h"
 
 #include "engine/service/logging.h"
 
@@ -6,6 +6,7 @@
 #include "XGameRuntimeFeature.h"
 #include "XGameErr.h"
 
+using namespace microsoft;
 using namespace simcoe;
 
 #define HR_CHECK(expr) \
@@ -34,9 +35,9 @@ namespace {
     }
 }
 
-#define CHECK_FEATURE(key) \
+#define CHECK_FEATURE(KEY) \
     do { \
-        features[size_t(XGameRuntimeFeature::key)] = { .name = #key, .bEnabled = XGameRuntimeIsFeatureAvailable(XGameRuntimeFeature::key) }; \
+        features[size_t(XGameRuntimeFeature::KEY)] = { .name = #KEY, .bEnabled = XGameRuntimeIsFeatureAvailable(XGameRuntimeFeature::KEY) }; \
     } while (false)
 
 bool GdkService::createService() {
@@ -80,4 +81,21 @@ bool GdkService::createService() {
 
 void GdkService::destroyService() {
     XGameRuntimeUninitialize();
+}
+
+std::string_view GdkService::getFailureReason() {
+    return get()->failureReason;
+}
+
+// gdk info
+const XSystemAnalyticsInfo& GdkService::getAnalyticsInfo() {
+    return get()->analyticsInfo;
+}
+
+const GdkFeatureSet& GdkService::getFeatures() {
+    return get()->features;
+}
+
+std::string_view GdkService::getConsoleId() {
+    return get()->consoleId.data();
 }

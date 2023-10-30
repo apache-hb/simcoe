@@ -16,3 +16,7 @@ bool FreeTypeService::createService() {
 void FreeTypeService::destroyService() {
     FT_Done_FreeType(library);
 }
+
+FT_Library FreeTypeService::getLibrary() {
+    return get()->library;
+}

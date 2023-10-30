@@ -5,7 +5,7 @@
 #include "XSystem.h"
 #include "XGameRuntimeFeature.h"
 
-namespace simcoe {
+namespace microsoft {
     struct GdkFeature {
         std::string_view name;
         bool bEnabled;
@@ -13,31 +13,22 @@ namespace simcoe {
 
     using GdkFeatureSet = std::array<GdkFeature, 22>; // update this if XGameRuntimeFeature gets more fields
 
-    struct GdkService final : IStaticService<GdkService> {
+    struct GdkService final : simcoe::IStaticService<GdkService> {
         // IStaticService
         static constexpr std::string_view kServiceName = "gdk";
-        static constexpr std::array kServiceDeps = { DebugService::kServiceName };
+        static constexpr std::array kServiceDeps = { simcoe::DebugService::kServiceName };
 
         // IService
         bool createService() override;
         void destroyService() override;
 
-        // GdkService
-        static std::string_view getFailureReason() {
-            return USE_SERVICE(eServiceFaulted, failureReason);
-        }
+        // failure reason
+        static std::string_view getFailureReason();
 
-        static const XSystemAnalyticsInfo& getAnalyticsInfo() {
-            return USE_SERVICE(eServiceCreated, analyticsInfo);
-        }
-
-        static const GdkFeatureSet& getFeatures() {
-            return USE_SERVICE(eServiceCreated, features);
-        }
-
-        static std::string_view getConsoleId() {
-            return USE_SERVICE(eServiceCreated, consoleId).data();
-        }
+        // gdk info
+        static const XSystemAnalyticsInfo& getAnalyticsInfo();
+        static const GdkFeatureSet& getFeatures();
+        static std::string_view getConsoleId();
 
     private:
         // initialized when gdk is disabled

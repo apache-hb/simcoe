@@ -23,18 +23,14 @@ namespace simcoe {
         void destroyService() override;
 
         // DebugService
-        static std::vector<StackFrame> backtrace() {
-            return USE_SERVICE(eServiceCreated, getBacktrace)();
-        }
+        static std::vector<StackFrame> backtrace();
 
         static void setThreadName(std::string_view name);
         static std::string getThreadName();
 
+        // win32 specific debug helpers
         static std::string getResultName(HRESULT hr);
         static std::string getErrorName(DWORD err = GetLastError());
-
-    private:
-        std::vector<StackFrame> getBacktrace();
     };
 
     void throwLastError(std::string_view msg, DWORD err = GetLastError());

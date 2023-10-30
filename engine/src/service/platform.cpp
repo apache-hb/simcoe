@@ -60,14 +60,11 @@ void PlatformService::destroyService() {
 }
 
 void PlatformService::setup(HINSTANCE hInstance, int nCmdShow) {
-    ENSURE_STATE(eServiceInitial);
     get()->hInstance = hInstance;
     get()->nCmdShow = nCmdShow;
 }
 
 CommandLine PlatformService::getCommandLine() {
-    ENSURE_STATE(eServiceCreated);
-
     CommandLine args;
 
     int argc;
@@ -82,27 +79,36 @@ CommandLine PlatformService::getCommandLine() {
 }
 
 bool PlatformService::getEvent() {
-    return PeekMessage(&USE_SERVICE(eServiceCreated, msg), NULL, 0, 0, PM_REMOVE) != 0;
+    return PeekMessage(&get()->msg, NULL, 0, 0, PM_REMOVE) != 0;
 }
 
 void PlatformService::dispatchEvent() {
-    MSG msg = USE_SERVICE(eServiceCreated, msg);
+    MSG msg = get()->msg;
     TranslateMessage(&msg);
     DispatchMessage(&msg);
 }
 
 void PlatformService::quit(int code) {
-    ENSURE_STATE(eServiceCreated);
     PostQuitMessage(code);
 }
 
+size_t PlatformService::getFrequency() {
+    return get()->frequency;
+}
+
 size_t PlatformService::queryCounter() {
-    ENSURE_STATE(eServiceCreated);
     return getClockCounter();
 }
 
+HINSTANCE PlatformService::getInstanceHandle() {
+    return get()->hInstance;
+}
+
+int PlatformService::getShowCmd() {
+    return get()->nCmdShow;
+}
+
 void PlatformService::message(std::string_view title, std::string_view body) {
-    ENSURE_STATE(eServiceCreated | eServiceSetup | eServiceInitial);
     MessageBox(nullptr, body.data(), title.data(), MB_ICONERROR | MB_SYSTEMMODAL);
     std::cout << title << ": " << body << std::endl;
 }
