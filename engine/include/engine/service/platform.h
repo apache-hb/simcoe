@@ -96,6 +96,7 @@ namespace simcoe {
 
         // win32 event loop
         static bool getEvent();
+        static bool waitForEvent();
         static void dispatchEvent();
         static void quit(int code = 0);
 

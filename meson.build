@@ -222,6 +222,9 @@ src = [
     'editor/src/imgui/imgui_demo.cpp',
     'editor/src/imgui/imgui_tables.cpp',
 
+    # dear imgui freetype
+    'editor/src/imgui/misc/imgui_freetype.cpp',
+
     # dear imgui backends
     'editor/src/imgui/backends/imgui_impl_win32.cpp',
     'editor/src/imgui/backends/imgui_impl_dx12.cpp',
@@ -246,6 +249,7 @@ src = [
     'editor/src/editor/debug/debug.cpp',
     'editor/src/editor/debug/ryzen.cpp',
     'editor/src/editor/debug/gdk.cpp',
+    'editor/src/editor/debug/engine.cpp',
 
     # game framework
     'editor/src/game/info.cpp',

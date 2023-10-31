@@ -134,18 +134,18 @@ struct GuiLogger final : ISink {
         buffer.push_back(std::string(message));
     }
 
-private:
-    std::mutex mutex;
-    std::vector<std::string> buffer;
-
-    void debug() {
+    void draw() {
         std::lock_guard lock(mutex);
         for (const auto& message : buffer) {
             ImGui::Text("%s", message.c_str());
         }
     }
 
-    debug::GlobalHandle debugHandle = debug::addGlobalHandle("Logs", [this] { debug(); });
+    debug::GlobalHandle debug = debug::addGlobalHandle("Logs", [this] { draw(); });
+
+private:
+    std::mutex mutex;
+    std::vector<std::string> buffer;
 };
 
 static GuiLogger *pGuiLogger = nullptr;
@@ -154,6 +154,7 @@ static FileLogger *pFileLogger = nullptr;
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
         bWindowOpen = false;
+        workPool.clear();
         pWorld->shutdown();
     }
 
@@ -252,7 +253,7 @@ struct GameGui final : graph::IGuiPass {
         ImGui::Image((ImTextureID)offset, { totalWidth, totalHeight });
     }
 
-    debug::GlobalHandle debugHandle = debug::addGlobalHandle("Scene", [this] { sceneDebug(); });
+    debug::GlobalHandle sceneHandle = debug::addGlobalHandle("Scene", [this] { sceneDebug(); });
 
     void create() override {
         IGuiPass::create();
@@ -281,29 +282,29 @@ struct GameGui final : graph::IGuiPass {
         adapterNames.clear();
     }
 
-    bool sceneIsOpen = true;
-
-    int eggX = 0;
-    int eggY = 0;
+    bool bShowImGuiDemo = false;
+    bool bShowImPlotDemo = false;
 
     void content() override {
         drawDockSpace();
 
-        ImGui::ShowDemoWindow();
-        ImPlot::ShowDemoWindow();
+        if (bShowImGuiDemo) ImGui::ShowDemoWindow(&bShowImGuiDemo);
+        if (bShowImPlotDemo) ImPlot::ShowDemoWindow(&bShowImPlotDemo);
 
         debug::enumGlobalHandles([](auto *pHandle) {
-            if (!pHandle->isEnabled()) return;
+            bool bEnabled = pHandle->isEnabled();
+            if (!bEnabled) return;
 
-            if (ImGui::Begin(pHandle->getName())) {
+            if (ImGui::Begin(pHandle->getName(), &bEnabled)) {
                 pHandle->draw();
             }
             ImGui::End();
+
+            pHandle->setEnabled(bEnabled);
         });
 
         drawRenderSettings();
         drawFilePicker();
-        drawRenderTimes();
     }
 
     static constexpr ImGuiDockNodeFlags kDockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
@@ -366,6 +367,20 @@ struct GameGui final : graph::IGuiPass {
                     ImGui::StyleColorsLight();
                 }
 
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("Windows")) {
+                debug::enumGlobalHandles([](auto *pHandle) {
+                    bool bEnabled = pHandle->isEnabled();
+                    if (ImGui::MenuItem(pHandle->getName(), nullptr, &bEnabled)) {
+                        pHandle->setEnabled(bEnabled);
+                    }
+                });
+
+                ImGui::Separator();
+                ImGui::MenuItem("Dear ImGui Demo", nullptr, &bShowImGuiDemo);
+                ImGui::MenuItem("ImPlot Demo", nullptr, &bShowImPlotDemo);
                 ImGui::EndMenu();
             }
 
@@ -532,57 +547,26 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::End();
     }
-
-    void drawRenderTimes() {
-        float now = clock.now();
-        float delta = now - lastUpdate;
-        lastUpdate = now;
-
-        ImGui::Text("Frame time: %.3f ms", delta * 1000.f);
-
-        frameTimes.AddPoint(lastUpdate, delta * 1000.f);
-
-        const char *id = "Frame times";
-
-        ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(0.f, 0.f));
-        if (ImPlot::BeginPlot(id, ImVec2(500, 200), ImPlotFlags_CanvasOnly)) {
-            ImPlot::SetupAxes(nullptr,"Frametime (ms)", ImPlotAxisFlags_NoDecorations, ImPlotAxisFlags_NoMenus);
-            ImPlot::SetupAxisLimits(ImAxis_X1, lastUpdate - history, lastUpdate, ImGuiCond_Always);
-            ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f, 100.f, ImGuiCond_Always);
-            ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.25f);
-            ImPlot::PlotLine(id, &frameTimes.Data[0].x, &frameTimes.Data[0].y, frameTimes.Data.size(), ImPlotLineFlags_Shaded, frameTimes.Offset, 2 * sizeof(float));
-            ImPlot::PopStyleVar();
-            ImPlot::EndPlot();
-        }
-        ImPlot::PopStyleVar();
-    }
-
-    Clock clock;
-    float lastUpdate = 0.f;
-    float history = 10.f;
-    debug::ScrollingBuffer frameTimes = { 4000 };
 };
 
 static GameWindow gWindowCallbacks;
 
-///
-/// entry point
-///
-
-static void commonMain() {
+static debug::GlobalHandle startServiceDebugger() {
     debug::GdkDebug *pGdkDebug = new debug::GdkDebug();
     debug::RyzenMonitorDebug *pRyzenDebug = new debug::RyzenMonitorDebug();
+    debug::EngineDebug *pEngineDebug = new debug::EngineDebug(pWorld);
 
     const auto services = std::to_array({
         static_cast<debug::ServiceDebug*>(pGdkDebug),
-        static_cast<debug::ServiceDebug*>(pRyzenDebug)
+        static_cast<debug::ServiceDebug*>(pRyzenDebug),
+        static_cast<debug::ServiceDebug*>(pEngineDebug)
     });
 
     if (RyzenMonitorSerivce::getState() & eServiceCreated) {
         workPool.emplace_back(pRyzenDebug->getWorkThread());
     }
 
-    debug::GlobalHandle serviceDebug = debug::addGlobalHandle("Services", [&] {
+    return debug::addGlobalHandle("Services", [=] {
         if (ImGui::BeginTabBar("ServiceTabs")) {
             for (auto *pHandle : services) {
                 auto error = pHandle->getFailureReason();
@@ -604,38 +588,13 @@ static void commonMain() {
             ImGui::EndTabBar();
         }
     });
+}
 
-    debug::GlobalHandle worldDebug = debug::addGlobalHandle("Engine", [&] {
-        static float inputStep   = 1.f / pWorld->inputStep.getDelta();
-        static float renderStep  = 1.f / pWorld->renderStep.getDelta();
-        static float physicsStep = 1.f / pWorld->physicsStep.getDelta();
-        static float gameStep    = 1.f / pWorld->gameStep.getDelta();
+///
+/// entry point
+///
 
-        if (ImGui::SliderFloat("Input tps", &inputStep, 1.f, 400.f)) {
-            pWorld->pInputThread->add("set-input-step", [tps = 1.f / inputStep] {
-                pWorld->inputStep.updateDelta(tps);
-            });
-        }
-
-        if (ImGui::SliderFloat("Render tps", &renderStep, 1.f, 400.f)) {
-            pWorld->pRenderThread->add("set-render-step", [tps = 1.f / renderStep] {
-                pWorld->renderStep.updateDelta(tps);
-            });
-        }
-
-        if (ImGui::SliderFloat("Physics tps", &physicsStep, 1.f, 400.f)) {
-            pWorld->pPhysicsThread->add("set-physics-step", [tps = 1.f / physicsStep] {
-                pWorld->physicsStep.updateDelta(tps);
-            });
-        }
-
-        if (ImGui::SliderFloat("Game tps", &gameStep, 1.f, 400.f)) {
-            pWorld->pGameThread->add("set-game-step", [tps = 1.f / gameStep] {
-                pWorld->gameStep.updateDelta(tps);
-            });
-        }
-    });
-
+static void commonMain() {
     pMainQueue = new threads::WorkQueue(64);
 
     auto assets = PlatformService::getExeDirectory() / "editor.exe.p";
@@ -716,9 +675,11 @@ static void commonMain() {
 
     pWorld = new game::World(worldInfo);
 
+    auto dbg = startServiceDebugger();
+
     // setup game
 
-    std::jthread inputThread([](auto token) {
+    workPool.emplace_back([](auto token) {
         DebugService::setThreadName("input");
 
         while (!token.stop_requested()) {
@@ -726,7 +687,7 @@ static void commonMain() {
         }
     });
 
-    std::jthread renderThread([](auto token) {
+    workPool.emplace_back([](auto token) {
         DebugService::setThreadName("render");
 
         while (!token.stop_requested() && bWindowOpen) {
@@ -734,7 +695,7 @@ static void commonMain() {
         }
     });
 
-    std::jthread physicsThread([](auto token) {
+    workPool.emplace_back([](auto token) {
         DebugService::setThreadName("physics");
 
         while (!token.stop_requested()) {
@@ -742,7 +703,7 @@ static void commonMain() {
         }
     });
 
-    std::jthread gameThread([](auto token) {
+    workPool.emplace_back([](auto token) {
         DebugService::setThreadName("game");
 
         while (!token.stop_requested()) {
@@ -750,19 +711,16 @@ static void commonMain() {
         }
     });
 
-    while (!pWorld->shouldQuit()) {
-        if (PlatformService::getEvent())
-            PlatformService::dispatchEvent();
+    while (PlatformService::waitForEvent() && !pWorld->shouldQuit()) {
+        PlatformService::dispatchEvent();
 
         pMainQueue->process();
     }
 
-    workPool.clear();
-
     PlatformService::quit();
 }
 
-static int innerMain() try {
+static int serviceWrapper() try {
     DebugService::setThreadName("main");
 
     pFileLogger = LoggingService::newSink<FileLogger>();
@@ -782,9 +740,8 @@ static int innerMain() try {
     ServiceRuntime runtime{engineServices};
 
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
-    LOG_INFO("startup");
     commonMain();
-    LOG_INFO("shutdown");
+    LOG_INFO("no game exceptions have occured during runtime");
 
     return 0;
 } catch (const std::exception& err) {
@@ -793,6 +750,13 @@ static int innerMain() try {
 } catch (...) {
     LOG_ERROR("unhandled exception");
     return 99;
+}
+
+static int innerMain() {
+    LOG_INFO("bringing up services");
+    int result = serviceWrapper();
+    LOG_INFO("all services shut down gracefully");
+    return result;
 }
 
 // gui entry point

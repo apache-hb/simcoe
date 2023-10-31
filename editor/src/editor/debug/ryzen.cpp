@@ -1,5 +1,6 @@
 #include "editor/debug/service.h"
 
+#include "imgui/imgui_internal.h"
 #include "implot/implot.h"
 
 using namespace editor;
@@ -47,6 +48,10 @@ void RyzenMonitorDebug::draw() {
     if (ImGui::CollapsingHeader("CPU", ImGuiTreeNodeFlags_DefaultOpen)) {
         drawCpuInfo();
     }
+
+    drawPackageInfo();
+    drawSocInfo();
+    drawCoreInfo();
 }
 
 void RyzenMonitorDebug::drawBiosInfo() {
@@ -62,64 +67,151 @@ void RyzenMonitorDebug::drawBiosInfo() {
         ImGui::Text("Vendor: %s", vendor.data());
         ImGui::Text("Version: %s", version.data());
         ImGui::Text("Date: %02d/%02d/%04d", day, month, year);
+
+        auto memInfo = pBiosInfo->getMemoryData();
+
+        if (memInfo.vddioVoltage == UINT16_MAX) {
+            ImGui::Text("VDDIO Voltage: N/A");
+        } else {
+            ImGui::Text("VDDIO Voltage: %d mV", memInfo.vddioVoltage);
+        }
+
+        if (memInfo.memClock == UINT16_MAX) {
+            ImGui::Text("Memory Clock: N/A");
+        } else {
+            ImGui::Text("Memory Clock: %d MHz", memInfo.memClock);
+        }
+
+        ImGui::Text("CAS CL %u-%u-%u-%u", memInfo.ctrlTcl, memInfo.ctrlTrcdrd, memInfo.ctrlTras, memInfo.ctrlTrp);
+
     } else {
         ImGui::Text("Failed to get bios info");
     }
 }
 
-void RyzenMonitorDebug::drawCoreHistory(size_t i, float width, float heightRatio) {
+void RyzenMonitorDebug::drawCoreHistory(size_t i, float width, float heightRatio, bool bHover) {
     float history = 10.f;
     const auto& data = coreData[i];
     const auto& freqHistory = data.frequency;
     const auto& resHistory = data.residency;
 
-    ImPlotAxisFlags xFlags = ImPlotAxisFlags_NoTickLabels;
+    if (!bShowFrequency || !bShowResidency) {
+        heightRatio *= 2.f;
+    }
 
-    if (bShowFrequency && ImPlot::BeginPlot("Frequency", ImVec2(0, 0))) {
-        ImPlot::SetupAxes("Time", "Frequency (MHz)", xFlags);
+    ImVec2 size(width, width * heightRatio);
+
+    ImPlotFlags flags = ImPlotFlags_CanvasOnly;
+    ImPlotAxisFlags xFlags = ImPlotAxisFlags_NoDecorations,
+                    yFlags = ImPlotAxisFlags_NoDecorations;
+
+    if (bHover) {
+        flags &= ~ImPlotFlags_NoLegend;
+    }
+
+    const char *fId = "Frequency";
+    const char *rId = "Residency";
+
+    ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(0.f, 0.f));
+
+    if (bShowFrequency && ImPlot::BeginPlot(fId, size, flags)) {
+        ImPlot::SetupAxes("Time", "Frequency (MHz)", xFlags, yFlags);
         ImPlot::SetupAxisLimits(ImAxis_X1, lastUpdate - history, lastUpdate, ImGuiCond_Always);
         ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f, 6000.f, ImGuiCond_Always);
-        ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.25f);
-        ImPlot::PlotShaded("Frequency", &freqHistory.Data[0].x, &freqHistory.Data[0].y, freqHistory.Data.size(), freqHistory.Offset, 2 * sizeof(float));
-        ImPlot::PopStyleVar();
+        ImPlot::PlotShaded(fId, &freqHistory.Data[0].x, &freqHistory.Data[0].y, freqHistory.Data.size(), -INFINITY, ImPlotShadedFlags_None, freqHistory.Offset, 2 * sizeof(float));
         ImPlot::EndPlot();
     }
 
-    if (bShowResidency && ImPlot::BeginPlot("Residency", ImVec2(0, 0))) {
-        ImPlot::SetupAxes("Time", "Residency (%)", xFlags);
+    if (bShowResidency && ImPlot::BeginPlot(rId, size, flags)) {
+        ImPlot::SetupAxes("Time", "Residency (%)", xFlags, yFlags);
         ImPlot::SetupAxisLimits(ImAxis_X1, lastUpdate - history, lastUpdate, ImGuiCond_Always);
         ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f, 100.f, ImGuiCond_Always);
-        ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.25f);
-        ImPlot::PlotShaded("Residency", &resHistory.Data[0].x, &resHistory.Data[0].y, resHistory.Data.size(), resHistory.Offset, 2 * sizeof(float));
-        ImPlot::PopStyleVar();
+        ImPlot::PlotShaded(rId, &resHistory.Data[0].x, &resHistory.Data[0].y, resHistory.Data.size(), -INFINITY, ImPlotShadedFlags_None, resHistory.Offset, 2 * sizeof(float));
         ImPlot::EndPlot();
+    }
+
+    ImPlot::PopStyleVar();
+}
+
+ImVec4 RyzenMonitorDebug::getUsageColour(float usage) {
+    ImVec4 blue = ImVec4(0.f, 0.f, 1.f, 1.f);
+    ImVec4 red = ImVec4(1.f, 0.f, 0.f, 1.f);
+
+    // lerp between blue and red
+
+    ImVec4 result{
+        std::lerp(blue.x, red.x, usage),
+        std::lerp(blue.y, red.y, usage),
+        std::lerp(blue.z, red.z, usage),
+        0.3f
+    };
+
+    return result;
+}
+
+namespace {
+    bool isCurrentCellHovered() {
+        return ImGui::TableGetHoveredColumn() == ImGui::TableGetColumnIndex()
+            && ImGui::TableGetHoveredRow() == ImGui::TableGetRowIndex();
     }
 }
 
-void RyzenMonitorDebug::drawCore(size_t i) {
-    const auto& data = coreData[i];
+void RyzenMonitorDebug::drawCoreInfoCurrentData() {
+    if (ImGui::BeginTable("Cores", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
+        for (size_t i = 0; i < coreData.size(); i++) {
+            ImGui::TableNextColumn();
 
-    if (displayMode == eDisplayHistory) {
-        float width = (ImGui::GetWindowWidth() / cols) * 0.9f;
-        drawCoreHistory(i, width, 0.3f);
-    } else if (displayMode == eDisplayCurrent) {
-        ImGui::Text("Frequency: %.1f MHz", data.lastFrequency);
-        ImGui::Text("Residency: %.1f %%", data.lastResidency);
+            const auto& data = coreData[i];
+            ImGui::Text("Core %zu", i);
+            ImGui::Text("Frequency: %.1f MHz", data.lastFrequency);
+            ImGui::Text("Residency: %.1f %%", data.lastResidency);
+
+            if (isCurrentCellHovered()) {
+                drawCoreHover(i);
+            }
+        }
     }
+    ImGui::EndTable();
+}
 
+void RyzenMonitorDebug::drawCoreInfoHistory() {
+    size_t columns = 4;
+    ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit
+                          | ImGuiTableFlags_RowBg
+                          | ImGuiTableFlags_ScrollY
+                          | ImGuiTableFlags_BordersV
+                          | ImGuiTableFlags_BordersH;
+    if (ImGui::BeginTable("Cores", columns, flags)) {
+        for (size_t i = 0; i < coreData.size(); i++) {
+            ImGui::TableNextColumn();
+
+            ImGui::Text("Core %zu", i);
+            float width = (ImGui::GetWindowWidth() / columns) * 0.9f;
+            drawCoreHistory(i, width, 0.4f, false);
+            if (isCurrentCellHovered()) {
+                drawCoreHover(i);
+            }
+        }
+        ImGui::EndTable();
+    }
+}
+
+void RyzenMonitorDebug::drawCoreHover(size_t i) {
+    if (displayMode == eDisplayHistory) return;
     if (hoverMode == eHoverNothing) return;
 
-    if (ImGui::IsItemHovered()) {
-        if (ImGui::BeginTooltip()) {
-            if (hoverMode == eHoverCurrent) {
-                ImGui::Text("Frequency: %.1f MHz", data.lastFrequency);
-                ImGui::Text("Residency: %.1f %%", data.lastResidency);
-            } else {
-                float width = ImGui::GetWindowViewport()->WorkSize.x * 0.6f;
-                drawCoreHistory(i, width, 0.1f);
-            }
-            ImGui::EndTooltip();
+    const auto& data = coreData[i];
+
+    if (ImGui::BeginTooltip()) {
+        ImGui::Text("Core %zu", i);
+
+        if (hoverMode == eHoverCurrent) {
+            ImGui::Text("Frequency: %.1f MHz", data.lastFrequency);
+            ImGui::Text("Residency: %.1f %%", data.lastResidency);
+        } else {
+            drawCoreHistory(i, 300.f, 0.3f, true);
         }
+        ImGui::EndTooltip();
     }
 }
 
@@ -144,7 +236,7 @@ void RyzenMonitorDebug::drawCpuInfo() {
         ImGui::Text("Cores: %u (parked: %u)", cores, parked);
 
         if (bInfoDirty && monitorLock.try_lock()) {
-            mode = pCpuInfo->getMode();
+            packageData = pCpuInfo->getPackageData();
             socData = pCpuInfo->getSocData();
             const auto& coreInfo = pCpuInfo->getCoreData();
 
@@ -159,14 +251,66 @@ void RyzenMonitorDebug::drawCpuInfo() {
             bInfoDirty = false;
             monitorLock.unlock();
         }
+    } else {
+        ImGui::Text("Failed to get cpu info");
+    }
+}
 
-        ImGui::Text("Overclock mode: %s", amd::toString(mode).data());
+void RyzenMonitorDebug::drawPackageInfo() {
+    if (ImGui::CollapsingHeader("Package info")) {
+        ImGui::Text("Overclock mode: %s", amd::toString(packageData.mode).data());
+        ImGui::Text("Average Core Voltage: %.1f V", packageData.avgCoreVoltage);
+        ImGui::Text("Peak Core Voltage: %.1f V", packageData.peakCoreVoltage);
 
-        ImGui::SeparatorText("SOC info");
+        ImGui::Text("Core Temperature: %.1f C", packageData.temperature);
+
+        ImGui::Text("Peak Speed: %.1f MHz", packageData.peakSpeed);
+        ImGui::Text("Fmax(CPU) Frequency: %.1f MHz", packageData.maxClock);
+        ImGui::Text("Fabric Clock Frequency: %.1f MHz", packageData.fabricClock);
+
+        ImGui::Text("cHCT Current Limit %.1f C", packageData.chctCurrentLimit);
+
+        float pptFractionCpu = packageData.pptCurrentValue / packageData.pptCurrentLimit;
+        ImGui::Text("PPT Current: %.1f W / %.1f W (%.1f %%)", packageData.pptCurrentValue, packageData.pptCurrentLimit, pptFractionCpu * 100.f);
+        ImGui::ProgressBar(pptFractionCpu, ImVec2(0.f, 0.f), "PPT Current");
+
+        float tdcFractionCpu = packageData.tdcCurrentValue / packageData.tdcCurrentLimit;
+        ImGui::Text("TDC Current: %.1f A / %.1f A (%.1f %%)", packageData.tdcCurrentValue, packageData.tdcCurrentLimit, tdcFractionCpu * 100.f);
+        ImGui::ProgressBar(tdcFractionCpu, ImVec2(0.f, 0.f), "TDC Current");
+
+        float edcFractionCpu = packageData.edcCurrentValue / packageData.edcCurrentLimit;
+        ImGui::Text("EDC Current: %.1f A / %.1f A (%.1f %%)", packageData.edcCurrentValue, packageData.edcCurrentLimit, edcFractionCpu * 100.f);
+        ImGui::ProgressBar(edcFractionCpu, ImVec2(0.f, 0.f), "EDC Current");
+    }
+}
+
+void RyzenMonitorDebug::drawSocInfo() {
+    if (ImGui::CollapsingHeader("SOC info")) {
         ImGui::Text("Voltage: %.1f A", socData.voltage);
 
-        ImGui::SeparatorText("Core info");
+        if (socData.edcCurrentValue == -1 || socData.edcCurrentLimit == -1) {
+            ImGui::Text("EDC (SOC) Current: N/A");
+        } else {
+            float edcFraction = socData.edcCurrentValue / socData.edcCurrentLimit;
+            ImGui::Text("EDC (SOC) Current: %.1f A / %.1f A (%.1f %%)", socData.edcCurrentValue, socData.edcCurrentLimit, edcFraction * 100.f);
+            ImGui::ProgressBar(edcFraction, ImVec2(0.f, 0.f), "EDC (SOC) Current");
+        }
 
+        if (socData.tdcCurrentValue == -1 || socData.tdcCurrentLimit == -1) {
+            ImGui::Text("TDC (SOC) Current: N/A");
+        } else {
+            float tdcFraction = socData.tdcCurrentValue / socData.tdcCurrentLimit;
+            ImGui::Text("TDC (SOC) Current: %.1f A / %.1f A (%.1f %%)", socData.tdcCurrentValue, socData.tdcCurrentLimit, tdcFraction * 100.f);
+            ImGui::ProgressBar(tdcFraction, ImVec2(0.f, 0.f), "TDC (SOC) Current");
+        }
+
+        ImGui::Text("VDDCR(VDD) Power: %.1f W", socData.vddcrVddCurrent);
+        ImGui::Text("VDDCR(SOC) Power: %.1f W", socData.vddcrSocCurrent);
+    }
+}
+
+void RyzenMonitorDebug::drawCoreInfo() {
+    if (ImGui::CollapsingHeader("Core info")) {
         ImGui::PushItemWidth(100.f);
         ImGui::Combo("Hover mode", (int*)&hoverMode, kHoverNames.data(), kHoverNames.size());
         ImGui::SameLine();
@@ -177,19 +321,11 @@ void RyzenMonitorDebug::drawCpuInfo() {
         ImGui::SameLine();
         ImGui::Checkbox("Show residency graphs", &bShowResidency);
 
-        size_t len = coreData.size();
-        if (ImGui::BeginTable("Cores", cols, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders)) {
-            for (size_t i = 0; i < len; i++) {
-                char label[32];
-                snprintf(label, sizeof(label), "Core %zu", i);
-                ImGui::TableNextColumn();
-                ImGui::Selectable(label);
-                drawCore(i);
-            }
-            ImGui::EndTable();
+        switch (displayMode) {
+        case eDisplayCurrent: drawCoreInfoCurrentData(); break;
+        case eDisplayHistory: drawCoreInfoHistory(); break;
+        default: break;
         }
-    } else {
-        ImGui::Text("Failed to get cpu info");
     }
 }
 

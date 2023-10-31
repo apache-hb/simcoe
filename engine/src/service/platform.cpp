@@ -89,6 +89,10 @@ bool PlatformService::getEvent() {
     return PeekMessage(&get()->msg, NULL, 0, 0, PM_REMOVE) != 0;
 }
 
+bool PlatformService::waitForEvent() {
+    return GetMessage(&get()->msg, NULL, 0, 0) != 0;
+}
+
 void PlatformService::dispatchEvent() {
     MSG msg = get()->msg;
     TranslateMessage(&msg);

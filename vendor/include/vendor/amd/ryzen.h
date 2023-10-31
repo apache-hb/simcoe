@@ -16,6 +16,47 @@ class ICPUEx;
 namespace amd {
     namespace core = simcoe::core;
 
+    enum struct OcMode {
+        eModeManual,
+        eModePbo,
+        eModeAuto,
+        eModeEco,
+        eModeDefault
+    };
+
+    struct PackageData {
+        OcMode mode = OcMode::eModeDefault;
+        float peakSpeed = 0.f;
+        float temperature = 0.f;
+
+        float chctCurrentLimit = 0.f; // celcius
+
+        float avgCoreVoltage = 0.f; // volts
+        float peakCoreVoltage = 0.f; // volts
+
+        float maxClock = 0.f; // mhz
+        float fabricClock = 0.f; // mhz
+
+        float pptCurrentLimit = 0.f; // watts
+        float pptCurrentValue = 0.f; // watts
+
+        float edcCurrentLimit = 0.f; // amps
+        float edcCurrentValue = 0.f; // amps
+
+        float tdcCurrentLimit = 0.f; // amps
+        float tdcCurrentValue = 0.f; // amps
+    };
+
+    struct MemoryData {
+        uint16_t vddioVoltage = UINT16_MAX; // millivolts
+        uint16_t memClock = UINT16_MAX; // mhz
+
+        uint8_t ctrlTcl = 0; // cas latency
+        uint8_t ctrlTrcdrd = 0; // read row address to column address delay
+        uint8_t ctrlTras = 0; // row active time
+        uint8_t ctrlTrp = 0; // row cycle time
+    };
+
     struct CoreInfo {
         float frequency = 0.f;
         float residency = 0.f;
@@ -23,14 +64,15 @@ namespace amd {
 
     struct SocData {
         float voltage = 0.f;
-    };
 
-    enum struct OcMode {
-        eModeManual,
-        eModePbo,
-        eModeAuto,
-        eModeEco,
-        eModeDefault
+        float edcCurrentLimit = 0.f; // amps
+        float edcCurrentValue = 0.f; // amps
+
+        float tdcCurrentLimit = 0.f; // amps
+        float tdcCurrentValue = 0.f; // amps
+
+        float vddcrVddCurrent = 0.f; // watts
+        float vddcrSocCurrent = 0.f; // watts
     };
 
     std::string_view toString(OcMode mode);
@@ -50,15 +92,14 @@ namespace amd {
         std::string_view getVendor() const noexcept { return vendor; }
         core::Date getDate() const noexcept { return date; }
 
+        MemoryData getMemoryData() const noexcept { return memoryInfo; }
+
     private:
         std::string version;
         std::string vendor;
         core::Date date;
-    };
 
-    struct PackageInfo {
-        float peakSpeed = 0.f;
-        float baseSpeed = 0.f;
+        MemoryData memoryInfo;
     };
 
     struct CpuInfo : MonitorObject<ICPUEx> {
@@ -74,9 +115,9 @@ namespace amd {
         unsigned getCoreCount() const noexcept { return coreCount; }
         unsigned getCorePark() const noexcept { return corePark; }
 
-        OcMode getMode() const noexcept { return mode; }
-
         std::span<CoreInfo> getCoreData() const noexcept { return { cores.get(), coreCount }; }
+
+        PackageData getPackageData() const noexcept { return packageInfo; }
         SocData getSocData() const noexcept { return socData; }
 
         /**
@@ -98,9 +139,8 @@ namespace amd {
         unsigned coreCount = 0;
         unsigned corePark = 0;
 
-        float peakSpeed = 0.f;
+        PackageData packageInfo;
 
-        OcMode mode = OcMode::eModeDefault;
         SocData socData;
         std::unique_ptr<CoreInfo[]> cores;
     };

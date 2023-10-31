@@ -246,9 +246,11 @@ void RyzenMonitorSerivce::destroyService() {
     delete pCpuInfo;
     delete pBiosInfo;
 
-    pPlatform->UnInit();
+    if (pPlatform != nullptr)
+        pPlatform->UnInit();
 
-    FreeLibrary(hPlatformModule);
+    if (hPlatformModule != nullptr)
+        FreeLibrary(hPlatformModule);
 }
 
 // public api

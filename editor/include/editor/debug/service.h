@@ -7,6 +7,8 @@
 
 #include "engine/service/platform.h"
 
+namespace game { struct World; }
+
 namespace editor::debug {
     // utility structure for realtime plot
     struct ScrollingBuffer {
@@ -65,29 +67,35 @@ namespace editor::debug {
     private:
         void drawBiosInfo();
 
-        size_t cols = 4;
         enum HoverMode : int { eHoverNothing, eHoverCurrent, eHoverHistory };
-        enum DisplayMode : int { eDisplayName, eDisplayCurrent, eDisplayHistory };
+        enum DisplayMode : int { eDisplayCurrent, eDisplayHistory };
 
         static constexpr auto kHoverNames = std::to_array({ "Nothing", "Current Values", "History" });
-        static constexpr auto kDisplayNames = std::to_array({ "Name", "Current Value", "History" });
+        static constexpr auto kDisplayNames = std::to_array({ "Current Value", "History" });
 
         HoverMode hoverMode = eHoverHistory;
-        DisplayMode displayMode = eDisplayName;
+        DisplayMode displayMode = eDisplayCurrent;
 
         bool bShowFrequency = true;
         bool bShowResidency = true;
 
-        void drawCoreHistory(size_t i, float width, float heightRatio);
+        void drawCoreHistory(size_t i, float width, float heightRatio, bool bHover);
 
-        void drawCore(size_t i);
+        void drawCoreHover(size_t i);
+
+        void drawCoreInfoCurrentData();
+        void drawCoreInfoHistory();
 
         void drawCpuInfo();
+        void drawPackageInfo();
+        void drawSocInfo();
+        void drawCoreInfo();
 
         void updateCoreInfo();
 
-    private:
-        amd::OcMode mode = amd::OcMode::eModeDefault;
+        static ImVec4 getUsageColour(float f);
+
+        amd::PackageData packageData = {};
         amd::SocData socData = {};
         std::vector<CoreInfoHistory> coreData;
 
@@ -102,5 +110,24 @@ namespace editor::debug {
         GdkDebug();
 
         void draw() override;
+    };
+
+    struct EngineDebug final : ServiceDebug {
+        EngineDebug(game::World *pWorld);
+
+        void draw() override;
+
+    private:
+        void drawFrameTimes();
+        game::World *pWorld = nullptr;
+
+        float lastUpdate = 0.f;
+        float history = 10.f;
+        debug::ScrollingBuffer frameTimes = { 4000 };
+
+        float inputStep;
+        float renderStep;
+        float physicsStep;
+        float gameStep;
     };
 }
