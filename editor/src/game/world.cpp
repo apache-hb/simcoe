@@ -26,6 +26,7 @@ void World::tickInput() {
 
     input::Manager *pInput = info.pInput;
     pInput->poll();
+    inputStep.waitForNextTick();
 }
 
 // render
@@ -46,6 +47,7 @@ void World::tickRender() {
 
     try {
         pGraph->execute();
+        renderStep.waitForNextTick();
     } catch (const std::runtime_error& e) {
         renderFaults += 1;
         LOG_ERROR("render fault. {} total fault{}", renderFaults, renderFaults > 1 ? "s" : "");
@@ -69,6 +71,8 @@ void World::tickPhysics() {
     if (pPhysicsThread->process()) {
         return;
     }
+
+    physicsStep.waitForNextTick();
 }
 
 // game
@@ -81,6 +85,8 @@ void World::tickGame() {
     if (pGameThread->process()) {
         return;
     }
+
+    gameStep.waitForNextTick();
 }
 
 // correct shutdown order is:

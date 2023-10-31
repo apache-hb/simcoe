@@ -78,14 +78,20 @@ void RyzenMonitorDebug::drawCoreHistory(size_t i, float width, float heightRatio
     if (bShowFrequency && ImPlot::BeginPlot("Frequency", ImVec2(0, 0))) {
         ImPlot::SetupAxes("Time", "Frequency (MHz)", xFlags);
         ImPlot::SetupAxisLimits(ImAxis_X1, lastUpdate - history, lastUpdate, ImGuiCond_Always);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f, 6000.f, ImGuiCond_Always);
+        ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.25f);
         ImPlot::PlotShaded("Frequency", &freqHistory.Data[0].x, &freqHistory.Data[0].y, freqHistory.Data.size(), freqHistory.Offset, 2 * sizeof(float));
+        ImPlot::PopStyleVar();
         ImPlot::EndPlot();
     }
 
     if (bShowResidency && ImPlot::BeginPlot("Residency", ImVec2(0, 0))) {
         ImPlot::SetupAxes("Time", "Residency (%)", xFlags);
         ImPlot::SetupAxisLimits(ImAxis_X1, lastUpdate - history, lastUpdate, ImGuiCond_Always);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f, 100.f, ImGuiCond_Always);
+        ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.25f);
         ImPlot::PlotShaded("Residency", &resHistory.Data[0].x, &resHistory.Data[0].y, resHistory.Data.size(), resHistory.Offset, 2 * sizeof(float));
+        ImPlot::PopStyleVar();
         ImPlot::EndPlot();
     }
 }

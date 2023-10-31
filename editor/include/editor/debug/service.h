@@ -50,8 +50,9 @@ namespace editor::debug {
         float lastFrequency = 0.f;
         float lastResidency = 0.f;
 
-        ScrollingBuffer frequency;
-        ScrollingBuffer residency;
+        // we only need a minute of history
+        ScrollingBuffer frequency = { 60 };
+        ScrollingBuffer residency = { 60 };
     };
 
     struct RyzenMonitorDebug final : ServiceDebug {

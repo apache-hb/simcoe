@@ -95,17 +95,6 @@ static input::Manager *pInput = nullptr;
 static sr::Context *pContext = nullptr;
 static sr::Graph *pGraph = nullptr;
 
-// timesteps
-// delay init because util::TimeStep depends on the platform service
-#define THREAD_LIMITER(NAME, RATIO) \
-static void NAME() { static util::TimeStep ts{1 / RATIO}; ts.waitForNextTick(); }
-
-THREAD_LIMITER(limitMainThread, 200.f) // main and input threads should be the highest priority
-THREAD_LIMITER(limitInputThread, 400.f)
-THREAD_LIMITER(limitGameThread, 60.f)
-THREAD_LIMITER(limitRenderThread, 120.f)
-THREAD_LIMITER(limitPhysicsThread, 60.f)
-
 template<typename F>
 threads::WorkThread *newTask(const char *name, F&& func) {
     struct WorkImpl final : threads::WorkThread {
@@ -298,7 +287,7 @@ struct GameGui final : graph::IGuiPass {
     int eggY = 0;
 
     void content() override {
-        showDockSpace();
+        drawDockSpace();
 
         ImGui::ShowDemoWindow();
         ImPlot::ShowDemoWindow();
@@ -312,8 +301,9 @@ struct GameGui final : graph::IGuiPass {
             ImGui::End();
         });
 
-        showRenderSettings();
-        showFilePicker();
+        drawRenderSettings();
+        drawFilePicker();
+        drawRenderTimes();
     }
 
     static constexpr ImGuiDockNodeFlags kDockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
@@ -328,7 +318,7 @@ struct GameGui final : graph::IGuiPass {
                                             | ImGuiWindowFlags_NoNavFocus
                                             | ImGuiWindowFlags_NoDocking;
 
-    void showDockSpace() {
+    void drawDockSpace() {
         const ImGuiViewport *pViewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(pViewport->WorkPos);
         ImGui::SetNextWindowSize(pViewport->WorkSize);
@@ -385,7 +375,7 @@ struct GameGui final : graph::IGuiPass {
         ImGui::End();
     }
 
-    void showFilePicker() {
+    void drawFilePicker() {
         imguiFileBrowser.Display();
         objFileBrowser.Display();
 
@@ -404,7 +394,7 @@ struct GameGui final : graph::IGuiPass {
         }
     }
 
-    static void showHeapSlots(bool& open, const char *name, const simcoe::BitMap& alloc) {
+    static void drawHeapSlots(bool& open, const char *name, const simcoe::BitMap& alloc) {
         if (open) {
             ImGui::SetNextItemOpen(true);
         }
@@ -434,7 +424,7 @@ struct GameGui final : graph::IGuiPass {
     }
 
     template<typename T, typename F>
-    static void showGraphObjects(bool& open, const char *name, const std::vector<T>& objects, F&& showObject) {
+    static void drawGraphObjects(bool& open, const char *name, const std::vector<T>& objects, F&& drawObject) {
         if (open) {
             ImGui::SetNextItemOpen(true);
         }
@@ -442,7 +432,7 @@ struct GameGui final : graph::IGuiPass {
         if (ImGui::CollapsingHeader(name)) {
             open = true;
             for (auto& object : objects) {
-                showObject(object);
+                drawObject(object);
             }
         } else {
             open = false;
@@ -457,7 +447,7 @@ struct GameGui final : graph::IGuiPass {
     bool bPassesOpen = false;
     bool bObjectsOpen = false;
 
-    void showRenderSettings() {
+    void drawRenderSettings() {
         if (ImGui::Begin("Render settings")) {
             const auto& createInfo = ctx->getCreateInfo();
             ImGui::Text("Display resolution: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
@@ -510,21 +500,21 @@ struct GameGui final : graph::IGuiPass {
             auto& dsvAlloc = pDsvHeap->allocator;
             auto& srvAlloc = pSrvHeap->allocator;
 
-            showHeapSlots(bRtvOpen, std::format("RTV heap {}", rtvAlloc.getSize()).c_str(), rtvAlloc);
-            showHeapSlots(bDsvOpen, std::format("DSV heap {}", dsvAlloc.getSize()).c_str(), dsvAlloc);
-            showHeapSlots(bSrvOpen, std::format("SRV heap {}", srvAlloc.getSize()).c_str(), srvAlloc);
+            drawHeapSlots(bRtvOpen, std::format("RTV heap {}", rtvAlloc.getSize()).c_str(), rtvAlloc);
+            drawHeapSlots(bDsvOpen, std::format("DSV heap {}", dsvAlloc.getSize()).c_str(), dsvAlloc);
+            drawHeapSlots(bSrvOpen, std::format("SRV heap {}", srvAlloc.getSize()).c_str(), srvAlloc);
 
             ImGui::SeparatorText("RenderGraph state");
             const auto& resources = pGraph->resources;
             const auto& passes = pGraph->passes;
             const auto& objects = pGraph->objects;
 
-            showGraphObjects(bResourcesOpen, std::format("resources: {}", resources.size()).c_str(), resources, [](sr::IResourceHandle *pResource) {
+            drawGraphObjects(bResourcesOpen, std::format("resources: {}", resources.size()).c_str(), resources, [](sr::IResourceHandle *pResource) {
                 auto name = pResource->getName();
                 ImGui::Text("%s (state: %s)", name.data(), rhi::toString(pResource->getCurrentState()).data());
             });
 
-            showGraphObjects(bPassesOpen, std::format("passes: {}", passes.size()).c_str(), passes, [](sr::ICommandPass *pPass) {
+            drawGraphObjects(bPassesOpen, std::format("passes: {}", passes.size()).c_str(), passes, [](sr::ICommandPass *pPass) {
                 auto name = pPass->getName();
                 ImGui::Text("pass: %s", name.data());
                 for (auto& resource : pPass->inputs) {
@@ -534,7 +524,7 @@ struct GameGui final : graph::IGuiPass {
                 }
             });
 
-            showGraphObjects(bObjectsOpen, std::format("objects: {}", objects.size()).c_str(), objects, [](sr::IGraphObject *pObject) {
+            drawGraphObjects(bObjectsOpen, std::format("objects: {}", objects.size()).c_str(), objects, [](sr::IGraphObject *pObject) {
                 auto name = pObject->getName();
                 ImGui::Text("%s", name.data());
             });
@@ -542,6 +532,35 @@ struct GameGui final : graph::IGuiPass {
 
         ImGui::End();
     }
+
+    void drawRenderTimes() {
+        float now = clock.now();
+        float delta = now - lastUpdate;
+        lastUpdate = now;
+
+        ImGui::Text("Frame time: %.3f ms", delta * 1000.f);
+
+        frameTimes.AddPoint(lastUpdate, delta * 1000.f);
+
+        const char *id = "Frame times";
+
+        ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(0.f, 0.f));
+        if (ImPlot::BeginPlot(id, ImVec2(500, 200), ImPlotFlags_CanvasOnly)) {
+            ImPlot::SetupAxes(nullptr,"Frametime (ms)", ImPlotAxisFlags_NoDecorations, ImPlotAxisFlags_NoMenus);
+            ImPlot::SetupAxisLimits(ImAxis_X1, lastUpdate - history, lastUpdate, ImGuiCond_Always);
+            ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f, 100.f, ImGuiCond_Always);
+            ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.25f);
+            ImPlot::PlotLine(id, &frameTimes.Data[0].x, &frameTimes.Data[0].y, frameTimes.Data.size(), ImPlotLineFlags_Shaded, frameTimes.Offset, 2 * sizeof(float));
+            ImPlot::PopStyleVar();
+            ImPlot::EndPlot();
+        }
+        ImPlot::PopStyleVar();
+    }
+
+    Clock clock;
+    float lastUpdate = 0.f;
+    float history = 10.f;
+    debug::ScrollingBuffer frameTimes = { 4000 };
 };
 
 static GameWindow gWindowCallbacks;
@@ -563,7 +582,7 @@ static void commonMain() {
         workPool.emplace_back(pRyzenDebug->getWorkThread());
     }
 
-    debug::GlobalHandle debugHandle = debug::addGlobalHandle("Services", [&] {
+    debug::GlobalHandle serviceDebug = debug::addGlobalHandle("Services", [&] {
         if (ImGui::BeginTabBar("ServiceTabs")) {
             for (auto *pHandle : services) {
                 auto error = pHandle->getFailureReason();
@@ -583,6 +602,37 @@ static void commonMain() {
                 }
             }
             ImGui::EndTabBar();
+        }
+    });
+
+    debug::GlobalHandle worldDebug = debug::addGlobalHandle("Engine", [&] {
+        static float inputStep   = 1.f / pWorld->inputStep.getDelta();
+        static float renderStep  = 1.f / pWorld->renderStep.getDelta();
+        static float physicsStep = 1.f / pWorld->physicsStep.getDelta();
+        static float gameStep    = 1.f / pWorld->gameStep.getDelta();
+
+        if (ImGui::SliderFloat("Input tps", &inputStep, 1.f, 400.f)) {
+            pWorld->pInputThread->add("set-input-step", [tps = 1.f / inputStep] {
+                pWorld->inputStep.updateDelta(tps);
+            });
+        }
+
+        if (ImGui::SliderFloat("Render tps", &renderStep, 1.f, 400.f)) {
+            pWorld->pRenderThread->add("set-render-step", [tps = 1.f / renderStep] {
+                pWorld->renderStep.updateDelta(tps);
+            });
+        }
+
+        if (ImGui::SliderFloat("Physics tps", &physicsStep, 1.f, 400.f)) {
+            pWorld->pPhysicsThread->add("set-physics-step", [tps = 1.f / physicsStep] {
+                pWorld->physicsStep.updateDelta(tps);
+            });
+        }
+
+        if (ImGui::SliderFloat("Game tps", &gameStep, 1.f, 400.f)) {
+            pWorld->pGameThread->add("set-game-step", [tps = 1.f / gameStep] {
+                pWorld->gameStep.updateDelta(tps);
+            });
         }
     });
 
@@ -672,7 +722,6 @@ static void commonMain() {
         DebugService::setThreadName("input");
 
         while (!token.stop_requested()) {
-            limitInputThread();
             pWorld->tickInput();
         }
     });
@@ -681,7 +730,6 @@ static void commonMain() {
         DebugService::setThreadName("render");
 
         while (!token.stop_requested() && bWindowOpen) {
-            limitRenderThread();
             pWorld->tickRender();
         }
     });
@@ -690,7 +738,6 @@ static void commonMain() {
         DebugService::setThreadName("physics");
 
         while (!token.stop_requested()) {
-            limitPhysicsThread();
             pWorld->tickPhysics();
         }
     });
@@ -699,7 +746,6 @@ static void commonMain() {
         DebugService::setThreadName("game");
 
         while (!token.stop_requested()) {
-            limitGameThread();
             pWorld->tickGame();
         }
     });
@@ -709,7 +755,6 @@ static void commonMain() {
             PlatformService::dispatchEvent();
 
         pMainQueue->process();
-        limitMainThread();
     }
 
     workPool.clear();

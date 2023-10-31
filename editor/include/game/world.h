@@ -3,6 +3,7 @@
 #include "game/entity.h"
 
 #include "engine/threads/queue.h"
+#include "engine/util/time.h"
 
 #include <unordered_set>
 #include <random>
@@ -45,24 +46,28 @@ namespace game {
         void createInput() { }
         void destroyInput();
         void tickInput();
+        util::TimeStep inputStep{ 1.f / 60.f };
         threads::WorkQueue *pInputThread = new threads::WorkQueue{64};
 
 
         void createRender() { }
         void destroyRender();
         void tickRender();
+        util::TimeStep renderStep{ 1.f / 60.f };
         threads::WorkQueue *pRenderThread = new threads::WorkQueue{64};
 
 
         void createPhysics() { }
         void destroyPhysics();
         void tickPhysics();
+        util::TimeStep physicsStep{ 1.f / 60.f };
         threads::WorkQueue *pPhysicsThread = new threads::WorkQueue{64};
 
 
         void createGame() { }
         void destroyGame();
         void tickGame();
+        util::TimeStep gameStep{ 1.f / 60.f };
         threads::WorkQueue *pGameThread = new threads::WorkQueue{64};
 
 
