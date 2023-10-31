@@ -12,6 +12,7 @@
 
 # assets
 !*.png
+!*.jpg
 !data/libs/agility/*
 !data/libs/warp/*
 !data/config/*

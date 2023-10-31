@@ -95,6 +95,11 @@ static input::Manager *pInput = nullptr;
 static sr::Context *pContext = nullptr;
 static sr::Graph *pGraph = nullptr;
 
+// debuggers
+static debug::GdkDebug *pGdkDebug = nullptr;
+static debug::RyzenMonitorDebug *pRyzenDebug = nullptr;
+static debug::EngineDebug *pEngineDebug = nullptr;
+
 template<typename F>
 threads::WorkThread *newTask(const char *name, F&& func) {
     struct WorkImpl final : threads::WorkThread {
@@ -218,12 +223,18 @@ struct GameGui final : graph::IGuiPass {
     ResourceWrapper<graph::TextHandle> *pTextHandle = nullptr;
     PassAttachment<graph::TextHandle> *pTextAttachment = nullptr;
 
+    ResourceWrapper<graph::TextureHandle> *pImageHandle = nullptr;
+    PassAttachment<graph::TextureHandle> *pImageAttachment = nullptr;
+
     GameGui(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
         : IGuiPass(pGraph, pRenderTarget)
         , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTextureRead))
     {
         pTextHandle = pGraph->addResource<graph::TextHandle>("SwarmFace-Regular");
         pTextAttachment = addAttachment(pTextHandle, rhi::ResourceState::eTextureRead);
+
+        pImageHandle = pGraph->addResource<graph::TextureHandle>("meme.jpg");
+        pImageAttachment = addAttachment(pImageHandle, rhi::ResourceState::eTextureRead);
 
         ImPlot::CreateContext();
     }
@@ -233,7 +244,7 @@ struct GameGui final : graph::IGuiPass {
     }
 
     void sceneDebug() {
-        ISRVHandle *pHandle = pSceneSource->getInner();
+        ISRVHandle *pHandle = pImageHandle->getInner(); //pSceneSource->getInner();
         auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getSrvIndex());
         const auto &createInfo = ctx->getCreateInfo();
         float aspect = float(createInfo.renderWidth) / createInfo.renderHeight;
@@ -305,6 +316,10 @@ struct GameGui final : graph::IGuiPass {
 
         drawRenderSettings();
         drawFilePicker();
+
+        pGdkDebug->drawWindow();
+        pRyzenDebug->drawWindow();
+        pEngineDebug->drawWindow();
     }
 
     static constexpr ImGuiDockNodeFlags kDockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
@@ -378,7 +393,12 @@ struct GameGui final : graph::IGuiPass {
                     }
                 });
 
-                ImGui::Separator();
+                ImGui::SeparatorText("Services");
+                pGdkDebug->drawMenuItem();
+                pRyzenDebug->drawMenuItem();
+                pEngineDebug->drawMenuItem();
+
+                ImGui::SeparatorText("ImGui");
                 ImGui::MenuItem("Dear ImGui Demo", nullptr, &bShowImGuiDemo);
                 ImGui::MenuItem("ImPlot Demo", nullptr, &bShowImPlotDemo);
                 ImGui::EndMenu();
@@ -551,43 +571,14 @@ struct GameGui final : graph::IGuiPass {
 
 static GameWindow gWindowCallbacks;
 
-static debug::GlobalHandle startServiceDebugger() {
-    debug::GdkDebug *pGdkDebug = new debug::GdkDebug();
-    debug::RyzenMonitorDebug *pRyzenDebug = new debug::RyzenMonitorDebug();
-    debug::EngineDebug *pEngineDebug = new debug::EngineDebug(pWorld);
-
-    const auto services = std::to_array({
-        static_cast<debug::ServiceDebug*>(pGdkDebug),
-        static_cast<debug::ServiceDebug*>(pRyzenDebug),
-        static_cast<debug::ServiceDebug*>(pEngineDebug)
-    });
+static void startServiceDebuggers() {
+    pGdkDebug = new debug::GdkDebug();
+    pRyzenDebug = new debug::RyzenMonitorDebug();
+    pEngineDebug = new debug::EngineDebug(pWorld);
 
     if (RyzenMonitorSerivce::getState() & eServiceCreated) {
         workPool.emplace_back(pRyzenDebug->getWorkThread());
     }
-
-    return debug::addGlobalHandle("Services", [=] {
-        if (ImGui::BeginTabBar("ServiceTabs")) {
-            for (auto *pHandle : services) {
-                auto error = pHandle->getFailureReason();
-                auto name = pHandle->getName();
-
-                ImGui::BeginDisabled(!error.empty());
-
-                if (ImGui::BeginTabItem(name.data())) {
-                    pHandle->draw();
-                    ImGui::EndTabItem();
-                }
-
-                ImGui::EndDisabled();
-
-                if (!error.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip)) {
-                    ImGui::SetTooltip("%s", error.data());
-                }
-            }
-            ImGui::EndTabBar();
-        }
-    });
 }
 
 ///
@@ -675,7 +666,7 @@ static void commonMain() {
 
     pWorld = new game::World(worldInfo);
 
-    auto dbg = startServiceDebugger();
+    startServiceDebuggers();
 
     // setup game
 

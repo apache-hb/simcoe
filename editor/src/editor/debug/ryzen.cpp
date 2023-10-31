@@ -41,6 +41,8 @@ std::jthread RyzenMonitorDebug::getWorkThread() {
 }
 
 void RyzenMonitorDebug::draw() {
+    ImGui::Text("Updates: %zu", updates);
+
     if (ImGui::CollapsingHeader("BIOS", ImGuiTreeNodeFlags_DefaultOpen)) {
         drawBiosInfo();
     }
@@ -157,7 +159,13 @@ namespace {
 }
 
 void RyzenMonitorDebug::drawCoreInfoCurrentData() {
-    if (ImGui::BeginTable("Cores", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
+    float width = ImGui::GetWindowWidth();
+    float cellWidth = 150.f;
+    size_t cols = size_t(width / cellWidth);
+
+    ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_RowBg;
+
+    if (ImGui::BeginTable("Cores", cols, flags)) {
         for (size_t i = 0; i < coreData.size(); i++) {
             ImGui::TableNextColumn();
 
@@ -175,18 +183,19 @@ void RyzenMonitorDebug::drawCoreInfoCurrentData() {
 }
 
 void RyzenMonitorDebug::drawCoreInfoHistory() {
-    size_t columns = 4;
-    ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit
-                          | ImGuiTableFlags_RowBg
-                          | ImGuiTableFlags_ScrollY
-                          | ImGuiTableFlags_BordersV
-                          | ImGuiTableFlags_BordersH;
-    if (ImGui::BeginTable("Cores", columns, flags)) {
+    float width = ImGui::GetWindowWidth();
+    float cellWidth = 250.f;
+    size_t cols = size_t(width / cellWidth);
+    ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchSame;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0.f, 0.f));
+
+    if (ImGui::BeginTable("Cores", cols, flags)) {
         for (size_t i = 0; i < coreData.size(); i++) {
             ImGui::TableNextColumn();
 
             ImGui::Text("Core %zu", i);
-            float width = (ImGui::GetWindowWidth() / columns) * 0.9f;
+            float width = (ImGui::GetWindowWidth() / cols) * 0.9f;
             drawCoreHistory(i, width, 0.4f, false);
             if (isCurrentCellHovered()) {
                 drawCoreHover(i);
@@ -194,6 +203,8 @@ void RyzenMonitorDebug::drawCoreInfoHistory() {
         }
         ImGui::EndTable();
     }
+
+    ImGui::PopStyleVar();
 }
 
 void RyzenMonitorDebug::drawCoreHover(size_t i) {
@@ -272,15 +283,15 @@ void RyzenMonitorDebug::drawPackageInfo() {
 
         float pptFractionCpu = packageData.pptCurrentValue / packageData.pptCurrentLimit;
         ImGui::Text("PPT Current: %.1f W / %.1f W (%.1f %%)", packageData.pptCurrentValue, packageData.pptCurrentLimit, pptFractionCpu * 100.f);
-        ImGui::ProgressBar(pptFractionCpu, ImVec2(0.f, 0.f), "PPT Current");
+        ImGui::ProgressBar(pptFractionCpu, ImVec2(200.f, 0.f), "PPT Current");
 
         float tdcFractionCpu = packageData.tdcCurrentValue / packageData.tdcCurrentLimit;
         ImGui::Text("TDC Current: %.1f A / %.1f A (%.1f %%)", packageData.tdcCurrentValue, packageData.tdcCurrentLimit, tdcFractionCpu * 100.f);
-        ImGui::ProgressBar(tdcFractionCpu, ImVec2(0.f, 0.f), "TDC Current");
+        ImGui::ProgressBar(tdcFractionCpu, ImVec2(200.f, 0.f), "TDC Current");
 
         float edcFractionCpu = packageData.edcCurrentValue / packageData.edcCurrentLimit;
         ImGui::Text("EDC Current: %.1f A / %.1f A (%.1f %%)", packageData.edcCurrentValue, packageData.edcCurrentLimit, edcFractionCpu * 100.f);
-        ImGui::ProgressBar(edcFractionCpu, ImVec2(0.f, 0.f), "EDC Current");
+        ImGui::ProgressBar(edcFractionCpu, ImVec2(200.f, 0.f), "EDC Current");
     }
 }
 
@@ -293,7 +304,7 @@ void RyzenMonitorDebug::drawSocInfo() {
         } else {
             float edcFraction = socData.edcCurrentValue / socData.edcCurrentLimit;
             ImGui::Text("EDC (SOC) Current: %.1f A / %.1f A (%.1f %%)", socData.edcCurrentValue, socData.edcCurrentLimit, edcFraction * 100.f);
-            ImGui::ProgressBar(edcFraction, ImVec2(0.f, 0.f), "EDC (SOC) Current");
+            ImGui::ProgressBar(edcFraction, ImVec2(200.f, 0.f), "EDC (SOC) Current");
         }
 
         if (socData.tdcCurrentValue == -1 || socData.tdcCurrentLimit == -1) {
@@ -301,7 +312,7 @@ void RyzenMonitorDebug::drawSocInfo() {
         } else {
             float tdcFraction = socData.tdcCurrentValue / socData.tdcCurrentLimit;
             ImGui::Text("TDC (SOC) Current: %.1f A / %.1f A (%.1f %%)", socData.tdcCurrentValue, socData.tdcCurrentLimit, tdcFraction * 100.f);
-            ImGui::ProgressBar(tdcFraction, ImVec2(0.f, 0.f), "TDC (SOC) Current");
+            ImGui::ProgressBar(tdcFraction, ImVec2(200.f, 0.f), "TDC (SOC) Current");
         }
 
         ImGui::Text("VDDCR(VDD) Power: %.1f W", socData.vddcrVddCurrent);
@@ -334,4 +345,5 @@ void RyzenMonitorDebug::updateCoreInfo() {
     RyzenMonitorSerivce::updateCpuInfo();
     bInfoDirty = true;
     lastUpdate = clock.now();
+    updates += 1;
 }

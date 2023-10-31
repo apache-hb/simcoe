@@ -100,7 +100,8 @@ namespace editor::debug {
         std::vector<CoreInfoHistory> coreData;
 
         std::mutex monitorLock;
-        std::atomic_bool bInfoDirty = true;
+        bool bInfoDirty = true;
+        size_t updates = 0;
 
         Clock clock;
         float lastUpdate = 0.f;

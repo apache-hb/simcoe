@@ -280,6 +280,7 @@ src = [
     copy.process('data/images/assets/cross.png'),
     copy.process('data/images/assets/alien.png'),
     copy.process('data/images/assets/death.png'),
+    copy.process('data/images/assets/meme.jpg'),
 
     # models
     copy.process('data/models/default.model'),
