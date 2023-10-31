@@ -149,6 +149,10 @@ std::string DebugService::getResultName(HRESULT hr) {
     return err.ErrorMessage();
 }
 
+bool endsWithAny(std::string_view str, std::string_view chars) {
+    return str.find_last_of(chars) == str.size() - 1;
+}
+
 std::string DebugService::getErrorName(DWORD dwErrorCode) {
     char *pMessage = nullptr;
     DWORD err = FormatMessageA(
@@ -167,6 +171,11 @@ std::string DebugService::getErrorName(DWORD dwErrorCode) {
 
     std::string result = pMessage;
     LocalFree(pMessage);
+
+    while (endsWithAny(result, "\n\r.")) {
+        result.resize(result.size() - 1);
+    }
+
     return result;
 }
 

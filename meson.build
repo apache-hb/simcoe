@@ -49,10 +49,13 @@ script_dir = data_dir/'scripts'
 # argo = subproject('argo').get_variable('argo') TODO: config
 
 # windows deps
+win32 = subproject('win32')
+
+dbghelp = win32.get_variable('dbghelp')
+netapi = win32.get_variable('netapi')
+
 directx = subproject('directx').get_variable('directx')
 xinput = subproject('xinput').get_variable('xinput')
-gdk = subproject('gdk').get_variable('gdk')
-win32 = subproject('win32').get_variable('win32')
 
 # asset loading
 stb = subproject('stb').get_variable('stb')
@@ -67,6 +70,9 @@ freetype2 = dependency('freetype2')
 threads = dependency('threads')
 moodycamel = subproject('atomic-queue').get_variable('queue')
 
+# vendor
+gdk = subproject('gdk').get_variable('gdk')
+ryzen = subproject('ryzen').get_variable('ryzen')
 
 ###
 ### args
@@ -128,7 +134,9 @@ src = [
     'engine/src/render/assets.cpp',
 
     # vendor
-    'vendor/src/microsoft/gdk.cpp'
+    'vendor/src/microsoft/gdk.cpp',
+    'vendor/src/amd/ryzen.cpp',
+    'vendor/src/amd/devices.cpp'
 ]
 
 inc = [
@@ -137,11 +145,11 @@ inc = [
 ]
 
 deps = [
-    # win32
-    win32,
+    # debug
+    dbghelp,
 
     # input
-    xinput, gdk,
+    xinput,
 
     # threads
     moodycamel, threads,
@@ -150,7 +158,10 @@ deps = [
     stb, harfbuzz, freetype2,
 
     # render
-    directx
+    directx,
+
+    # vendor
+    gdk, ryzen, netapi
 ]
 
 libengine = library('engine', src,
@@ -215,6 +226,11 @@ src = [
     'editor/src/imgui/backends/imgui_impl_win32.cpp',
     'editor/src/imgui/backends/imgui_impl_dx12.cpp',
 
+    # dear imgui extensions
+    'editor/src/implot/implot.cpp',
+    'editor/src/implot/implot_items.cpp',
+    'editor/src/implot/implot_demo.cpp',
+
     # render graph objects
     'editor/src/editor/graph/assets.cpp',
     'editor/src/editor/graph/mesh/obj.cpp',
@@ -228,6 +244,8 @@ src = [
 
     # game debug
     'editor/src/editor/debug/debug.cpp',
+    'editor/src/editor/debug/ryzen.cpp',
+    'editor/src/editor/debug/gdk.cpp',
 
     # game framework
     'editor/src/game/info.cpp',

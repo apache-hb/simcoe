@@ -8,7 +8,7 @@
 
 #include <XGameRuntimeTypes.h>
 
-extern "C" 
+extern "C"
 {
 
 struct XSystemAnalyticsInfo

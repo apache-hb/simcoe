@@ -20,6 +20,7 @@
 
 # gameinput
 !subprojects/gdk/lib/*
+!subprojects/ryzen/lib/*
 
 # dont ignore readme and build files
 !*.md

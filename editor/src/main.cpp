@@ -9,6 +9,9 @@
 #include "engine/threads/service.h"
 #include "engine/threads/queue.h"
 
+// util
+#include "engine/util/time.h"
+
 // input
 #include "engine/input/win32-device.h"
 #include "engine/input/xinput-device.h"
@@ -25,12 +28,17 @@
 
 // debug gui
 #include "editor/debug/debug.h"
+#include "editor/debug/service.h"
+
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
+
 #include "imfiles/imfilebrowser.h"
+#include "implot/implot.h"
 
 // vendor
 #include "vendor/microsoft/gdk.h"
+#include "vendor/amd/ryzen.h"
 
 // game
 #include "game/world.h"
@@ -45,11 +53,12 @@ using namespace simcoe;
 using namespace simcoe::math;
 
 using namespace editor;
-using namespace microsoft;
+
+using microsoft::GdkService;
+using amd::RyzenMonitorSerivce;
 
 namespace gr = game::graph;
 namespace sr = simcoe::render;
-namespace fs = std::filesystem;
 
 enum WindowMode : int {
     eModeWindowed,
@@ -74,6 +83,7 @@ static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless
 
 /// threads
 static threads::WorkQueue *pMainQueue = nullptr;
+static std::vector<std::jthread> workPool; // TODO: use a thread pool
 
 /// input
 static input::Win32Keyboard *pKeyboard = nullptr;
@@ -84,6 +94,17 @@ static input::Manager *pInput = nullptr;
 /// rendering
 static sr::Context *pContext = nullptr;
 static sr::Graph *pGraph = nullptr;
+
+// timesteps
+// delay init because util::TimeStep depends on the platform service
+#define THREAD_LIMITER(NAME, RATIO) \
+static void NAME() { static util::TimeStep ts{1 / RATIO}; ts.waitForNextTick(); }
+
+THREAD_LIMITER(limitMainThread, 200.f) // main and input threads should be the highest priority
+THREAD_LIMITER(limitInputThread, 400.f)
+THREAD_LIMITER(limitGameThread, 60.f)
+THREAD_LIMITER(limitRenderThread, 120.f)
+THREAD_LIMITER(limitPhysicsThread, 60.f)
 
 template<typename F>
 threads::WorkThread *newTask(const char *name, F&& func) {
@@ -213,6 +234,12 @@ struct GameGui final : graph::IGuiPass {
     {
         pTextHandle = pGraph->addResource<graph::TextHandle>("SwarmFace-Regular");
         pTextAttachment = addAttachment(pTextHandle, rhi::ResourceState::eTextureRead);
+
+        ImPlot::CreateContext();
+    }
+
+    ~GameGui() {
+        ImPlot::DestroyContext();
     }
 
     void sceneDebug() {
@@ -274,6 +301,7 @@ struct GameGui final : graph::IGuiPass {
         showDockSpace();
 
         ImGui::ShowDemoWindow();
+        ImPlot::ShowDemoWindow();
 
         debug::enumGlobalHandles([](auto *pHandle) {
             if (!pHandle->isEnabled()) return;
@@ -518,54 +546,49 @@ struct GameGui final : graph::IGuiPass {
 
 static GameWindow gWindowCallbacks;
 
-void gdkServiceDebug() {
-    if (GdkService::getState() & eServiceFaulted) {
-        auto failureReason = GdkService::getFailureReason();
-        ImGui::Text("GDK init failed: %s", failureReason.data());
-        return;
-    }
-
-    auto info = GdkService::getAnalyticsInfo();
-    auto id = GdkService::getConsoleId();
-    const auto& features = GdkService::getFeatures();
-
-    auto [osMajor, osMinor, osBuild, osRevision] = info.osVersion;
-    ImGui::Text("os: %u.%u.%u - %u", osMajor, osMinor, osBuild, osRevision);
-
-    auto [hostMajor, hostMinor, hostBuild, hostRevision] = info.hostingOsVersion;
-    ImGui::Text("host: %u.%u.%u - %u", hostMajor, hostMinor, hostBuild, hostRevision);
-
-    ImGui::Text("family: %s", info.family);
-    ImGui::Text("form: %s", info.form);
-    ImGui::Text("id: %s", id.data());
-
-    ImGui::SeparatorText("features");
-
-    if (ImGui::BeginTable("features", 2)) {
-        ImGui::TableNextColumn();
-        ImGui::Text("name");
-        ImGui::TableNextColumn();
-        ImGui::Text("enabled");
-
-        for (const auto& [name, bEnabled] : features) {
-            ImGui::TableNextColumn();
-            ImGui::Text("%s", name.data());
-            ImGui::TableNextColumn();
-            ImGui::Text("%s", bEnabled ? "enabled" : "disabled");
-        }
-        ImGui::EndTable();
-    }
-}
-
 ///
 /// entry point
 ///
 
-static void commonMain(const std::filesystem::path& path) {
-    debug::GlobalHandle debugHandle = debug::addGlobalHandle("GDK", [] { gdkServiceDebug(); });
+static void commonMain() {
+    debug::GdkDebug *pGdkDebug = new debug::GdkDebug();
+    debug::RyzenMonitorDebug *pRyzenDebug = new debug::RyzenMonitorDebug();
+
+    const auto services = std::to_array({
+        static_cast<debug::ServiceDebug*>(pGdkDebug),
+        static_cast<debug::ServiceDebug*>(pRyzenDebug)
+    });
+
+    if (RyzenMonitorSerivce::getState() & eServiceCreated) {
+        workPool.emplace_back(pRyzenDebug->getWorkThread());
+    }
+
+    debug::GlobalHandle debugHandle = debug::addGlobalHandle("Services", [&] {
+        if (ImGui::BeginTabBar("ServiceTabs")) {
+            for (auto *pHandle : services) {
+                auto error = pHandle->getFailureReason();
+                auto name = pHandle->getName();
+
+                ImGui::BeginDisabled(!error.empty());
+
+                if (ImGui::BeginTabItem(name.data())) {
+                    pHandle->draw();
+                    ImGui::EndTabItem();
+                }
+
+                ImGui::EndDisabled();
+
+                if (!error.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip)) {
+                    ImGui::SetTooltip("%s", error.data());
+                }
+            }
+            ImGui::EndTabBar();
+        }
+    });
+
     pMainQueue = new threads::WorkQueue(64);
 
-    auto assets = path / "editor.exe.p";
+    auto assets = PlatformService::getExeDirectory() / "editor.exe.p";
     assets::Assets depot = { assets };
     LOG_INFO("depot: {}", assets.string());
 
@@ -649,6 +672,7 @@ static void commonMain(const std::filesystem::path& path) {
         DebugService::setThreadName("input");
 
         while (!token.stop_requested()) {
+            limitInputThread();
             pWorld->tickInput();
         }
     });
@@ -657,6 +681,7 @@ static void commonMain(const std::filesystem::path& path) {
         DebugService::setThreadName("render");
 
         while (!token.stop_requested() && bWindowOpen) {
+            limitRenderThread();
             pWorld->tickRender();
         }
     });
@@ -665,6 +690,7 @@ static void commonMain(const std::filesystem::path& path) {
         DebugService::setThreadName("physics");
 
         while (!token.stop_requested()) {
+            limitPhysicsThread();
             pWorld->tickPhysics();
         }
     });
@@ -673,6 +699,7 @@ static void commonMain(const std::filesystem::path& path) {
         DebugService::setThreadName("game");
 
         while (!token.stop_requested()) {
+            limitGameThread();
             pWorld->tickGame();
         }
     });
@@ -682,15 +709,12 @@ static void commonMain(const std::filesystem::path& path) {
             PlatformService::dispatchEvent();
 
         pMainQueue->process();
+        limitMainThread();
     }
 
-    PlatformService::quit();
-}
+    workPool.clear();
 
-static fs::path getGameDir() {
-    char gamePath[1024];
-    GetModuleFileNameA(nullptr, gamePath, sizeof(gamePath));
-    return fs::path(gamePath).parent_path();
+    PlatformService::quit();
 }
 
 static int innerMain() try {
@@ -701,17 +725,20 @@ static int innerMain() try {
 
     auto engineServices = std::to_array({
         DebugService::service(),
+
         LoggingService::service(),
         PlatformService::service(),
         ThreadService::service(),
+        FreeTypeService::service(),
+
         GdkService::service(),
-        FreeTypeService::service()
+        RyzenMonitorSerivce::service()
     });
     ServiceRuntime runtime{engineServices};
 
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
     LOG_INFO("startup");
-    commonMain(getGameDir());
+    commonMain();
     LOG_INFO("shutdown");
 
     return 0;

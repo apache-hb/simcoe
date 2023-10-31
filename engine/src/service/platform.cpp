@@ -52,6 +52,13 @@ bool PlatformService::createService() {
         throwLastError("failed to register window class");
     }
 
+    char currentPath[0x1000];
+    if (!GetModuleFileNameA(nullptr, currentPath, sizeof(currentPath))) {
+        throwLastError("failed to get current path");
+    }
+
+    exeDirectory = fs::path(currentPath).parent_path();
+
     return true;
 }
 
@@ -106,6 +113,10 @@ HINSTANCE PlatformService::getInstanceHandle() {
 
 int PlatformService::getShowCmd() {
     return get()->nCmdShow;
+}
+
+fs::path PlatformService::getExeDirectory() {
+    return get()->exeDirectory;
 }
 
 void PlatformService::message(std::string_view title, std::string_view body) {

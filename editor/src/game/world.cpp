@@ -66,7 +66,9 @@ void World::destroyPhysics() {
 }
 
 void World::tickPhysics() {
-
+    if (pPhysicsThread->process()) {
+        return;
+    }
 }
 
 // game
@@ -76,7 +78,9 @@ void World::destroyGame() {
 }
 
 void World::tickGame() {
-
+    if (pGameThread->process()) {
+        return;
+    }
 }
 
 // correct shutdown order is:

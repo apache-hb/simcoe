@@ -8,15 +8,15 @@ TimeStep::TimeStep(float minimumDelta)
     , lastTime(clock.now())
 { }
 
-float TimeStep::tick() {
+float TimeStep::waitForNextTick() {
     // sleep until the time since the last tick is more than minimumDelta
+    auto now = clock.now();
+    auto delta = std::chrono::duration<float>(now - lastTime);
 
-    float beforeSleep = lastTime;
-    float timeSinceLastTick = clock.now() - lastTime;
-
-    std::this_thread::sleep_for(std::chrono::duration<float>(minimumDelta - timeSinceLastTick));
+    if (delta.count() < minimumDelta) {
+        std::this_thread::sleep_for(std::chrono::duration<float>(minimumDelta - delta.count()));
+    }
 
     lastTime = clock.now();
-
-    return lastTime - beforeSleep;
+    return delta.count();
 }

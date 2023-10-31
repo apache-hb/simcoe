@@ -8,6 +8,8 @@ using namespace simcoe;
 using namespace editor;
 using namespace editor::debug;
 
+// global debug handles
+
 namespace {
     std::mutex gLock;
     std::unordered_set<debug::DebugHandle*> gHandles;
@@ -36,4 +38,10 @@ void debug::enumGlobalHandles(std::function<void(DebugHandle*)> callback) {
     for (auto *pHandle : gHandles) {
         callback(pHandle);
     }
+}
+
+// service debuggers
+
+void ServiceDebug::setFailureReason(std::string_view reason) {
+    failureReason = reason;
 }

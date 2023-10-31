@@ -14,7 +14,7 @@ namespace simcoe::util {
          *
          * @return float the time since the last tick
          */
-        float tick();
+        float waitForNextTick();
 
         float getDelta() const { return minimumDelta; }
     private:

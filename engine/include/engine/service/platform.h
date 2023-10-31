@@ -7,9 +7,11 @@
 #include "engine/core/win32.h"
 
 #include <array>
+#include <filesystem>
 
 namespace simcoe {
     using WindowSize = math::Resolution<int>;
+    namespace fs = std::filesystem;
 
     struct IWindowCallbacks {
         virtual ~IWindowCallbacks() = default;
@@ -105,7 +107,10 @@ namespace simcoe {
         static HINSTANCE getInstanceHandle();
         static int getShowCmd();
 
-        // PlatformService message box
+        // directory of the executable
+        static fs::path getExeDirectory();
+
+        // message box
         static void message(std::string_view title, std::string_view body);
 
     private:
@@ -115,5 +120,7 @@ namespace simcoe {
         MSG msg = {};
 
         size_t frequency = 0;
+
+        fs::path exeDirectory;
     };
 }

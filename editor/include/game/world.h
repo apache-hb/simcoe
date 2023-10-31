@@ -45,25 +45,25 @@ namespace game {
         void createInput() { }
         void destroyInput();
         void tickInput();
-        threads::WorkThread *pInputThread = new threads::WorkThread{64, "input"};
+        threads::WorkQueue *pInputThread = new threads::WorkQueue{64};
 
 
         void createRender() { }
         void destroyRender();
         void tickRender();
-        threads::WorkThread *pRenderThread = new threads::WorkThread{64, "render"};
+        threads::WorkQueue *pRenderThread = new threads::WorkQueue{64};
 
 
         void createPhysics() { }
         void destroyPhysics();
         void tickPhysics();
-        threads::WorkThread *pPhysicsThread = new threads::WorkThread{64, "physics"};
+        threads::WorkQueue *pPhysicsThread = new threads::WorkQueue{64};
 
 
         void createGame() { }
         void destroyGame();
         void tickGame();
-        threads::WorkThread *pGameThread = new threads::WorkThread{64, "game"};
+        threads::WorkQueue *pGameThread = new threads::WorkQueue{64};
 
 
         template<std::derived_from<ILevel> T, typename... A> requires std::is_constructible_v<T, LevelInfo, A...>
