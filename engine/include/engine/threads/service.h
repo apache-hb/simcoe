@@ -5,46 +5,7 @@
 #include "engine/threads/thread.h"
 
 namespace simcoe {
-    struct ThreadMask {
-        GROUP_AFFINITY affinity; ///< the threads affinity mask
-    };
-
-    struct LogicalThread {
-        ThreadMask mask;
-    };
-
-    // a single core, may have multiple threads due to hyperthreading
-    struct PhysicalCore {
-        uint16_t schedule; ///< the threads schedule speed (higher is faster)
-        uint8_t efficiency; ///< the threads efficiency (higher is more efficient)
-
-        ThreadMask mask;
-        std::vector<uint16_t> threadIds;
-    };
-
-    // equivalent to a ryzen ccx or ccd
-    struct CoreCluster {
-        ThreadMask mask;
-        std::vector<uint16_t> coreIds;
-    };
-
-    // a single cpu package
-    struct Package {
-        ThreadMask mask;
-
-        std::vector<uint16_t> cores;
-        std::vector<uint16_t> threads;
-        std::vector<uint16_t> clusters;
-    };
-
-    // the cpu geometry
-    struct Geometry {
-        std::vector<LogicalThread> threads;
-        std::vector<PhysicalCore> cores;
-        std::vector<CoreCluster> clusters;
-        std::vector<Package> packages;
-    };
-
+    // collects thread geometry at startup
     struct ThreadService : IStaticService<ThreadService> {
         // IStaticService
         static constexpr std::string_view kServiceName = "threads";
@@ -60,12 +21,17 @@ namespace simcoe {
         // stuff that works when failed
         static threads::ThreadId getCurrentThreadId();
 
-        // optional stuff
-        static Geometry getGeometry();
-        static void migrateCurrentThread(const LogicalThread& thread);
+        // geometry management
+        static threads::Geometry getGeometry();
+
+        // thread migration
+        static void migrateCurrentThread(const threads::LogicalThread& thread);
+
+        // TODO: thread stats (how many threads are running, on which cores, etc)
 
     private:
         std::string_view failureReason = "";
-        Geometry geometry = {};
+
+        threads::Geometry geometry = {};
     };
 }

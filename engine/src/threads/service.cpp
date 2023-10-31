@@ -247,8 +247,6 @@ namespace {
 
                         uint16_t id = pBuilder->threads.size() - 1;
                         threadIds.push_back(id);
-
-                        LOG_INFO("    Thread[{}]: affinity=0b{:064b} group={}", id, mask, group.Group);
                     }
                 }
             }
@@ -267,8 +265,6 @@ namespace {
 
             for (DWORD i = 0; i < pInfo->GroupCount; ++i) {
                 GROUP_AFFINITY group = pInfo->GroupMask[i];
-                LOG_INFO("  Group[{}]: group={} mask=0b{:064b}", i, group.Group, group.Mask);
-
                 pBuilder->getPhysicalCoresByMask(coreIds, group);
                 pBuilder->getLogicalThreadsByMask(threadIds, group);
                 pBuilder->getCoreClustersByMask(clusterIds, group);
@@ -286,12 +282,13 @@ namespace {
             if (info.Level != 3) return;
 
             // assume everything that shares l3 cache is in the same cluster
+            // TODO: on intel E-cores and P-cores share the same l3
+            //       but we dont want to put them in the same cluster.
+            //       for now that isnt a big problem though.
             std::vector<uint16_t> coreIds;
 
             for (DWORD i = 0; i < info.GroupCount; ++i) {
                 GROUP_AFFINITY group = info.GroupMasks[i];
-                LOG_INFO("  Group[{}]: group={} mask=0b{:064b}", i, group.Group, group.Mask);
-
                 pBuilder->getPhysicalCoresByMask(coreIds, group);
             }
 

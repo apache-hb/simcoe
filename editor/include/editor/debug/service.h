@@ -141,6 +141,7 @@ namespace editor::debug {
     private:
         void drawPackage(uint16_t i);
         uint16_t getFastestCore(uint16_t cluster) const;
-        Geometry geometry = {};
+
+        threads::Geometry geometry = {};
     };
 }
