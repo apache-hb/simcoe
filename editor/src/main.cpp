@@ -444,7 +444,11 @@ struct GameGui final : graph::IGuiPass {
             auto rows = size / 8;
             auto cols = size / rows;
 
-            if (ImGui::BeginTable("Slots", cols)) {
+            ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchSame
+                                  | ImGuiTableFlags_BordersInner
+                                  | ImGuiTableFlags_RowBg;
+
+            if (ImGui::BeginTable("Slots", cols, flags)) {
                 for (auto i = 0; i < size; i++) {
                     ImGui::TableNextColumn();
                     if (alloc.test(BitMap::Index(i))) {

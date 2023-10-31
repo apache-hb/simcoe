@@ -10,8 +10,11 @@ using namespace simcoe;
 
 // service base
 
-void IService::create() {
-    ASSERTF(state == eServiceInitial, "service {} already created", getName());
+void IService::create() try {
+    if (state == eServiceCreated) {
+        LOG_INFO("service {} already created, skipping setup", getName());
+        return;
+    }
 
     if (createService()) {
         LOG_INFO("loaded {} service", getName());
@@ -20,10 +23,16 @@ void IService::create() {
         LOG_ERROR("failed to load {} service", getName());
         state = eServiceFaulted;
     }
+} catch (std::exception& err) {
+    LOG_ERROR("failed to load {} service: {}", getName(), err.what());
+    state = eServiceFaulted;
 }
 
 void IService::destroy() {
-    ASSERTF(state != eServiceInitial, "service {} not created", getName());
+    if (state != eServiceCreated) {
+        LOG_INFO("service {} not created, skipping teardown", getName());
+        return;
+    }
 
     LOG_INFO("unloading {} service", getName());
     destroyService();
