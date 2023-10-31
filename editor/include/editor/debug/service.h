@@ -6,6 +6,7 @@
 #include "vendor/microsoft/gdk.h"
 
 #include "engine/service/platform.h"
+#include "engine/threads/service.h"
 
 namespace game { struct World; }
 
@@ -130,5 +131,16 @@ namespace editor::debug {
         float renderStep;
         float physicsStep;
         float gameStep;
+    };
+
+    struct ThreadServiceDebug final : ServiceDebug {
+        ThreadServiceDebug();
+
+        void draw() override;
+
+    private:
+        void drawPackage(uint16_t i);
+        uint16_t getFastestCore(uint16_t cluster) const;
+        Geometry geometry = {};
     };
 }

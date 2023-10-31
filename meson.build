@@ -250,6 +250,7 @@ src = [
     'editor/src/editor/debug/ryzen.cpp',
     'editor/src/editor/debug/gdk.cpp',
     'editor/src/editor/debug/engine.cpp',
+    'editor/src/editor/debug/threads.cpp',
 
     # game framework
     'editor/src/game/info.cpp',

@@ -99,6 +99,7 @@ static sr::Graph *pGraph = nullptr;
 static debug::GdkDebug *pGdkDebug = nullptr;
 static debug::RyzenMonitorDebug *pRyzenDebug = nullptr;
 static debug::EngineDebug *pEngineDebug = nullptr;
+static debug::ThreadServiceDebug *pThreadDebug = nullptr;
 
 template<typename F>
 threads::WorkThread *newTask(const char *name, F&& func) {
@@ -320,6 +321,7 @@ struct GameGui final : graph::IGuiPass {
         pGdkDebug->drawWindow();
         pRyzenDebug->drawWindow();
         pEngineDebug->drawWindow();
+        pThreadDebug->drawWindow();
     }
 
     static constexpr ImGuiDockNodeFlags kDockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
@@ -397,6 +399,7 @@ struct GameGui final : graph::IGuiPass {
                 pGdkDebug->drawMenuItem();
                 pRyzenDebug->drawMenuItem();
                 pEngineDebug->drawMenuItem();
+                pThreadDebug->drawMenuItem();
 
                 ImGui::SeparatorText("ImGui");
                 ImGui::MenuItem("Dear ImGui Demo", nullptr, &bShowImGuiDemo);
@@ -575,6 +578,7 @@ static void startServiceDebuggers() {
     pGdkDebug = new debug::GdkDebug();
     pRyzenDebug = new debug::RyzenMonitorDebug();
     pEngineDebug = new debug::EngineDebug(pWorld);
+    pThreadDebug = new debug::ThreadServiceDebug();
 
     if (RyzenMonitorSerivce::getState() & eServiceCreated) {
         workPool.emplace_back(pRyzenDebug->getWorkThread());

@@ -5,39 +5,43 @@
 #include "engine/threads/thread.h"
 
 namespace simcoe {
-    enum ThreadType {
-        eThreadPerformance,
-        eThreadEfficiency,
-
-        eThreadCount
+    struct ThreadMask {
+        GROUP_AFFINITY affinity; ///< the threads affinity mask
     };
 
     struct LogicalThread {
-        size_t schedule; ///< the threads schedule speed (higher is faster)
-        ThreadType type; ///< the threads type (performance or efficiency)
-
-        KAFFINITY affinity; ///< the threads affinity mask
-        WORD group; ///< the threads group
+        ThreadMask mask;
     };
 
+    // a single core, may have multiple threads due to hyperthreading
     struct PhysicalCore {
-        std::vector<size_t> threadIds;
+        uint16_t schedule; ///< the threads schedule speed (higher is faster)
+        uint8_t efficiency; ///< the threads efficiency (higher is more efficient)
+
+        ThreadMask mask;
+        std::vector<uint16_t> threadIds;
     };
 
     // equivalent to a ryzen ccx or ccd
     struct CoreCluster {
-        std::vector<size_t> coreIds;
+        ThreadMask mask;
+        std::vector<uint16_t> coreIds;
     };
 
     // a single cpu package
     struct Package {
-        std::vector<CoreCluster> clusters;
-        std::vector<PhysicalCore> cores;
-        std::vector<LogicalThread> threads;
+        ThreadMask mask;
+
+        std::vector<uint16_t> cores;
+        std::vector<uint16_t> threads;
+        std::vector<uint16_t> clusters;
     };
 
     // the cpu geometry
     struct Geometry {
+        std::vector<LogicalThread> threads;
+        std::vector<PhysicalCore> cores;
+        std::vector<CoreCluster> clusters;
         std::vector<Package> packages;
     };
 
@@ -50,9 +54,18 @@ namespace simcoe {
         bool createService() override;
         void destroyService() override;
 
+        // failure reason
+        static std::string_view getFailureReason();
+
+        // stuff that works when failed
         static threads::ThreadId getCurrentThreadId();
 
+        // optional stuff
+        static Geometry getGeometry();
+        static void migrateCurrentThread(const LogicalThread& thread);
+
     private:
+        std::string_view failureReason = "";
         Geometry geometry = {};
     };
 }

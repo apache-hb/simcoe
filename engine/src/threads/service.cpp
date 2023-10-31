@@ -1,6 +1,7 @@
 #include "engine/threads/service.h"
 
 #include "engine/service/logging.h"
+#include <unordered_set>
 
 using namespace simcoe;
 using namespace simcoe::threads;
@@ -90,8 +91,8 @@ namespace {
 
     // GetLogicalProcessorInformationEx provides information about inter-core communication
     struct ProcessorInfo {
-        ProcessorInfo() {
-            if (GetLogicalProcessorInformationEx(RelationAll, nullptr, &bufferSize)) {
+        ProcessorInfo(LOGICAL_PROCESSOR_RELATIONSHIP relation) {
+            if (GetLogicalProcessorInformationEx(relation, nullptr, &bufferSize)) {
                 throw std::runtime_error("GetLogicalProcessorInformationEx did not fail");
             }
 
@@ -101,7 +102,7 @@ namespace {
 
             memory = std::make_unique<std::byte[]>(bufferSize);
             pBuffer = reinterpret_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *>(memory.get());
-            if (!GetLogicalProcessorInformationEx(RelationAll, pBuffer, &bufferSize)) {
+            if (!GetLogicalProcessorInformationEx(relation, pBuffer, &bufferSize)) {
                 throwLastError("GetLogicalProcessorInformationEx failed");
             }
 
@@ -189,137 +190,184 @@ namespace {
         ULONG remaining = 0;
     };
 
-    struct ThreadIndex {
-        WORD Group;
-        WORD Mask;
+    struct GeometryBuilder {
+        std::vector<LogicalThread> threads;
+        std::vector<PhysicalCore> cores;
+        std::vector<CoreCluster> clusters;
+        std::vector<Package> packages;
+
+        template<typename T>
+        static void getItemByMask(std::vector<uint16_t>& ids, const std::vector<T>& items, GROUP_AFFINITY affinity) {
+            std::unordered_set<uint16_t> uniqueIds;
+            for (size_t i = 0; i < items.size(); ++i) {
+                const auto& item = items[i];
+                if (item.mask.affinity.Group == affinity.Group && item.mask.affinity.Mask & affinity.Mask) {
+                    uniqueIds.insert(i);
+                }
+            }
+
+            for (uint16_t id : uniqueIds) {
+                ids.push_back(id);
+            }
+        }
+
+        void getPhysicalCoresByMask(std::vector<uint16_t>& ids, GROUP_AFFINITY affinity) const {
+            getItemByMask(ids, cores, affinity);
+        }
+
+        void getLogicalThreadsByMask(std::vector<uint16_t>& ids, GROUP_AFFINITY affinity) const {
+            getItemByMask(ids, threads, affinity);
+        }
+
+        void getCoreClustersByMask(std::vector<uint16_t>& ids, GROUP_AFFINITY affinity) const {
+            getItemByMask(ids, clusters, affinity);
+        }
     };
 
     struct ProcessorInfoLayout {
-        size_t threadCount = 0;
+        ProcessorInfoLayout(GeometryBuilder *pBuilder)
+            : pBuilder(pBuilder)
+        { }
+
+        GeometryBuilder *pBuilder;
         size_t cacheCount = 0;
 
-        std::vector<const PROCESSOR_RELATIONSHIP*> cores;
-        std::vector<const PROCESSOR_RELATIONSHIP*> packages;
-
-        std::vector<LogicalThread> threads;
-
         void addProcessorCore(const PROCESSOR_RELATIONSHIP *pInfo) {
-            bool hasSmt = pInfo->Flags & LTP_PC_SMT;
-            LOG_INFO("RelationProcessorCore: (smt={}, class={}, groups={})", hasSmt, pInfo->EfficiencyClass, pInfo->GroupCount);
+            std::vector<uint16_t> threadIds;
+
             for (DWORD i = 0; i < pInfo->GroupCount; ++i) {
                 GROUP_AFFINITY group = pInfo->GroupMask[i];
-                LOG_INFO("  Group[{}]: group={} mask=0b{:064b}", i, group.Group, group.Mask);
 
-                threadCount += std::popcount(group.Mask);
+                for (size_t i = 0; i < 64; ++i) {
+                    KAFFINITY mask = 1ull << i;
+                    if (group.Mask & mask) {
+                        pBuilder->threads.push_back({
+                            .mask = { .affinity = group }
+                        });
 
-                LogicalThread thread = {
-                    .type = hasSmt ? eThreadEfficiency : eThreadPerformance,
-                };
+                        uint16_t id = pBuilder->threads.size() - 1;
+                        threadIds.push_back(id);
 
-                threads.push_back(thread);
+                        LOG_INFO("    Thread[{}]: affinity=0b{:064b} group={}", id, mask, group.Group);
+                    }
+                }
             }
 
-            cores.push_back(pInfo);
+            pBuilder->cores.push_back({
+                .efficiency = pInfo->EfficiencyClass,
+                .mask = { .affinity = pInfo->GroupMask[0] },
+                .threadIds = threadIds
+            });
         }
 
         void addProcessorPackage(const PROCESSOR_RELATIONSHIP *pInfo) {
-            LOG_INFO("RelationProcessorPackage: (flags={}, class={}, groups={})", pInfo->Flags, pInfo->EfficiencyClass, pInfo->GroupCount);
+            std::vector<uint16_t> coreIds;
+            std::vector<uint16_t> threadIds;
+            std::vector<uint16_t> clusterIds;
+
             for (DWORD i = 0; i < pInfo->GroupCount; ++i) {
                 GROUP_AFFINITY group = pInfo->GroupMask[i];
                 LOG_INFO("  Group[{}]: group={} mask=0b{:064b}", i, group.Group, group.Mask);
+
+                pBuilder->getPhysicalCoresByMask(coreIds, group);
+                pBuilder->getLogicalThreadsByMask(threadIds, group);
+                pBuilder->getCoreClustersByMask(clusterIds, group);
             }
 
-            packages.push_back(pInfo);
+            pBuilder->packages.push_back({
+                .mask = { .affinity = pInfo->GroupMask[0] },
+                .cores = coreIds,
+                .threads = threadIds,
+                .clusters = clusterIds
+            });
         }
 
         void addCache(const CACHE_RELATIONSHIP& info) {
-            LOG_INFO("RelationCache: (level={}, associativity={}, lineSize={}, size={}, type={})", info.Level, info.Associativity, info.LineSize, info.CacheSize, info.Type);
+            if (info.Level != 3) return;
+
+            // assume everything that shares l3 cache is in the same cluster
+            std::vector<uint16_t> coreIds;
+
             for (DWORD i = 0; i < info.GroupCount; ++i) {
                 GROUP_AFFINITY group = info.GroupMasks[i];
                 LOG_INFO("  Group[{}]: group={} mask=0b{:064b}", i, group.Group, group.Mask);
+
+                pBuilder->getPhysicalCoresByMask(coreIds, group);
             }
 
-            cacheCount += 1;
-        }
-
-        void addGroup(const GROUP_RELATIONSHIP& info) {
-            LOG_INFO("RelationGroup: (maximumGroupCount={}, activeGroupCount={})", info.MaximumGroupCount, info.ActiveGroupCount);
-            for (DWORD i = 0; i < info.ActiveGroupCount; ++i) {
-                PROCESSOR_GROUP_INFO group = info.GroupInfo[i];
-                LOG_INFO("  ProcessorGroup[{}]: max={} active={} mask=0b{:064b}", i, group.MaximumProcessorCount, group.ActiveProcessorCount, group.ActiveProcessorMask);
-            }
-        }
-
-        void addNumaNode(const NUMA_NODE_RELATIONSHIP& info) {
-            LOG_INFO("RelationNumaNode: (nodeNumber={})", info.NodeNumber);
-            for (DWORD i = 0; i < info.GroupCount; ++i) {
-                GROUP_AFFINITY group = info.GroupMasks[i];
-                LOG_INFO("  Group[{}]: group={} mask=0b{:064b}", i, group.Group, group.Mask);
-            }
+            pBuilder->clusters.push_back({
+                .mask = { .affinity = info.GroupMasks[0] },
+                .coreIds = coreIds
+            });
         }
     };
 
     struct CpuSetLayout {
-        size_t cpuSetCount = 0;
+        CpuSetLayout(GeometryBuilder *pBuilder)
+            : pBuilder(pBuilder)
+        { }
+
+        GeometryBuilder *pBuilder;
 
         void addCpuSet(const SYSTEM_CPU_SET_INFORMATION *pInfo) {
             auto cpuSet = pInfo->CpuSet;
-            LOG_INFO("CpuSet: (id={}, group={}, procIndex={}, coreIndex={}, class={}, flags=0x{:x}, schedule={}, tag={}, cache={})",
-                cpuSet.Id,
-                cpuSet.Group,
-                cpuSet.LogicalProcessorIndex,
-                cpuSet.CoreIndex,
-                cpuSet.EfficiencyClass,
-                cpuSet.AllFlags,
-                cpuSet.SchedulingClass,
-                cpuSet.AllocationTag,
-                cpuSet.LastLevelCacheIndex
-            );
+            GROUP_AFFINITY groupAffinity = {
+                .Mask = 1ul << KAFFINITY(cpuSet.LogicalProcessorIndex),
+                .Group = cpuSet.Group
+            };
 
-            cpuSetCount += 1;
+            std::vector<uint16_t> coreIds;
+            pBuilder->getPhysicalCoresByMask(coreIds, groupAffinity);
+            for (uint16_t coreId : coreIds) {
+                pBuilder->cores[coreId].schedule = cpuSet.SchedulingClass;
+            }
         }
     };
 }
 
 bool ThreadService::createService() {
-    ProcessorInfo processorInfo;
-    ProcessorInfoLayout processorInfoLayout;
-    for (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pRelation : processorInfo) {
+    GeometryBuilder builder;
+    ProcessorInfoLayout processorInfoLayout{&builder};
+    CpuSetLayout cpuSetLayout{&builder};
 
+    ProcessorInfo coreInfo{RelationProcessorCore};
+    ProcessorInfo cacheInfo{RelationCache};
+    ProcessorInfo packageInfo{RelationProcessorPackage};
+
+    for (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pRelation : coreInfo) {
+        switch (pRelation->Relationship) {
+        case RelationProcessorCore:
+            processorInfoLayout.addProcessorCore(&pRelation->Processor);
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    for (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pRelation : cacheInfo) {
+        switch (pRelation->Relationship) {
+        case RelationCache:
+            processorInfoLayout.addCache(pRelation->Cache);
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    for (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pRelation : packageInfo) {
         switch (pRelation->Relationship) {
         case RelationProcessorPackage:
             processorInfoLayout.addProcessorPackage(&pRelation->Processor);
             break;
 
-        case RelationProcessorCore:
-            processorInfoLayout.addProcessorCore(&pRelation->Processor);
-            break;
-
-        case RelationCache:
-            processorInfoLayout.addCache(pRelation->Cache);
-            break;
-
-        case RelationGroup:
-            processorInfoLayout.addGroup(pRelation->Group);
-            break;
-
-        case RelationNumaNode:
-            processorInfoLayout.addNumaNode(pRelation->NumaNode);
-            break;
-
-        case RelationProcessorModule:
-            break; // ignore these
-
         default:
-            LOG_INFO("Unknown processor relationship: {}", pRelation->Relationship);
             break;
         }
     }
 
-    LOG_INFO("CPU layout: (packages={} cores={} threads={} caches={})", processorInfoLayout.packages.size(), processorInfoLayout.cores.size(), processorInfoLayout.threadCount, processorInfoLayout.cacheCount);
-
     CpuSetInfo cpuSetInfo;
-    CpuSetLayout cpuSetLayout;
 
     for (SYSTEM_CPU_SET_INFORMATION *pCpuSet : cpuSetInfo) {
         switch (pCpuSet->Type) {
@@ -328,12 +376,18 @@ bool ThreadService::createService() {
             break;
 
         default:
-            LOG_INFO("Unknown cpu set type: {}", pCpuSet->Type);
             break;
         }
     }
 
-    LOG_INFO("CPU sets: (count={})", cpuSetLayout.cpuSetCount);
+    LOG_INFO("CPU layout: (packages={} cores={} threads={} caches={})", builder.packages.size(), builder.cores.size(), builder.threads.size(), processorInfoLayout.cacheCount);
+
+    geometry = {
+        .threads = builder.threads,
+        .cores = builder.cores,
+        .clusters = builder.clusters,
+        .packages = builder.packages
+    };
 
     return true;
 }
@@ -342,10 +396,26 @@ void ThreadService::destroyService() {
 
 }
 
+std::string_view ThreadService::getFailureReason() {
+    return get()->failureReason;
+}
+
 ThreadId ThreadService::getCurrentThreadId() {
     return std::this_thread::get_id();
 }
 
+Geometry ThreadService::getGeometry() {
+    return get()->geometry;
+}
+
+void ThreadService::migrateCurrentThread(const LogicalThread& thread) {
+    HANDLE hThread = GetCurrentThread();
+    GROUP_AFFINITY groupAffinity = thread.mask.affinity;
+
+    if (!SetThreadGroupAffinity(hThread, &groupAffinity, nullptr)) {
+        throwLastError("SetThreadGroupAffinity failed");
+    }
+}
 
 // c1: 14
 // c2: 14
