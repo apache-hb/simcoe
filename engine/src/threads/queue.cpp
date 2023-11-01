@@ -28,16 +28,16 @@ bool WorkQueue::process() {
     return false;
 }
 
-threads::Thread WorkThread::start(std::string_view name) {
-    return [this, name](std::stop_token token) {
+threads::Thread& WorkThread::start(std::string_view name, Scheduler *pScheduler) {
+    return pScheduler->newThread(eWorker, name, [this, name](std::stop_token token) {
         DebugService::setThreadName(name);
-        LOG_INFO("thread `{}` started", name);
+        LOG_INFO("work queue `{}` started", name);
 
         this->run(token);
 
         // drain the queue
         while (process()) { }
 
-        LOG_INFO("thread `{}` stopped", name);
-    };
+        LOG_INFO("work queue `{}` stopped", name);
+    });
 }

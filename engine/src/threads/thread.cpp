@@ -9,43 +9,36 @@
 using namespace simcoe;
 using namespace simcoe::threads;
 
+namespace {
+    constexpr uint8_t first_bit(uint64_t bits) {
+        for (uint8_t i = 0; i < 64; ++i) {
+            if (bits & (1ull << i)) {
+                return i;
+            }
+        }
+
+        return 0;
+    }
+}
+
 template<typename T>
 struct std::formatter<GROUP_AFFINITY, T> : std::formatter<std::string_view, T> {
     template<typename FormatContext>
     auto format(const GROUP_AFFINITY& affinity, FormatContext& ctx) {
-        auto it = std::format("(group = {}, mask = {:#b})", affinity.Group, affinity.Mask);
+        auto it = std::format("(group = {}, mask = {})", affinity.Group, first_bit(affinity.Mask));
         return std::formatter<std::string_view, T>::format(it, ctx);
     }
 };
 
-namespace {
-    LogicalThread pickThreadForCore(const PhysicalCore& core) {
-        const auto& geometry = ThreadService::getGeometry();
-        const auto& thread = geometry.threads[core.threadIds[0]]; // TODO: delegate to a scheduler
-        return thread;
-    }
-
-    LogicalThread pickThreadForCluster(const CoreCluster& cluster) {
-        const auto& geometry = ThreadService::getGeometry();
-        const auto& core = geometry.cores[cluster.coreIds[0]];
-        const auto& thread = geometry.threads[core.threadIds[0]]; // TODO: delegate to a scheduler
-        return thread;
-    }
-
-    LogicalThread pickAnyThread() {
-        const auto& geometry = ThreadService::getGeometry();
-        const auto& thread = geometry.threads[0]; // TODO: delegate to a scheduler
-        return thread;
-    }
-
-    struct ThreadStartInfo {
-        ThreadStart start;
-        std::stop_token token;
-    };
-}
+struct ThreadStartInfo {
+    ThreadStart start;
+    std::stop_token token;
+    std::string_view name;
+};
 
 DWORD WINAPI Thread::threadThunk(LPVOID lpParameter) try {
     std::unique_ptr<ThreadStartInfo> pInfo {static_cast<ThreadStartInfo*>(lpParameter)};
+    DebugService::setThreadName(pInfo->name);
 
     LOG_INFO("thread {:#x} started", ThreadService::getCurrentThreadId());
     pInfo->start(pInfo->token);
@@ -62,24 +55,25 @@ DWORD WINAPI Thread::threadThunk(LPVOID lpParameter) try {
 Thread::Thread(Thread&& other) noexcept {
     std::swap(id, other.id);
     std::swap(hThread, other.hThread);
-    std::swap(threadIdx, other.threadIdx);
+    std::swap(subcore, other.subcore);
     std::swap(stopper, other.stopper);
 }
 
 Thread& Thread::operator=(Thread&& other) noexcept {
     std::swap(id, other.id);
     std::swap(hThread, other.hThread);
-    std::swap(threadIdx, other.threadIdx);
+    std::swap(subcore, other.subcore);
     std::swap(stopper, other.stopper);
     return *this;
 }
 
-Thread::Thread(const LogicalThread& thread, ThreadStart&& start)
-    : threadIdx(thread)
+Thread::Thread(const Subcore& subcore, std::string_view name, ThreadStart&& start)
+    : subcore(subcore)
 {
     auto *pStart = new ThreadStartInfo {
         .start = std::move(start),
-        .token = stopper.get_token()
+        .token = stopper.get_token(),
+        .name = name
     };
 
     hThread = CreateThread(
@@ -95,7 +89,7 @@ Thread::Thread(const LogicalThread& thread, ThreadStart&& start)
         throwLastError("CreateThread");
     }
 
-    const GROUP_AFFINITY affinity = threadIdx.mask.affinity;
+    const GROUP_AFFINITY affinity = subcore.mask;
 
     if (!SetThreadGroupAffinity(hThread, &affinity, nullptr)) {
         auto msg = std::format("SetThreadGroupAffinity failed, internal state corruption!!! thread affinity mask: {}", affinity);
@@ -106,20 +100,8 @@ Thread::Thread(const LogicalThread& thread, ThreadStart&& start)
         throwLastError("ResumeThread");
     }
 
-    LOG_INFO("created os thread {:#x} on logical thread {}", GetThreadId(hThread), threadIdx.mask.affinity);
+    LOG_INFO("created os thread {:#x} on logical thread {}", GetThreadId(hThread), affinity);
 }
-
-Thread::Thread(const PhysicalCore& core, ThreadStart&& start)
-    : Thread(pickThreadForCore(core), std::move(start))
-{ }
-
-Thread::Thread(const CoreCluster& cluster, ThreadStart&& start)
-    : Thread(pickThreadForCluster(cluster), std::move(start))
-{ }
-
-Thread::Thread(ThreadStart&& start)
-    : Thread(pickAnyThread(), std::move(start))
-{ }
 
 Thread::~Thread() {
     if (hThread == nullptr) return;

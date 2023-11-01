@@ -1,8 +1,61 @@
 #pragma once
 
+#include <compare>
+
 #define SM_DEPRECATED(msg) [[deprecated(msg)]]
 #define SM_UNUSED [[maybe_unused]]
 
 #define SM_NOCOPY(TYPE) \
     TYPE(const TYPE&) = delete; \
     TYPE& operator=(const TYPE&) = delete;
+
+#define SM_ENUM_INT(TYPE, INNER) \
+    using INNER = std::underlying_type_t<TYPE>; \
+    constexpr TYPE operator+(TYPE lhs, TYPE rhs) { \
+        return TYPE(INNER(lhs) + INNER(rhs)); \
+    } \
+    constexpr TYPE operator-(TYPE lhs, TYPE rhs) { \
+        return TYPE(INNER(lhs) - INNER(rhs)); \
+    } \
+    constexpr TYPE operator*(TYPE lhs, TYPE rhs) { \
+        return TYPE(INNER(lhs) * INNER(rhs)); \
+    } \
+    constexpr TYPE operator/(TYPE lhs, TYPE rhs) { \
+        return TYPE(INNER(lhs) / INNER(rhs)); \
+    } \
+    constexpr TYPE operator%(TYPE lhs, TYPE rhs) { \
+        return TYPE(INNER(lhs) % INNER(rhs)); \
+    } \
+    constexpr TYPE& operator+=(TYPE& lhs, TYPE rhs) { \
+        return lhs = lhs + rhs; \
+    } \
+    constexpr TYPE& operator-=(TYPE& lhs, TYPE rhs) { \
+        return lhs = lhs - rhs; \
+    } \
+    constexpr TYPE& operator*=(TYPE& lhs, TYPE rhs) { \
+        return lhs = lhs * rhs; \
+    } \
+    constexpr TYPE& operator/=(TYPE& lhs, TYPE rhs) { \
+        return lhs = lhs / rhs; \
+    } \
+    constexpr TYPE& operator%=(TYPE& lhs, TYPE rhs) { \
+        return lhs = lhs % rhs; \
+    } \
+    constexpr TYPE& operator++(TYPE& value) { \
+        return value = value + TYPE(1); \
+    } \
+    constexpr TYPE& operator--(TYPE& value) { \
+        return value = value - TYPE(1); \
+    } \
+    constexpr std::strong_ordering operator<=>(TYPE lhs, TYPE rhs) { \
+        return INNER(lhs) <=> INNER(rhs); \
+    }
+
+#define SM_ENUM_FORMATTER(TYPE, INNER) \
+    template<typename T> \
+    struct std::formatter<TYPE, T> : std::formatter<INNER, T> { \
+        template<typename FormatContext> \
+        auto format(TYPE value, FormatContext& ctx) { \
+            return std::formatter<INNER, T>::format(static_cast<INNER>(value), ctx); \
+        } \
+    };

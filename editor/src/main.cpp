@@ -6,6 +6,7 @@
 #include "engine/service/freetype.h"
 
 // threads
+#include "engine/threads/schedule.h"
 #include "engine/threads/service.h"
 #include "engine/threads/queue.h"
 
@@ -49,6 +50,8 @@
 #include <fstream>
 #include <iostream>
 
+using namespace std::chrono_literals;
+
 using namespace simcoe;
 using namespace simcoe::math;
 
@@ -83,7 +86,7 @@ static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless
 
 /// threads
 static threads::WorkQueue *pMainQueue = nullptr;
-static std::vector<threads::Thread> workPool; // TODO: use a thread pool
+static threads::Scheduler *pScheduler = nullptr;
 
 /// input
 static input::Win32Keyboard *pKeyboard = nullptr;
@@ -100,27 +103,6 @@ static debug::GdkDebug *pGdkDebug = nullptr;
 static debug::RyzenMonitorDebug *pRyzenDebug = nullptr;
 static debug::EngineDebug *pEngineDebug = nullptr;
 static debug::ThreadServiceDebug *pThreadDebug = nullptr;
-
-template<typename F>
-threads::WorkThread *newTask(const char *name, F&& func) {
-    struct WorkImpl final : threads::WorkThread {
-        WorkImpl(const char *name, F&& fn)
-            : WorkThread(64, name)
-            , fn(std::forward<F>(fn))
-        { }
-
-        void run(std::stop_token token) override {
-            while (!token.stop_requested()) {
-                fn(this, token);
-            }
-        }
-
-    private:
-        F fn;
-    };
-
-    return new WorkImpl(name, std::move(func));
-}
 
 struct FileLogger final : ISink {
     FileLogger()
@@ -160,7 +142,7 @@ static FileLogger *pFileLogger = nullptr;
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
         bWindowOpen = false;
-        workPool.clear();
+        delete pScheduler;
         pWorld->shutdown();
     }
 
@@ -585,7 +567,9 @@ static void startServiceDebuggers() {
     pThreadDebug = new debug::ThreadServiceDebug();
 
     if (RyzenMonitorSerivce::getState() & eServiceCreated) {
-        workPool.push_back(pRyzenDebug->getWorkThread());
+        pScheduler->newWorker("ryzenmonitor", 1s, [] {
+            pRyzenDebug->updateCoreInfo();
+        });
     }
 }
 
@@ -594,6 +578,7 @@ static void startServiceDebuggers() {
 ///
 
 static void commonMain() {
+    pScheduler = new threads::Scheduler();
     pMainQueue = new threads::WorkQueue(64);
 
     auto assets = PlatformService::getExeDirectory() / "editor.exe.p";
@@ -678,33 +663,25 @@ static void commonMain() {
 
     // setup game
 
-    workPool.emplace_back([](auto token) {
-        DebugService::setThreadName("input");
-
+    pScheduler->newThread(threads::eResponsive, "input", [](auto token) {
         while (!token.stop_requested()) {
             pWorld->tickInput();
         }
     });
 
-    workPool.emplace_back([](auto token) {
-        DebugService::setThreadName("render");
-
+    pScheduler->newThread(threads::eRealtime, "render", [](auto token) {
         while (!token.stop_requested() && bWindowOpen) {
             pWorld->tickRender();
         }
     });
 
-    workPool.emplace_back([](auto token) {
-        DebugService::setThreadName("physics");
-
+    pScheduler->newThread(threads::eResponsive, "physics", [](auto token) {
         while (!token.stop_requested()) {
             pWorld->tickPhysics();
         }
     });
 
-    workPool.emplace_back([](auto token) {
-        DebugService::setThreadName("game");
-
+    pScheduler->newThread(threads::eRealtime, "game", [](auto token) {
         while (!token.stop_requested()) {
             pWorld->tickGame();
         }

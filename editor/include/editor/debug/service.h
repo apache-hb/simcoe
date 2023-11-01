@@ -63,7 +63,7 @@ namespace editor::debug {
 
         void draw() override;
 
-        threads::Thread getWorkThread();
+        void updateCoreInfo();
 
     private:
         void drawBiosInfo();
@@ -91,8 +91,6 @@ namespace editor::debug {
         void drawPackageInfo();
         void drawSocInfo();
         void drawCoreInfo();
-
-        void updateCoreInfo();
 
         static ImVec4 getUsageColour(float f);
 
@@ -139,8 +137,8 @@ namespace editor::debug {
         void draw() override;
 
     private:
-        void drawPackage(uint16_t i);
-        uint16_t getFastestCore(uint16_t cluster) const;
+        void drawPackage(threads::PackageIndex i);
+        threads::CoreIndex getFastestCore(threads::ChipletIndex chiplet) const;
 
         const threads::Geometry& geometry;
     };

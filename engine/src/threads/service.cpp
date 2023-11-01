@@ -191,36 +191,36 @@ namespace {
     };
 
     struct GeometryBuilder {
-        std::vector<LogicalThread> threads;
-        std::vector<PhysicalCore> cores;
-        std::vector<CoreCluster> clusters;
+        std::vector<Subcore> subcores;
+        std::vector<Core> cores;
+        std::vector<Chiplet> chiplets;
         std::vector<Package> packages;
 
-        template<typename T>
-        static void getItemByMask(std::vector<uint16_t>& ids, const std::vector<T>& items, GROUP_AFFINITY affinity) {
-            std::unordered_set<uint16_t> uniqueIds;
+        template<typename Index, typename Item>
+        static void getItemByMask(std::vector<Index>& ids, std::span<const Item> items, GROUP_AFFINITY affinity) {
+            std::unordered_set<Index> uniqueIds;
             for (size_t i = 0; i < items.size(); ++i) {
                 const auto& item = items[i];
-                if (item.mask.affinity.Group == affinity.Group && item.mask.affinity.Mask & affinity.Mask) {
-                    uniqueIds.insert(i);
+                if (item.mask.Group == affinity.Group && item.mask.Mask & affinity.Mask) {
+                    uniqueIds.insert(Index(i));
                 }
             }
 
-            for (uint16_t id : uniqueIds) {
-                ids.push_back(id);
-            }
+            std::transform(uniqueIds.begin(), uniqueIds.end(), std::back_inserter(ids), [](Index id) {
+                return id;
+            });
         }
 
-        void getPhysicalCoresByMask(std::vector<uint16_t>& ids, GROUP_AFFINITY affinity) const {
-            getItemByMask(ids, cores, affinity);
+        void getCoresByMask(CoreIndices& ids, GROUP_AFFINITY affinity) const {
+            getItemByMask<CoreIndex, Core>(ids, cores, affinity);
         }
 
-        void getLogicalThreadsByMask(std::vector<uint16_t>& ids, GROUP_AFFINITY affinity) const {
-            getItemByMask(ids, threads, affinity);
+        void getSubcoresByMask(SubcoreIndices& ids, GROUP_AFFINITY affinity) const {
+            getItemByMask<SubcoreIndex, Subcore>(ids, subcores, affinity);
         }
 
-        void getCoreClustersByMask(std::vector<uint16_t>& ids, GROUP_AFFINITY affinity) const {
-            getItemByMask(ids, clusters, affinity);
+        void getChipletsByMask(ChipletIndices& ids, GROUP_AFFINITY affinity) const {
+            getItemByMask<ChipletIndex, Chiplet>(ids, chiplets, affinity);
         }
     };
 
@@ -232,15 +232,15 @@ namespace {
         GeometryBuilder *pBuilder;
         size_t cacheCount = 0;
 
-        static constexpr KAFFINITY KAFFINITY_MAX = std::numeric_limits<KAFFINITY>::max();
+        static constexpr KAFFINITY KAFFINITY_BITS = std::numeric_limits<KAFFINITY>::digits;
 
         void addProcessorCore(const PROCESSOR_RELATIONSHIP *pInfo) {
-            std::vector<uint16_t> threadIds;
+            SubcoreIndices subcoreIds;
 
             for (DWORD i = 0; i < pInfo->GroupCount; ++i) {
                 GROUP_AFFINITY group = pInfo->GroupMask[i];
 
-                for (size_t i = 0; i < KAFFINITY_MAX; ++i) {
+                for (size_t i = 0; i < KAFFINITY_BITS; ++i) {
                     KAFFINITY mask = 1ull << i;
                     if (!(group.Mask & mask)) continue;
 
@@ -249,40 +249,39 @@ namespace {
                         .Group = group.Group,
                     };
 
-                    pBuilder->threads.push_back({
-                        .mask = { .affinity = groupAffinity }
+                    pBuilder->subcores.push_back({
+                        .mask = ScheduleMask(groupAffinity)
                     });
 
-                    uint16_t id = pBuilder->threads.size() - 1;
-                    threadIds.push_back(id);
-
+                    uint16_t id = pBuilder->subcores.size() - 1;
+                    subcoreIds.push_back(SubcoreIndex(id));
                 }
             }
 
             pBuilder->cores.push_back({
                 .efficiency = pInfo->EfficiencyClass,
-                .mask = { .affinity = pInfo->GroupMask[0] },
-                .threadIds = threadIds
+                .mask = ScheduleMask(pInfo->GroupMask[0]),
+                .subcoreIds = subcoreIds
             });
         }
 
         void addProcessorPackage(const PROCESSOR_RELATIONSHIP *pInfo) {
-            std::vector<uint16_t> coreIds;
-            std::vector<uint16_t> threadIds;
-            std::vector<uint16_t> clusterIds;
+            SubcoreIndices subcoreIds;
+            CoreIndices coreIds;
+            ChipletIndices chipletIds;
 
             for (DWORD i = 0; i < pInfo->GroupCount; ++i) {
                 GROUP_AFFINITY group = pInfo->GroupMask[i];
-                pBuilder->getPhysicalCoresByMask(coreIds, group);
-                pBuilder->getLogicalThreadsByMask(threadIds, group);
-                pBuilder->getCoreClustersByMask(clusterIds, group);
+                pBuilder->getCoresByMask(coreIds, group);
+                pBuilder->getSubcoresByMask(subcoreIds, group);
+                pBuilder->getChipletsByMask(chipletIds, group);
             }
 
             pBuilder->packages.push_back({
-                .mask = { .affinity = pInfo->GroupMask[0] },
+                .mask = ScheduleMask(pInfo->GroupMask[0]),
                 .cores = coreIds,
-                .threads = threadIds,
-                .clusters = clusterIds
+                .subcores = subcoreIds,
+                .chiplets = chipletIds
             });
         }
 
@@ -293,15 +292,15 @@ namespace {
             // TODO: on intel E-cores and P-cores share the same l3
             //       but we dont want to put them in the same cluster.
             //       for now that isnt a big problem though.
-            std::vector<uint16_t> coreIds;
+            CoreIndices coreIds;
 
             for (DWORD i = 0; i < info.GroupCount; ++i) {
                 GROUP_AFFINITY group = info.GroupMasks[i];
-                pBuilder->getPhysicalCoresByMask(coreIds, group);
+                pBuilder->getCoresByMask(coreIds, group);
             }
 
-            pBuilder->clusters.push_back({
-                .mask = { .affinity = info.GroupMasks[0] },
+            pBuilder->chiplets.push_back({
+                .mask = ScheduleMask(info.GroupMasks[0]),
                 .coreIds = coreIds
             });
         }
@@ -321,10 +320,10 @@ namespace {
                 .Group = cpuSet.Group
             };
 
-            std::vector<uint16_t> coreIds;
-            pBuilder->getPhysicalCoresByMask(coreIds, groupAffinity);
-            for (uint16_t coreId : coreIds) {
-                pBuilder->cores[coreId].schedule = cpuSet.SchedulingClass;
+            CoreIndices coreIds;
+            pBuilder->getCoresByMask(coreIds, groupAffinity);
+            for (CoreIndex coreId : coreIds) {
+                pBuilder->cores[size_t(coreId)].schedule = cpuSet.SchedulingClass;
             }
         }
     };
@@ -383,12 +382,12 @@ bool ThreadService::createService() {
         }
     }
 
-    LOG_INFO("CPU layout: (packages={} cores={} threads={} caches={})", builder.packages.size(), builder.cores.size(), builder.threads.size(), processorInfoLayout.cacheCount);
+    LOG_INFO("CPU layout: (packages={} cores={} threads={} caches={})", builder.packages.size(), builder.cores.size(), builder.subcores.size(), processorInfoLayout.cacheCount);
 
     geometry = {
-        .threads = builder.threads,
+        .subcores = builder.subcores,
         .cores = builder.cores,
-        .clusters = builder.clusters,
+        .chiplets = builder.chiplets,
         .packages = builder.packages
     };
 
@@ -411,9 +410,9 @@ const Geometry& ThreadService::getGeometry() {
     return get()->geometry;
 }
 
-void ThreadService::migrateCurrentThread(const LogicalThread& thread) {
+void ThreadService::migrateCurrentThread(const Subcore& subcore) {
     HANDLE hThread = GetCurrentThread();
-    GROUP_AFFINITY groupAffinity = thread.mask.affinity;
+    GROUP_AFFINITY groupAffinity = subcore.mask;
 
     if (!SetThreadGroupAffinity(hThread, &groupAffinity, nullptr)) {
         throwLastError("SetThreadGroupAffinity failed");

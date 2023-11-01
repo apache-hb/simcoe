@@ -18,16 +18,14 @@ namespace simcoe {
         // failure reason
         static std::string_view getFailureReason();
 
-        // stuff that works when failed
-        static threads::ThreadId getCurrentThreadId();
-
-        // geometry management
+        // geometry data
         static const threads::Geometry& getGeometry();
 
-        // thread migration
-        static void migrateCurrentThread(const threads::LogicalThread& thread);
+        // os thread functions
+        static void migrateCurrentThread(const threads::Subcore& subcore);
+        static threads::ThreadId getCurrentThreadId();
 
-        // TODO: thread stats (how many threads are running, on which cores, etc)
+        // scheduler
 
     private:
         std::string_view failureReason = "";

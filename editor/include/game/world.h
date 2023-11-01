@@ -9,30 +9,6 @@
 #include <random>
 
 namespace game {
-    struct Thread : threads::WorkThread {
-        Thread(size_t size, std::string_view name)
-            : WorkThread(size, name)
-        { }
-
-        virtual void create() = 0;
-        virtual void destroy() = 0;
-
-        virtual void tick() = 0;
-
-        void run(std::stop_token token) override {
-            create();
-            cv.notify_all();
-
-            while (!token.stop_requested()) {
-                tick();
-            }
-
-            destroy();
-        }
-
-        std::condition_variable cv;
-    };
-
     /**
      * all public methods are thread safe
      *
@@ -41,7 +17,6 @@ namespace game {
     struct World {
         World(const WorldInfo& info);
         ~World();
-
 
         void createInput() { }
         void destroyInput();

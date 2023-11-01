@@ -4,6 +4,7 @@
 #include <string>
 
 #include "engine/threads/service.h"
+#include "engine/threads/schedule.h"
 
 #include "moodycamel/blockingconcurrentqueue.h"
 
@@ -27,9 +28,9 @@ namespace simcoe::threads {
     };
 
     struct WorkThread : WorkQueue {
-        WorkThread(size_t size, std::string_view name)
+        WorkThread(size_t size, std::string_view name, Scheduler *pScheduler)
             : WorkQueue(size)
-            , workThread(start(name))
+            , workThread(start(name, pScheduler))
         { }
 
         virtual ~WorkThread() = default;
@@ -41,8 +42,9 @@ namespace simcoe::threads {
         }
 
     private:
-        threads::Thread start(std::string_view name);
+        threads::Thread& start(std::string_view name, Scheduler *pScheduler);
 
-        threads::Thread workThread;
+        // TODO: this should be a handle into the scheduler
+        threads::Thread& workThread;
     };
 }

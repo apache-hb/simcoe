@@ -1,5 +1,9 @@
 #include "editor/debug/service.h"
 
+#include "engine/core/range.h"
+
+#include "imgui/imgui_internal.h"
+
 using namespace editor;
 using namespace editor::debug;
 
@@ -14,9 +18,9 @@ ThreadServiceDebug::ThreadServiceDebug()
 
 void ThreadServiceDebug::draw() {
     if (ImGui::BeginTabBar("packages")) {
-        for (size_t i = 0; i < geometry.packages.size(); ++i) {
+        for (threads::PackageIndex i : core::Range(threads::PackageIndex(geometry.packages.size()))) {
             char label[32];
-            snprintf(label, sizeof(label), "package: %zu", i);
+            snprintf(label, sizeof(label), "package: %u", uint16_t(i));
             if (ImGui::BeginTabItem(label)) {
                 drawPackage(i);
                 ImGui::EndTabItem();
@@ -26,16 +30,15 @@ void ThreadServiceDebug::draw() {
     }
 }
 
-void ThreadServiceDebug::drawPackage(uint16_t i) {
+void ThreadServiceDebug::drawPackage(threads::PackageIndex i) {
     ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_RowBg;
 
-    const auto& [mask, threads, cores, clusters] = geometry.packages[i];
-    for (auto clusterId : clusters) {
-        auto cluster = geometry.clusters[clusterId];
+    const auto& [mask, threads, cores, chiplets] = geometry.getPackage(i);
+    for (const auto& [index, cluster] : core::enumerate<threads::ChipletIndex>(chiplets)) {
         char label[32];
-        snprintf(label, sizeof(label), "cluster: %u", clusterId);
+        snprintf(label, sizeof(label), "chiplet: %u", uint16_t(index));
         if (ImGui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)) {
-            uint16_t fastest = getFastestCore(clusterId);
+            threads::CoreIndex fastest = getFastestCore(index);
 
             if (ImGui::BeginTable("##cores", 3, flags)) {
                 ImGui::TableSetupColumn("core", ImGuiTableColumnFlags_WidthStretch, 100.f);
@@ -43,14 +46,14 @@ void ThreadServiceDebug::drawPackage(uint16_t i) {
                 ImGui::TableSetupColumn("efficiency", ImGuiTableColumnFlags_WidthStretch, 100.f);
                 ImGui::TableHeadersRow();
 
-                for (auto coreId : cluster.coreIds) {
+                for (threads::CoreIndex coreId : geometry.getChiplet(index).coreIds) {
                     ImGui::TableNextColumn();
-                    auto core = geometry.cores[coreId];
+                    auto core = geometry.getCore(coreId);
 
                     if (coreId == fastest) {
-                        ImGui::Text("core: %u (fastest core)", coreId);
+                        ImGui::Text("core: %u (fastest core)", uint16_t(coreId));
                     } else {
-                        ImGui::Text("core: %u", coreId);
+                        ImGui::Text("core: %u", uint16_t(coreId));
                     }
 
                     ImGui::TableNextColumn();
@@ -58,6 +61,14 @@ void ThreadServiceDebug::drawPackage(uint16_t i) {
 
                     ImGui::TableNextColumn();
                     ImGui::Text("%u", core.efficiency);
+
+                    if (ImGui::TableGetHoveredRow() == ImGui::TableGetRowIndex()) {
+                        ImGui::BeginTooltip();
+                        for (threads::SubcoreIndex subcoreIds : core.subcoreIds) {
+                            ImGui::Text("subcore: %u", uint16_t(subcoreIds));
+                        }
+                        ImGui::EndTooltip();
+                    }
                 }
 
                 ImGui::EndTable();
@@ -66,15 +77,15 @@ void ThreadServiceDebug::drawPackage(uint16_t i) {
     }
 }
 
-uint16_t ThreadServiceDebug::getFastestCore(uint16_t cluster) const {
-    uint16_t fastest = 0;
+threads::CoreIndex ThreadServiceDebug::getFastestCore(threads::ChipletIndex cluster) const {
+    threads::CoreIndex fastest = threads::CoreIndex::eInvalid;
     uint8_t bestSchedule = UINT8_MAX;
 
-    for (auto coreId : geometry.clusters[cluster].coreIds) {
-        auto core = geometry.cores[coreId];
+    for (threads::CoreIndex index : geometry.getChiplet(cluster).coreIds) {
+        const auto& core = geometry.getCore(index);
         if (core.schedule < bestSchedule) {
             bestSchedule = core.schedule;
-            fastest = coreId;
+            fastest = index;
         }
     }
 

@@ -119,6 +119,7 @@ src = [
     'engine/src/threads/queue.cpp',
     'engine/src/threads/exclude.cpp',
     'engine/src/threads/thread.cpp',
+    'engine/src/threads/scheduler.cpp',
 
     # assets
     'engine/src/service/freetype.cpp',
@@ -184,6 +185,7 @@ engine = declare_dependency(
 tinyobj = subproject('tinyobj').get_variable('tinyobj')
 # fastgltf = subproject('fastgltf').get_variable('fastgltf')
 
+fs = import('fs')
 python3 = find_program('python3')
 
 hlsl_vs = generator(python3,
@@ -206,12 +208,8 @@ copy = generator(python3,
     arguments : [ script_dir/'copy-asset.py', '@INPUT@', '@OUTPUT@' ]
 )
 
-custom_target('config',
-    output : 'MicrosoftGame.Config',
-    input : 'data/config/MicrosoftGame.Config',
-    command : [ python3, script_dir/'copy-asset.py', '@INPUT@', '@OUTPUT@' ],
-    build_by_default : true
-)
+# TODO: really need a depot config soon
+fs.copyfile('data/config/MicrosoftGame.Config')
 
 src = [
     'editor/src/main.cpp',
