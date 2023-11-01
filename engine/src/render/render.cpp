@@ -166,11 +166,11 @@ void Context::createHeaps() {
     pRenderTargetAlloc = new RenderTargetAlloc(pDevice->createRenderTargetHeap(16), 16);
     pDepthStencilAlloc = new DepthStencilAlloc(pDevice->createDepthStencilHeap(16), 16);
 
-    pDataAlloc = new ShaderResourceAlloc(pDevice->createShaderDataHeap(createInfo.srvHeapSize), createInfo.srvHeapSize);
+    pResourceAlloc = new ShaderResourceAlloc(pDevice->createShaderDataHeap(createInfo.srvHeapSize), createInfo.srvHeapSize);
 }
 
 void Context::destroyHeaps() {
-    delete pDataAlloc;
+    delete pResourceAlloc;
 
     delete pDepthStencilAlloc;
     delete pRenderTargetAlloc;
@@ -249,7 +249,7 @@ void Context::endRender() {
 
 void Context::beginDirect() {
     pDirectCommands->begin(frameData[frameIndex].pMemory);
-    pDirectCommands->setHeap(pDataAlloc->pHeap);
+    pDirectCommands->setHeap(pResourceAlloc->pHeap);
 }
 
 void Context::endDirect() {

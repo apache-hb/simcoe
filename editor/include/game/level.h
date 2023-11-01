@@ -2,6 +2,7 @@
 
 #include "game/entity.h"
 
+#include "engine/core/array.h"
 #include "engine/service/platform.h"
 
 #include <unordered_set>
@@ -51,12 +52,11 @@ namespace game {
 
         bool isEntityStale(const IEntity *pEntity, EntityVersion version) const;
 
-
         // entity bookkeeping
         std::unordered_set<EntityPtr> staged; // entities to be added next tick
         std::unordered_set<EntityTag> retired; // entities to be removed next tick
 
-        std::unique_ptr<EntityPtr[]> entities; // all entities currently in the world
+        core::FixedArray<EntityPtr> entities; // all entities currently in the world
         EntitySlotMap indices; // entity slot allocator
     };
 }

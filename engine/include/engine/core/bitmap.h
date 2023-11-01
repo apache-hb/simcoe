@@ -2,7 +2,7 @@
 
 #include <memory>
 
-namespace simcoe {
+namespace simcoe::core {
     namespace detail {
         template<typename T, typename P>
         struct BitMapStorage {

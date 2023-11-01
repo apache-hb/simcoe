@@ -1,6 +1,7 @@
 #include "engine/core/bitmap.h"
 
 using namespace simcoe;
+using namespace simcoe::core;
 
 // BitMap
 

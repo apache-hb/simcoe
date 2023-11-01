@@ -34,7 +34,7 @@ namespace simcoe::render {
 
     template<typename T>
     struct DescriptorAlloc {
-        using Index = simcoe::BitMap::Index;
+        using Index = core::BitMap::Index;
 
         DescriptorAlloc(rhi::DescriptorHeap *pHeap, size_t size)
             : pHeap(pHeap)
@@ -50,12 +50,11 @@ namespace simcoe::render {
         }
 
         Index alloc() {
-            Index idx = allocator.alloc();
-            if (idx == Index::eInvalid) {
-                throw std::runtime_error("out of descriptor heap space");
+            if (Index idx = allocator.alloc(); idx != Index::eInvalid) {
+                return idx;
             }
 
-            return idx;
+            throw std::runtime_error("out of descriptor heap space");
         }
 
         void release(Index index) {
@@ -71,7 +70,7 @@ namespace simcoe::render {
         }
 
         rhi::DescriptorHeap *pHeap;
-        simcoe::BitMap allocator;
+        core::BitMap allocator;
     };
 
     struct RenderTargetHeap;
@@ -135,7 +134,7 @@ namespace simcoe::render {
         rhi::Device *getDevice() const { return pDevice; }
         rhi::Commands *getDirectCommands() const { return pDirectCommands; }
 
-        ShaderResourceAlloc *getSrvHeap() { return pDataAlloc; }
+        ShaderResourceAlloc *getSrvHeap() { return pResourceAlloc; }
         RenderTargetAlloc *getRtvHeap() { return pRenderTargetAlloc; }
         DepthStencilAlloc *getDsvHeap() { return pDepthStencilAlloc; }
 
@@ -196,9 +195,9 @@ namespace simcoe::render {
         }
 
         ShaderResourceAlloc::Index mapTexture(rhi::TextureBuffer *pResource, size_t mips = 1) {
-            auto index = pDataAlloc->alloc();
+            auto index = pResourceAlloc->alloc();
             rhi::TextureMapInfo info = {
-                .handle = pDataAlloc->hostOffset(index),
+                .handle = pResourceAlloc->hostOffset(index),
                 .pTexture = pResource,
 
                 .mipLevels = mips,
@@ -210,9 +209,9 @@ namespace simcoe::render {
         }
 
         ShaderResourceAlloc::Index mapRwTexture(rhi::RwTextureBuffer *pResource, size_t mip) {
-            auto index = pDataAlloc->alloc();
+            auto index = pResourceAlloc->alloc();
             rhi::RwTextureMapInfo info = {
-                .handle = pDataAlloc->hostOffset(index),
+                .handle = pResourceAlloc->hostOffset(index),
                 .pTexture = pResource,
 
                 .mipSlice = mip,
@@ -224,13 +223,13 @@ namespace simcoe::render {
         }
 
         ShaderResourceAlloc::Index mapUniform(rhi::UniformBuffer *pBuffer, size_t size) {
-            auto index = pDataAlloc->alloc();
-            pDevice->mapUniform(pDataAlloc->hostOffset(index), pBuffer, size);
+            auto index = pResourceAlloc->alloc();
+            pDevice->mapUniform(pResourceAlloc->hostOffset(index), pBuffer, size);
             return index;
         }
 
         ShaderResourceAlloc::Index allocSrvIndex() {
-            return pDataAlloc->alloc();
+            return pResourceAlloc->alloc();
         }
 
         DepthStencilAlloc::Index mapDepth(rhi::DepthBuffer *pResource) {
@@ -245,7 +244,7 @@ namespace simcoe::render {
         }
 
         void setComputeShaderInput(UINT slot, ShaderResourceAlloc::Index index) {
-            pComputeCommands->setComputeShaderInput(slot, pDataAlloc->deviceOffset(index));
+            pComputeCommands->setComputeShaderInput(slot, pResourceAlloc->deviceOffset(index));
         }
 
         void dispatchCompute(UINT x, UINT y, UINT z = 1) {
@@ -295,7 +294,7 @@ namespace simcoe::render {
         // pipeline commands
 
         void setGraphicsShaderInput(UINT slot, ShaderResourceAlloc::Index index) {
-            pDirectCommands->setGraphicsShaderInput(slot, pDataAlloc->deviceOffset(index));
+            pDirectCommands->setGraphicsShaderInput(slot, pResourceAlloc->deviceOffset(index));
         }
 
         void drawIndexBuffer(rhi::IndexBuffer *pBuffer, size_t count) {
@@ -409,7 +408,7 @@ namespace simcoe::render {
         // heaps
 
         RenderTargetAlloc *pRenderTargetAlloc;
-        ShaderResourceAlloc *pDataAlloc;
+        ShaderResourceAlloc *pResourceAlloc;
         DepthStencilAlloc *pDepthStencilAlloc;
 
         // state

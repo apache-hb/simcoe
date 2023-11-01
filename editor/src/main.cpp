@@ -432,7 +432,7 @@ struct GameGui final : graph::IGuiPass {
         }
     }
 
-    static void drawHeapSlots(bool& open, const char *name, const simcoe::BitMap& alloc) {
+    static void drawHeapSlots(bool& open, const char *name, const core::BitMap& alloc) {
         if (open) {
             ImGui::SetNextItemOpen(true);
         }
@@ -451,7 +451,7 @@ struct GameGui final : graph::IGuiPass {
             if (ImGui::BeginTable("Slots", cols, flags)) {
                 for (auto i = 0; i < size; i++) {
                     ImGui::TableNextColumn();
-                    if (alloc.test(BitMap::Index(i))) {
+                    if (alloc.test(core::BitMap::Index(i))) {
                         ImGui::Text("%d (used)", i);
                     } else {
                         ImGui::TextDisabled("%d (free)", i);

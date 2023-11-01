@@ -39,6 +39,6 @@ namespace simcoe::core {
     private:
         T handle;
 
-        [[no_unique_address]] TDelete kDelete = TDelete();
+        static constexpr inline TDelete kDelete = TDelete();
     };
 }

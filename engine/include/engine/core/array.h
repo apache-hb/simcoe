@@ -34,6 +34,8 @@ namespace simcoe::core {
             return Super::get()[index];
         }
 
+        constexpr size_t getSize() const { return size; }
+
     private:
         size_t size;
     };
