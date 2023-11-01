@@ -5,33 +5,40 @@
 #include <utility>
 
 namespace simcoe::core {
-    template<typename T, T TEmpty, void(*TDelete)(T)>
+    template<typename T, typename O>
+    concept ConstDeleter = requires(const T& it) {
+        { it(O()) } -> std::same_as<void>;
+    } && std::is_empty_v<T>;
+
+    template<typename T, T TEmpty, ConstDeleter<T> TDelete>
     struct UniqueHandle {
         SM_NOCOPY(UniqueHandle)
 
-        UniqueHandle(T handle = TEmpty) noexcept
+        constexpr UniqueHandle(T handle = TEmpty) noexcept
             : handle(handle)
         { }
 
-        ~UniqueHandle() {
-            if (handle != TEmpty) TDelete(handle);
+        constexpr ~UniqueHandle() {
+            if (handle != TEmpty) kDelete(handle);
         }
 
-        UniqueHandle(UniqueHandle &&other) noexcept {
+        constexpr UniqueHandle(UniqueHandle &&other) noexcept {
             std::swap(handle, other.handle);
         }
 
-        UniqueHandle &operator=(UniqueHandle &&other) noexcept {
+        constexpr UniqueHandle &operator=(UniqueHandle &&other) noexcept {
             std::swap(handle, other.handle);
             return *this;
         }
 
-        T& get() noexcept { return handle; }
-        const T& get() const noexcept { return handle; }
-        explicit operator bool() const noexcept { return handle != TEmpty; }
-        operator T() const noexcept { return handle; }
+        constexpr T& get() noexcept { return handle; }
+        constexpr const T& get() const noexcept { return handle; }
+        constexpr explicit operator bool() const noexcept { return handle != TEmpty; }
+        constexpr operator T() const noexcept { return handle; }
 
     private:
         T handle;
+
+        [[no_unique_address]] TDelete kDelete = TDelete();
     };
 }

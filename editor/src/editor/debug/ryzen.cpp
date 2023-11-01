@@ -16,7 +16,7 @@ RyzenMonitorDebug::RyzenMonitorDebug()
     }
 }
 
-std::jthread RyzenMonitorDebug::getWorkThread() {
+threads::Thread RyzenMonitorDebug::getWorkThread() {
     std::lock_guard guard(monitorLock);
     if (const amd::CpuInfo *pCpuInfo = RyzenMonitorSerivce::getCpuInfo()) {
         coreData.resize(pCpuInfo->getCoreCount());
@@ -29,15 +29,15 @@ std::jthread RyzenMonitorDebug::getWorkThread() {
 
     bInfoDirty = true;
 
-    return std::jthread([this](auto token) {
-        DebugService::setThreadName("ryzen-monitor");
+    return [this](std::stop_token token) {
+        DebugService::setThreadName("ryzenmonitor");
         LOG_INFO("starting ryzen monitor update thread");
 
         while (!token.stop_requested()) {
             updateCoreInfo();
             std::this_thread::sleep_for(std::chrono::seconds(1)); // amd recommendation
         }
-    });
+    };
 }
 
 void RyzenMonitorDebug::draw() {
@@ -342,8 +342,11 @@ void RyzenMonitorDebug::drawCoreInfo() {
 
 void RyzenMonitorDebug::updateCoreInfo() {
     std::lock_guard guard(monitorLock);
-    RyzenMonitorSerivce::updateCpuInfo();
-    bInfoDirty = true;
-    lastUpdate = clock.now();
-    updates += 1;
+    if (RyzenMonitorSerivce::updateCpuInfo()) {
+        bInfoDirty = true;
+        lastUpdate = clock.now();
+        updates += 1;
+    } else {
+        LOG_WARN("Failed to update cpu info");
+    }
 }

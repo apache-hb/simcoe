@@ -4,6 +4,7 @@
 
 #include "engine/core/units.h"
 #include "engine/core/win32.h"
+#include "engine/core/array.h"
 
 #include "ryzen/IPlatform.h"
 
@@ -142,7 +143,7 @@ namespace amd {
         PackageData packageInfo;
 
         SocData socData;
-        std::unique_ptr<CoreInfo[]> cores;
+        core::FixedArray<CoreInfo> cores;
     };
 
     struct RyzenMonitorSerivce : simcoe::IStaticService<RyzenMonitorSerivce> {
@@ -162,7 +163,7 @@ namespace amd {
         static const CpuInfo *getCpuInfo();
 
         // update info
-        static void updateCpuInfo();
+        static bool updateCpuInfo();
 
     private:
         static bool isAuthenticAmd();

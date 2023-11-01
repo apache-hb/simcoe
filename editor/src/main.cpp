@@ -83,7 +83,7 @@ static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless
 
 /// threads
 static threads::WorkQueue *pMainQueue = nullptr;
-static std::vector<std::jthread> workPool; // TODO: use a thread pool
+static std::vector<threads::Thread> workPool; // TODO: use a thread pool
 
 /// input
 static input::Win32Keyboard *pKeyboard = nullptr;
@@ -585,7 +585,7 @@ static void startServiceDebuggers() {
     pThreadDebug = new debug::ThreadServiceDebug();
 
     if (RyzenMonitorSerivce::getState() & eServiceCreated) {
-        workPool.emplace_back(pRyzenDebug->getWorkThread());
+        workPool.push_back(pRyzenDebug->getWorkThread());
     }
 }
 

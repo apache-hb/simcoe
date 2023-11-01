@@ -232,22 +232,30 @@ namespace {
         GeometryBuilder *pBuilder;
         size_t cacheCount = 0;
 
+        static constexpr KAFFINITY KAFFINITY_MAX = std::numeric_limits<KAFFINITY>::max();
+
         void addProcessorCore(const PROCESSOR_RELATIONSHIP *pInfo) {
             std::vector<uint16_t> threadIds;
 
             for (DWORD i = 0; i < pInfo->GroupCount; ++i) {
                 GROUP_AFFINITY group = pInfo->GroupMask[i];
 
-                for (size_t i = 0; i < 64; ++i) {
+                for (size_t i = 0; i < KAFFINITY_MAX; ++i) {
                     KAFFINITY mask = 1ull << i;
-                    if (group.Mask & mask) {
-                        pBuilder->threads.push_back({
-                            .mask = { .affinity = group }
-                        });
+                    if (!(group.Mask & mask)) continue;
 
-                        uint16_t id = pBuilder->threads.size() - 1;
-                        threadIds.push_back(id);
-                    }
+                    GROUP_AFFINITY groupAffinity = {
+                        .Mask = group.Mask & mask,
+                        .Group = group.Group,
+                    };
+
+                    pBuilder->threads.push_back({
+                        .mask = { .affinity = groupAffinity }
+                    });
+
+                    uint16_t id = pBuilder->threads.size() - 1;
+                    threadIds.push_back(id);
+
                 }
             }
 
@@ -327,11 +335,9 @@ bool ThreadService::createService() {
     ProcessorInfoLayout processorInfoLayout{&builder};
     CpuSetLayout cpuSetLayout{&builder};
 
-    ProcessorInfo coreInfo{RelationProcessorCore};
-    ProcessorInfo cacheInfo{RelationCache};
-    ProcessorInfo packageInfo{RelationProcessorPackage};
+    ProcessorInfo procInfo{RelationAll};
 
-    for (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pRelation : coreInfo) {
+    for (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pRelation : procInfo) {
         switch (pRelation->Relationship) {
         case RelationProcessorCore:
             processorInfoLayout.addProcessorCore(&pRelation->Processor);
@@ -342,7 +348,7 @@ bool ThreadService::createService() {
         }
     }
 
-    for (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pRelation : cacheInfo) {
+    for (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pRelation : procInfo) {
         switch (pRelation->Relationship) {
         case RelationCache:
             processorInfoLayout.addCache(pRelation->Cache);
@@ -353,7 +359,7 @@ bool ThreadService::createService() {
         }
     }
 
-    for (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pRelation : packageInfo) {
+    for (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *pRelation : procInfo) {
         switch (pRelation->Relationship) {
         case RelationProcessorPackage:
             processorInfoLayout.addProcessorPackage(&pRelation->Processor);
@@ -398,10 +404,10 @@ std::string_view ThreadService::getFailureReason() {
 }
 
 ThreadId ThreadService::getCurrentThreadId() {
-    return std::this_thread::get_id();
+    return GetCurrentThreadId();
 }
 
-Geometry ThreadService::getGeometry() {
+const Geometry& ThreadService::getGeometry() {
     return get()->geometry;
 }
 
@@ -413,21 +419,3 @@ void ThreadService::migrateCurrentThread(const LogicalThread& thread) {
         throwLastError("SetThreadGroupAffinity failed");
     }
 }
-
-// c1: 14
-// c2: 14
-// c3: 9
-// c4: 12
-// c5: 8
-// c6: 11
-// c7: 10
-// c8: 13
-
-// c9: 7
-// c10: 6
-// c11: 2
-// c12: 4
-// c13: 0
-// c14: 5
-// c15: 3
-// c16: 1

@@ -5,12 +5,11 @@ using namespace editor::debug;
 
 ThreadServiceDebug::ThreadServiceDebug()
     : ServiceDebug("Threads")
+    , geometry(ThreadService::getGeometry())
 {
     if (ThreadService::getState() & ~eServiceCreated) {
         setFailureReason(ThreadService::getFailureReason());
     }
-
-    geometry = ThreadService::getGeometry();
 }
 
 void ThreadServiceDebug::draw() {

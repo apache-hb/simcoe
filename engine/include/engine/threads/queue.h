@@ -41,8 +41,8 @@ namespace simcoe::threads {
         }
 
     private:
-        std::jthread start(std::string_view name);
+        threads::Thread start(std::string_view name);
 
-        std::jthread workThread;
+        threads::Thread workThread;
     };
 }

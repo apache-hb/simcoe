@@ -63,7 +63,7 @@ namespace editor::debug {
 
         void draw() override;
 
-        std::jthread getWorkThread();
+        threads::Thread getWorkThread();
 
     private:
         void drawBiosInfo();
@@ -142,6 +142,6 @@ namespace editor::debug {
         void drawPackage(uint16_t i);
         uint16_t getFastestCore(uint16_t cluster) const;
 
-        threads::Geometry geometry = {};
+        const threads::Geometry& geometry;
     };
 }

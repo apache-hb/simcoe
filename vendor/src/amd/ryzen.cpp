@@ -36,9 +36,11 @@ namespace {
     constexpr DWORD kDefaultAccess = SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE | SC_MANAGER_CREATE_SERVICE;
     constexpr DWORD kSearchFlags = LOAD_LIBRARY_SEARCH_USER_DIRS | LOAD_LIBRARY_SEARCH_SYSTEM32;
 
-    void doCloseHandle(SC_HANDLE handle) { CloseServiceHandle(handle); }
+    struct DeleteScHandle {
+        void operator()(SC_HANDLE handle) const { CloseServiceHandle(handle); }
+    };
 
-    using ServiceHandle = core::UniqueHandle<SC_HANDLE, nullptr, &doCloseHandle>;
+    using ServiceHandle = core::UniqueHandle<SC_HANDLE, nullptr, DeleteScHandle>;
 
     using CpuVendor = std::array<char, 20>;
 
@@ -215,11 +217,6 @@ bool RyzenMonitorSerivce::createService() {
         return fail("Failed to load `Platform.dll` (err={})", DebugService::getErrorName());
     }
 
-    // hDeviceModule = LoadLibraryEx("Device", nullptr, kSearchFlags);
-    // if (hDeviceModule == nullptr) {
-    //     return fail("Failed to load `Device.dll` (err={})", DebugService::getErrorName());
-    // }
-
     auto *pGetPlatform = (decltype(&GetPlatform))GetProcAddress(hPlatformModule, kGetPlatformSymbol);
     if (pGetPlatform == nullptr) {
         return fail("Failed to get `GetPlatform` function (err={})", DebugService::getErrorName());
@@ -267,8 +264,8 @@ const CpuInfo *RyzenMonitorSerivce::getCpuInfo() {
     return get()->pCpuInfo;
 }
 
-void RyzenMonitorSerivce::updateCpuInfo() {
-    get()->pCpuInfo->refresh();
+bool RyzenMonitorSerivce::updateCpuInfo() {
+    return get()->pCpuInfo->refresh();
 }
 
 // internals
@@ -310,23 +307,17 @@ bool RyzenMonitorSerivce::isWindowsSupported() {
 }
 
 void RyzenMonitorSerivce::setupBiosDevices() {
-    IBIOSEx *pBios = reinterpret_cast<IBIOSEx*>(pManager->GetDevice(dtBIOS, 0));
-    if (pBios == nullptr) {
-        // if this happens something is probably mangled in the driver
-        LOG_ERROR("Failed to get BIOS device");
-        return;
+    if (IBIOSEx *pBios = reinterpret_cast<IBIOSEx*>(pManager->GetDevice(dtBIOS, 0)); pBios == nullptr) {
+        LOG_ERROR("Failed to get BIOS device, driver is probably busted");
+    } else {
+        pBiosInfo = new BiosInfo(pBios);
     }
-
-    pBiosInfo = new BiosInfo(pBios);
 }
 
 void RyzenMonitorSerivce::setupCpuDevices() {
-    ICPUEx *pCpu = reinterpret_cast<ICPUEx*>(pManager->GetDevice(dtCPU, 0));
-    if (pCpu == nullptr) {
-        // if this happens something is probably mangled in the driver
-        LOG_ERROR("Failed to get CPU device");
-        return;
+    if (ICPUEx *pCpu = reinterpret_cast<ICPUEx*>(pManager->GetDevice(dtCPU, 0)); pCpu == nullptr) {
+        LOG_ERROR("Failed to get CPU device, driver is probably busted");
+    } else {
+        pCpuInfo = new CpuInfo(pCpu);
     }
-
-    pCpuInfo = new CpuInfo(pCpu);
 }

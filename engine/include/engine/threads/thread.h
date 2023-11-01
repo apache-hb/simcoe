@@ -1,14 +1,15 @@
 #pragma once
 
-#include <thread>
 #include <functional>
+#include <string_view>
+#include <stop_token>
 
 #include "engine/core/macros.h"
 #include "engine/core/win32.h"
 
 namespace simcoe::threads {
-    using ThreadId = std::thread::id;
-    using ThreadStart = std::function<void()>;
+    using ThreadId = DWORD;
+    using ThreadStart = std::function<void(std::stop_token)>;
 
     struct ThreadMask {
         GROUP_AFFINITY affinity; ///< the threads affinity mask
@@ -51,18 +52,40 @@ namespace simcoe::threads {
     };
 
     struct Thread {
+        SM_NOCOPY(Thread)
+
+        Thread(Thread&&) noexcept;
+        Thread& operator=(Thread&&) noexcept;
+
+        template<std::invocable<std::stop_token> T>
+        Thread(T&& start) : Thread(ThreadStart(start)) { }
+
+        // create a thread
+        Thread(ThreadStart&& start);
+
         // create a thread on a specific logical thread
-        Thread(const LogicalThread& thread);
+        Thread(const LogicalThread& thread, ThreadStart&& start);
 
         // create a thread on a specific physical core (picks a thread inside it)
-        Thread(const PhysicalCore& core);
+        Thread(const PhysicalCore& core, ThreadStart&& start);
 
         // create a thread on a specific core cluster (picks a thread inside it)
-        Thread(const CoreCluster& cluster);
+        Thread(const CoreCluster& cluster, ThreadStart&& start);
 
         ~Thread();
 
+        const LogicalThread& getThreadIdx() const { return threadIdx; }
+        HANDLE getHandle() const { return hThread; }
+        ThreadId getId() const { return id; }
+
     private:
-        HANDLE hThread;
+        static DWORD WINAPI threadThunk(LPVOID lpParameter);
+
+        LogicalThread threadIdx = {};
+
+        HANDLE hThread = nullptr;
+        ThreadId id = 0;
+
+        std::stop_source stopper = {};
     };
 }

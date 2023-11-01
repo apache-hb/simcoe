@@ -28,8 +28,8 @@ bool WorkQueue::process() {
     return false;
 }
 
-std::jthread WorkThread::start(std::string_view name) {
-    return std::jthread([this, name](std::stop_token token) {
+threads::Thread WorkThread::start(std::string_view name) {
+    return [this, name](std::stop_token token) {
         DebugService::setThreadName(name);
         LOG_INFO("thread `{}` started", name);
 
@@ -39,5 +39,5 @@ std::jthread WorkThread::start(std::string_view name) {
         while (process()) { }
 
         LOG_INFO("thread `{}` stopped", name);
-    });
+    };
 }

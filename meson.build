@@ -118,6 +118,7 @@ src = [
     'engine/src/threads/service.cpp',
     'engine/src/threads/queue.cpp',
     'engine/src/threads/exclude.cpp',
+    'engine/src/threads/thread.cpp',
 
     # assets
     'engine/src/service/freetype.cpp',

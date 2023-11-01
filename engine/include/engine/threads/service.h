@@ -22,7 +22,7 @@ namespace simcoe {
         static threads::ThreadId getCurrentThreadId();
 
         // geometry management
-        static threads::Geometry getGeometry();
+        static const threads::Geometry& getGeometry();
 
         // thread migration
         static void migrateCurrentThread(const threads::LogicalThread& thread);

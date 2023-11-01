@@ -20,7 +20,6 @@ namespace {
         int year = std::stoi(text.substr(0, 4));
         int month = std::stoi(text.substr(4, 2));
         int day = std::stoi(text.substr(6, 2));
-        LOG_INFO("parsed date: {}-{}-{}", year, month, day);
         return core::Date(core::Day(day), core::Month(month), core::Year(year));
     }
 
@@ -68,29 +67,29 @@ BiosInfo::BiosInfo(IBIOSEx *pDevice)
     // clock
 
     if (int ret = pDevice->GetMemVDDIO(memoryInfo.vddioVoltage)) {
-        LOG_INFO("failed to get mem vddio: {}", errorString(ret + 1));
+        LOG_WARN("failed to get mem vddio: {}", errorString(ret + 1));
     }
 
     if (int ret = pDevice->GetCurrentMemClock(memoryInfo.memClock)) {
-        LOG_INFO("failed to get mem vddp: {}", errorString(ret + 1));
+        LOG_WARN("failed to get mem vddp: {}", errorString(ret + 1));
     }
 
     // timings
 
     if (int ret = pDevice->GetMemCtrlTcl(memoryInfo.ctrlTcl)) {
-        LOG_INFO("failed to get mem vddp: {}", errorString(ret + 1));
+        LOG_WARN("failed to get mem vddp: {}", errorString(ret + 1));
     }
 
     if (int ret = pDevice->GetMemCtrlTrcdrd(memoryInfo.ctrlTrcdrd)) {
-        LOG_INFO("failed to get mem vddp: {}", errorString(ret + 1));
+        LOG_WARN("failed to get mem vddp: {}", errorString(ret + 1));
     }
 
     if (int ret = pDevice->GetMemCtrlTras(memoryInfo.ctrlTras)) {
-        LOG_INFO("failed to get mem vddp: {}", errorString(ret + 1));
+        LOG_WARN("failed to get mem vddp: {}", errorString(ret + 1));
     }
 
     if (int ret = pDevice->GetMemCtrlTrp(memoryInfo.ctrlTrp)) {
-        LOG_INFO("failed to get mem vddp: {}", errorString(ret + 1));
+        LOG_WARN("failed to get mem vddp: {}", errorString(ret + 1));
     }
 }
 
@@ -107,14 +106,14 @@ CpuInfo::CpuInfo(ICPUEx *pDevice)
     package = cvtField(pDevice->GetPackage());
 
     if (int ret = pDevice->GetCoreCount(coreCount)) {
-        LOG_INFO("failed to get core count: {}", errorString(ret + 1));
+        LOG_WARN("failed to get core count: {}", errorString(ret + 1));
     }
 
     if (int ret = pDevice->GetCorePark(corePark)) {
-        LOG_INFO("failed to get core park: {}", errorString(ret + 1));
+        LOG_WARN("failed to get core park: {}", errorString(ret + 1));
     }
 
-    cores = std::make_unique<CoreInfo[]>(coreCount);
+    cores = core::FixedArray<CoreInfo>(std::max(1u, coreCount));
 
     refresh();
 }
@@ -122,7 +121,7 @@ CpuInfo::CpuInfo(ICPUEx *pDevice)
 bool CpuInfo::refresh() {
     CPUParameters params;
     if (int ret = pDevice->GetCPUParameters(params)) {
-        LOG_INFO("failed to get cpu parameters: {}", errorString(ret + 1));
+        LOG_WARN("failed to get cpu parameters: {}", errorString(ret + 1));
         return false;
     }
 
