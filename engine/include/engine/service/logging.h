@@ -109,7 +109,7 @@ namespace simcoe {
         }
 
     private:
-        void sendMessage(LogLevel level, std::string_view msg);
+        void sendMessage(LogLevel msgLevel, std::string_view msg);
         void throwAssert(std::string_view msg);
 
         // log filtering

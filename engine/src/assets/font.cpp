@@ -1,5 +1,6 @@
 #include "engine/assets/font.h"
 
+#include "engine/core/units.h"
 #include "engine/service/freetype.h"
 #include "engine/service/logging.h"
 
@@ -16,7 +17,7 @@ namespace {
 
     constexpr math::float4 kBlack = math::float4(1.f, 1.f, 1.f, 1.f);
 
-    void bltGlyph(Image& image, FT_Bitmap *pBitmap, FT_Int x, FT_Int y, math::float4 colour) {
+    void bltGlyph(Image& image, FT_Bitmap *pBitmap, FT_UInt x, FT_UInt y, math::float4 colour) {
         ASSERTF(pBitmap->pixel_mode == FT_PIXEL_MODE_GRAY, "unsupported pixel mode (mode={})", pBitmap->pixel_mode);
 
         auto writePixel = [&](size_t x, size_t y, std::byte value) {
@@ -29,9 +30,9 @@ namespace {
             image.data[index + 3] = value;
         };
 
-        for (FT_Int row = 0; row < pBitmap->rows; row++) {
-            for (FT_Int col = 0; col < pBitmap->width; col++) {
-                FT_Int index = row * pBitmap->pitch + col;
+        for (FT_UInt row = 0; row < pBitmap->rows; row++) {
+            for (FT_UInt col = 0; col < pBitmap->width; col++) {
+                FT_UInt index = row * pBitmap->pitch + col;
                 FT_Byte alpha = pBitmap->buffer[index];
 
                 writePixel(x + col, y + row, std::byte(alpha));
@@ -86,7 +87,7 @@ namespace {
             }
 
             FT_Bitmap *bitmap = &slot->bitmap;
-            bltGlyph(image, bitmap, slot->bitmap_left, size.height - slot->bitmap_top, colour);
+            bltGlyph(image, bitmap, slot->bitmap_left, core::intCast<FT_UInt>(size.height) - slot->bitmap_top, colour);
         }
 
         void advance() {

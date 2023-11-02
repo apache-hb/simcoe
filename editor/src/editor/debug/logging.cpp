@@ -1,5 +1,6 @@
 #include "editor/debug/logging.h"
 
+#include "engine/core/units.h"
 #include "engine/threads/service.h"
 
 using namespace simcoe;
@@ -68,7 +69,7 @@ void LoggingDebug::drawTable() {
 
         mt::read_lock lock(mutex);
         ImGuiListClipper clipper;
-        clipper.Begin(messages.size());
+        clipper.Begin(core::intCast<int>(messages.size()));
         while (clipper.Step()) {
             for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
                 const auto& msg = messages[row];
@@ -78,10 +79,10 @@ void LoggingDebug::drawTable() {
                 ImGui::TableNextColumn();
                 ImGui::Text("%s", msg.time.c_str());
                 ImGui::TableNextColumn();
-                if (auto name = ThreadService::getThreadName(msg.threadId); name.empty()) {
+                if (auto tid = ThreadService::getThreadName(msg.threadId); tid.empty()) {
                     ImGui::Text("0x%lx", msg.threadId);
                 } else {
-                    ImGui::Text("%s", name.data());
+                    ImGui::Text("%s", tid.data());
                 }
                 ImGui::TableNextColumn();
                 ImGui::Text("%s", getLevelName(msg.level));

@@ -16,7 +16,7 @@ namespace editor::graph {
     };
 
     struct ObjMesh final : render::ISingleMeshBufferHandle {
-        ObjMesh(render::Graph *ctx, const fs::path& path);
+        ObjMesh(render::Graph *pGraph, const fs::path& path);
 
         void create() override;
 

@@ -72,14 +72,14 @@ static int innerMain() try {
 
 // gui entry point
 
-int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
+int wWinMain(HINSTANCE hInstance, SM_UNUSED HINSTANCE hPrevInstance, SM_UNUSED LPWSTR lpCmdLine, int nCmdShow) {
     PlatformService::setup(hInstance, nCmdShow);
     return innerMain();
 }
 
 // command line entry point
 
-int main(int argc, const char **argv) {
+int main(SM_UNUSED int argc, SM_UNUSED const char **argv) {
     PlatformService::setup(GetModuleHandle(nullptr), SW_SHOWDEFAULT);
     return innerMain();
 }

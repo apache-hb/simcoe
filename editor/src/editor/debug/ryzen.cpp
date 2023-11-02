@@ -22,7 +22,7 @@ namespace {
         // when new data is available
         // we also then need to be able to signal the admin process to exit
         // once we exit
-        ThreadService::newThread(eWorker, "admin", [](std::stop_token token) {
+        ThreadService::enqueueWork("ryzenmonitor-admin-launch", [] {
             LOG_INFO("attempting to launch admin process");
             ShellExecute(
                 /* hwnd= */ nullptr,
@@ -154,7 +154,7 @@ void RyzenMonitorDebug::drawCoreHistory(size_t i, float width, float heightRatio
         ImPlot::SetupAxes("Time", "Frequency (MHz)", xFlags, yFlags);
         ImPlot::SetupAxisLimits(ImAxis_X1, lastUpdate - history, lastUpdate, ImGuiCond_Always);
         ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f, 6000.f, ImGuiCond_Always);
-        ImPlot::PlotShaded(fId, &freqHistory.Data[0].x, &freqHistory.Data[0].y, freqHistory.Data.size(), -INFINITY, ImPlotShadedFlags_None, freqHistory.Offset, 2 * sizeof(float));
+        ImPlot::PlotShaded(fId, &freqHistory.Data[0].x, &freqHistory.Data[0].y, core::intCast<int>(freqHistory.Data.size()), -INFINITY, ImPlotShadedFlags_None, freqHistory.Offset, 2 * sizeof(float));
         ImPlot::EndPlot();
     }
 
@@ -162,7 +162,7 @@ void RyzenMonitorDebug::drawCoreHistory(size_t i, float width, float heightRatio
         ImPlot::SetupAxes("Time", "Residency (%)", xFlags, yFlags);
         ImPlot::SetupAxisLimits(ImAxis_X1, lastUpdate - history, lastUpdate, ImGuiCond_Always);
         ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f, 100.f, ImGuiCond_Always);
-        ImPlot::PlotShaded(rId, &resHistory.Data[0].x, &resHistory.Data[0].y, resHistory.Data.size(), -INFINITY, ImPlotShadedFlags_None, resHistory.Offset, 2 * sizeof(float));
+        ImPlot::PlotShaded(rId, &resHistory.Data[0].x, &resHistory.Data[0].y, core::intCast<int>(resHistory.Data.size()), -INFINITY, ImPlotShadedFlags_None, resHistory.Offset, 2 * sizeof(float));
         ImPlot::EndPlot();
     }
 
@@ -199,7 +199,7 @@ void RyzenMonitorDebug::drawCoreInfoCurrentData() {
 
     ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_RowBg;
 
-    if (ImGui::BeginTable("Cores", cols, flags)) {
+    if (ImGui::BeginTable("Cores", core::intCast<int>(cols), flags)) {
         for (size_t i = 0; i < coreData.size(); i++) {
             ImGui::TableNextColumn();
 
@@ -217,14 +217,14 @@ void RyzenMonitorDebug::drawCoreInfoCurrentData() {
 }
 
 void RyzenMonitorDebug::drawCoreInfoHistory() {
-    float width = ImGui::GetWindowWidth();
+    float windowWidth = ImGui::GetWindowWidth();
     float cellWidth = 250.f;
-    size_t cols = size_t(width / cellWidth);
+    size_t cols = size_t(windowWidth / cellWidth);
     ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchSame;
 
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0.f, 0.f));
 
-    if (ImGui::BeginTable("Cores", cols, flags)) {
+    if (ImGui::BeginTable("Cores", core::intCast<int>(cols), flags)) {
         for (size_t i = 0; i < coreData.size(); i++) {
             ImGui::TableNextColumn();
 
@@ -262,14 +262,14 @@ void RyzenMonitorDebug::drawCoreHover(size_t i) {
 
 void RyzenMonitorDebug::drawCpuInfo() {
     if (const amd::CpuInfo *pCpuInfo = RyzenMonitorSerivce::getCpuInfo()) {
-        auto name = pCpuInfo->getName();
+        auto cpuName = pCpuInfo->getName();
         auto description = pCpuInfo->getDescription();
         auto vendor = pCpuInfo->getVendor();
         auto role = pCpuInfo->getRole();
         auto className = pCpuInfo->getClassName();
         auto package = pCpuInfo->getPackage();
 
-        ImGui::Text("Name: %s", name.data());
+        ImGui::Text("Name: %s", cpuName.data());
         ImGui::Text("Description: %s", description.data());
         ImGui::Text("Vendor: %s", vendor.data());
         ImGui::Text("Role: %s", role.data());
@@ -357,9 +357,9 @@ void RyzenMonitorDebug::drawSocInfo() {
 void RyzenMonitorDebug::drawCoreInfo() {
     if (ImGui::CollapsingHeader("Core info")) {
         ImGui::PushItemWidth(100.f);
-        ImGui::Combo("Hover mode", (int*)&hoverMode, kHoverNames.data(), kHoverNames.size());
+        ImGui::Combo("Hover mode", (int*)&hoverMode, kHoverNames.data(), core::intCast<int>(kHoverNames.size()));
         ImGui::SameLine();
-        ImGui::Combo("Display mode", (int*)&displayMode, kDisplayNames.data(), kDisplayNames.size());
+        ImGui::Combo("Display mode", (int*)&displayMode, kDisplayNames.data(), core::intCast<int>(kDisplayNames.size()));
         ImGui::PopItemWidth();
 
         ImGui::Checkbox("Show frequency graphs", &bShowFrequency);

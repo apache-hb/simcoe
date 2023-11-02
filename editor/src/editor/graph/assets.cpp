@@ -67,13 +67,13 @@ void SceneTargetHandle::create() {
         .format = rhi::TypeFormat::eRGBA8,
     };
 
-    auto *pResource = ctx->createTextureRenderTarget(textureCreateInfo, getClearColour());
-    pResource->setName("scene-target");
+    auto *pRenderTexture = ctx->createTextureRenderTarget(textureCreateInfo, getClearColour());
+    pRenderTexture->setName("scene-target");
 
-    setResource(pResource);
+    setResource(pRenderTexture);
     setCurrentState(rhi::ResourceState::eTextureRead);
-    setSrvIndex(ctx->mapTexture(pResource));
-    setRtvIndex(ctx->mapRenderTarget(pResource));
+    setSrvIndex(ctx->mapTexture(pRenderTexture));
+    setRtvIndex(ctx->mapRenderTarget(pRenderTexture));
 }
 
 void SceneTargetHandle::destroy() {
@@ -95,10 +95,10 @@ void DepthTargetHandle::create() {
         .format = rhi::TypeFormat::eDepth32,
     };
 
-    auto *pResource = ctx->createDepthStencil(textureCreateInfo);
-    setResource(pResource);
+    auto *pDepthStencil = ctx->createDepthStencil(textureCreateInfo);
+    setResource(pDepthStencil);
     setCurrentState(rhi::ResourceState::eDepthWrite);
-    setDsvIndex(ctx->mapDepth(pResource));
+    setDsvIndex(ctx->mapDepth(pDepthStencil));
 }
 
 void DepthTargetHandle::destroy() {
@@ -128,20 +128,20 @@ void TextureHandle::create() {
         .format = rhi::TypeFormat::eRGBA8
     };
 
-    auto *pResource = ctx->createTexture(textureInfo);
+    auto *pTexture = ctx->createTexture(textureInfo);
 
-    setResource(pResource);
-    setSrvIndex(ctx->mapTexture(pResource));
+    setResource(pTexture);
+    setSrvIndex(ctx->mapTexture(pTexture));
     setCurrentState(rhi::ResourceState::eCopyDest);
 
     std::unique_ptr<rhi::UploadBuffer> pTextureStaging{ctx->createTextureUploadBuffer(textureInfo)};
 
-    pResource->setName(name);
+    pTexture->setName(name);
     pTextureStaging->setName("staging(" + name + ")");
 
     ctx->beginCopy();
 
-    ctx->copyTexture(pResource, pTextureStaging.get(), textureInfo, image.data);
+    ctx->copyTexture(pTexture, pTextureStaging.get(), textureInfo, image.data);
 
     ctx->endCopy();
 }
@@ -186,7 +186,7 @@ void TextHandle::destroy() {
 }
 
 void TextHandle::setFontSize(size_t pt) {
-    font.setFontSize(pt, getWindowDpi(ctx->getCreateInfo()));
+    font.setFontSize(core::intCast<int>(pt), getWindowDpi(ctx->getCreateInfo()));
 }
 
 void TextHandle::draw() {
@@ -202,20 +202,20 @@ void TextHandle::upload() {
         .format = rhi::TypeFormat::eRGBA8
     };
 
-    auto *pResource = ctx->createTexture(textureInfo);
+    auto *pTexture = ctx->createTexture(textureInfo);
 
-    setResource(pResource);
-    setSrvIndex(ctx->mapTexture(pResource));
+    setResource(pTexture);
+    setSrvIndex(ctx->mapTexture(pTexture));
     setCurrentState(rhi::ResourceState::eCopyDest);
 
     std::unique_ptr<rhi::UploadBuffer> pTextureStaging{ctx->createTextureUploadBuffer(textureInfo)};
 
-    pResource->setName("text");
+    pTexture->setName("text");
     pTextureStaging->setName("staging(text)");
 
     ctx->beginCopy();
 
-    ctx->copyTexture(pResource, pTextureStaging.get(), textureInfo, bitmap.data);
+    ctx->copyTexture(pTexture, pTextureStaging.get(), textureInfo, bitmap.data);
 
     ctx->endCopy();
 }

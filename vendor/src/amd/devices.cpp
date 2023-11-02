@@ -138,13 +138,13 @@ bool CpuInfo::refresh() {
         packageInfo.mode = OcMode::eModeDefault;
     }
 
-    packageInfo.peakSpeed = params.dPeakSpeed;
-    packageInfo.temperature = params.dTemperature;
+    packageInfo.peakSpeed = float(params.dPeakSpeed);
+    packageInfo.temperature = float(params.dTemperature);
 
-    packageInfo.chctCurrentLimit = params.fcHTCLimit;
+    packageInfo.chctCurrentLimit = float(params.fcHTCLimit);
 
-    packageInfo.avgCoreVoltage = params.dAvgCoreVoltage;
-    packageInfo.peakCoreVoltage = params.dPeakCoreVoltage;
+    packageInfo.avgCoreVoltage = float(params.dAvgCoreVoltage);
+    packageInfo.peakCoreVoltage = float(params.dPeakCoreVoltage);
 
     packageInfo.maxClock = params.fCCLK_Fmax;
     packageInfo.fabricClock = params.fFCLKP0Freq;
@@ -162,13 +162,13 @@ bool CpuInfo::refresh() {
 
     const EffectiveFreqData& fd = params.stFreqData;
     for (unsigned i = 0; i < std::min(fd.uLength, coreCount); i++) {
-        cores[i].frequency = fd.dFreq[i];
-        cores[i].residency = fd.dState[i];
+        cores[i].frequency = float(fd.dFreq[i]);
+        cores[i].residency = float(fd.dState[i]);
     }
 
     // update soc data
 
-    socData.voltage = params.dSocVoltage;
+    socData.voltage = float(params.dSocVoltage);
 
     socData.edcCurrentLimit = params.fEDCLimit_SOC;
     socData.edcCurrentValue = params.fEDCValue_SOC;

@@ -8,5 +8,6 @@ device = cc.find_library('device', dirs : [ here/'lib' ])
 
 ryzen = declare_dependency(
     include_directories : 'include',
-    dependencies : [ platform, device ]
+    dependencies : [ platform, device ],
+    compile_args : [ '/wd4201' ] # nonstandard extension used: nameless struct/union
 )

@@ -352,7 +352,7 @@ namespace simcoe::rhi {
 
     struct DisplayQueue {
         // public interface
-        RenderTarget *getRenderTarget(UINT index);
+        RenderTarget *getRenderTarget(size_t index);
         size_t getFrameIndex();
         bool getFullscreenState();
 
@@ -480,8 +480,8 @@ namespace simcoe::rhi {
         void setVertexBuffer(VertexBuffer *pBuffer, Topology topology = Topology::eTriangleList);
         void setIndexBuffer(IndexBuffer *pBuffer);
 
-        void drawVertexBuffer(UINT count);
-        void drawIndexBuffer(UINT count);
+        void drawVertexBuffer(size_t count);
+        void drawIndexBuffer(size_t count);
 
         void setDisplay(const Display& display);
         void clearRenderTarget(HostHeapOffset handle, math::float4 colour);
@@ -632,8 +632,8 @@ namespace simcoe::rhi {
     // descriptor heap
 
     struct DescriptorHeap : Object<ID3D12DescriptorHeap> {
-        DeviceHeapOffset deviceOffset(UINT index);
-        HostHeapOffset hostOffset(UINT index);
+        DeviceHeapOffset deviceOffset(size_t index);
+        HostHeapOffset hostOffset(size_t index);
 
         static DescriptorHeap *create(ID3D12DescriptorHeap *pHeap, UINT descriptorSize);
 

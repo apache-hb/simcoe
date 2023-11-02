@@ -36,9 +36,9 @@ void GdkDebug::draw() {
         ImGui::TableNextColumn();
         ImGui::Text("enabled");
 
-        for (const auto& [name, bEnabled] : features) {
+        for (const auto& [featureName, bEnabled] : features) {
             ImGui::TableNextColumn();
-            ImGui::Text("%s", name.data());
+            ImGui::Text("%s", featureName.data());
             ImGui::TableNextColumn();
             ImGui::Text("%s", bEnabled ? "enabled" : "disabled");
         }

@@ -143,24 +143,24 @@ namespace simcoe::render {
         rhi::TypeFormat getDepthFormat() const { return rhi::TypeFormat::eDepth32; }
 
         // create resources
-        rhi::TextureBuffer *createTextureRenderTarget(const rhi::TextureInfo& createInfo, const math::float4& clearColour) {
-            return pDevice->createTextureRenderTarget(createInfo, clearColour);
+        rhi::TextureBuffer *createTextureRenderTarget(const rhi::TextureInfo& info, const math::float4& clearColour) {
+            return pDevice->createTextureRenderTarget(info, clearColour);
         }
 
-        rhi::DepthBuffer *createDepthStencil(const rhi::TextureInfo& createInfo) {
-            return pDevice->createDepthStencil(createInfo);
+        rhi::DepthBuffer *createDepthStencil(const rhi::TextureInfo& info) {
+            return pDevice->createDepthStencil(info);
         }
 
         rhi::UniformBuffer *createUniformBuffer(size_t size) {
             return pDevice->createUniformBuffer(size);
         }
 
-        rhi::PipelineState *createGraphicsPipeline(const rhi::GraphicsPipelineInfo& createInfo) {
-            return pDevice->createGraphicsPipeline(createInfo);
+        rhi::PipelineState *createGraphicsPipeline(const rhi::GraphicsPipelineInfo& info) {
+            return pDevice->createGraphicsPipeline(info);
         }
 
-        rhi::PipelineState *createComputePipeline(const rhi::ComputePipelineInfo& createInfo) {
-            return pDevice->createComputePipeline(createInfo);
+        rhi::PipelineState *createComputePipeline(const rhi::ComputePipelineInfo& info) {
+            return pDevice->createComputePipeline(info);
         }
 
         rhi::UploadBuffer *createUploadBuffer(const void *pData, size_t size) {

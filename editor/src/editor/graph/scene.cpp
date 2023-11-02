@@ -25,8 +25,8 @@ constexpr rhi::Display createDisplay(UINT width, UINT height) {
     return { viewport, scissor };
 }
 
-ScenePass::ScenePass(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget)
-    : IRenderPass(ctx, "scene", eDepRenderSize)
+ScenePass::ScenePass(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget)
+    : IRenderPass(pGraph, "scene", eDepRenderSize)
 {
     setRenderTargetHandle(pRenderTarget);
 }

@@ -5,7 +5,7 @@
 namespace editor::graph {
     struct PostPass final : IRenderPass {
         PostPass(
-            Graph *ctx,
+            Graph *pGraph,
             ResourceWrapper<IRTVHandle> *pRenderTarget,
             ResourceWrapper<ISRVHandle> *pSceneSource
         );
@@ -25,7 +25,7 @@ namespace editor::graph {
     };
 
     struct PresentPass final : ICommandPass {
-        PresentPass(Graph *ctx, ResourceWrapper<SwapChainHandle> *pBackBuffers);
+        PresentPass(Graph *pGraph, ResourceWrapper<SwapChainHandle> *pBackBuffers);
 
         void create() override { }
         void destroy() override { }

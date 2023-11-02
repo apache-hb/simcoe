@@ -84,7 +84,7 @@ void ThreadServiceDebug::drawPackage(threads::PackageIndex i) {
 
 threads::CoreIndex ThreadServiceDebug::getFastestCore(threads::ChipletIndex cluster) const {
     threads::CoreIndex fastest = threads::CoreIndex::eInvalid;
-    uint8_t bestSchedule = UINT8_MAX;
+    uint16_t bestSchedule = UINT16_MAX;
 
     for (threads::CoreIndex index : geometry.getChiplet(cluster).coreIds) {
         const auto& core = geometry.getCore(index);

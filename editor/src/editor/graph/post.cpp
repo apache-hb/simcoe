@@ -5,14 +5,14 @@
 using namespace editor;
 using namespace editor::graph;
 
-static constexpr float x = 1.f;
-static constexpr float y = 1.f;
+static constexpr float quadX = 1.f;
+static constexpr float quadY = 1.f;
 
 static constexpr auto kScreenQuad = std::to_array<Vertex>({
-    { { -x, y, 0.0f }, { 0.0f, 0.0f } },
-    { { x, y, 0.0f }, { 1.0f, 0.0f } },
-    { { x, -y, 0.0f }, { 1.0f, 1.0f } },
-    { { -x, -y, 0.0f }, { 0.0f, 1.0f } }
+    { { -quadX, quadY, 0.0f }, { 0.0f, 0.0f } },
+    { { quadX, quadY, 0.0f }, { 1.0f, 0.0f } },
+    { { quadX, -quadY, 0.0f }, { 1.0f, 1.0f } },
+    { { -quadX, -quadY, 0.0f }, { 0.0f, 1.0f } }
 });
 
 static constexpr auto kScreenQuadIndices = std::to_array<uint16_t>({
@@ -52,8 +52,8 @@ static rhi::Display createLetterBoxDisplay(UINT renderWidth, UINT renderHeight, 
     return { viewport, scissor };
 }
 
-PostPass::PostPass(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
-    : IRenderPass(ctx, "post", StateDep(eDepDisplaySize | eDepRenderSize))
+PostPass::PostPass(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
+    : IRenderPass(pGraph, "post", StateDep(eDepDisplaySize | eDepRenderSize))
     , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTextureRead))
 {
     setRenderTargetHandle(pRenderTarget);

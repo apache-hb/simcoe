@@ -48,7 +48,7 @@ void EngineDebug::draw() {
 void EngineDebug::drawFrameTimes() {
     ImGui::SeparatorText("Frame times");
 
-    float now = ImGui::GetTime();
+    float now = float(ImGui::GetTime());
     float delta = now - lastUpdate;
     lastUpdate = now;
 
@@ -64,7 +64,7 @@ void EngineDebug::drawFrameTimes() {
         ImPlot::SetupAxisLimits(ImAxis_X1, lastUpdate - history, lastUpdate, ImGuiCond_Always);
         ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f, 100.f, ImGuiCond_Always);
         ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.25f);
-        ImPlot::PlotLine(id, &frameTimes.Data[0].x, &frameTimes.Data[0].y, frameTimes.Data.size(), ImPlotLineFlags_Shaded, frameTimes.Offset, 2 * sizeof(float));
+        ImPlot::PlotLine(id, &frameTimes.Data[0].x, &frameTimes.Data[0].y, core::intCast<int>(frameTimes.Data.size()), ImPlotLineFlags_Shaded, frameTimes.Offset, 2 * sizeof(float));
         ImPlot::PopStyleVar();
         ImPlot::EndPlot();
     }

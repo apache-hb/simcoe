@@ -1,3 +1,4 @@
+#include "engine/core/units.h"
 #include "engine/rhi/rhi.h"
 
 #include "engine/service/debug.h"
@@ -179,7 +180,7 @@ const char *categoryToString(D3D12_MESSAGE_CATEGORY category) {
     }
 }
 
-static void debugCallback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID id, LPCSTR desc, void *pUser) {
+static void debugCallback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID id, LPCSTR desc, SM_UNUSED void *pUser) {
     const char *categoryStr = categoryToString(category);
     const char *severityStr = severityToString(severity);
 
@@ -332,12 +333,12 @@ void Commands::setIndexBuffer(IndexBuffer *pBuffer) {
     get()->IASetIndexBuffer(&view);
 }
 
-void Commands::drawVertexBuffer(UINT count) {
-    get()->DrawInstanced(count, 1, 0, 0);
+void Commands::drawVertexBuffer(size_t count) {
+    get()->DrawInstanced(core::intCast<UINT>(count), 1, 0, 0);
 }
 
-void Commands::drawIndexBuffer(UINT count) {
-    get()->DrawIndexedInstanced(count, 1, 0, 0, 0);
+void Commands::drawIndexBuffer(size_t count) {
+    get()->DrawIndexedInstanced(core::intCast<UINT>(count), 1, 0, 0, 0);
 }
 
 void Commands::copyBuffer(DeviceResource *pDestination, UploadBuffer *pSource) {
@@ -434,9 +435,9 @@ void DisplayQueue::resizeBuffers(UINT bufferCount, UINT width, UINT height) {
     HR_CHECK(pSwapChain->ResizeBuffers(bufferCount, width, height, desc.BufferDesc.Format, desc.Flags));
 }
 
-RenderTarget *DisplayQueue::getRenderTarget(UINT index) {
+RenderTarget *DisplayQueue::getRenderTarget(size_t index) {
     ID3D12Resource *pResource = nullptr;
-    HR_CHECK(pSwapChain->GetBuffer(index, IID_PPV_ARGS(&pResource)));
+    HR_CHECK(pSwapChain->GetBuffer(core::intCast<UINT>(index), IID_PPV_ARGS(&pResource)));
 
     return RenderTarget::create(pResource);
 }
@@ -486,8 +487,8 @@ void Device::remove() {
 }
 
 void Device::reportFaultInfo() {
-    HRESULT hr = get()->GetDeviceRemovedReason();
-    LOG_INFO("device removed reason: {}", DebugService::getResultName(hr));
+    HRESULT removedReason = get()->GetDeviceRemovedReason();
+    LOG_INFO("device removed reason: {}", DebugService::getResultName(removedReason));
 
     if (!(createFlags & eCreateExtendedInfo)) {
         return;
@@ -603,7 +604,7 @@ DescriptorHeap *Device::createDepthStencilHeap(UINT count) {
 static CD3DX12_DESCRIPTOR_RANGE1 createRange(D3D12_DESCRIPTOR_RANGE_TYPE type, const InputSlot& slot) {
     CD3DX12_DESCRIPTOR_RANGE1 range;
     auto dataFlag = slot.isStatic ? D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC : D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE;
-    range.Init(type, 1, slot.reg, 0, dataFlag, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND);
+    range.Init(type, 1, core::intCast<UINT>(slot.reg), 0, dataFlag, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND);
     return range;
 }
 
@@ -615,7 +616,7 @@ PipelineState *Device::createGraphicsPipeline(const GraphicsPipelineInfo& create
     std::vector<D3D12_ROOT_PARAMETER1> parameters;
     auto addParam = [&](const D3D12_ROOT_PARAMETER1& param) {
         parameters.push_back(param);
-        return parameters.size() - 1;
+        return core::intCast<UINT>(parameters.size() - 1);
     };
 
     // first check texture inputs
@@ -748,7 +749,7 @@ PipelineState *Device::createComputePipeline(const ComputePipelineInfo& createIn
     std::vector<D3D12_ROOT_PARAMETER1> parameters;
     auto addParam = [&](const D3D12_ROOT_PARAMETER1& param) {
         parameters.push_back(param);
-        return parameters.size() - 1;
+        return core::intCast<UINT>(parameters.size() - 1);
     };
 
     // first check texture inputs
@@ -1133,7 +1134,7 @@ static ID3D12Debug *getDeviceDebugInterface() {
 static ID3D12InfoQueue1 *getDeviceInfoQueue(DWORD *pCookie, ID3D12Device *pDevice) {
     ID3D12InfoQueue1 *pInfoQueue = nullptr;
 
-    if (HRESULT hr = pDevice->QueryInterface(IID_PPV_ARGS(&pInfoQueue)); SUCCEEDED(hr)) {
+    if (HRESULT queryHr = pDevice->QueryInterface(IID_PPV_ARGS(&pInfoQueue)); SUCCEEDED(queryHr)) {
         LOG_INFO("enabling d3d12 info queue");
         HR_CHECK(pInfoQueue->RegisterMessageCallback(debugCallback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, pCookie));
     } else {
@@ -1289,12 +1290,12 @@ Context::~Context() {
 
 // descriptor heap
 
-DeviceHeapOffset DescriptorHeap::deviceOffset(UINT index) {
-    return DeviceHeapOffset(get()->GetGPUDescriptorHandleForHeapStart().ptr + index * descriptorSize);
+DeviceHeapOffset DescriptorHeap::deviceOffset(size_t index) {
+    return DeviceHeapOffset(get()->GetGPUDescriptorHandleForHeapStart().ptr + core::intCast<UINT>(index) * descriptorSize);
 }
 
-HostHeapOffset DescriptorHeap::hostOffset(UINT index) {
-    return HostHeapOffset(get()->GetCPUDescriptorHandleForHeapStart().ptr + index * descriptorSize);
+HostHeapOffset DescriptorHeap::hostOffset(size_t index) {
+    return HostHeapOffset(get()->GetCPUDescriptorHandleForHeapStart().ptr + core::intCast<UINT>(index) * descriptorSize);
 }
 
 DescriptorHeap *DescriptorHeap::create(ID3D12DescriptorHeap *pHeap, UINT descriptorSize) {

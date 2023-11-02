@@ -16,10 +16,10 @@ namespace simcoe {
     struct IWindowCallbacks {
         virtual ~IWindowCallbacks() = default;
 
-        virtual void onResize(const WindowSize& event) { }
+        virtual void onResize(const WindowSize&) { }
         virtual void onClose() { }
 
-        virtual bool onEvent(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { return false; }
+        virtual bool onEvent(HWND, UINT, WPARAM, LPARAM) { return false; }
     };
 
     enum class WindowStyle {

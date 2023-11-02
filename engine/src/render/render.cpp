@@ -1,4 +1,5 @@
 #include "engine/render/render.h"
+#include "engine/core/units.h"
 
 #include <DirectXMath.h>
 
@@ -166,7 +167,8 @@ void Context::createHeaps() {
     pRenderTargetAlloc = new RenderTargetAlloc(pDevice->createRenderTargetHeap(16), 16);
     pDepthStencilAlloc = new DepthStencilAlloc(pDevice->createDepthStencilHeap(16), 16);
 
-    pResourceAlloc = new ShaderResourceAlloc(pDevice->createShaderDataHeap(createInfo.srvHeapSize), createInfo.srvHeapSize);
+    UINT srvHeapSize = core::intCast<UINT>(createInfo.srvHeapSize);
+    pResourceAlloc = new ShaderResourceAlloc(pDevice->createShaderDataHeap(srvHeapSize), srvHeapSize);
 }
 
 void Context::destroyHeaps() {

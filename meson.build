@@ -6,20 +6,30 @@ project('simcoe', 'cpp',
         'cpp_rtti=false',
         'b_vscrt=static_from_buildtype',
 
+        'warning_level=3',
+
+        'tomlplusplus:build_lib=true',
+
         'libpng:tests=disabled',
         'zlib:tests=disabled',
 
         'harfbuzz:cpp_std=c++20',
+        'harfbuzz:warning_level=1',
         'harfbuzz:tests=disabled',
         'harfbuzz:freetype=disabled',
 
-        'freetype:harfbuzz=enabled'
+        'freetype:harfbuzz=enabled',
+        'freetype:warning_level=0',
+        'freetype:cpp_args=-D_CRT_SECURE_NO_WARNINGS=1'
     ]
 )
 
 ###
 ### config
 ###
+
+# fuck you
+add_global_arguments('-DNOMINMAX', language : 'cpp')
 
 buildtype = get_option('buildtype')
 is_release = buildtype.contains('release')
@@ -57,6 +67,9 @@ netapi = win32.get_variable('netapi')
 directx = subproject('directx').get_variable('directx')
 xinput = subproject('xinput').get_variable('xinput')
 
+# config
+tomlpp = dependency('tomlplusplus')
+
 # asset loading
 stb = subproject('stb').get_variable('stb')
 zlib = dependency('zlib')
@@ -82,9 +95,21 @@ config = configuration_data()
 config.set10('DEBUG_ENGINE', is_debug)
 config.set10('DEBUG_RENDER', debug_render.allowed())
 
+services = get_option('services')
+
+config.set10('SERVICE_DEBUG', is_debug)
+config.set10('SERVICE_LOGGING', true)
+config.set10('SERVICE_RYZEN', services.contains('ryzenmonitor'))
+config.set10('SERVICE_GDK', services.contains('gdk'))
+
 ###
 ### engine
 ###
+
+args = [
+    '/wd4324' # disable warning C4324: structure was padded due to alignment specifier
+              # we want this because of UNIFORM_BUFFER
+]
 
 src = [
     # config
@@ -158,7 +183,7 @@ deps = [
     moodycamel, threads,
 
     # assets
-    stb, harfbuzz, freetype2,
+    stb, harfbuzz, freetype2, tomlpp,
 
     # render
     directx,
@@ -169,13 +194,15 @@ deps = [
 
 libengine = library('engine', src,
     include_directories : inc,
-    dependencies : deps
+    dependencies : deps,
+    cpp_args : args
 )
 
 engine = declare_dependency(
     link_with : libengine,
     include_directories : inc,
-    dependencies : deps
+    dependencies : deps,
+    compile_args : args
 )
 
 ###
@@ -330,7 +357,7 @@ deps = [
 editor = executable('editor', src,
     dependencies : deps,
     include_directories : [ 'editor/include' ],
-    cpp_args : [ '-DEDITOR=1' ],
+    cpp_args : [ '-DEDITOR=1', '/wd4127' ], # disable warning C4127: conditional expression is constant
     gui_app : gui_app.enabled()
 )
 

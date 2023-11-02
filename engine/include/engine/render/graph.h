@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/render/render.h"
+
 #include <unordered_map>
 
 namespace simcoe::render {
@@ -64,16 +65,16 @@ namespace simcoe::render {
         rhi::DeviceResource* getResource() const final override { return pResource; }
 
     protected:
-        void setResource(T *pResource) {
-            this->pResource = pResource;
+        void setResource(T *pNewResource) {
+            pResource = pNewResource;
             setResourceName(getName());
         }
 
         T *getBuffer() const { return pResource; }
 
     private:
-        void setResourceName(std::string_view name) {
-            pResource->setName(name);
+        void setResourceName(std::string_view resourceName) {
+            pResource->setName(resourceName);
         }
         T *pResource = nullptr;
     };
@@ -90,7 +91,9 @@ namespace simcoe::render {
         math::float4 getClearColour() const { return clearColour; }
 
     protected:
-        void setClearColour(math::float4 clearColour) { this->clearColour = clearColour; }
+        void setClearColour(math::float4 colour) {
+            clearColour = colour;
+        }
 
     private:
         math::float4 clearColour = { 0.0f, 0.0f, 0.0f, 1.0f };

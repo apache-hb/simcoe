@@ -12,11 +12,11 @@ namespace editor::graph {
     };
 
     struct MipMapInfoHandle : IUniformHandle<MipMapInfo> {
-        MipMapInfoHandle(Graph *ctx);
+        MipMapInfoHandle(Graph *pGraph);
     };
 
     struct RwTextureHandle : ISingleResourceHandle<rhi::RwTextureBuffer>, ISingleUAVHandle {
-        RwTextureHandle(Graph *ctx, uint2 size, size_t mipLevel);
+        RwTextureHandle(Graph *pGraph, uint2 size, size_t mipLevel);
 
         void create() override;
         void destroy() override;
@@ -27,7 +27,7 @@ namespace editor::graph {
     };
 
     struct MipMapPass : ICommandPass {
-        MipMapPass(Graph *ctx, ResourceWrapper<TextureHandle> *pSourceTexture, size_t mipLevels);
+        MipMapPass(Graph *pGraph, ResourceWrapper<TextureHandle> *pSourceTexture, size_t mipLevels);
 
         void create() override;
         void destroy() override;

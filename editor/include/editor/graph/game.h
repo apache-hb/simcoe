@@ -15,16 +15,16 @@ namespace editor::graph {
     };
 
     struct CameraUniformHandle final : IUniformHandle<CameraUniform> {
-        CameraUniformHandle(Graph *ctx)
-            : IUniformHandle(ctx, "uniform.camera", eDepRenderSize)
+        CameraUniformHandle(Graph *pGraph)
+            : IUniformHandle(pGraph, "uniform.camera", eDepRenderSize)
         { }
 
         void update(game::World *pLevel);
     };
 
     struct ObjectUniformHandle final : IUniformHandle<ObjectUniform> {
-        ObjectUniformHandle(Graph *ctx, std::string_view name)
-            : IUniformHandle(ctx, std::format("uniform.object.{}", name))
+        ObjectUniformHandle(Graph *pGraph, std::string_view name)
+            : IUniformHandle(pGraph, std::format("uniform.object.{}", name))
         { }
 
         void update(game::IEntity *pObject);

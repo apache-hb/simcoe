@@ -50,6 +50,7 @@ void World::tickRender() {
         renderStep.waitForNextTick();
     } catch (const std::runtime_error& e) {
         renderFaults += 1;
+        LOG_ERROR("fault: {}", e.what());
         LOG_ERROR("render fault. {} total fault{}", renderFaults, renderFaults > 1 ? "s" : "");
 
         if (renderFaults >= info.renderFaultLimit) {

@@ -1,5 +1,6 @@
 #include "engine/assets/assets.h"
 
+#include "engine/core/units.h"
 #include "engine/service/logging.h"
 
 #include <stb/stb_image.h>
@@ -27,7 +28,7 @@ fs::path Assets::getAssetPath(const fs::path& path) const {
     return root / path;
 }
 
-std::vector<std::byte> Assets::loadBlob(const std::filesystem::path& path) const {
+std::vector<std::byte> Assets::loadBlob(const fs::path& path) const {
     std::vector<std::byte> data;
 
     std::ifstream file(root / path, std::ios::binary);
@@ -42,8 +43,8 @@ std::vector<std::byte> Assets::loadBlob(const std::filesystem::path& path) const
     return data;
 }
 
-Image Assets::loadImage(const std::filesystem::path& path) const {
-    std::filesystem::path fullPath = root / path;
+Image Assets::loadImage(const fs::path& path) const {
+    fs::path fullPath = root / path;
 
     int width;
     int height;
@@ -54,11 +55,25 @@ Image Assets::loadImage(const std::filesystem::path& path) const {
         throw std::runtime_error("Failed to load image: " + fullPath.string());
     }
 
+    // round up to nearest power of 2
+    int newWidth = core::nextPowerOf2(width);
+    int newHeight = core::nextPowerOf2(height);
+
+    newWidth = newHeight = std::max(newWidth, newHeight);
+    std::vector<std::byte> newData(newWidth * newHeight * kChannels);
+
+    // copy image data, try and center it in the new image
+    for (int y = 0; y < height; ++y) {
+        std::memcpy(newData.data() + (newWidth * (y + (newHeight - height) / 2) + (newWidth - width) / 2) * kChannels,
+                    pData + width * y * kChannels,
+                    width * kChannels);
+    }
+
     Image image = {
         .format = ImageFormat::eRGBA8,
-        .width = static_cast<size_t>(width),
-        .height = static_cast<size_t>(height),
-        .data = { (std::byte*)pData, (std::byte*)pData + width * height * kChannels }
+        .width = static_cast<size_t>(newWidth),
+        .height = static_cast<size_t>(newHeight),
+        .data = std::move(newData)
     };
 
     stbi_image_free(pData);
@@ -66,7 +81,7 @@ Image Assets::loadImage(const std::filesystem::path& path) const {
     return image;
 }
 
-Font Assets::loadFont(const std::filesystem::path& path) const {
+Font Assets::loadFont(const fs::path& path) const {
     return getFontFile(root / path);
 }
 

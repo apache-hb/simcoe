@@ -181,6 +181,7 @@ struct GameGui final : graph::IGuiPass {
     int currentAdapter = 0;
     std::vector<const char*> adapterNames;
 
+    ImGui::FileBrowser imgLoadBrowser;
     ImGui::FileBrowser objFileBrowser;
     ImGui::FileBrowser imguiFileBrowser{ImGuiFileBrowserFlags_EnterNewFilename};
 
@@ -189,8 +190,68 @@ struct GameGui final : graph::IGuiPass {
     ResourceWrapper<graph::TextHandle> *pTextHandle = nullptr;
     PassAttachment<graph::TextHandle> *pTextAttachment = nullptr;
 
-    ResourceWrapper<graph::TextureHandle> *pImageHandle = nullptr;
-    PassAttachment<graph::TextureHandle> *pImageAttachment = nullptr;
+    struct ImageData {
+        std::string name;
+        ResourceWrapper<graph::TextureHandle> *pHandle = nullptr;
+        PassAttachment<graph::TextureHandle> *pAttachment = nullptr;
+    };
+
+    std::vector<ImageData> images;
+    int currentImage = 0;
+
+    void addImage(std::string imageName) {
+        auto *pHandle = pGraph->addResource<graph::TextureHandle>(imageName);
+        auto *pAttachment = addAttachment(pHandle, rhi::ResourceState::eTextureRead);
+
+        images.push_back({ imageName, pHandle, pAttachment });
+        currentImage = core::intCast<int>(images.size()) - 1;
+    }
+
+    debug::GlobalHandle imageHandle = debug::addGlobalHandle("Images", [this] {
+        // draw a grid of images
+        float windowWidth = ImGui::GetWindowWidth();
+        float cellWidth = 250.f;
+        size_t cols = std::clamp<size_t>(size_t(windowWidth / cellWidth), 1, 8);
+
+        if (ImGui::BeginCombo("Image", images[currentImage].name.c_str())) {
+            for (size_t i = 0; i < images.size(); i++) {
+                bool bSelected = int(i) == currentImage;
+                if (ImGui::Selectable(images[i].name.c_str(), bSelected)) {
+                    currentImage = core::intCast<int>(i);
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+        ImVec4 color = ImGui::GetStyleColorVec4(ImGuiCol_Header);
+        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0, 0, 0, 0));
+        for (size_t i = 0; i < images.size(); i++) {
+            if (i % cols != 0) ImGui::SameLine();
+            ImGui::PushID(int(i));
+
+            auto& image = images[i];
+            ImGuiSelectableFlags flags = ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_AllowOverlap;
+            ImVec2 size = { cellWidth, cellWidth };
+            auto *pHandle = image.pHandle;
+            auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getInner()->getSrvIndex());
+
+            ImVec2 before = ImGui::GetCursorPos();
+            ImGui::Image((ImTextureID)offset, { cellWidth, cellWidth });
+            ImGui::SetCursorPos(before);
+
+            bool bSelectedImage = int(i) == currentImage;
+            if (bSelectedImage) ImGui::PushStyleColor(ImGuiCol_Header, color);
+
+            if (ImGui::Selectable(image.name.c_str(), bSelectedImage, flags, size)) {
+                currentImage = core::intCast<int>(i);
+            }
+
+            if (bSelectedImage) ImGui::PopStyleColor();
+
+            ImGui::PopID();
+        }
+        ImGui::PopStyleColor();
+    });
 
     GameGui(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
         : IGuiPass(pGraph, pRenderTarget)
@@ -199,8 +260,7 @@ struct GameGui final : graph::IGuiPass {
         pTextHandle = pGraph->addResource<graph::TextHandle>("SwarmFace-Regular");
         pTextAttachment = addAttachment(pTextHandle, rhi::ResourceState::eTextureRead);
 
-        pImageHandle = pGraph->addResource<graph::TextureHandle>("meme.jpg");
-        pImageAttachment = addAttachment(pImageHandle, rhi::ResourceState::eTextureRead);
+        addImage("meme.jpg");
 
         ImPlot::CreateContext();
     }
@@ -210,6 +270,7 @@ struct GameGui final : graph::IGuiPass {
     }
 
     void sceneDebug() {
+        auto *pImageHandle = images[currentImage].pHandle;
         ISRVHandle *pHandle = pImageHandle->getInner(); //pSceneSource->getInner();
         auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getSrvIndex());
         const auto &createInfo = ctx->getCreateInfo();
@@ -235,14 +296,14 @@ struct GameGui final : graph::IGuiPass {
     void create() override {
         IGuiPass::create();
 
-        const auto &info = ctx->getCreateInfo();
+        const auto &createInfo = ctx->getCreateInfo();
 
-        renderSize[0] = info.renderWidth;
-        renderSize[1] = info.renderHeight;
+        renderSize[0] = core::intCast<int>(createInfo.renderWidth);
+        renderSize[1] = core::intCast<int>(createInfo.renderHeight);
 
-        backBufferCount = info.backBufferCount;
+        backBufferCount = core::intCast<int>(createInfo.backBufferCount);
+        currentAdapter = core::intCast<int>(createInfo.adapterIndex);
 
-        currentAdapter = info.adapterIndex;
         for (auto *pAdapter : ctx->getAdapters()) {
             auto info = pAdapter->getInfo();
             adapterNames.push_back(_strdup(info.name.c_str()));
@@ -329,10 +390,16 @@ struct GameGui final : graph::IGuiPass {
                     imguiFileBrowser.Open();
                 }
 
-                if (ImGui::MenuItem("Open")) {
+                if (ImGui::MenuItem("Import Model")) {
                     objFileBrowser.SetTitle("Open OBJ File");
                     objFileBrowser.SetTypeFilters({ ".obj" });
                     objFileBrowser.Open();
+                }
+
+                if (ImGui::MenuItem("Import Image")) {
+                    imgLoadBrowser.SetTitle("Open Image File");
+                    imgLoadBrowser.SetTypeFilters({ ".jpg", ".png" });
+                    imgLoadBrowser.Open();
                 }
                 ImGui::EndMenu();
             }
@@ -383,6 +450,7 @@ struct GameGui final : graph::IGuiPass {
     void drawFilePicker() {
         imguiFileBrowser.Display();
         objFileBrowser.Display();
+        imgLoadBrowser.Display();
 
         if (objFileBrowser.HasSelected()) {
             auto path = objFileBrowser.GetSelected();
@@ -397,6 +465,14 @@ struct GameGui final : graph::IGuiPass {
 
             ImGui::SaveIniSettingsToDisk(path.string().c_str());
         }
+
+        if (imgLoadBrowser.HasSelected()) {
+            auto path = imgLoadBrowser.GetSelected().string();
+            LOG_INFO("selected: {}", path);
+            imgLoadBrowser.ClearSelected();
+
+            addImage(path);
+        }
     }
 
     static void drawHeapSlots(bool& open, const char *name, const core::BitMap& alloc) {
@@ -407,21 +483,21 @@ struct GameGui final : graph::IGuiPass {
         if (ImGui::CollapsingHeader(name)) {
             open = true;
             // show a grid of slots
-            auto size = alloc.getSize();
-            auto rows = size / 8;
-            auto cols = size / rows;
+            size_t size = alloc.getSize();
+            size_t rows = size / 8;
+            size_t cols = size / rows;
 
             ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchSame
                                   | ImGuiTableFlags_BordersInner
                                   | ImGuiTableFlags_RowBg;
 
-            if (ImGui::BeginTable("Slots", cols, flags)) {
-                for (auto i = 0; i < size; i++) {
+            if (ImGui::BeginTable("Slots", core::intCast<int>(cols), flags)) {
+                for (size_t i = 0; i < size; i++) {
                     ImGui::TableNextColumn();
                     if (alloc.test(core::BitMap::Index(i))) {
-                        ImGui::Text("%d (used)", i);
+                        ImGui::Text("%zu (used)", i);
                     } else {
-                        ImGui::TextDisabled("%d (free)", i);
+                        ImGui::TextDisabled("%zu (free)", i);
                     }
                 }
 
@@ -463,7 +539,7 @@ struct GameGui final : graph::IGuiPass {
             ImGui::Text("Internal resolution: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
 
             int currentWindowMode = gWindowMode;
-            if (ImGui::Combo("Window mode", &currentWindowMode, kWindowModeNames.data(), kWindowModeNames.size())) {
+            if (ImGui::Combo("Window mode", &currentWindowMode, kWindowModeNames.data(), core::intCast<int>(kWindowModeNames.size()))) {
                 pWorld->pRenderThread->add("change-window-mode", [oldMode = gWindowMode, newMode = currentWindowMode] {
                     changeWindowMode(WindowMode(oldMode), WindowMode(newMode));
                 });
@@ -489,7 +565,7 @@ struct GameGui final : graph::IGuiPass {
                 });
             }
 
-            if (ImGui::Combo("Adapter", &currentAdapter, adapterNames.data(), adapterNames.size())) {
+            if (ImGui::Combo("Adapter", &currentAdapter, adapterNames.data(), core::intCast<int>(adapterNames.size()))) {
                 pWorld->pRenderThread->add("change-adapter", [this] {
                     pGraph->changeAdapter(currentAdapter);
                     LOG_INFO("change-adapter: {}", currentAdapter);
@@ -721,14 +797,14 @@ static int innerMain() {
 
 // gui entry point
 
-int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
+int wWinMain(HINSTANCE hInstance, SM_UNUSED HINSTANCE hPrevInstance, SM_UNUSED LPWSTR lpCmdLine, int nCmdShow) {
     PlatformService::setup(hInstance, nCmdShow);
     return innerMain();
 }
 
 // command line entry point
 
-int main(int argc, const char **argv) {
+int main(SM_UNUSED int argc, SM_UNUSED const char **argv) {
     PlatformService::setup(GetModuleHandle(nullptr), SW_SHOWDEFAULT);
     return innerMain();
 }

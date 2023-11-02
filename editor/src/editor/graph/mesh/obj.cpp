@@ -124,23 +124,23 @@ void ObjMesh::loadAsset() {
 }
 
 void ObjMesh::create() {
-    rhi::VertexBuffer *pVertexBuffer = ctx->createVertexBuffer(vertexData.size(), sizeof(ObjVertex));
-    rhi::IndexBuffer *pIndexBuffer = ctx->createIndexBuffer(indexData.size(), rhi::TypeFormat::eUint16);
+    rhi::VertexBuffer *pFinalVBO = ctx->createVertexBuffer(vertexData.size(), sizeof(ObjVertex));
+    rhi::IndexBuffer *pFinalIBO = ctx->createIndexBuffer(indexData.size(), rhi::TypeFormat::eUint16);
 
     std::unique_ptr<rhi::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(vertexData.data(), vertexData.size() * sizeof(ObjVertex))};
     std::unique_ptr<rhi::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(indexData.data(), indexData.size() * sizeof(uint16_t))};
 
-    pIndexBuffer->setName(std::format("ibo({})", path.string()));
-    pVertexBuffer->setName(std::format("vbo({})", path.string()));
+    pFinalIBO->setName(std::format("ibo({})", path.string()));
+    pFinalVBO->setName(std::format("vbo({})", path.string()));
 
     pIndexStaging->setName(std::format("ibo-staging({})", path.string()));
     pVertexStaging->setName(std::format("vbo-staging({})", path.string()));
 
     ctx->beginCopy();
-    ctx->copyBuffer(pVertexBuffer, pVertexStaging.get());
-    ctx->copyBuffer(pIndexBuffer, pIndexStaging.get());
+    ctx->copyBuffer(pFinalVBO, pVertexStaging.get());
+    ctx->copyBuffer(pFinalIBO, pIndexStaging.get());
     ctx->endCopy();
 
-    setVertexBuffer(pVertexBuffer);
-    setIndexBuffer(pIndexBuffer);
+    setVertexBuffer(pFinalVBO);
+    setIndexBuffer(pFinalIBO);
 }

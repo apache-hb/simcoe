@@ -4,7 +4,7 @@
 
 namespace editor::graph {
     struct ScenePass final : IRenderPass {
-        ScenePass(Graph *ctx, ResourceWrapper<IRTVHandle> *pRenderTarget);
+        ScenePass(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget);
 
         void create() override;
         void destroy() override;

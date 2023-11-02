@@ -13,12 +13,12 @@ WorkQueue::WorkQueue(size_t size)
 { }
 
 void WorkQueue::add(std::string name, WorkItem item) {
-    WorkMessage message = {
+    WorkMessage event = {
         .name = name,
         .item = item
     };
 
-    workQueue.enqueue(message);
+    workQueue.enqueue(event);
 }
 
 bool WorkQueue::process() {

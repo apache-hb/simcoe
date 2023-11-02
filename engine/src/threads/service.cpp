@@ -1,5 +1,6 @@
 #include "engine/threads/service.h"
 
+#include "engine/core/units.h"
 #include "engine/service/logging.h"
 #include <unordered_set>
 
@@ -204,7 +205,7 @@ namespace {
             for (size_t i = 0; i < items.size(); ++i) {
                 const auto& item = items[i];
                 if (item.mask.Group == affinity.Group && item.mask.Mask & affinity.Mask) {
-                    uniqueIds.insert(Index(i));
+                    uniqueIds.insert(core::enumCast<Index>(i));
                 }
             }
 
@@ -242,8 +243,8 @@ namespace {
             for (DWORD i = 0; i < pInfo->GroupCount; ++i) {
                 GROUP_AFFINITY group = pInfo->GroupMask[i];
 
-                for (size_t i = 0; i < KAFFINITY_BITS; ++i) {
-                    KAFFINITY mask = 1ull << i;
+                for (size_t bit = 0; bit < KAFFINITY_BITS; ++bit) {
+                    KAFFINITY mask = 1ull << bit;
                     if (!(group.Mask & mask)) continue;
 
                     GROUP_AFFINITY groupAffinity = {
@@ -255,8 +256,7 @@ namespace {
                         .mask = ScheduleMask(groupAffinity)
                     });
 
-                    uint16_t id = pBuilder->subcores.size() - 1;
-                    subcoreIds.push_back(SubcoreIndex(id));
+                    subcoreIds.push_back(core::enumCast<SubcoreIndex>(pBuilder->subcores.size() - 1));
                 }
             }
 
@@ -318,7 +318,7 @@ namespace {
         void addCpuSet(const SYSTEM_CPU_SET_INFORMATION *pInfo) {
             auto cpuSet = pInfo->CpuSet;
             GROUP_AFFINITY groupAffinity = {
-                .Mask = 1ul << KAFFINITY(cpuSet.LogicalProcessorIndex),
+                .Mask = 1ull << KAFFINITY(cpuSet.LogicalProcessorIndex),
                 .Group = cpuSet.Group
             };
 

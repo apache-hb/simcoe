@@ -91,9 +91,9 @@ void LoggingService::destroyService() {
 
 // private interface
 
-void LoggingService::sendMessage(LogLevel level, std::string_view msg) {
+void LoggingService::sendMessage(LogLevel msgLevel, std::string_view msg) {
     LogMessage message = {
-        .level = level,
+        .level = msgLevel,
         .name = ThreadService::getThreadName(),
         .threadId = ThreadService::getCurrentThreadId(),
         .time = chrono::system_clock::now(),

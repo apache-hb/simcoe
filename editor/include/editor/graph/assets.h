@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/core/units.h"
+
 #include "editor/debug/debug.h"
 
 #include "engine/render/graph.h"
@@ -25,9 +27,9 @@ namespace editor::graph {
         { }
 
         void create() override {
-            auto *pResource = ctx->createUniformBuffer(sizeof(T));
-            setResource(pResource);
-            setSrvIndex(ctx->mapUniform(pResource, sizeof(T)));
+            auto *pUniform = ctx->createUniformBuffer(sizeof(T));
+            setResource(pUniform);
+            setSrvIndex(ctx->mapUniform(pUniform, sizeof(T)));
             setCurrentState(rhi::ResourceState::eUniform);
         }
 
@@ -81,7 +83,7 @@ namespace editor::graph {
         void create() override;
         void destroy() override;
 
-        uint2 getSize() const { return uint2::from(image.width, image.height); }
+        uint2 getSize() const { return uint2::from(core::intCast<uint32_t>(image.width), core::intCast<uint32_t>(image.height)); }
 
     private:
         // image path

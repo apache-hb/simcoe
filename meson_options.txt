@@ -15,3 +15,10 @@ option('windows-store',
     type : 'feature',
     value : 'auto'
 )
+
+option('services',
+    description : 'optional editor services to enable',
+    choices : [ 'ryzenmonitor', 'gdk' ],
+    type : 'array',
+    value : [ 'ryzenmonitor', 'gdk' ]
+)
