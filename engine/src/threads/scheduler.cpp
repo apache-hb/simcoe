@@ -1,4 +1,6 @@
+#if 0
 #include "engine/threads/schedule.h"
+#include "engine/threads/service.h"
 
 #include "engine/service/logging.h"
 
@@ -248,3 +250,4 @@ void Scheduler::setupThreadData() {
 
     LOG_INFO("collated thread performance data");
 }
+#endif

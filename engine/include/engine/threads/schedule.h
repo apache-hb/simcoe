@@ -3,27 +3,7 @@
 #include "engine/threads/service.h"
 
 namespace simcoe::threads {
-    enum ThreadType {
-        // a thread that needs to be realtime, or almost realtime
-        // e.g. a thread that processes audio data
-        eRealtime,
-
-        // a thread that needs to be responsive, but not realtime
-        // e.g. a thread that processes user input or game logic
-        eResponsive,
-
-        // a thread that doesnt need meet any timing requirements
-        // e.g. a thread that writes to a log file or processes network data
-        eBackground,
-
-        // long running thread that only needs to work occasionally
-        // e.g. a thread that polls the system for performance data 1x per second
-        eWorker,
-
-        // total enum count
-        eCount
-    };
-
+#if 0
     struct Scheduler {
         Scheduler();
         ~Scheduler();
@@ -31,7 +11,7 @@ namespace simcoe::threads {
         Thread& newThread(ThreadType type, std::string_view name, ThreadStart&& start);
 
         template<typename Rep, typename Period, typename F>
-        Thread& newWorker(std::string_view name, std::chrono::duration<Rep, Period> interval, F&& tick) {
+        Thread& newJob(std::string_view name, std::chrono::duration<Rep, Period> interval, F&& tick) {
             return newThread(eWorker, name, [tick, interval](std::stop_token stop) {
                 while (!stop.stop_requested()) {
                     tick();
@@ -68,4 +48,5 @@ namespace simcoe::threads {
 
         std::vector<threads::Thread> threads;
     };
+#endif
 }

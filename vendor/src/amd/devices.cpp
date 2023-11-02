@@ -113,7 +113,7 @@ CpuInfo::CpuInfo(ICPUEx *pDevice)
         LOG_WARN("failed to get core park: {}", errorString(ret + 1));
     }
 
-    cores = core::FixedArray<CoreInfo>(std::max(1u, coreCount));
+    cores = core::UniquePtr<CoreInfo[]>(std::max(1u, coreCount));
 
     refresh();
 }

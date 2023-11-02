@@ -4,6 +4,8 @@
 #include "engine/service/logging.h"
 #include "engine/service/debug.h"
 
+#include "engine/core/unique.h"
+
 #include <string_view>
 
 using namespace simcoe;
@@ -36,42 +38,35 @@ struct ThreadStartInfo {
     std::string_view name;
 };
 
-DWORD WINAPI Thread::threadThunk(LPVOID lpParameter) try {
-    std::unique_ptr<ThreadStartInfo> pInfo {static_cast<ThreadStartInfo*>(lpParameter)};
-    DebugService::setThreadName(pInfo->name);
+// thread handle
 
-    LOG_INFO("thread {:#x} started", ThreadService::getCurrentThreadId());
-    pInfo->start(pInfo->token);
-    LOG_INFO("thread {:#x} stopped", ThreadService::getCurrentThreadId());
-    return 0;
-} catch (std::exception& err) {
-    LOG_ERROR("thread {:#x} failed with exception: {}", ThreadService::getCurrentThreadId(), err.what());
-    return 99;
-} catch (...) {
-    LOG_ERROR("thread {:#x} failed with unknown exception", ThreadService::getCurrentThreadId());
-    return 99;
+namespace {
+    DWORD runThread(core::UniquePtr<ThreadStartInfo> pInfo, ThreadId id) try {
+        LOG_INFO("thread {:#06x} started", id);
+        pInfo->start(pInfo->token);
+        LOG_INFO("thread {:#06x} stopped", id);
+        return 0;
+    } catch (std::exception& err) {
+        LOG_ERROR("thread {:#06x} failed with exception: {}", id, err.what());
+        return 99;
+    } catch (...) {
+        LOG_ERROR("thread {:#06x} failed with unknown exception", id);
+        return 99;
+    }
 }
 
-Thread::Thread(Thread&& other) noexcept {
-    std::swap(id, other.id);
-    std::swap(hThread, other.hThread);
-    std::swap(subcore, other.subcore);
-    std::swap(stopper, other.stopper);
+DWORD WINAPI ThreadHandle::threadThunk(LPVOID lpParameter) {
+    ThreadId id = ThreadService::getCurrentThreadId();
+    return runThread(static_cast<ThreadStartInfo*>(lpParameter), id);
 }
 
-Thread& Thread::operator=(Thread&& other) noexcept {
-    std::swap(id, other.id);
-    std::swap(hThread, other.hThread);
-    std::swap(subcore, other.subcore);
-    std::swap(stopper, other.stopper);
-    return *this;
-}
-
-Thread::Thread(const Subcore& subcore, std::string_view name, ThreadStart&& start)
-    : subcore(subcore)
+ThreadHandle::ThreadHandle(ThreadInfo&& info)
+    : type(info.type)
+    , mask(info.mask)
+    , name(info.name)
 {
     auto *pStart = new ThreadStartInfo {
-        .start = std::move(start),
+        .start = std::move(info.start),
         .token = stopper.get_token(),
         .name = name
     };
@@ -79,19 +74,18 @@ Thread::Thread(const Subcore& subcore, std::string_view name, ThreadStart&& star
     hThread = CreateThread(
         /*lpThreadAttributes=*/ nullptr,
         /*dwStackSize=*/ 0,
-        /*lpStartAddress=*/ Thread::threadThunk,
+        /*lpStartAddress=*/ ThreadHandle::threadThunk,
         /*lpParameter=*/ pStart, // deleted by threadThunk
         /*dwCreationFlags=*/ CREATE_SUSPENDED,
         /*lpThreadId=*/ &id
     );
 
-    if (hThread == nullptr) {
-        throwLastError("CreateThread");
-    }
+    if (hThread == nullptr) { throwLastError("CreateThread"); }
 
-    const GROUP_AFFINITY affinity = subcore.mask;
+    ThreadService::setThreadName(std::string(name), id);
 
-    if (!SetThreadGroupAffinity(hThread, &affinity, nullptr)) {
+    const GROUP_AFFINITY affinity = mask;
+    if (SetThreadGroupAffinity(hThread, &affinity, nullptr) == 0) {
         auto msg = std::format("SetThreadGroupAffinity failed, internal state corruption!!! thread affinity mask: {}", affinity);
         throwLastError(msg);
     }
@@ -100,14 +94,17 @@ Thread::Thread(const Subcore& subcore, std::string_view name, ThreadStart&& star
         throwLastError("ResumeThread");
     }
 
-    LOG_INFO("created os thread {:#x} on logical thread {}", GetThreadId(hThread), affinity);
+    LOG_INFO("created thread (name={}, id={:#06x}) with mask {}", ThreadService::getThreadName(id), id, affinity);
 }
 
-Thread::~Thread() {
+ThreadHandle::~ThreadHandle() {
     if (hThread == nullptr) return;
-
-    LOG_INFO("requesting stop (id: {:#x} handle: {})", id, (void*)hThread);
     stopper.request_stop();
+
+    // TODO: make sure the thread closes
+    if (WaitForSingleObject(hThread, INFINITE) != WAIT_OBJECT_0) {
+        throwLastError(std::format("WaitForSingleObject failed for thread (name={}, id={:#06x})", name, id));
+    }
 
     CloseHandle(hThread);
 }

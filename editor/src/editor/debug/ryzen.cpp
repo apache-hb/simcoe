@@ -3,10 +3,38 @@
 #include "imgui/imgui_internal.h"
 #include "implot/implot.h"
 
+using namespace simcoe;
+using namespace simcoe::threads;
+
 using namespace editor;
 using namespace editor::debug;
 
 using amd::RyzenMonitorSerivce;
+
+namespace {
+    void launchAdminProcess() {
+        // TODO: this will be a bit of a mess
+        // we need a seperate exe with just the ryzenmonitor service
+        // then need to share some memory between the two processes
+        // finally the admin process will poll and write to the shared memory
+        // which we can then read from the editor process
+        // this also requires a global waitable object to signal from the admin to us
+        // when new data is available
+        // we also then need to be able to signal the admin process to exit
+        // once we exit
+        ThreadService::newThread(eWorker, "admin", [](std::stop_token token) {
+            LOG_INFO("attempting to launch admin process");
+            ShellExecute(
+                /* hwnd= */ nullptr,
+                /* lpOperation= */ "runas",
+                /* lpFile= */ "C:\\Windows\\Notepad.exe",
+                /* lpParameters= */ nullptr,
+                /* lpDirectory= */ nullptr,
+                /* nShowCmd= */ SW_SHOWDEFAULT
+            );
+        });
+    }
+}
 
 RyzenMonitorDebug::RyzenMonitorDebug()
     : ServiceDebug("RyzenMonitor")
@@ -42,6 +70,24 @@ void RyzenMonitorDebug::draw() {
     drawPackageInfo();
     drawSocInfo();
     drawCoreInfo();
+}
+
+void RyzenMonitorDebug::drawWindow() {
+    if (!bOpen) return;
+
+    if (ImGui::Begin(getName().data(), &bOpen)) {
+        auto err = getFailureReason();
+        if (!err.empty()) {
+            ImGui::Text("Failed to initialize: %s", err.data());
+            if (ImGui::Button("Launch as admin")) {
+                launchAdminProcess();
+            }
+        } else {
+            draw();
+        }
+    }
+
+    ImGui::End();
 }
 
 void RyzenMonitorDebug::drawBiosInfo() {

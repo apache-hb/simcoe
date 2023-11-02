@@ -139,6 +139,11 @@ float Clock::now() const {
     return float(counter - start) / PlatformService::getFrequency();
 }
 
+uint32_t Clock::ms() const {
+    size_t counter = PlatformService::queryCounter();
+    return uint32_t((counter - start) * 1000 / PlatformService::getFrequency());
+}
+
 // window callback
 
 #define WM_USER_COMMAND (WM_USER + 1)

@@ -143,7 +143,7 @@ namespace amd {
         PackageData packageInfo;
 
         SocData socData;
-        core::FixedArray<CoreInfo> cores;
+        core::UniquePtr<CoreInfo[]> cores;
     };
 
     struct RyzenMonitorSerivce : simcoe::IStaticService<RyzenMonitorSerivce> {
@@ -166,9 +166,6 @@ namespace amd {
         static bool updateCpuInfo();
 
     private:
-        static bool isAuthenticAmd();
-        static bool isWindowsSupported();
-
         void setupBiosDevices();
         void setupCpuDevices();
 

@@ -5,11 +5,11 @@
 using namespace simcoe;
 using namespace simcoe::threads;
 
-ThreadExclusiveRegion::ThreadExclusiveRegion(ThreadId expectedId, std::string expectedName) {
+ThreadExclusiveRegion::ThreadExclusiveRegion(ThreadId expectedId, std::string_view expectedName) {
     migrate(expectedId, expectedName);
 }
 
-void ThreadExclusiveRegion::migrate(ThreadId expectedId, std::string expectedName) {
+void ThreadExclusiveRegion::migrate(ThreadId expectedId, std::string_view expectedName) {
     expectedThreadId = expectedId;
     expectedThreadName = expectedName;
 }

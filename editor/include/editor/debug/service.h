@@ -15,7 +15,7 @@ namespace editor::debug {
     struct ScrollingBuffer {
         int MaxSize;
         int Offset;
-        ImVector<ImVec2> Data;
+        std::vector<ImVec2> Data;
         ScrollingBuffer(int max_size = 2000) {
             MaxSize = max_size;
             Offset  = 0;
@@ -33,7 +33,7 @@ namespace editor::debug {
 
         void Erase() {
             if (Data.size() > 0) {
-                Data.shrink(0);
+                Data.clear();
                 Offset  = 0;
             }
         }
@@ -62,6 +62,7 @@ namespace editor::debug {
         RyzenMonitorDebug();
 
         void draw() override;
+        void drawWindow() override;
 
         void updateCoreInfo();
 

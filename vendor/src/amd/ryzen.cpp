@@ -10,6 +10,7 @@
 #include "ryzen/IDeviceManager.h"
 
 #include <filesystem>
+#include <unordered_map>
 
 #include <intrin.h>
 #include <tchar.h>
@@ -36,11 +37,19 @@ namespace {
     constexpr DWORD kDefaultAccess = SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE | SC_MANAGER_CREATE_SERVICE;
     constexpr DWORD kSearchFlags = LOAD_LIBRARY_SEARCH_USER_DIRS | LOAD_LIBRARY_SEARCH_SYSTEM32;
 
-    struct DeleteScHandle {
-        void operator()(SC_HANDLE handle) const { CloseServiceHandle(handle); }
-    };
+    using DeleteScHandle = decltype([](SC_HANDLE handle) { CloseServiceHandle(handle); });
 
-    using ServiceHandle = core::UniqueHandle<SC_HANDLE, nullptr, DeleteScHandle>;
+    using ServiceHandle = core::UniqueHandle<SC_HANDLE, DeleteScHandle, nullptr>;
+
+    using InfoSink = std::unordered_map<std::string_view, std::string>;
+
+    std::string formatInfo(const InfoSink& sink) {
+        std::vector<std::string> info;
+        for (const auto& [key, value] : sink) {
+            info.emplace_back(std::format("{}: {}", key, value));
+        }
+        return util::join(info, ", ");
+    }
 
     using CpuVendor = std::array<char, 20>;
 
@@ -106,13 +115,15 @@ namespace {
         return std::find(ids.begin(), ids.end(), id) != ids.end();
     }
 
-    bool isProcessorSupported() {
+    bool isProcessorSupported(InfoSink& sink) {
         int cpuInfo[4];
         __cpuid(cpuInfo, 0x80000001);
 
         unsigned id = cpuInfo[0];
         PackageType type = PackageType(cpuInfo[1] >> 28);
-        LOG_INFO("CPU id: {:#08x}, package: {}", id, int(type));
+        sink["cpuid"] = std::format("{:#08x}", id);
+        sink["package"] = std::to_string(int(type));
+
         switch (type) {
         case eFP5:
             return checkSupportedIds(id, kFp5Support);
@@ -129,6 +140,45 @@ namespace {
         default:
             return false;
         }
+    }
+
+
+    bool isAuthenticAmd(InfoSink& sink) {
+        const auto vendor = getCpuVendor();
+        sink["vendor"] = vendor.data();
+
+        return kAuthenticAmd == vendor.data();
+    }
+
+    bool isWindowsSupported(InfoSink& sink) {
+        if (IsWindowsServer()) {
+            LOG_ERROR("Windows Server is not supported");
+            return false;
+        }
+
+        if (IsWindows10OrGreater()) {
+            return true;
+        }
+
+        DWORD major = 0;
+        DWORD minor = 0;
+        LPBYTE pInfoBuffer = nullptr;
+
+        if (NET_API_STATUS status = NetWkstaGetInfo(nullptr, kWorkInfoLevel, &pInfoBuffer); status == NERR_Success) {
+            WKSTA_INFO_100 *pInfo = reinterpret_cast<WKSTA_INFO_100*>(pInfoBuffer);
+            major = pInfo->wki100_ver_major;
+            minor = pInfo->wki100_ver_minor;
+            NetApiBufferFree(pInfoBuffer);
+        }
+
+        sink["windows"] = std::format("{}.{}", major, minor);
+
+        if (major >= 10) {
+            return true;
+        }
+
+        LOG_ERROR("Windows version {}.{} is unsupported", major, minor);
+        return false;
     }
 
     fs::path getDriverPath() {
@@ -151,9 +201,14 @@ namespace {
 }
 
 bool RyzenMonitorSerivce::createService() {
-    auto fail = [this]<typename... A>(std::string_view fmt, A&&... args) {
+    InfoSink fields;
+
+    auto fail = [&]<typename... A>(std::string_view fmt, A&&... args) {
         auto reason = std::vformat(fmt, std::make_format_args(args...));
         LOG_ERROR("RyzenMonitorSerivce setup failed: {}", reason);
+        for (const auto& [key, field] : fields) {
+            LOG_INFO(" - {}: {}", key, field);
+        }
         error = reason;
         return false;
     };
@@ -163,17 +218,17 @@ bool RyzenMonitorSerivce::createService() {
         return fail("Driver path not set");
     }
 
-    LOG_INFO("Driver path: {}", driverDir.string());
+    fields["driverdir"] = driverDir.string();
 
-    if (!isAuthenticAmd()) {
+    if (!isAuthenticAmd(fields)) {
         return fail("Processor is not AMD");
     }
 
-    if (!isProcessorSupported()) {
+    if (!isProcessorSupported(fields)) {
         return fail("Unsupported processor");
     }
 
-    if (!isWindowsSupported()) {
+    if (!isWindowsSupported(fields)) {
         return fail("Unsupported OS");
     }
 
@@ -206,8 +261,7 @@ bool RyzenMonitorSerivce::createService() {
 
     fs::path driverBinDir = driverDir / "bin";
 
-    LOG_INFO("Driver bin path: {}", driverBinDir.string());
-
+    fields["driverbin"] = driverBinDir.string();
     if (!AddDllDirectory(driverBinDir.c_str())) {
         return fail("Failed to add driver bin directory to dll search path (err={})", DebugService::getErrorName());
     }
@@ -235,6 +289,11 @@ bool RyzenMonitorSerivce::createService() {
 
     setupBiosDevices();
     setupCpuDevices();
+
+    LOG_INFO("RyzenMonitorSerivce setup complete");
+    for (const auto& [key, field] : fields) {
+        LOG_INFO(" - {}: {}", key, field);
+    }
 
     return true;
 }
@@ -269,42 +328,6 @@ bool RyzenMonitorSerivce::updateCpuInfo() {
 }
 
 // internals
-
-bool RyzenMonitorSerivce::isAuthenticAmd() {
-    const auto vendor = getCpuVendor();
-    LOG_INFO("CPU vendor: {}", vendor.data());
-
-    return kAuthenticAmd == vendor.data();
-}
-
-bool RyzenMonitorSerivce::isWindowsSupported() {
-    if (IsWindowsServer()) {
-        LOG_ERROR("Windows Server is not supported");
-        return false;
-    }
-
-    if (IsWindows10OrGreater()) {
-        return true;
-    }
-
-    DWORD major = 0;
-    DWORD minor = 0;
-    LPBYTE pInfoBuffer = nullptr;
-
-    if (NET_API_STATUS status = NetWkstaGetInfo(nullptr, kWorkInfoLevel, &pInfoBuffer); status == NERR_Success) {
-        WKSTA_INFO_100 *pInfo = reinterpret_cast<WKSTA_INFO_100*>(pInfoBuffer);
-        major = pInfo->wki100_ver_major;
-        minor = pInfo->wki100_ver_minor;
-        NetApiBufferFree(pInfoBuffer);
-    }
-
-    if (major >= 10) {
-        return true;
-    }
-
-    LOG_ERROR("Windows version {}.{} is unsupported", major, minor);
-    return false;
-}
 
 void RyzenMonitorSerivce::setupBiosDevices() {
     if (IBIOSEx *pBios = reinterpret_cast<IBIOSEx*>(pManager->GetDevice(dtBIOS, 0)); pBios == nullptr) {

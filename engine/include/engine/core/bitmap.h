@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/core/unique.h"
+
 #include <memory>
 
 namespace simcoe::core {
@@ -57,7 +59,7 @@ namespace simcoe::core {
             constexpr size_t wordCount() const { return getSize() / kBits + 1; }
 
             size_t size;
-            std::unique_ptr<T[]> pBits;
+            core::UniquePtr<T[]> pBits;
         };
     }
 

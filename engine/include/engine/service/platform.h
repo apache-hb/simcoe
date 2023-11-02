@@ -73,7 +73,11 @@ namespace simcoe {
     struct Clock {
         Clock();
 
+        // seconds since start
         float now() const;
+
+        // ms since start
+        uint32_t ms() const;
 
     private:
         size_t start;

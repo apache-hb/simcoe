@@ -1,3 +1,6 @@
+// core
+#include "engine/core/mt.h"
+
 // services
 #include "engine/service/service.h"
 #include "engine/service/debug.h"
@@ -30,6 +33,7 @@
 // debug gui
 #include "editor/debug/debug.h"
 #include "editor/debug/service.h"
+#include "editor/debug/logging.h"
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
@@ -76,7 +80,7 @@ static constexpr auto kWindowWidth = 1920;
 static constexpr auto kWindowHeight = 1080;
 
 // game
-game::World *pWorld = nullptr;
+static game::World *pWorld = nullptr;
 
 // window mode
 static Window *pWindow = nullptr;
@@ -86,7 +90,6 @@ static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless
 
 /// threads
 static threads::WorkQueue *pMainQueue = nullptr;
-static threads::Scheduler *pScheduler = nullptr;
 
 /// input
 static input::Win32Keyboard *pKeyboard = nullptr;
@@ -99,6 +102,7 @@ static sr::Context *pContext = nullptr;
 static sr::Graph *pGraph = nullptr;
 
 // debuggers
+static debug::LoggingDebug *pLoggingDebug = new debug::LoggingDebug();
 static debug::GdkDebug *pGdkDebug = nullptr;
 static debug::RyzenMonitorDebug *pRyzenDebug = nullptr;
 static debug::EngineDebug *pEngineDebug = nullptr;
@@ -109,40 +113,19 @@ struct FileLogger final : ISink {
         : file("game.log")
     { }
 
-    void accept(std::string_view message) override {
-        file << message << std::endl;
+    void accept(const LogMessage& message) override {
+        file << logging::formatMessage(message) << "\n";
     }
 
     std::ofstream file;
 };
 
-struct GuiLogger final : ISink {
-    void accept(std::string_view message) override {
-        std::lock_guard lock(mutex);
-        buffer.push_back(std::string(message));
-    }
-
-    void draw() {
-        std::lock_guard lock(mutex);
-        for (const auto& message : buffer) {
-            ImGui::Text("%s", message.c_str());
-        }
-    }
-
-    debug::GlobalHandle debug = debug::addGlobalHandle("Logs", [this] { draw(); });
-
-private:
-    std::mutex mutex;
-    std::vector<std::string> buffer;
-};
-
-static GuiLogger *pGuiLogger = nullptr;
 static FileLogger *pFileLogger = nullptr;
 
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
         bWindowOpen = false;
-        delete pScheduler;
+        ThreadService::shutdown();
         pWorld->shutdown();
     }
 
@@ -300,6 +283,7 @@ struct GameGui final : graph::IGuiPass {
         drawRenderSettings();
         drawFilePicker();
 
+        pLoggingDebug->drawWindow();
         pGdkDebug->drawWindow();
         pRyzenDebug->drawWindow();
         pEngineDebug->drawWindow();
@@ -378,6 +362,7 @@ struct GameGui final : graph::IGuiPass {
                 });
 
                 ImGui::SeparatorText("Services");
+                pLoggingDebug->drawMenuItem();
                 pGdkDebug->drawMenuItem();
                 pRyzenDebug->drawMenuItem();
                 pEngineDebug->drawMenuItem();
@@ -567,7 +552,7 @@ static void startServiceDebuggers() {
     pThreadDebug = new debug::ThreadServiceDebug();
 
     if (RyzenMonitorSerivce::getState() & eServiceCreated) {
-        pScheduler->newWorker("ryzenmonitor", 1s, [] {
+        ThreadService::newJob("ryzenmonitor", 1s, [] {
             pRyzenDebug->updateCoreInfo();
         });
     }
@@ -578,7 +563,8 @@ static void startServiceDebuggers() {
 ///
 
 static void commonMain() {
-    pScheduler = new threads::Scheduler();
+    ThreadService::setThreadName("main");
+
     pMainQueue = new threads::WorkQueue(64);
 
     auto assets = PlatformService::getExeDirectory() / "editor.exe.p";
@@ -663,25 +649,25 @@ static void commonMain() {
 
     // setup game
 
-    pScheduler->newThread(threads::eResponsive, "input", [](auto token) {
+    ThreadService::newThread(threads::eResponsive, "input", [](auto token) {
         while (!token.stop_requested()) {
             pWorld->tickInput();
         }
     });
 
-    pScheduler->newThread(threads::eRealtime, "render", [](auto token) {
+    ThreadService::newThread(threads::eRealtime, "render", [](auto token) {
         while (!token.stop_requested() && bWindowOpen) {
             pWorld->tickRender();
         }
     });
 
-    pScheduler->newThread(threads::eResponsive, "physics", [](auto token) {
+    ThreadService::newThread(threads::eResponsive, "physics", [](auto token) {
         while (!token.stop_requested()) {
             pWorld->tickPhysics();
         }
     });
 
-    pScheduler->newThread(threads::eRealtime, "game", [](auto token) {
+    ThreadService::newThread(threads::eRealtime, "game", [](auto token) {
         while (!token.stop_requested()) {
             pWorld->tickGame();
         }
@@ -697,16 +683,14 @@ static void commonMain() {
 }
 
 static int serviceWrapper() try {
-    DebugService::setThreadName("main");
-
+    LoggingService::addSink(pLoggingDebug);
     pFileLogger = LoggingService::newSink<FileLogger>();
-    pGuiLogger = LoggingService::newSink<GuiLogger>();
 
     auto engineServices = std::to_array({
         DebugService::service(),
 
-        LoggingService::service(),
         PlatformService::service(),
+        LoggingService::service(),
         ThreadService::service(),
         FreeTypeService::service(),
 

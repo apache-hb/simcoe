@@ -1,5 +1,7 @@
 #include "engine/threads/queue.h"
 
+#include "engine/threads/service.h"
+
 #include "engine/service/debug.h"
 #include "engine/service/logging.h"
 
@@ -26,18 +28,4 @@ bool WorkQueue::process() {
     }
 
     return false;
-}
-
-threads::Thread& WorkThread::start(std::string_view name, Scheduler *pScheduler) {
-    return pScheduler->newThread(eWorker, name, [this, name](std::stop_token token) {
-        DebugService::setThreadName(name);
-        LOG_INFO("work queue `{}` started", name);
-
-        this->run(token);
-
-        // drain the queue
-        while (process()) { }
-
-        LOG_INFO("work queue `{}` stopped", name);
-    });
 }

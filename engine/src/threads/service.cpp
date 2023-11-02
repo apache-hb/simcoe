@@ -6,6 +6,8 @@
 using namespace simcoe;
 using namespace simcoe::threads;
 
+using namespace std::chrono_literals;
+
 template<typename T>
 struct std::formatter<LOGICAL_PROCESSOR_RELATIONSHIP, T> : std::formatter<std::string_view, T> {
     template<typename FormatContext>
@@ -395,7 +397,7 @@ bool ThreadService::createService() {
 }
 
 void ThreadService::destroyService() {
-
+    ThreadService::shutdown();
 }
 
 std::string_view ThreadService::getFailureReason() {
@@ -410,11 +412,77 @@ const Geometry& ThreadService::getGeometry() {
     return get()->geometry;
 }
 
-void ThreadService::migrateCurrentThread(const Subcore& subcore) {
-    HANDLE hThread = GetCurrentThread();
-    GROUP_AFFINITY groupAffinity = subcore.mask;
+// thread info
+void ThreadService::setThreadName(std::string name, ThreadId id) {
+    mt::write_lock lock(get()->threadNameLock);
+    auto& map = get()->threadNames;
+    const auto& [it, inserted] = map.try_emplace(id, std::move(name));
+    ASSERTF(inserted, "thread name for {:#x} already set to {}", id, it->second);
 
-    if (!SetThreadGroupAffinity(hThread, &groupAffinity, nullptr)) {
-        throwLastError("SetThreadGroupAffinity failed");
+    DebugService::setThreadName(name);
+}
+
+std::string_view ThreadService::getThreadName(ThreadId id) {
+    mt::read_lock lock(get()->threadNameLock);
+    auto& map = get()->threadNames;
+    if (auto it = map.find(id); it != map.end()) {
+        return it->second;
+    }
+
+    return "";
+}
+
+// scheduler
+
+void ThreadService::setWorkerCount(size_t count) {
+    mt::write_lock lock(get()->workerLock);
+    get()->workers.resize(count);
+}
+
+size_t ThreadService::getWorkerCount() {
+    mt::read_lock lock(get()->workerLock);
+    return get()->workers.size();
+}
+
+threads::ThreadHandle *ThreadService::newThread(threads::ThreadType type, std::string_view name, threads::ThreadStart&& start) {
+    auto *pHandle = new threads::ThreadHandle({
+        .type = type,
+        .mask = ScheduleMask(),
+        .name = name,
+        .start = std::move(start)
+    });
+
+    mt::write_lock lock(get()->threadHandleLock);
+    get()->threadHandles.emplace(pHandle);
+    return pHandle;
+}
+
+void ThreadService::shutdown() {
+    mt::write_lock lock(get()->threadHandleLock);
+    auto& handles = get()->threadHandles;
+    for (auto *pHandle : handles) {
+        delete pHandle;
+    }
+    handles.clear();
+}
+
+void ThreadService::runWorker(std::stop_token token) {
+    WorkMessage msg;
+    auto& queue = get()->workQueue;
+
+    while (!token.stop_requested()) {
+        if (queue.wait_dequeue_timed(msg, 50ms)) {
+            msg.item();
+            get()->pendingWork--;
+        }
     }
 }
+
+threads::ThreadHandle *ThreadService::newWorker() {
+    size_t id = get()->workerId++;
+    return newThread(threads::eWorker, std::format("worker-{}", id), runWorker);
+}
+
+ThreadService::WorkThread::WorkThread()
+    : Super(ThreadService::newWorker())
+{ }

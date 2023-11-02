@@ -21,5 +21,6 @@ namespace simcoe::util {
      */
     std::wstring widen(std::string_view str);
 
-    std::string join(std::span<std::string_view> all, std::string_view delim);
+    std::string join(std::span<const std::string> all, std::string_view delim);
+    std::string join(std::span<const std::string_view> all, std::string_view delim);
 }

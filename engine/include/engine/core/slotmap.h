@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/core/unique.h"
+
 #include <memory>
 #include <atomic>
 
@@ -22,7 +24,7 @@ namespace simcoe {
             }
 
             size_t size;
-            std::unique_ptr<T[]> pSlots;
+            core::UniquePtr<T[]> pSlots;
         };
     }
 

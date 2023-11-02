@@ -1,5 +1,7 @@
 #include "editor/debug/debug.h"
 
+#include "engine/core/mt.h"
+
 #include "imgui/imgui.h"
 #include <unordered_set>
 
@@ -11,7 +13,7 @@ using namespace editor::debug;
 // global debug handles
 
 namespace {
-    std::mutex gLock;
+    mt::shared_mutex gLock;
     std::unordered_set<debug::DebugHandle*> gHandles;
 }
 
@@ -22,19 +24,19 @@ debug::GlobalHandle debug::addGlobalHandle(const std::string &name, std::functio
         delete pHandle;
     });
 
-    std::lock_guard lock(gLock);
+    mt::write_lock lock(gLock);
     gHandles.insert(pHandle);
 
     return userHandle;
 }
 
 void debug::removeGlobalHandle(DebugHandle *pHandle) {
-    std::lock_guard lock(gLock);
+    mt::write_lock lock(gLock);
     gHandles.erase(pHandle);
 }
 
 void debug::enumGlobalHandles(std::function<void(DebugHandle*)> callback) {
-    std::lock_guard lock(gLock);
+    mt::read_lock lock(gLock);
     for (auto *pHandle : gHandles) {
         callback(pHandle);
     }

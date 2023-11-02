@@ -1,16 +1,17 @@
 #pragma once
 
+#include <simcoe-config.h>
+
 #include "engine/core/macros.h"
+
+#ifdef DEBUG_ENGINE
+#   include "engine/core/panic.h"
+#endif
 
 #include <utility>
 
 namespace simcoe::core {
-    template<typename T, typename O>
-    concept ConstDeleter = requires(const T& it) {
-        { it(O()) } -> std::same_as<void>;
-    } && std::is_empty_v<T>;
-
-    template<typename T, T TEmpty, ConstDeleter<T> TDelete>
+    template<typename T, typename TDelete, T TEmpty = T()>
     struct UniqueHandle {
         SM_NOCOPY(UniqueHandle)
 
@@ -40,5 +41,68 @@ namespace simcoe::core {
         T handle;
 
         static constexpr inline TDelete kDelete = TDelete();
+    };
+
+    template<typename T>
+    struct DefaultDelete {
+        constexpr void operator()(T *pData) const { delete pData; }
+    };
+
+    template<typename T>
+    struct DefaultDelete<T[]> {
+        constexpr void operator()(T *pData) const { delete[] pData; }
+    };
+
+    template<typename T, typename TDelete>
+    struct UniquePtr;
+
+    template<typename T, typename TDelete = DefaultDelete<T>>
+    struct UniquePtr : UniqueHandle<T*, TDelete, nullptr> {
+        using Super = UniqueHandle<T*, TDelete, nullptr>;
+        using Super::Super;
+
+        T *operator->() { return Super::get(); }
+        const T *operator->() const { return Super::get(); }
+    };
+
+    template<typename T, typename TDelete>
+    struct UniquePtr<T[], TDelete> : UniquePtr<T, TDelete> {
+        using Super = UniquePtr<T, TDelete>;
+        using Super::Super;
+
+        UniquePtr(T *pData, size_t size)
+            : Super(pData)
+#if DEBUG_ENGINE
+            , size(size)
+#endif
+        { }
+
+        UniquePtr()
+            : UniquePtr(nullptr, 0)
+        { }
+
+        UniquePtr(size_t size)
+            : UniquePtr(new T[size], size)
+        { }
+
+        T &operator[](size_t index) {
+            verifyIndex(index);
+            return Super::get()[index];
+        }
+
+        const T& operator[](size_t index) const {
+            verifyIndex(index);
+            return Super::get()[index];
+        }
+
+    private:
+#if DEBUG_ENGINE
+        void verifyIndex(size_t index) const {
+            ASSERTF(index < size, "index out of bounds ({} < {})", index, size);
+        }
+        size_t size;
+#else
+        void verifyIndex(size_t) const { }
+#endif
     };
 }

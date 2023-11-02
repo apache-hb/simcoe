@@ -78,17 +78,18 @@ ryzen = subproject('ryzen').get_variable('ryzen')
 ### args
 ###
 
-args = [ ]
-
-if debug_render.allowed()
-    args += [ '-DDEBUG_RENDER=1' ]
-endif
+config = configuration_data()
+config.set10('DEBUG_ENGINE', is_debug)
+config.set10('DEBUG_RENDER', debug_render.allowed())
 
 ###
 ### engine
 ###
 
 src = [
+    # config
+    configure_file(output : 'simcoe-config.h', configuration : config),
+
     # core
     'engine/src/core/panic.cpp',
     'engine/src/core/utf8.cpp',
@@ -167,7 +168,6 @@ deps = [
 ]
 
 libengine = library('engine', src,
-    cpp_args : args,
     include_directories : inc,
     dependencies : deps
 )
@@ -250,6 +250,7 @@ src = [
     'editor/src/editor/debug/gdk.cpp',
     'editor/src/editor/debug/engine.cpp',
     'editor/src/editor/debug/threads.cpp',
+    'editor/src/editor/debug/logging.cpp',
 
     # game framework
     'editor/src/game/info.cpp',
@@ -326,14 +327,10 @@ deps = [
     tinyobj
 ]
 
-editor_args = args + [
-    '-DEDITOR=1'
-]
-
 editor = executable('editor', src,
     dependencies : deps,
     include_directories : [ 'editor/include' ],
-    cpp_args : editor_args,
+    cpp_args : [ '-DEDITOR=1' ],
     gui_app : gui_app.enabled()
 )
 
@@ -343,14 +340,10 @@ editor = executable('editor', src,
 
 src = [ 'client/src/main.cpp' ]
 
-client_args = args + [
-    '-DCLIENT=1'
-]
-
 client = executable('client', src,
     dependencies : engine,
     include_directories : [ 'client/include' ],
-    cpp_args : client_args,
+    cpp_args : [ '-DCLIENT=1' ],
     gui_app : gui_app.enabled()
 )
 

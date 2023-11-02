@@ -28,6 +28,11 @@ void ThreadServiceDebug::draw() {
         }
         ImGui::EndTabBar();
     }
+
+    ImGui::SeparatorText("scheduler");
+    ImGui::Text("total threads: %zu", ThreadService::getThreadCount());
+    ImGui::Text("worker threads: %zu", ThreadService::getWorkerCount());
+    ImGui::Text("pending work: %zu", ThreadService::getPendingWork());
 }
 
 void ThreadServiceDebug::drawPackage(threads::PackageIndex i) {

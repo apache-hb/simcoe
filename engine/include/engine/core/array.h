@@ -15,8 +15,8 @@ namespace simcoe::core {
     // std::array<T, N> is not an option because N is a compile time constant
     // std::unique_ptr<T[]> does not retain its own size for debugging
     template<typename T>
-    struct FixedArray : UniqueHandle<T*, nullptr, detail::DeleteArray<T>> {
-        using Super = UniqueHandle<T*, nullptr, detail::DeleteArray<T>>;
+    struct FixedArray : UniqueHandle<T*, detail::DeleteArray<T>, nullptr> {
+        using Super = UniqueHandle<T*, detail::DeleteArray<T>, nullptr>;
         using Super::Super;
 
         constexpr FixedArray(size_t size)

@@ -9,6 +9,10 @@
     TYPE(const TYPE&) = delete; \
     TYPE& operator=(const TYPE&) = delete;
 
+#define SM_NOMOVE(TYPE) \
+    TYPE(TYPE&&) = delete; \
+    TYPE& operator=(TYPE&&) = delete;
+
 #define SM_ENUM_INT(TYPE, INNER) \
     using INNER = std::underlying_type_t<TYPE>; \
     constexpr TYPE operator+(TYPE lhs, TYPE rhs) { \
@@ -49,6 +53,30 @@
     } \
     constexpr std::strong_ordering operator<=>(TYPE lhs, TYPE rhs) { \
         return INNER(lhs) <=> INNER(rhs); \
+    }
+
+#define SM_ENUM_FLAGS(TYPE, INNER) \
+    using INNER = std::underlying_type_t<TYPE>; \
+    constexpr TYPE operator|(TYPE lhs, TYPE rhs) { \
+        return TYPE(INNER(lhs) | INNER(rhs)); \
+    } \
+    constexpr TYPE operator&(TYPE lhs, TYPE rhs) { \
+        return TYPE(INNER(lhs) & INNER(rhs)); \
+    } \
+    constexpr TYPE operator^(TYPE lhs, TYPE rhs) { \
+        return TYPE(INNER(lhs) ^ INNER(rhs)); \
+    } \
+    constexpr TYPE operator~(TYPE value) { \
+        return TYPE(~INNER(value)); \
+    } \
+    constexpr TYPE& operator|=(TYPE& lhs, TYPE rhs) { \
+        return lhs = lhs | rhs; \
+    } \
+    constexpr TYPE& operator&=(TYPE& lhs, TYPE rhs) { \
+        return lhs = lhs & rhs; \
+    } \
+    constexpr TYPE& operator^=(TYPE& lhs, TYPE rhs) { \
+        return lhs = lhs ^ rhs; \
     }
 
 #define SM_ENUM_FORMATTER(TYPE, INNER) \

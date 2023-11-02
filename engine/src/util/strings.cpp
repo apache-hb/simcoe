@@ -24,7 +24,8 @@ std::wstring util::widen(std::string_view str) {
     return result;
 }
 
-std::string util::join(std::span<std::string_view> all, std::string_view delim) {
+template<typename T>
+std::string joinInner(std::span<const T> all, std::string_view delim) {
     std::string result;
     for (size_t i = 0; i < all.size(); i++) {
         result += all[i];
@@ -34,4 +35,12 @@ std::string util::join(std::span<std::string_view> all, std::string_view delim) 
     }
 
     return result;
+}
+
+std::string util::join(std::span<const std::string_view> all, std::string_view delim) {
+    return joinInner(all, delim);
+}
+
+std::string util::join(std::span<const std::string> all, std::string_view delim) {
+    return joinInner(all, delim);
 }

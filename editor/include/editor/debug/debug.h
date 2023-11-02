@@ -45,7 +45,7 @@ namespace editor::debug {
         std::string_view getFailureReason() const { return failureReason; }
 
         void drawMenuItem();
-        void drawWindow();
+        virtual void drawWindow();
 
         virtual void draw() = 0;
     protected:
@@ -55,9 +55,9 @@ namespace editor::debug {
 
         void setFailureReason(std::string_view reason);
 
-    private:
         bool bOpen = true;
 
+    private:
         std::string_view name;
         std::string_view failureReason = "";
     };

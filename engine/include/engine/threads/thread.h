@@ -8,6 +8,8 @@
 #include "engine/core/macros.h"
 #include "engine/core/win32.h"
 
+namespace simcoe { struct ThreadService; }
+
 namespace simcoe::threads {
     using ThreadId = DWORD;
     using ThreadStart = std::function<void(std::stop_token)>;
@@ -70,29 +72,61 @@ namespace simcoe::threads {
         const Package& getPackage(PackageIndex idx) const { return packages[size_t(idx)]; }
     };
 
-    struct Thread {
-        SM_NOCOPY(Thread)
+    enum ThreadType {
+        // a thread that needs to be realtime, or almost realtime
+        // e.g. a thread that processes audio data
+        eRealtime,
 
-        Thread(Thread&&) noexcept;
-        Thread& operator=(Thread&&) noexcept;
+        // a thread that needs to be responsive, but not realtime
+        // e.g. a thread that processes user input or game logic
+        eResponsive,
 
-        // create a thread on a specific subcore
-        Thread(const Subcore& subcore, std::string_view name, ThreadStart&& start);
+        // a thread that doesnt need meet any timing requirements
+        // e.g. a thread that writes to a log file or processes network data
+        eBackground,
 
-        ~Thread();
+        // long running thread that only needs to work occasionally
+        // e.g. a thread that polls the system for performance data 1x per second
+        eWorker,
 
-        const Subcore& getSubcore() const { return subcore; }
+        // total enum count
+        eCount
+    };
+
+    struct ThreadInfo {
+        ThreadType type;
+        ScheduleMask mask;
+        std::string_view name;
+        ThreadStart start;
+    };
+
+    struct ThreadHandle {
+        SM_NOCOPY(ThreadHandle)
+        SM_NOMOVE(ThreadHandle)
+
+        friend struct simcoe::ThreadService;
+
         HANDLE getHandle() const { return hThread; }
         ThreadId getId() const { return id; }
 
+        ~ThreadHandle();
+
     private:
+        ThreadHandle(ThreadInfo&& info);
+
+        // starter thunk
         static DWORD WINAPI threadThunk(LPVOID lpParameter);
 
-        Subcore subcore = {};
-
+        // os data
         HANDLE hThread = nullptr;
         ThreadId id = 0;
 
+        // schedule data
+        ThreadType type;
+        ScheduleMask mask;
+
+        // thread data
+        std::string_view name;
         std::stop_source stopper = {};
     };
 }

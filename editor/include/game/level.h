@@ -56,7 +56,7 @@ namespace game {
         std::unordered_set<EntityPtr> staged; // entities to be added next tick
         std::unordered_set<EntityTag> retired; // entities to be removed next tick
 
-        core::FixedArray<EntityPtr> entities; // all entities currently in the world
+        core::UniquePtr<EntityPtr> entities; // all entities currently in the world
         EntitySlotMap indices; // entity slot allocator
     };
 }
