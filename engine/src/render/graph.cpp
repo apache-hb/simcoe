@@ -50,22 +50,23 @@ void IRenderPass::executePass() {
 
     IRTVHandle *pCurrentTarget = pGraph->pCurrentRenderTarget;
 
-    if (pDepthStencil != nullptr) {
-        IDSVHandle *pDepth = pDepthStencil->getInner();
-        auto dsvIndex = pDepth->getDsvIndex();
+    // if (pDepthStencil != nullptr) {
+    //     IDSVHandle *pDepth = pDepthStencil->getInner();
+    //     auto dsvIndex = pDepth->getDsvIndex();
 
-        if (pNewTarget != pCurrentTarget) {
-            ctx->setRenderAndDepth(rtvIndex, dsvIndex);
-            if (pGraph->pCurrentDepthStencil != pDepth) {
-                ctx->clearDepthStencil(dsvIndex, 1.f, 0);
-            }
+    //     if (pNewTarget != pCurrentTarget) {
+    //         ctx->setRenderAndDepth(rtvIndex, dsvIndex);
+    //         if (pGraph->pCurrentDepthStencil != pDepth) {
+    //             ctx->clearDepthStencil(dsvIndex, 1.f, 0);
+    //         }
 
-            ctx->clearRenderTarget(rtvIndex, newClear);
-            pGraph->pCurrentRenderTarget = pNewTarget;
-            pGraph->pCurrentDepthStencil = pDepth;
-        }
+    //         ctx->clearRenderTarget(rtvIndex, newClear);
+    //         pGraph->pCurrentRenderTarget = pNewTarget;
+    //         pGraph->pCurrentDepthStencil = pDepth;
+    //     }
 
-    } else if (pNewTarget != pCurrentTarget) {
+    // } else
+    if (pNewTarget != pCurrentTarget) {
         ctx->setRenderTarget(rtvIndex);
         ctx->clearRenderTarget(rtvIndex, newClear);
         pGraph->pCurrentRenderTarget = pNewTarget;
