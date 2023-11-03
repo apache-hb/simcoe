@@ -106,8 +106,6 @@ bool DepotService::createService() {
 }
 
 void DepotService::destroyService() {
-    delete pChangeNotify;
-
     if (hChange != INVALID_HANDLE_VALUE) {
         FindCloseChangeNotification(hChange);
     }

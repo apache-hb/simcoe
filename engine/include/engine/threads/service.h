@@ -144,15 +144,10 @@ namespace simcoe {
         WorkMessage mainMessage;
         moodycamel::ConcurrentQueue<WorkMessage> mainQueue;
 
-        struct WorkThread final : core::UniquePtr<threads::ThreadHandle> {
-            using Super = core::UniquePtr<threads::ThreadHandle>;
-            WorkThread();
-        };
-
         // all worker threads
         mt::shared_mutex workerLock;
         size_t workerId = 0;
-        std::vector<WorkThread> workers;
+        std::vector<threads::ThreadHandle*> workers;
 
     public:
         static std::shared_mutex &getPoolLock() { return get()->threadHandleLock; }

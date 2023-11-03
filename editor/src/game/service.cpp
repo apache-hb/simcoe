@@ -567,8 +567,7 @@ bool GameService::createService() {
 }
 
 void GameService::destroyService() {
-    delete pGraph;
-    delete pContext;
+
 }
 
 void GameService::start() {

@@ -54,12 +54,15 @@ void IRenderPass::executePass() {
         IDSVHandle *pDepth = pDepthStencil->getInner();
         auto dsvIndex = pDepth->getDsvIndex();
 
-        ctx->setRenderAndDepth(rtvIndex, dsvIndex);
-        ctx->clearDepthStencil(dsvIndex, 1.f, 0);
-
         if (pNewTarget != pCurrentTarget) {
+            ctx->setRenderAndDepth(rtvIndex, dsvIndex);
+            if (pGraph->pCurrentDepthStencil != pDepth) {
+                ctx->clearDepthStencil(dsvIndex, 1.f, 0);
+            }
+
             ctx->clearRenderTarget(rtvIndex, newClear);
             pGraph->pCurrentRenderTarget = pNewTarget;
+            pGraph->pCurrentDepthStencil = pDepth;
         }
 
     } else if (pNewTarget != pCurrentTarget) {
@@ -162,6 +165,7 @@ bool Graph::execute() {
 
     std::lock_guard guard(renderLock);
     pCurrentRenderTarget = nullptr;
+    pCurrentDepthStencil = nullptr;
 
     ctx->beginRender();
     ctx->beginDirect();
@@ -207,8 +211,6 @@ void Graph::destroyIf(StateDep dep) {
 
 void Graph::executePass(ICommandPass *pPass) {
     std::vector<rhi::Transition> barriers;
-
-    LOG_ERROR("pass: {}", pPass->getName());
 
     for (const auto *pInput : pPass->inputs) {
         auto *pHandle = pInput->getResourceHandle();
@@ -256,7 +258,6 @@ void Graph::addGraphObject(IGraphObject *pObject) {
 
 void Graph::setResourceState(rhi::DeviceResource *pResource, rhi::ResourceState state) {
     resourceStates[pResource] = state;
-    LOG_ERROR("resource `{}` state: {}", pResource->getName(), rhi::toString(state));
 }
 
 rhi::ResourceState Graph::getResourceState(rhi::DeviceResource *pResource) const {

@@ -378,6 +378,7 @@ namespace simcoe::render {
 
         bool execute();
         IRTVHandle *pCurrentRenderTarget = nullptr;
+        IDSVHandle *pCurrentDepthStencil = nullptr;
 
     private:
         void executePass(ICommandPass *pPass);

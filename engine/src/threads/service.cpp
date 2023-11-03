@@ -453,8 +453,22 @@ std::string_view ThreadService::getThreadName(ThreadId id) {
 void ThreadService::setWorkerCount(size_t count) {
     LOG_INFO("starting {} workers", count);
     mt::write_lock lock(get()->workerLock);
-    for (size_t i = get()->workers.size(); i < count; ++i) {
-        get()->workers.emplace_back();
+    auto& workers = get()->workers;
+    if (count < workers.size()) {
+        LOG_INFO("stopping {} workers", workers.size() - count);
+        for (size_t i = count; i < workers.size(); ++i) {
+            workers[i]->requestStop();
+        }
+
+        for (size_t i = count; i < workers.size(); ++i) {
+            delete workers[i];
+        }
+    }
+
+    workers.resize(count);
+
+    for (size_t i = workers.size(); i < count; ++i) {
+        workers.push_back(newWorker());
     }
 }
 
@@ -479,9 +493,11 @@ threads::ThreadHandle *ThreadService::newThread(threads::ThreadType type, std::s
 void ThreadService::shutdown() {
     mt::write_lock lock(getPoolLock());
     auto& handles = getPool();
+
     for (auto *pHandle : handles) {
         pHandle->requestStop();
     }
+
     for (auto *pHandle : handles) {
         delete pHandle;
     }
@@ -504,7 +520,3 @@ threads::ThreadHandle *ThreadService::newWorker() {
     size_t id = get()->workerId++;
     return newThread(threads::eWorker, std::format("worker-{}", id), runWorker);
 }
-
-ThreadService::WorkThread::WorkThread()
-    : Super(ThreadService::newWorker())
-{ }
