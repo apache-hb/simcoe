@@ -453,7 +453,9 @@ std::string_view ThreadService::getThreadName(ThreadId id) {
 void ThreadService::setWorkerCount(size_t count) {
     LOG_INFO("starting {} workers", count);
     mt::write_lock lock(get()->workerLock);
-    get()->workers.resize(count);
+    for (size_t i = get()->workers.size(); i < count; ++i) {
+        get()->workers.emplace_back();
+    }
 }
 
 size_t ThreadService::getWorkerCount() {
@@ -469,14 +471,14 @@ threads::ThreadHandle *ThreadService::newThread(threads::ThreadType type, std::s
         .start = std::move(start)
     });
 
-    mt::write_lock lock(get()->threadHandleLock);
-    get()->threadHandles.emplace(pHandle);
+    mt::write_lock lock(getPoolLock());
+    getPool().push_back(pHandle);
     return pHandle;
 }
 
 void ThreadService::shutdown() {
-    mt::write_lock lock(get()->threadHandleLock);
-    auto& handles = get()->threadHandles;
+    mt::write_lock lock(getPoolLock());
+    auto& handles = getPool();
     for (auto *pHandle : handles) {
         delete pHandle;
     }

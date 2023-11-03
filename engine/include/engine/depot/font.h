@@ -1,20 +1,18 @@
 #pragma once
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_GLYPH_H
+#include "engine/depot/image.h"
 
-#include "engine/assets/image.h"
-
-#include "engine/math/math.h"
+#include "engine/service/freetype.h"
 
 #include "engine/core/utf8.h"
 
+#include "engine/math/math.h"
+
 #include <span>
 
-namespace simcoe::assets {
+namespace simcoe::depot {
     using CanvasPoint = math::size2;
-    using CanvasSize = math::Resolution<size_t>;
+    using CanvasSize = math::size2;
 
     struct TextSegment {
         utf8::StaticText text;

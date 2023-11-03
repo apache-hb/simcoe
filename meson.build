@@ -145,6 +145,7 @@ src = [
     'engine/src/util/time.cpp',
 
     # input
+    'engine/src/input/service.cpp',
     'engine/src/input/input.cpp',
     'engine/src/input/win32-device.cpp',
     'engine/src/input/xinput-device.cpp',
@@ -156,10 +157,13 @@ src = [
     'engine/src/threads/thread.cpp',
     'engine/src/threads/scheduler.cpp',
 
-    # assets
+    # freetype
     'engine/src/service/freetype.cpp',
-    'engine/src/assets/assets.cpp',
-    'engine/src/assets/font.cpp',
+
+    # depot
+    'engine/src/depot/service.cpp',
+    'engine/src/depot/vfs.cpp',
+    'engine/src/depot/font.cpp',
 
     # rhi
     'engine/src/rhi/render.cpp',
@@ -287,8 +291,10 @@ src = [
     'editor/src/editor/debug/engine.cpp',
     'editor/src/editor/debug/threads.cpp',
     'editor/src/editor/debug/logging.cpp',
+    'editor/src/editor/debug/depot.cpp',
 
     # game framework
+    'editor/src/game/service.cpp',
     'editor/src/game/info.cpp',
     'editor/src/game/entity.cpp',
     'editor/src/game/level.cpp',

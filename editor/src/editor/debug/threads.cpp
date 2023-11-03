@@ -7,6 +7,18 @@
 using namespace editor;
 using namespace editor::debug;
 
+namespace {
+    const char *getPriorityName(threads::ThreadType priority) {
+        switch (priority) {
+            case threads::ThreadType::eRealtime: return "realtime";
+            case threads::ThreadType::eResponsive: return "responsive";
+            case threads::ThreadType::eBackground: return "background";
+            case threads::ThreadType::eWorker: return "worker";
+            default: return "unknown";
+        }
+    }
+}
+
 ThreadServiceDebug::ThreadServiceDebug()
     : ServiceDebug("Threads")
     , geometry(ThreadService::getGeometry())
@@ -30,8 +42,44 @@ void ThreadServiceDebug::draw() {
     }
 
     ImGui::SeparatorText("scheduler");
-    ImGui::Text("total threads: %zu", ThreadService::getThreadCount());
+    mt::read_lock lock(ThreadService::getPoolLock());
+    auto& pool = ThreadService::getPool();
+    ImGui::Text("total threads: %zu", pool.size());
     ImGui::Text("worker threads: %zu", ThreadService::getWorkerCount());
+
+    if (ImGui::BeginTable("Threads", 4, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_RowBg)) {
+        ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthStretch, 100.f);
+        ImGui::TableSetupColumn("id", ImGuiTableColumnFlags_WidthStretch, 100.f);
+        ImGui::TableSetupColumn("priority", ImGuiTableColumnFlags_WidthStretch, 100.f);
+        ImGui::TableSetupColumn("affinity", ImGuiTableColumnFlags_WidthStretch, 100.f);
+        ImGui::TableHeadersRow();
+
+        for (const auto *pThread : pool) {
+            auto threadName = ThreadService::getThreadName(pThread->getId());
+            ImGui::TableNextColumn();
+            ImGui::Text("%s", threadName.data());
+
+            ImGui::TableNextColumn();
+            ImGui::Text("%lu", pThread->getId());
+
+            ImGui::TableNextColumn();
+            ImGui::Text("%s", getPriorityName(pThread->getType()));
+
+            ImGui::TableNextColumn();
+            auto affinity = pThread->getAffinity();
+            ImGui::Text("%u %llu", affinity.Group, affinity.Mask);
+        }
+
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+            ImGui::OpenPopup("thread context menu");
+        }
+
+        if (ImGui::BeginPopup("thread context menu")) {
+            ImGui::EndPopup();
+        }
+
+        ImGui::EndTable();
+    }
 }
 
 void ThreadServiceDebug::drawPackage(threads::PackageIndex i) {

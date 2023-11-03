@@ -1,7 +1,11 @@
 #include "editor/graph/assets.h"
 
+#include "engine/depot/service.h"
+
 using namespace editor;
 using namespace editor::graph;
+
+using namespace simcoe;
 
 static constexpr math::float4 kRenderClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
 static constexpr math::float4 kSceneClearColour = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -114,8 +118,7 @@ TextureHandle::TextureHandle(Graph *pGraph, std::string name)
     : ISingleResourceHandle(pGraph, name)
     , name(name)
 {
-    const auto& createInfo = ctx->getCreateInfo();
-    image = createInfo.depot.loadImage(name);
+    image = DepotService::loadImage(name);
 
     LOG_INFO("texture {} ({}x{})", name, image.width, image.height);
 }
@@ -160,8 +163,8 @@ namespace {
         return GetDpiForWindow(createInfo.hWindow);
     }
 
-    assets::Font loadFont(const RenderCreateInfo& createInfo, std::string_view name) {
-        assets::Font font = createInfo.depot.loadFont(name);
+    depot::Font loadFont(const RenderCreateInfo& createInfo, std::string_view name) {
+        depot::Font font = DepotService::loadFont(name);
         UINT dpi = getWindowDpi(createInfo);
         font.setFontSize(32, dpi);
         return font;

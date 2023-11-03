@@ -1,11 +1,11 @@
 #pragma once
 
 #include "engine/core/bitmap.h"
-
-#include "engine/assets/assets.h"
-#include "engine/rhi/rhi.h"
-
 #include "engine/log/service.h"
+
+#include "engine/depot/image.h"
+
+#include "engine/rhi/rhi.h"
 
 namespace simcoe::render {
     // forward declarations
@@ -16,7 +16,6 @@ namespace simcoe::render {
 
     struct RenderCreateInfo {
         HWND hWindow;
-        assets::Assets& depot;
 
         size_t adapterIndex = 0;
         UINT backBufferCount = 2;

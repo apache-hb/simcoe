@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <span>
 #include <vector>
 #include <atomic>
 #include <string_view>
@@ -81,6 +82,9 @@ namespace simcoe::input {
         void addSource(ISource *pSource);
         void addClient(IClient *pClient);
         const State& getState() const { return state; }
+
+        std::span<ISource*> getSources() { return sources; }
+        std::span<IClient*> getClients() { return clients; }
 
     private:
         std::vector<ISource*> sources;

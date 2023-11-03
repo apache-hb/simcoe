@@ -20,7 +20,7 @@ namespace simcoe::input {
     };
 
     struct Win32Mouse final : ISource {
-        Win32Mouse(Window *pWindow, bool bEnabled);
+        Win32Mouse(Window& window, bool bEnabled);
 
         bool poll(State& state) override;
 
@@ -31,7 +31,7 @@ namespace simcoe::input {
 
         void updateMouseAbsolute(math::int2 mousePoint);
 
-        Window *pWindow;
+        Window& window;
 
         math::int2 mouseOrigin = {};
         math::int2 mouseAbsolute = {};

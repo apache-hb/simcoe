@@ -2,6 +2,8 @@
 
 #include "engine/core/panic.h"
 
+#include "engine/depot/service.h"
+
 #include "tinyobj/loader.h"
 #include <unordered_map>
 
@@ -26,8 +28,7 @@ ObjMesh::ObjMesh(render::Graph *pGraph, const fs::path& path)
 }
 
 void ObjMesh::loadAsset() {
-    const auto& createInfo = ctx->getCreateInfo();
-    auto assetPath = createInfo.depot.getAssetPath(path);
+    auto assetPath = DepotService::getAssetPath(path);
 
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;

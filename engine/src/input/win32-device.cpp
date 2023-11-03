@@ -190,8 +190,8 @@ void Win32Keyboard::setXButton(WORD key, size_t value) {
 ///
 
 namespace {
-    math::int2 getWindowCenter(Window *pWindow) {
-        auto rect = pWindow->getClientCoords();
+    math::int2 getWindowCenter(Window& window) {
+        auto rect = window.getClientCoords();
 
         int centerX = (rect.right - rect.left) / 2;
         int centerY = (rect.bottom - rect.top) / 2;
@@ -206,9 +206,9 @@ namespace {
     }
 }
 
-Win32Mouse::Win32Mouse(Window *pWindow, bool bEnabled)
+Win32Mouse::Win32Mouse(Window& window, bool bEnabled)
     : ISource(DeviceTags::eWin32)
-    , pWindow(pWindow)
+    , window(window)
     , bMouseEnabled(bEnabled)
 { }
 
@@ -234,7 +234,7 @@ bool Win32Mouse::poll(State& state) {
 void Win32Mouse::update() {
     auto cursor = getCursorPoint();
     if (bMouseCaptured) {
-        auto center = getWindowCenter(pWindow);
+        auto center = getWindowCenter(window);
 
         mouseOrigin = center;
         updateMouseAbsolute(cursor);

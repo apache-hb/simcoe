@@ -106,8 +106,11 @@ namespace simcoe::threads {
 
         friend struct simcoe::ThreadService;
 
+        std::string_view getName() const { return name; }
         HANDLE getHandle() const { return hThread; }
         ThreadId getId() const { return id; }
+        ThreadType getType() const { return type; }
+        ScheduleMask getAffinity() const { return mask; }
 
         ~ThreadHandle();
 

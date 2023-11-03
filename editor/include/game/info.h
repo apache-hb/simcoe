@@ -64,9 +64,6 @@ namespace game {
         size_t entityLimit = 0x1000;
         size_t seed = 0;
 
-        // input config
-        input::Manager *pInput = nullptr;
-
         // render config
         render::Context *pRenderContext = nullptr;
         render::Graph *pRenderGraph = nullptr;

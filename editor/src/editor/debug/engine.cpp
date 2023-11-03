@@ -13,7 +13,6 @@ EngineDebug::EngineDebug(game::World *pWorld)
 {
     ASSERTF(pWorld != nullptr, "World is null");
 
-    inputStep   = 1.f / pWorld->inputStep.getDelta();
     renderStep  = 1.f / pWorld->renderStep.getDelta();
     physicsStep = 1.f / pWorld->physicsStep.getDelta();
     gameStep    = 1.f / pWorld->gameStep.getDelta();
@@ -21,12 +20,6 @@ EngineDebug::EngineDebug(game::World *pWorld)
 
 void EngineDebug::draw() {
     ImGui::PushItemWidth(200.f);
-
-    if (ImGui::SliderFloat("Input tps", &inputStep, 1.f, 400.f)) {
-        pWorld->pInputThread->add("set-input-step", [this, tps = 1.f / inputStep] {
-            pWorld->inputStep.updateDelta(tps);
-        });
-    }
 
     if (ImGui::SliderFloat("Physics tps", &physicsStep, 1.f, 400.f)) {
         pWorld->pPhysicsThread->add("set-physics-step", [this, tps = 1.f / physicsStep] {

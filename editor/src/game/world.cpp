@@ -13,22 +13,6 @@ World::World(const WorldInfo& info)
     , info(info)
 { }
 
-// input
-
-void World::destroyInput() {
-    delete pInputThread;
-}
-
-void World::tickInput() {
-    if (pInputThread->process()) {
-        return;
-    }
-
-    input::Manager *pInput = info.pInput;
-    pInput->poll();
-    inputStep.waitForNextTick();
-}
-
 // render
 
 void World::destroyRender() {
@@ -94,7 +78,6 @@ void World::tickGame() {
 // - shutdown game thread
 // - shutdown physics thread
 // - shutdown render thread
-// - shutdown input thread
 void World::shutdown() {
     std::lock_guard guard(lock);
     // TODO: wait for everything to shut down
@@ -102,7 +85,6 @@ void World::shutdown() {
     destroyGame();
     destroyPhysics();
     destroyRender();
-    destroyInput();
 
     bShutdown = true;
 }

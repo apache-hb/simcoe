@@ -43,6 +43,8 @@ namespace simcoe {
         Window(const WindowCreateInfo& createInfo);
         ~Window();
 
+        void showWindow();
+
         HWND getHandle() const;
         WindowSize getSize() const;
         RECT getWindowCoords() const;
@@ -98,7 +100,7 @@ namespace simcoe {
         void destroyService() override;
 
         // PlatformService
-        static void setup(HINSTANCE hInstance, int nCmdShow);
+        static void setup(HINSTANCE hInstance, int nCmdShow, IWindowCallbacks *pCallbacks);
         static CommandLine getCommandLine();
 
         // win32 event loop
@@ -112,8 +114,8 @@ namespace simcoe {
         static size_t queryCounter();
 
         // win32 window creation
-        static const std::string& getDefaultWindowTitle() { return get()->defaultWindowTitle;}
-        static WindowSize getDefaultWindowSize() { return get()->defaultWindowSize; }
+        static Window& getWindow();
+        static void showWindow();
 
         static HINSTANCE getInstanceHandle();
         static int getShowCmd();
@@ -132,6 +134,10 @@ namespace simcoe {
         // platform data
         HINSTANCE hInstance = nullptr;
         int nCmdShow = -1;
+        IWindowCallbacks *pCallbacks = nullptr;
+
+        Window *pWindow = nullptr;
+
         MSG msg = {};
         size_t frequency = 0;
 

@@ -1,4 +1,4 @@
-#include "engine/assets/font.h"
+#include "engine/depot/font.h"
 
 #include "engine/core/units.h"
 #include "engine/service/freetype.h"
@@ -7,7 +7,7 @@
 #include "engine/math/math.h"
 
 using namespace simcoe;
-using namespace simcoe::assets;
+using namespace simcoe::depot;
 using namespace simcoe::math;
 
 namespace {
@@ -41,7 +41,7 @@ namespace {
     }
 
     struct FontRender {
-        FontRender(FT_Face face, assets::CanvasPoint origin, assets::CanvasSize size, float deg, int pt)
+        FontRender(FT_Face face, depot::CanvasPoint origin, depot::CanvasSize size, float deg, int pt)
             : face(face)
             , slot(face->glyph)
             , origin(origin)

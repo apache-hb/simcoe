@@ -1,5 +1,7 @@
 #include "editor/graph/gui.h"
 
+#include "engine/depot/service.h"
+
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
 #include "imgui/backends/imgui_impl_win32.h"
@@ -7,6 +9,8 @@
 
 using namespace editor;
 using namespace editor::graph;
+
+using namespace simcoe;
 
 namespace {
     std::recursive_mutex gImguiLock;
@@ -18,11 +22,9 @@ namespace {
 
 IGuiPass::IGuiPass(Graph *pGraph, ResourceWrapper<IRTVHandle> *pHandle)
     : IRenderPass(pGraph, "imgui", eDepDisplaySize)
+    , iniPath(DepotService::getAssetPath("imgui.ini").string())
 {
     setRenderTargetHandle(pHandle);
-
-    const auto& createInfo = ctx->getCreateInfo();
-    iniPath = createInfo.depot.getAssetPath("imgui.ini").string();
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

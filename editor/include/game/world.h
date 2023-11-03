@@ -18,13 +18,6 @@ namespace game {
         World(const WorldInfo& info);
         ~World();
 
-        void createInput() { }
-        void destroyInput();
-        void tickInput();
-        util::TimeStep inputStep{ 1.f / 60.f };
-        threads::WorkQueue *pInputThread = new threads::WorkQueue{64};
-
-
         void createRender() { }
         void destroyRender();
         void tickRender();

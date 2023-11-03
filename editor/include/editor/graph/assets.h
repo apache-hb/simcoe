@@ -6,6 +6,9 @@
 
 #include "engine/render/graph.h"
 
+#include "engine/depot/image.h"
+#include "engine/depot/font.h"
+
 using namespace simcoe;
 using namespace simcoe::render;
 using namespace simcoe::math;
@@ -90,7 +93,7 @@ namespace editor::graph {
         std::string name;
 
         // image data
-        assets::Image image;
+        depot::Image image;
     };
 
     struct TextHandle final : ITextureHandle, ISingleSRVHandle {
@@ -107,10 +110,10 @@ namespace editor::graph {
     private:
         std::string_view ttf;
 
-        assets::Font font;
-        assets::Image bitmap;
+        depot::Font font;
+        depot::Image bitmap;
 
-        std::vector<assets::TextSegment> segments = {
+        std::vector<depot::TextSegment> segments = {
             { u8"SWARM ", math::float4(1.f, 1.f, 1.f, 1.f) },
             { u8"\uE001 \uE002 \uE003", math::float4(0.f, 1.f, 0.f, 1.f) },
             { u8"\nSWARM ", math::float4(1.f, 1.f, 1.f, 1.f) },
@@ -119,7 +122,7 @@ namespace editor::graph {
             { u8"\uE001 \uE002 \uE003", math::float4(0.f, 1.f, 0.f, 1.f) }
         };
 
-        assets::CanvasPoint start = { 0, 0 };
-        assets::CanvasSize size = { 1920, 1080 };
+        depot::CanvasPoint start = { 0, 0 };
+        depot::CanvasSize size = { 1920, 1080 };
     };
 }

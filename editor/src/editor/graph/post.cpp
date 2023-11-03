@@ -1,9 +1,13 @@
 #include "editor/graph/post.h"
 
+#include "engine/depot/service.h"
+
 #include <array>
 
 using namespace editor;
 using namespace editor::graph;
+
+using namespace simcoe;
 
 static constexpr float quadX = 1.f;
 static constexpr float quadY = 1.f;
@@ -65,8 +69,8 @@ void PostPass::create() {
     display = createLetterBoxDisplay(createInfo.renderWidth, createInfo.renderHeight, createInfo.displayWidth, createInfo.displayHeight);
 
     const rhi::GraphicsPipelineInfo psoCreateInfo = {
-        .vertexShader = createInfo.depot.loadBlob("blit.vs.cso"),
-        .pixelShader = createInfo.depot.loadBlob("blit.ps.cso"),
+        .vertexShader = DepotService::loadBlob("blit.vs.cso"),
+        .pixelShader = DepotService::loadBlob("blit.ps.cso"),
 
         .attributes = {
             { "POSITION", offsetof(Vertex, position), rhi::TypeFormat::eFloat3 },

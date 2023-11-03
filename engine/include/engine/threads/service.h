@@ -18,7 +18,6 @@ namespace simcoe {
         // IStaticService
         static constexpr std::string_view kServiceName = "threads";
         static constexpr std::array kServiceDeps = { PlatformService::kServiceName };
-        static const config::ISchemaBase *gConfigSchema;
 
         // IService
         bool createService() override;
@@ -76,10 +75,6 @@ namespace simcoe {
 
         /** scheduling api */
 
-        static size_t getThreadCount() {
-            return get()->threadHandles.size();
-        }
-
         /**
          * @brief create a new thread and schedule it
          *
@@ -133,7 +128,7 @@ namespace simcoe {
 
         // all currently scheduled threads
         mt::shared_mutex threadHandleLock;
-        std::unordered_set<threads::ThreadHandle*> threadHandles;
+        std::vector<threads::ThreadHandle*> threadHandles;
 
         static void runWorker(std::stop_token token);
         static threads::ThreadHandle *newWorker();
@@ -157,6 +152,10 @@ namespace simcoe {
         // all worker threads
         mt::shared_mutex workerLock;
         size_t workerId = 0;
-        std::vector<core::UniquePtr<threads::ThreadHandle>> workers;
+        std::vector<WorkThread> workers;
+
+    public:
+        static std::shared_mutex &getPoolLock() { return get()->threadHandleLock; }
+        static std::vector<threads::ThreadHandle*> &getPool() { return get()->threadHandles; }
     };
 }

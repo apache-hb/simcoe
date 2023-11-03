@@ -20,7 +20,10 @@ namespace simcoe::core {
         { }
 
         constexpr ~UniqueHandle() {
-            if (handle != TEmpty) kDelete(handle);
+            if (handle != TEmpty) {
+                kDelete(handle);
+                handle = TEmpty;
+            }
         }
 
         constexpr UniqueHandle(UniqueHandle &&other) noexcept {
@@ -38,7 +41,7 @@ namespace simcoe::core {
         constexpr operator T() const noexcept { return handle; }
 
     private:
-        T handle;
+        T handle = TEmpty;
 
         static constexpr inline TDelete kDelete = TDelete();
     };

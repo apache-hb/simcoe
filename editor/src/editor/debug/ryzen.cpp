@@ -1,7 +1,11 @@
 #include "editor/debug/service.h"
 
+#include "engine/core/win32.h"
+
 #include "imgui/imgui_internal.h"
 #include "implot/implot.h"
+
+#include <shellapi.h>
 
 using namespace simcoe;
 using namespace simcoe::threads;

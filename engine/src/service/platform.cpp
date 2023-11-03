@@ -73,6 +73,14 @@ bool PlatformService::createService() {
 
     exeDirectory = fs::path(currentPath).parent_path();
 
+    WindowCreateInfo info = {
+        .title = defaultWindowTitle.c_str(),
+        .style = WindowStyle::eWindowed,
+        .size = defaultWindowSize,
+        .pCallbacks = pCallbacks
+    };
+    pWindow = new Window(info);
+
     return true;
 }
 
@@ -80,9 +88,10 @@ void PlatformService::destroyService() {
     UnregisterClassA(kClassName, hInstance);
 }
 
-void PlatformService::setup(HINSTANCE hInstance, int nCmdShow) {
+void PlatformService::setup(HINSTANCE hInstance, int nCmdShow, IWindowCallbacks *pCallbacks) {
     get()->hInstance = hInstance;
     get()->nCmdShow = nCmdShow;
+    get()->pCallbacks = pCallbacks;
 }
 
 CommandLine PlatformService::getCommandLine() {
@@ -123,6 +132,14 @@ size_t PlatformService::getFrequency() {
 
 size_t PlatformService::queryCounter() {
     return getClockCounter();
+}
+
+Window& PlatformService::getWindow() {
+    return *get()->pWindow;
+}
+
+void PlatformService::showWindow() {
+    getWindow().showWindow();
 }
 
 HINSTANCE PlatformService::getInstanceHandle() {
@@ -246,14 +263,18 @@ Window::Window(const WindowCreateInfo& createInfo)
         throwLastError("failed to create window");
     }
 
-    ShowWindow(hWindow, PlatformService::getShowCmd());
-    UpdateWindow(hWindow);
+    showWindow();
 }
 
 Window::~Window() {
     if (hWindow != nullptr) {
         DestroyWindow(hWindow);
     }
+}
+
+void Window::showWindow() {
+    ShowWindow(hWindow, PlatformService::getShowCmd());
+    UpdateWindow(hWindow);
 }
 
 // callbacks
