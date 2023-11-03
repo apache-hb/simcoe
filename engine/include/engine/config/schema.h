@@ -56,30 +56,7 @@ namespace simcoe::config {
 
         void error(std::string_view msg) const;
 
-        template<typename T>
-        bool get(const toml::node& node, T& dst) const {
-            constexpr toml::node_type expected = toml::impl::value_traits<T>::type;
-            if (node.type() == expected) {
-                dst = node.as<T>()->get();
-                return true;
-            }
-
-            // TODO: unstable api but who cares :^)
-            error("expected a {}, found a {}", expected, node.type());
-            return false;
-        }
-
-        // table is a special case (why?)
-        template<>
-        bool get<toml::table>(const toml::node& node, toml::table& dst) const {
-            if (node.type() == toml::node_type::table) {
-                dst = *node.as<toml::table>();
-                return true;
-            }
-
-            error("expected a table, found a {}", node.type());
-            return false;
-        }
+        bool verifyConfigField(const toml::node& node, toml::node_type expected);
 
         template<typename T>
         void writeField(uintptr_t offset, const T& value) const {
@@ -172,31 +149,20 @@ namespace simcoe::config {
         void readNode(ConfigContext& ctx, const toml::node& node) const override;
     };
 
+    // the base of either an enum or a flags
     template<typename T>
-    struct Enum final : ISchema {
+    struct Choice : ISchema {
+        using Super = ISchema;
+        using Super::Super;
+
         using NameMap = std::unordered_map<std::string_view, T>;
 
-        constexpr Enum(const FieldInfo& info, const NameMap& names)
+        constexpr Choice(const FieldInfo& info, const NameMap& names)
             : ISchema(info)
             , values(names)
         { }
 
-        void readNode(ConfigContext& ctx, const toml::node& node) const override {
-            auto r = region(ctx);
-            if (std::string str; ctx.get(node, str)) {
-                if (auto it = values.find(str); it == values.end()) {
-                    unknownChoice(ctx, str);
-                } else {
-                    update(ctx, it->second);
-                }
-            }
-        }
-
-    private:
-        void unknownChoice(ConfigContext& ctx, std::string_view choice) const {
-            ctx.error("invalid config value, got {}\nexpected one of `{}`", choice, validOptions());
-        }
-
+    protected:
         std::string validOptions() const {
             std::vector<std::string_view> options;
             for (auto& [choice, _] : values) {
@@ -205,7 +171,95 @@ namespace simcoe::config {
             return util::join(options, ", ");
         }
 
-        NameMap values;
+        bool findName(std::string_view field, T& dst) const {
+            if (auto it = values.find(field); it == values.end()) {
+                return false;
+            } else {
+                dst = it->second;
+                return true;
+            }
+        }
+
+    private:
+        const NameMap values;
+    };
+
+    template<typename T>
+    struct Enum final : Choice<T> {
+        using Super = Choice<T>;
+        using Super::Super;
+
+        void readNode(ConfigContext& ctx, const toml::node& node) const override {
+            if (!ctx.verifyConfigField(node, toml::node_type::string)) {
+                return;
+            }
+
+            std::string_view id = node.value_or<std::string_view>("");
+            if (T value; Super::findName(id, value)) {
+                Super::update(ctx, value);
+            } else {
+                unknownChoice(ctx, id);
+            }
+        }
+
+    private:
+        void unknownChoice(ConfigContext& ctx, std::string_view choice) const {
+            ctx.error("invalid enum choice `{}`\nmust be one of `{}`", choice, Super::validOptions());
+        }
+    };
+
+    template<typename T>
+    struct Flags final : Choice<T> {
+        using Super = Choice<T>;
+        using Super::Super;
+
+        void readNode(ConfigContext& ctx, const toml::node& node) const override {
+            if (!ctx.verifyConfigField(node, toml::node_type::array)) {
+                return;
+            }
+
+            if (!node.is_homogeneous(toml::node_type::string)) {
+                ctx.error("expected array of strings");
+                return;
+            }
+
+            T value = T();
+            for (auto& item : *node.as_array()) {
+                if (!ctx.verifyConfigField(item, toml::node_type::string)) {
+                    continue;
+                }
+
+                std::string_view id = item.value_or<std::string_view>("");
+                if (T flag; Super::findName(id, flag)) {
+                    value |= flag;
+                } else {
+                    unknownChoice(ctx, id);
+                }
+            }
+
+            Super::update(ctx, value);
+        }
+
+    private:
+        void unknownChoice(ConfigContext& ctx, std::string_view choice) const {
+            ctx.error("invalid flag choice `{}`\nmust be one of `{}`", choice, Super::validOptions());
+        }
+    };
+
+    template<typename T>
+    struct Int final : ISchema {
+        constexpr Int(const FieldInfo& info)
+            : ISchema(info)
+        { }
+
+        void readNode(ConfigContext& ctx, const toml::node& node) const override {
+            if (!ctx.verifyConfigField(node, toml::node_type::integer)) {
+                return;
+            }
+
+            T value = node.as_integer()->get();
+            update(ctx, value);
+        }
     };
 
     struct Table final : ISchemaBase {
@@ -221,4 +275,3 @@ namespace simcoe::config {
         Fields schemas;
     };
 }
-

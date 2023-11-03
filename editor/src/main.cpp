@@ -4,7 +4,7 @@
 // services
 #include "engine/service/service.h"
 #include "engine/service/debug.h"
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 #include "engine/service/platform.h"
 #include "engine/service/freetype.h"
 
@@ -746,7 +746,7 @@ static void commonMain() {
 
 static int serviceWrapper() try {
     std::ofstream fd("editor.log");
-    StreamSink fdSink(fd);
+    log::StreamSink fdSink(fd);
     LoggingService::addSink(pLoggingDebug);
     LoggingService::addSink(&fdSink);
 
@@ -761,7 +761,7 @@ static int serviceWrapper() try {
         GdkService::service(),
         RyzenMonitorSerivce::service()
     });
-    ServiceRuntime runtime{engineServices, "engine"};
+    ServiceRuntime runtime{engineServices, "editor"};
 
     commonMain();
     LOG_INFO("no game exceptions have occured during runtime");

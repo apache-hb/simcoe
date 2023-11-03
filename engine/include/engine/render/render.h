@@ -5,7 +5,7 @@
 #include "engine/assets/assets.h"
 #include "engine/rhi/rhi.h"
 
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 
 namespace simcoe::render {
     // forward declarations

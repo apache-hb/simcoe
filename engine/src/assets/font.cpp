@@ -2,7 +2,7 @@
 
 #include "engine/core/units.h"
 #include "engine/service/freetype.h"
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 
 #include "engine/math/math.h"
 

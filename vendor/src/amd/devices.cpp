@@ -1,6 +1,6 @@
 #include "vendor/amd/ryzen.h"
 
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 
 #include "engine/core/strings.h"
 

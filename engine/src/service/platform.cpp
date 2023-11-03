@@ -1,6 +1,6 @@
 #include "engine/service/platform.h"
 #include "engine/service/debug.h"
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 
 #include "engine/core/strings.h"
 

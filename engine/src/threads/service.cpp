@@ -1,7 +1,11 @@
 #include "engine/threads/service.h"
 
 #include "engine/core/units.h"
-#include "engine/service/logging.h"
+
+#include "engine/config/builder.h"
+
+#include "engine/log/service.h"
+
 #include <unordered_set>
 
 using namespace simcoe;
@@ -331,6 +335,11 @@ namespace {
     };
 }
 
+const config::ISchemaBase *ThreadService::gConfigSchema
+    = CFG_DECLARE(ThreadService, "threads", {
+        CFG_FIELD_INT("workers", defaultWorkerCount),
+    });
+
 bool ThreadService::createService() {
     GeometryBuilder builder;
     ProcessorInfoLayout processorInfoLayout{&builder};
@@ -393,6 +402,8 @@ bool ThreadService::createService() {
         .packages = builder.packages
     };
 
+    setWorkerCount(defaultWorkerCount);
+
     return true;
 }
 
@@ -435,6 +446,7 @@ std::string_view ThreadService::getThreadName(ThreadId id) {
 // scheduler
 
 void ThreadService::setWorkerCount(size_t count) {
+    LOG_INFO("starting {} workers", count);
     mt::write_lock lock(get()->workerLock);
     get()->workers.resize(count);
 }

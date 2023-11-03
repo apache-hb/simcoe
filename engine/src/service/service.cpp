@@ -1,6 +1,6 @@
 #include "engine/service/service.h"
 
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 
 #include "engine/core/panic.h"
 
@@ -17,7 +17,6 @@ void IService::create() try {
     }
 
     if (createService()) {
-        LOG_INFO("loaded {} service", getName());
         state = eServiceCreated;
     } else {
         LOG_ERROR("failed to load {} service", getName());
@@ -52,18 +51,19 @@ ServiceRuntime::ServiceRuntime(std::span<IService*> services, const fs::path& pa
 
     for (IService *pService : services) {
         auto name = pService->getName();
-        ASSERTF(!loaded.contains(name), "service {} already loaded", name);
+        ASSERTF(!loaded.contains(name), "{} service already loaded", name);
 
         for (std::string_view dep : pService->getDeps()) {
-            ASSERTF(loaded.contains(dep), "service {} depends on {}, but it's not loaded", name, dep);
+            ASSERTF(loaded.contains(dep), "{} depends on {}, but it's not loaded", name, dep);
         }
 
         if (auto pSchema = pService->getSchema(); pSchema) {
-            LOG_INFO("configuring service {}", name);
+            LOG_INFO("configuring {} service", name);
             cfg.load(pSchema, pService);
+        } else {
+            LOG_INFO("loading {} service", name);
         }
 
-        LOG_INFO("loading service {}", name);
         pService->create();
         loaded.emplace(name);
     }

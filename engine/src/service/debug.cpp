@@ -54,7 +54,7 @@ std::vector<StackFrame> DebugService::backtrace() {
 
     DWORD64 disp = 0;
 
-    CONTEXT ctx = { 0 };
+    CONTEXT ctx = { };
     RtlCaptureContext(&ctx);
 
     STACKFRAME frame = {

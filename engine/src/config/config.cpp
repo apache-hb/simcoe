@@ -1,6 +1,6 @@
 #include "engine/config/config.h"
 
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 
 using namespace simcoe;
 using namespace simcoe::config;

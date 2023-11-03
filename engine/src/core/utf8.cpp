@@ -1,6 +1,6 @@
 #include "engine/core/utf8.h"
 
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 
 #include <stdint.h>
 

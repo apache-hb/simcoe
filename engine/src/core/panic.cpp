@@ -1,6 +1,6 @@
 #include "engine/core/panic.h"
 
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 #include "engine/service/platform.h"
 
 #include <iostream>

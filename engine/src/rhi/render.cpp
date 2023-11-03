@@ -2,7 +2,9 @@
 #include "engine/rhi/rhi.h"
 
 #include "engine/service/debug.h"
-#include "engine/service/logging.h"
+
+#include "engine/log/message.h"
+#include "engine/log/service.h"
 
 #include <directx/d3dx12/d3dx12.h>
 #include <wrl.h>
@@ -1122,7 +1124,6 @@ static ID3D12Debug *getDeviceDebugInterface() {
     ID3D12Debug *pDebug = nullptr;
 
     if (HRESULT hr = D3D12GetDebugInterface(IID_PPV_ARGS(&pDebug)); SUCCEEDED(hr)) {
-        LOG_INFO("enabling d3d12 debug layer");
         pDebug->EnableDebugLayer();
     } else {
         LOG_WARN("failed to enable d3d12 debug layer");
@@ -1135,7 +1136,6 @@ static ID3D12InfoQueue1 *getDeviceInfoQueue(DWORD *pCookie, ID3D12Device *pDevic
     ID3D12InfoQueue1 *pInfoQueue = nullptr;
 
     if (HRESULT queryHr = pDevice->QueryInterface(IID_PPV_ARGS(&pInfoQueue)); SUCCEEDED(queryHr)) {
-        LOG_INFO("enabling d3d12 info queue");
         HR_CHECK(pInfoQueue->RegisterMessageCallback(debugCallback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, pCookie));
     } else {
         LOG_WARN("failed to enable d3d12 info queue");
@@ -1144,27 +1144,35 @@ static ID3D12InfoQueue1 *getDeviceInfoQueue(DWORD *pCookie, ID3D12Device *pDevic
     return pInfoQueue;
 }
 
-static void setupDred() {
+static bool setupDred() {
     ID3D12DeviceRemovedExtendedDataSettings *pSettings = nullptr;
 
     if (HRESULT hr = D3D12GetDebugInterface(IID_PPV_ARGS(&pSettings)); SUCCEEDED(hr)) {
-        LOG_INFO("enabling d3d12 device removed extended data");
         pSettings->SetAutoBreadcrumbsEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
         pSettings->SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
         pSettings->Release();
+        return true;
     } else {
         LOG_WARN("failed to enable d3d12 device removed extended data");
+        return false;
     }
 }
 
 Device *Device::create(IDXGIAdapter4 *pAdapter, CreateFlags flags) {
+    log::PendingMessage features{"enabling requested d3d12 features"};
     if (flags & eCreateExtendedInfo) {
-        setupDred();
+        if (setupDred()) {
+            features.addLine("enabled device removed extended data");
+        }
     }
 
     ID3D12Debug *pDebug = nullptr;
     if (flags & eCreateDebug) {
         pDebug = getDeviceDebugInterface();
+    }
+
+    if (pDebug != nullptr) {
+        features.addLine("enabled debug layer");
     }
 
     ID3D12Device4 *pDevice = nullptr;
@@ -1175,6 +1183,12 @@ Device *Device::create(IDXGIAdapter4 *pAdapter, CreateFlags flags) {
     if (flags & eCreateInfoQueue) {
         pInfoQueue = getDeviceInfoQueue(&cookie, pDevice);
     }
+
+    if (pInfoQueue != nullptr) {
+        features.addLine("enabled info queue");
+    }
+
+    features.send(log::eInfo);
 
     return new Device(pDevice, pDebug, pInfoQueue, cookie, flags, getRootSigVersion(pDevice));
 }
@@ -1253,7 +1267,6 @@ static IDXGIDebug1 *getDebugInterface() {
     IDXGIDebug1 *pDebug = nullptr;
 
     if (HRESULT hr = DXGIGetDebugInterface1(0, IID_PPV_ARGS(&pDebug)); SUCCEEDED(hr)) {
-        LOG_INFO("enabling dxgi debug layer");
         pDebug->EnableLeakTrackingForThread();
     } else {
         LOG_WARN("failed to enable dxgi debug layer");

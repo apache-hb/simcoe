@@ -2,7 +2,7 @@
 #include "engine/threads/schedule.h"
 #include "engine/threads/service.h"
 
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 
 #include "engine/core/range.h"
 

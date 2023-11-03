@@ -1,6 +1,6 @@
 #include "vendor/amd/ryzen.h"
 
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 #include "engine/service/platform.h"
 
 #include "engine/core/unique.h"
@@ -189,6 +189,15 @@ namespace {
 
         return fs::path(path).parent_path();
     }
+
+    std::string joinFields(const InfoSink& sink) {
+        std::vector<std::string> fields;
+        for (const auto& [key, field] : sink) {
+            fields.emplace_back(std::format("{} = {}", key, field));
+        }
+
+        return util::join(fields, "\n");
+    }
 }
 
 bool RyzenMonitorSerivce::createService() {
@@ -196,10 +205,7 @@ bool RyzenMonitorSerivce::createService() {
 
     auto fail = [&]<typename... A>(std::string_view fmt, A&&... args) {
         auto reason = std::vformat(fmt, std::make_format_args(args...));
-        LOG_ERROR("RyzenMonitorSerivce setup failed: {}", reason);
-        for (const auto& [key, field] : fields) {
-            LOG_INFO(" - {}: {}", key, field);
-        }
+        LOG_ERROR("RyzenMonitorSerivce setup failed: {}\n{}", reason, joinFields(fields));
         error = reason;
         return false;
     };
@@ -281,10 +287,7 @@ bool RyzenMonitorSerivce::createService() {
     setupBiosDevices();
     setupCpuDevices();
 
-    LOG_INFO("RyzenMonitorSerivce setup complete");
-    for (const auto& [key, field] : fields) {
-        LOG_INFO(" - {}: {}", key, field);
-    }
+    LOG_INFO("RyzenMonitorSerivce setup complete\n{}", joinFields(fields));
 
     return true;
 }

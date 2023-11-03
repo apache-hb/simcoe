@@ -11,5 +11,14 @@ template<typename T, typename U> T getFieldType(T U::*);
         return new simcoe::config::Table(NAME, __VA_ARGS__); \
     }()
 
-#define CFG_FIELD_ENUM(NAME, FIELD, NAMES) \
-    { NAME, new simcoe::config::Enum<FIELD_TYPE(ConfigType, FIELD)>({ NAME, offsetof(ConfigType, FIELD) }, NAMES) }
+#define CFG_FIELD_ENUM(NAME, FIELD, ...) \
+    { NAME, new simcoe::config::Enum<FIELD_TYPE(ConfigType, FIELD)>({ NAME, offsetof(ConfigType, FIELD) }, __VA_ARGS__) }
+
+#define CFG_FIELD_FLAGS(NAME, FIELD, ...) \
+    { NAME, new simcoe::config::Flags<FIELD_TYPE(ConfigType, FIELD)>({ NAME, offsetof(ConfigType, FIELD) }, __VA_ARGS__) }
+
+#define CFG_FIELD_INT(NAME, FIELD) \
+    { NAME, new simcoe::config::Int<FIELD_TYPE(ConfigType, FIELD)>({ NAME, offsetof(ConfigType, FIELD) }) }
+
+#define CFG_CASE(NAME, CASE) \
+    { NAME, CASE }

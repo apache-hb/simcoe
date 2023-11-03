@@ -1,7 +1,7 @@
 #include "engine/input/win32-device.h"
 #include "common.h"
 
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 
 #include <unordered_map>
 

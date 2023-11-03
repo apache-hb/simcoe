@@ -16,6 +16,7 @@ namespace simcoe {
         // IStaticService
         static constexpr std::string_view kServiceName = "threads";
         static constexpr std::array kServiceDeps = { PlatformService::kServiceName };
+        static const config::ISchemaBase *gConfigSchema;
 
         // IService
         bool createService() override;
@@ -109,6 +110,9 @@ namespace simcoe {
         std::string_view failureReason = "";
 
         threads::Geometry geometry = {};
+
+        // configurable stuff
+        size_t defaultWorkerCount = 0;
 
         // this grows memory fungus by design
         // if any value in here is changed after its created then

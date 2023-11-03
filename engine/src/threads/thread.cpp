@@ -1,7 +1,7 @@
 #include "engine/threads/thread.h"
 
 #include "engine/threads/service.h"
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 #include "engine/service/debug.h"
 
 #include "engine/core/unique.h"

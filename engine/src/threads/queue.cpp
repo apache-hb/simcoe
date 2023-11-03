@@ -3,7 +3,7 @@
 #include "engine/threads/service.h"
 
 #include "engine/service/debug.h"
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 
 using namespace simcoe;
 using namespace simcoe::threads;

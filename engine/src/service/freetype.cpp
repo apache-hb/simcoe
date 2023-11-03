@@ -1,5 +1,5 @@
 #include "engine/service/freetype.h"
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 
 using namespace simcoe;
 

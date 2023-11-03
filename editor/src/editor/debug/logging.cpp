@@ -10,20 +10,7 @@ using namespace editor::debug;
 
 namespace chrono = std::chrono;
 
-namespace {
-    constexpr const char *getLevelName(LogLevel level) {
-        switch (level) {
-        case eAssert: return "panic";
-        case eError: return "error";
-        case eWarn: return "warn";
-        case eInfo: return "info";
-        case eDebug: return "debug";
-        default: return "unknown";
-        }
-    }
-}
-
-Message::Message(const LogMessage& msg)
+Message::Message(const log::Message& msg)
     : threadId(msg.threadId)
     , level(msg.level)
     , text(msg.msg)
@@ -54,7 +41,7 @@ void Message::draw() const {
         ImGui::Text("%s", tid.data());
     }
     ImGui::TableNextColumn();
-    ImGui::Text("%s", getLevelName(level));
+    ImGui::Text("%s", log::toString(level).data());
     ImGui::TableNextColumn();
     ImGui::Text("%s", text.c_str());
 }
@@ -118,7 +105,7 @@ void LoggingDebug::drawTable() {
     }
 }
 
-void LoggingDebug::accept(const LogMessage& msg) {
+void LoggingDebug::accept(const log::Message& msg) {
     mt::write_lock lock(mutex);
     messages.emplace_back(msg);
 }

@@ -1,6 +1,6 @@
 #include "vendor/microsoft/gdk.h"
 
-#include "engine/service/logging.h"
+#include "engine/log/service.h"
 
 #include "XGameRuntime.h"
 #include "XGameRuntimeFeature.h"

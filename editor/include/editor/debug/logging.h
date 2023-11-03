@@ -6,7 +6,7 @@
 
 namespace editor::debug {
     struct Message {
-        Message(const LogMessage& msg);
+        Message(const log::Message& msg);
 
         bool filter(ImGuiTextFilter& filter) const;
         void draw() const;
@@ -18,19 +18,19 @@ namespace editor::debug {
         // store the threadid rather than the name
         // if the name changes, we get the new one
         threads::ThreadId threadId;
-        LogLevel level;
+        log::Level level;
 
         // if the message contains newlines, we put borders above and below it
         bool bIsMultiline;
         std::string text;
     };
 
-    struct LoggingDebug final : ServiceDebug, ISink {
+    struct LoggingDebug final : ServiceDebug, log::ISink {
         LoggingDebug();
 
         void draw() override;
 
-        void accept(const LogMessage& msg) override;
+        void accept(const log::Message& msg) override;
 
     private:
         void clear();
