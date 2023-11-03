@@ -7,40 +7,26 @@ using namespace simcoe::config;
 
 ConfigFile::ConfigFile(const fs::path& path)
     : name(path.string())
-    , config(loadFile(path))
-{ }
+{
+    pSource = loadToml(path);
+    pRoot = pSource ? pSource->load() : nullptr;
+}
 
 void ConfigFile::load(std::string_view sectionName, const IConfig *pConfig) const {
+    if (pSource == nullptr) return;
+
     auto *pSchema = pConfig->getSchema();
     if (pSchema == nullptr) return;
 
     ConfigContext ctx{name};
 
-    if (auto field = config.get(sectionName); field) {
-        if (field->is_table()) {
-            pSchema->load(ctx, *field->as_table());
+    if (NodeMap sections; pRoot->get(sections)) {
+        if (auto it = sections.find(std::string(sectionName)); it != sections.end()) {
+            pSchema->load(ctx, it->second);
         } else {
-            LOG_WARN("config file {} section for {} is not a table", sectionName, sectionName);
+            LOG_WARN("config file {} does not contain section for {}", name, sectionName);
         }
     } else {
-        LOG_WARN("config file {} does not contain section for {}", sectionName, sectionName);
+        LOG_WARN("config file {} does not contain sections", name);
     }
-}
-
-toml::table ConfigFile::loadFile(const fs::path& path) try {
-    fs::path cfg = fs::current_path() / path;
-    cfg.replace_extension("toml");
-    auto str = cfg.string();
-
-    LOG_INFO("loading config file {}", str);
-    return toml::parse_file(str);
-} catch (const toml::parse_error& e) {
-    std::stringstream ss; // TODO: maybe pester the toml library to add std::formatter support
-    ss << e;
-    LOG_WARN("failed to parse config file {}", path.string());
-    LOG_WARN("{}", ss.str());
-    return {};
-} catch (const std::exception& e) {
-    LOG_WARN("failed to load config file {}: {}", path.string(), e.what());
-    return {};
 }

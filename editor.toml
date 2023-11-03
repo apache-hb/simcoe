@@ -1,0 +1,40 @@
+### logging config
+
+[logging]
+# log verbosity [debug, info, warn, error, panic]
+level = "info"
+
+[logging.sinks]
+console = { colour = true }
+file = { path = "editor.log", colour = false }
+
+### platform config
+
+[platform.window]
+title = "editor"
+size = { width = 1920, height = 1080 }
+
+### threading config
+
+[threads.workers]
+# number of worker threads to spin up, set to 0 to let the engine decide
+initial = 4
+
+# max number of worker threads to spin up
+max = 16
+
+# polling interval in ms
+interval = 50
+
+[depot]
+# max number of handles to allocate
+handles = 1024
+
+[depot.vfs]
+# root directory for the virtual file system
+# $exe is replaced with the directory of the executable
+# $cwd is replaced with the current working directory
+root = "$exe/build/editor.exe.p/"
+
+# mode of the virtual file system [readonly, readwrite]
+mode = "readonly"

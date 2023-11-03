@@ -125,6 +125,8 @@ src = [
     # config
     'engine/src/config/config.cpp',
     'engine/src/config/schema.cpp',
+    'engine/src/config/source.cpp',
+    'engine/src/config/toml.cpp',
 
     # service
     'engine/src/service/service.cpp',

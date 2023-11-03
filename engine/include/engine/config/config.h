@@ -26,8 +26,7 @@ namespace simcoe::config {
 
     private:
         std::string name;
-        toml::table config;
-
-        static toml::table loadFile(const fs::path& path);
+        ISource *pSource;
+        INode *pRoot;
     };
 }

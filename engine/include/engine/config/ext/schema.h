@@ -6,43 +6,6 @@
 #include "engine/core/strings.h"
 #include "engine/core/units.h"
 
-#include <toml++/toml.h>
-
-#include <unordered_map>
-#include <format>
-
-template<typename T>
-struct std::formatter<toml::node_type, T> : std::formatter<std::string_view, T> {
-    template<typename FormatContext>
-    auto format(toml::node_type type, FormatContext& ctx) {
-        using f = std::formatter<std::string_view, T>;
-        switch (type) {
-        case toml::node_type::none:
-            return f::format("none", ctx);
-        case toml::node_type::table:
-            return f::format("table", ctx);
-        case toml::node_type::array:
-            return f::format("array", ctx);
-        case toml::node_type::string:
-            return f::format("string", ctx);
-        case toml::node_type::integer:
-            return f::format("integer", ctx);
-        case toml::node_type::floating_point:
-            return f::format("floating_point", ctx);
-        case toml::node_type::boolean:
-            return f::format("boolean", ctx);
-        case toml::node_type::date:
-            return f::format("date", ctx);
-        case toml::node_type::time:
-            return f::format("time", ctx);
-        case toml::node_type::date_time:
-            return f::format("date_time", ctx);
-        default:
-            return f::format("unknown", ctx);
-        }
-    }
-};
-
 namespace simcoe::config {
     template<typename T>
     struct ISchema : ISchemaBase {
@@ -70,7 +33,7 @@ namespace simcoe::config {
             : ISchema(name, pValue)
         { }
 
-        void readNode(ConfigContext& ctx, const toml::node& node) const override;
+        void readNode(ConfigContext& ctx, const INode *pNode) const override;
     };
 
     struct Bool final : ISchema<bool> {
@@ -78,7 +41,7 @@ namespace simcoe::config {
             : ISchema(name, pValue)
         { }
 
-        void readNode(ConfigContext& ctx, const toml::node& node) const override;
+        void readNode(ConfigContext& ctx, const INode *pNode) const override;
     };
 
     // the base of either an enum or a flags
@@ -121,12 +84,12 @@ namespace simcoe::config {
         using Super = Choice<T>;
         using Super::Super;
 
-        void readNode(ConfigContext& ctx, const toml::node& node) const override {
-            if (!ctx.verifyConfigField(node, toml::node_type::string)) {
+        void readNode(ConfigContext& ctx, const INode *pNode) const override {
+            if (!ctx.verifyConfigField(pNode, eString)) {
                 return;
             }
 
-            std::string_view id = node.value_or<std::string_view>("");
+            std::string id = pNode->getUnchecked<std::string>();
             if (T value; Super::findName(id, value)) {
                 Super::update(ctx, value);
             } else {
@@ -145,23 +108,20 @@ namespace simcoe::config {
         using Super = Choice<T>;
         using Super::Super;
 
-        void readNode(ConfigContext& ctx, const toml::node& node) const override {
-            if (!ctx.verifyConfigField(node, toml::node_type::array)) {
+        void readNode(ConfigContext& ctx, const INode *pNode) const override {
+            if (!ctx.verifyConfigField(pNode, eArray)) {
                 return;
             }
 
-            if (!node.is_homogeneous(toml::node_type::string)) {
+            auto vec = pNode->getUnchecked<NodeVec>();
+            if (!isArrayAll(vec, eString)) {
                 ctx.error("expected array of strings");
                 return;
             }
 
             T value = T();
-            for (auto& item : *node.as_array()) {
-                if (!ctx.verifyConfigField(item, toml::node_type::string)) {
-                    continue;
-                }
-
-                std::string_view id = item.value_or<std::string_view>("");
+            for (auto *pItem : vec) {
+                std::string id = pItem->getUnchecked<std::string>();
                 if (T flag; Super::findName(id, flag)) {
                     value |= flag;
                 } else {
@@ -193,43 +153,25 @@ namespace simcoe::config {
             : Super(name, pValue)
         { }
 
-        void readNode(ConfigContext& ctx, const toml::node& node) const override {
-            if (ctx.verifyConfigField(node, kType)) {
-                if (auto [value, error] = core::checkedIntCast<T>(node.value_or<O>(0)); error != core::CastError::eNone) {
-                    ctx.error("value `{}` is out of range for type `{}`", value, kType);
-                } else {
-                    Super::update(ctx, value);
-                }
+        void readNode(ConfigContext& ctx, const INode *pNode) const override {
+            if (!ctx.verifyConfigField(pNode, kType)) {
+                return;
+            }
+
+            auto [value, error] = core::checkedIntCast<T>(pNode->getUnchecked<O>());
+            if (error != core::CastError::eNone) {
+                ctx.error("value `{}` is out of range for type `{}`", value, kType);
+            } else {
+                Super::update(ctx, value);
             }
         }
 
     private:
-        constexpr static toml::node_type kType = toml::impl::node_type_of<T>;
+        constexpr static NodeType kType = std::is_same_v<O, int64_t> ? eInt : eFloat;
     };
 
     template<std::integral T>
     struct Int : DigitBase<T, int64_t> {
-        using Super = DigitBase<T, int64_t>;
-        using Super::Super;
-    };
-
-    template<std::floating_point T>
-    struct Decimal : DigitBase<T, double> {
-        using Super = DigitBase<T, double>;
-        using Super::Super;
-    };
-
-    template<typename T>
-    struct Digit { /* this should never be reached*/ };
-
-    template<std::floating_point T>
-    struct Digit<T> : DigitBase<T, double> {
-        using Super = DigitBase<T, double>;
-        using Super::Super;
-    };
-
-    template<std::integral T>
-    struct Digit<T> : DigitBase<T, int64_t> {
         using Super = DigitBase<T, int64_t>;
         using Super::Super;
     };
@@ -242,7 +184,7 @@ namespace simcoe::config {
             , schemas(items)
         { }
 
-        void readNode(ConfigContext& ctx, const toml::node& config) const override;
+        void readNode(ConfigContext& ctx, const INode *pNode) const override;
     private:
         Fields schemas;
     };

@@ -11,6 +11,7 @@
 !*.hlsl
 
 # assets
+!*.toml
 !*.png
 !*.jpg
 !data/libs/agility/*

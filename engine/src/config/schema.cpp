@@ -24,45 +24,67 @@ void ConfigContext::error(std::string_view msg) const {
     LOG_WARN("while loading config {}\ntrace: {}\nerror: {}", file, trace, msg);
 }
 
-bool ConfigContext::verifyConfigField(const toml::node& node, toml::node_type expected) {
-    if (node.type() != expected) {
-        error("expected field {} to be of type {}, got {}", path.back(), expected, node.type());
+bool ConfigContext::verifyConfigField(const INode *pNode, NodeType expected) const {
+    if (auto type = pNode->getType(); type != expected) {
+        error("expected field {} to be of type {}, got {}", path.back(), expected, type);
         return false;
     }
 
     return true;
 }
 
+// schema base
+auto ISchemaBase::region(ConfigContext& ctx) const {
+    struct ConfigRegion {
+        ConfigRegion(ConfigContext& ctx, std::string_view name) : ctx(ctx) {
+            ctx.enter(name);
+        }
+        ~ConfigRegion() {
+            ctx.leave();
+        }
+
+    private:
+        ConfigContext& ctx;
+    };
+
+    return ConfigRegion(ctx, getName());
+}
+
+void ISchemaBase::load(ConfigContext& ctx, const INode *pNode) const {
+    auto r = region(ctx);
+    readNode(ctx, pNode);
+}
+
 // config loaders
 
-void String::readNode(ConfigContext& ctx, const toml::node& node) const {
-    if (!ctx.verifyConfigField(node, toml::node_type::string)) {
+void String::readNode(ConfigContext& ctx, const INode *pNode) const {
+    if (!ctx.verifyConfigField(pNode, eString)) {
         return;
     }
 
-    update(ctx, node.as_string()->get());
+    update(ctx, pNode->getUnchecked<std::string>());
 }
 
-void Bool::readNode(ConfigContext& ctx, const toml::node& node) const {
-    if (!ctx.verifyConfigField(node, toml::node_type::boolean)) {
+void Bool::readNode(ConfigContext& ctx, const INode *pNode) const {
+    if (!ctx.verifyConfigField(pNode, eBool)) {
         return;
     }
 
-    update(ctx, node.as_boolean()->get());
+    update(ctx, pNode->getUnchecked<bool>());
 }
 
-void Table::readNode(ConfigContext& ctx, const toml::node& node) const {
-    if (!ctx.verifyConfigField(node, toml::node_type::table)) {
+void Table::readNode(ConfigContext& ctx, const INode *pNode) const {
+    if (!ctx.verifyConfigField(pNode, eTable)) {
         return;
     }
 
-    toml::table table = *node.as_table();
+    NodeMap table = pNode->getUnchecked<NodeMap>();
 
     for (auto& [id, pSchema] : schemas) {
-        if (auto field = table[id]; !field) {
+        if (auto it = table.find(std::string(id)); it == table.end()) {
             ctx.error("missing field {}", id);
         } else {
-            pSchema->load(ctx, *field.node());
+            pSchema->load(ctx, it->second);
         }
     }
 }

@@ -2,9 +2,7 @@
 
 #include "engine/core/filesystem.h"
 
-#include <toml++/toml.h>
-
-#include <format>
+#include "engine/config/source.h"
 
 namespace simcoe::config {
     // context to handle object pointers
@@ -21,7 +19,7 @@ namespace simcoe::config {
 
         void error(std::string_view msg) const;
 
-        bool verifyConfigField(const toml::node& node, toml::node_type expected);
+        bool verifyConfigField(const INode *pNode, NodeType expected) const;
 
     private:
         std::string_view file;
@@ -42,29 +40,12 @@ namespace simcoe::config {
         virtual ~ISchemaBase() = default;
 
     protected:
-        virtual void readNode(ConfigContext& ctx, const toml::node& node) const = 0;
+        virtual void readNode(ConfigContext& ctx, const INode *pNode) const = 0;
 
-        auto region(ConfigContext& ctx) const {
-            struct ConfigRegion {
-                ConfigRegion(ConfigContext& ctx, std::string_view name) : ctx(ctx) {
-                    ctx.enter(name);
-                }
-                ~ConfigRegion() {
-                    ctx.leave();
-                }
-
-            private:
-                ConfigContext& ctx;
-            };
-
-            return ConfigRegion(ctx, getName());
-        }
+        auto region(ConfigContext& ctx) const;
 
     public:
-        void load(ConfigContext& ctx, const toml::node& node) const {
-            auto r = region(ctx);
-            readNode(ctx, node);
-        }
+        void load(ConfigContext& ctx, const INode *pNode) const;
 
     private:
         std::string_view name;
