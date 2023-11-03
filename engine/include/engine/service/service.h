@@ -12,11 +12,6 @@
 namespace simcoe {
     using NameSpan = std::span<const std::string_view>;
 
-    template<typename T>
-    concept TypeHasSchema = requires {
-        { T::gConfigSchema } -> std::convertible_to<const config::ISchemaBase*>;
-    };
-
     enum ServiceState {
         eServiceInitial = (1 << 0), // service has not been setup yet
         eServiceSetup   = (1 << 1), // service has been setup
@@ -24,7 +19,7 @@ namespace simcoe {
         eServiceFaulted = (1 << 3) // service has been created but failed to initialize
     };
 
-    struct IService {
+    struct IService : config::IConfig {
         SM_NOCOPY(IService)
 
         IService(std::string_view name)
@@ -38,7 +33,6 @@ namespace simcoe {
         void destroy();
         std::string_view getName() const { return name; }
 
-        virtual const config::ISchemaBase *getSchema() const = 0;
         virtual NameSpan getDeps() const = 0;
 
     protected:
@@ -56,17 +50,7 @@ namespace simcoe {
         using IService::IService;
         SM_NOMOVE(IStaticService)
 
-        IStaticService()
-            : IService(T::kServiceName)
-        { }
-
-        const config::ISchemaBase *getSchema() const override {
-            if constexpr (TypeHasSchema<T>) {
-                return T::gConfigSchema;
-            } else {
-                return nullptr;
-            }
-        }
+        IStaticService() : IService(T::kServiceName) { }
 
         NameSpan getDeps() const override { return T::kServiceDeps; }
 

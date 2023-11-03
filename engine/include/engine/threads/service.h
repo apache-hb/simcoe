@@ -13,6 +13,8 @@
 namespace simcoe {
     // collects thread geometry at startup
     struct ThreadService : IStaticService<ThreadService> {
+        ThreadService();
+
         // IStaticService
         static constexpr std::string_view kServiceName = "threads";
         static constexpr std::array kServiceDeps = { PlatformService::kServiceName };
@@ -30,6 +32,18 @@ namespace simcoe {
 
         // os thread functions
         static threads::ThreadId getCurrentThreadId();
+
+        /** talking to the main thread */
+        static void enqueueMain(std::string name, auto&& func) {
+            get()->mainQueue.enqueue({name, func});
+        }
+
+        static void checkMainQueue() {
+            auto& msg = get()->mainMessage;
+            while (get()->mainQueue.try_dequeue(msg)) {
+                msg.item();
+            }
+        }
 
         /** thread naming */
 
@@ -57,13 +71,7 @@ namespace simcoe {
         static size_t getWorkerCount();
 
         static void enqueueWork(std::string name, auto&& func) {
-            WorkMessage msg = { name, func };
-            get()->pendingWork++;
-            get()->workQueue.enqueue(msg);
-        }
-
-        static size_t getPendingWork() {
-            return get()->pendingWork;
+            get()->workQueue.enqueue({ name, func });
         }
 
         /** scheduling api */
@@ -112,7 +120,9 @@ namespace simcoe {
         threads::Geometry geometry = {};
 
         // configurable stuff
-        size_t defaultWorkerCount = 0;
+        size_t defaultWorkerCount = 0; // 0 means let the system decide
+        size_t maxWorkerCount = 0; // 0 means no limit
+        size_t workerDelay = 50; // ms
 
         // this grows memory fungus by design
         // if any value in here is changed after its created then
@@ -134,8 +144,10 @@ namespace simcoe {
             threads::WorkItem item;
         };
 
-        std::atomic_size_t pendingWork = 0;
         moodycamel::BlockingConcurrentQueue<WorkMessage> workQueue;
+
+        WorkMessage mainMessage;
+        moodycamel::ConcurrentQueue<WorkMessage> mainQueue;
 
         struct WorkThread final : core::UniquePtr<threads::ThreadHandle> {
             using Super = core::UniquePtr<threads::ThreadHandle>;

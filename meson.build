@@ -136,6 +136,7 @@ src = [
     # logging
     'engine/src/log/service.cpp',
     'engine/src/log/message.cpp',
+    'engine/src/log/sinks.cpp',
 
     # util
     'engine/src/util/retry.cpp',

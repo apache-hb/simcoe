@@ -1,7 +1,7 @@
 #include "engine/log/service.h"
+#include "engine/log/sinks.h"
 
-#include "engine/config/config.h"
-#include "engine/config/builder.h"
+#include "engine/config/ext/builder.h"
 
 #include "engine/threads/service.h"
 
@@ -12,20 +12,39 @@ using namespace simcoe;
 namespace chrono = std::chrono;
 
 LoggingService::LoggingService() {
-    addLogSink(new log::StreamSink(std::cout));
-}
+    addNewSink("console", new log::ConsoleSink());
+    addNewSink("file", new log::FileSink());
 
-// TODO: make log sinks configurable
-const config::ISchemaBase *LoggingService::gConfigSchema
-    = CFG_DECLARE(LoggingService, "logging", {
-        CFG_FIELD_ENUM("level", level, {
+    config::Table::Fields fields;
+    for (const auto& [id, pSink] : lookup) {
+        fields[id] = pSink->getSchema();
+    }
+
+    config::Table *pSinks = new config::Table("sinks", fields);
+
+    CFG_DECLARE("logging",
+        CFG_FIELD_ENUM("level", &level,
             CFG_CASE("panic", log::eAssert),
             CFG_CASE("error", log::eError),
             CFG_CASE("warn", log::eWarn),
             CFG_CASE("info", log::eInfo),
             CFG_CASE("debug", log::eDebug),
-        })
-    });
+        ),
+        CFG_FIELD("sinks", pSinks)
+    );
+}
+
+// // TODO: make log sinks configurable
+// const config::ISchemaBase *LoggingService::gConfigSchema
+//     = CFG_DECLARE(LoggingService, "logging", {
+//         CFG_FIELD_ENUM("level", level, {
+//             CFG_CASE("panic", log::eAssert),
+//             CFG_CASE("error", log::eError),
+//             CFG_CASE("warn", log::eWarn),
+//             CFG_CASE("info", log::eInfo),
+//             CFG_CASE("debug", log::eDebug),
+//         })
+//     });
 
 bool LoggingService::createService() {
     LOG_INFO("log level: {}", log::toString(level));
@@ -42,8 +61,8 @@ bool LoggingService::shouldSend(log::Level level) {
     return get()->level >= level;
 }
 
-void LoggingService::addSink(log::ISink *pSink) {
-    get()->addLogSink(pSink);
+void LoggingService::addSink(std::string_view name, log::ISink *pSink) {
+    get()->addNewSink(name, pSink);
 }
 
 // private interface
@@ -63,7 +82,8 @@ void LoggingService::throwAssert(std::string msg) {
     throw std::runtime_error(msg);
 }
 
-void LoggingService::addLogSink(log::ISink *pSink) {
+void LoggingService::addNewSink(std::string_view id, log::ISink *pSink) {
     mt::write_lock guard(lock);
     sinks.push_back(pSink);
+    lookup.emplace(id, pSink);
 }

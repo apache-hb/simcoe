@@ -2,7 +2,7 @@
 
 #include "engine/core/units.h"
 
-#include "engine/config/builder.h"
+#include "engine/config/ext/builder.h"
 
 #include "engine/log/service.h"
 
@@ -335,10 +335,15 @@ namespace {
     };
 }
 
-const config::ISchemaBase *ThreadService::gConfigSchema
-    = CFG_DECLARE(ThreadService, "threads", {
-        CFG_FIELD_INT("workers", defaultWorkerCount),
-    });
+ThreadService::ThreadService() {
+    CFG_DECLARE("threads",
+        CFG_FIELD_TABLE("workers",
+            CFG_FIELD_INT("initial", &defaultWorkerCount),
+            CFG_FIELD_INT("max", &maxWorkerCount),
+            CFG_FIELD_INT("interval", &workerDelay)
+        )
+    );
+}
 
 bool ThreadService::createService() {
     GeometryBuilder builder;
@@ -481,11 +486,11 @@ void ThreadService::shutdown() {
 void ThreadService::runWorker(std::stop_token token) {
     WorkMessage msg;
     auto& queue = get()->workQueue;
+    auto interval = std::chrono::milliseconds(get()->workerDelay);
 
     while (!token.stop_requested()) {
-        if (queue.wait_dequeue_timed(msg, 50ms)) {
+        if (queue.wait_dequeue_timed(msg, interval)) {
             msg.item();
-            get()->pendingWork--;
         }
     }
 }

@@ -9,6 +9,8 @@ using namespace simcoe::threads;
 using namespace editor;
 using namespace editor::debug;
 
+using namespace std::chrono_literals;
+
 using amd::RyzenMonitorSerivce;
 
 namespace {
@@ -22,16 +24,32 @@ namespace {
         // when new data is available
         // we also then need to be able to signal the admin process to exit
         // once we exit
-        ThreadService::enqueueWork("ryzenmonitor-admin-launch", [] {
+        ThreadService::enqueueMain("ryzenmonitor-admin-launch", [] {
             LOG_INFO("attempting to launch admin process");
             ShellExecute(
                 /* hwnd= */ nullptr,
                 /* lpOperation= */ "runas",
-                /* lpFile= */ "C:\\Windows\\Notepad.exe",
+                /* lpFile= */ "C:\\Windows\\notepad.exe", // TODO: open us
                 /* lpParameters= */ nullptr,
                 /* lpDirectory= */ nullptr,
                 /* nShowCmd= */ SW_SHOWDEFAULT
             );
+        });
+    }
+
+    void restartAsAdmin() {
+        ThreadService::enqueueMain("ryzenmonitor-admin-restart", [] {
+            LOG_INFO("attempting to restart as admin");
+            ShellExecute(
+                /* hwnd= */ nullptr,
+                /* lpOperation= */ "runas",
+                /* lpFile= */ GetCommandLine(),
+                /* lpParameters= */ nullptr,
+                /* lpDirectory= */ nullptr,
+                /* nShowCmd= */ SW_SHOWDEFAULT
+            );
+
+            PlatformService::quit();
         });
     }
 }
@@ -54,6 +72,10 @@ RyzenMonitorDebug::RyzenMonitorDebug()
     }
 
     bInfoDirty = true;
+
+    ThreadService::newJob("ryzenmonitor", 1s, [this] {
+        updateCoreInfo();
+    });
 }
 
 void RyzenMonitorDebug::draw() {
@@ -79,8 +101,12 @@ void RyzenMonitorDebug::drawWindow() {
         auto err = getFailureReason();
         if (!err.empty()) {
             ImGui::Text("Failed to initialize: %s", err.data());
-            if (ImGui::Button("Launch as admin")) {
+            if (ImGui::Button("Launch subprocess (broken)")) {
                 launchAdminProcess();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Restart as admin")) {
+                restartAsAdmin();
             }
         } else {
             draw();

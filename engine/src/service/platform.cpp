@@ -1,10 +1,12 @@
 #include "engine/service/platform.h"
 #include "engine/service/debug.h"
-#include "engine/log/service.h"
 
 #include "engine/core/strings.h"
-
 #include "engine/core/panic.h"
+
+#include "engine/config/ext/builder.h"
+
+#include "engine/log/service.h"
 
 #include <intsafe.h> // DWORD_MAX
 #include <comdef.h> // _com_error
@@ -29,6 +31,18 @@ namespace {
         QueryPerformanceCounter(&counter);
         return counter.QuadPart;
     }
+}
+
+PlatformService::PlatformService() {
+    CFG_DECLARE("platform",
+        CFG_FIELD_TABLE("window",
+            CFG_FIELD_STRING("title", &defaultWindowTitle),
+            CFG_FIELD_TABLE("size",
+                CFG_FIELD_INT("width", &defaultWindowSize.width),
+                CFG_FIELD_INT("height", &defaultWindowSize.height)
+            )
+        )
+    );
 }
 
 bool PlatformService::createService() {

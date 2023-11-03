@@ -9,6 +9,8 @@
 
 namespace simcoe {
     struct FreeTypeService final : IStaticService<FreeTypeService> {
+        FreeTypeService();
+
         // IStaticService
         static constexpr std::string_view kServiceName = "freetype";
         static constexpr std::array<std::string_view, 0> kServiceDeps = { };

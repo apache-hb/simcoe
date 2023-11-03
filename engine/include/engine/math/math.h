@@ -69,42 +69,11 @@ namespace simcoe::math {
     struct Vec4;
 
     template<typename T>
-    struct Resolution {
-        T width;
-        T height;
-
-        constexpr Resolution() : Resolution(T(0)) { }
-        constexpr Resolution(T width, T height) : width(width), height(height) { }
-        constexpr Resolution(T it) : Resolution(it, it) { }
-
-        constexpr static Resolution from(T width, T height) { return { width, height }; }
-        constexpr static Resolution from(T it) { return from(it, it); }
-        constexpr static Resolution from(const T *pData) { return from(pData[0], pData[1]); }
-
-        constexpr static Resolution zero() { return from(T(0)); }
-        constexpr static Resolution unit() { return from(T(1)); }
-
-        constexpr bool operator==(const Resolution &other) const = default;
-        constexpr bool operator!=(const Resolution &other) const = default;
-
-        template<typename O>
-        constexpr Resolution<O> as() const { return Resolution<O>::from(O(width), O(height)); }
-
-        template<typename U>
-        constexpr U aspectRatio() const {
-            auto [w, h] = as<U>();
-            return w / h;
-        }
-
-        constexpr operator Vec2<T>() const {
-            return { width, height };
-        }
-    };
-
-    template<typename T>
     struct Vec2 {
-        T x;
-        T y;
+        using Type = T;
+
+        union { T x; T width; };
+        union { T y; T height; };
 
         constexpr Vec2() : Vec2(T(0)) { }
         constexpr Vec2(T x, T y) : x(x), y(y) { }
@@ -117,8 +86,8 @@ namespace simcoe::math {
         constexpr static Vec2 zero() { return from(T(0)); }
         constexpr static Vec2 unit() { return from(T(1)); }
 
-        constexpr bool operator==(const Vec2& other) const = default;
-        constexpr bool operator!=(const Vec2& other) const = default;
+        constexpr bool operator==(const Vec2& other) const { return x == other.x && y == other.y; }
+        constexpr bool operator!=(const Vec2& other) const { return x != other.x || y != other.y; }
 
         constexpr Vec2 operator+(const Vec2& other) const { return from(x + other.x, y + other.y); }
         constexpr Vec2 operator-(const Vec2 &other) const { return from(x - other.x, y - other.y); }
@@ -169,10 +138,22 @@ namespace simcoe::math {
 
         constexpr T *data() { return &x; } // TODO: this is UB
         constexpr const T *data() const { return &x; }
+
+        template<size_t I>
+        constexpr decltype(auto) get() const noexcept {
+            if constexpr (I == 0) return x;
+            else if constexpr (I == 1) return y;
+            else static_assert(I < 2, "index out of bounds");
+        }
     };
 
     template<typename T>
+    using Resolution = Vec2<T>;
+
+    template<typename T>
     struct Vec3 {
+        using Type = T;
+
         T x;
         T y;
         T z;
@@ -190,8 +171,8 @@ namespace simcoe::math {
         static constexpr Vec3 zero() { return from(T(0)); }
         static constexpr Vec3 unit() { return from(T(1)); }
 
-        constexpr bool operator==(const Vec3& other) const = default;
-        constexpr bool operator!=(const Vec3& it) const = default;
+        constexpr bool operator==(const Vec3& other) const { return x == other.x && y == other.y && z == other.z; }
+        constexpr bool operator!=(const Vec3& it) const { return x != it.x || y != it.y || z != it.z; }
 
         constexpr Vec3 operator+(const Vec3& it) const { return from(x + it.x, y + it.y, z + it.z); }
         constexpr Vec3 operator-(const Vec3& it) const { return from(x - it.x, y - it.y, z - it.z); }
@@ -261,12 +242,22 @@ namespace simcoe::math {
         constexpr T *data() { return &x; } // TODO: this is UB
         constexpr const T *data() const { return &x; }
 
+        template<size_t I>
+        constexpr decltype(auto) get() const noexcept {
+            if constexpr (I == 0) return x;
+            else if constexpr (I == 1) return y;
+            else if constexpr (I == 2) return z;
+            else static_assert(I < 3, "index out of bounds");
+        }
+
     private:
         static constexpr T Vec3::*components[] { &Vec3::x, &Vec3::y, &Vec3::z };
     };
 
     template<typename T>
     struct Vec4 {
+        using Type = T;
+
         T x;
         T y;
         T z;
@@ -285,8 +276,8 @@ namespace simcoe::math {
         static constexpr Vec4 zero() { return from(T(0)); }
         static constexpr Vec4 unit() { return from(T(1)); }
 
-        constexpr bool operator==(const Vec4& other) const = default;
-        constexpr bool operator!=(const Vec4& other) const = default;
+        constexpr bool operator==(const Vec4& other) const { return x == other.x && y == other.y && z == other.z && w == other.w; }
+        constexpr bool operator!=(const Vec4& other) const { return x != other.x || y != other.y || z != other.z || w != other.w; }
 
         constexpr Vec4 operator+(const Vec4& other) const { return from(x + other.x, y + other.y, z + other.z, w + other.w); }
         constexpr Vec4 operator-(const Vec4& other) const { return from(x - other.x, y - other.y, z - other.z, w - other.w); }
@@ -322,12 +313,23 @@ namespace simcoe::math {
 
         constexpr T *data() { return &x; } // TODO: this is UB
         constexpr const T *data() const { return &x; }
+
+        template<size_t I>
+        constexpr decltype(auto) get() const noexcept {
+            if constexpr (I == 0) return x;
+            else if constexpr (I == 1) return y;
+            else if constexpr (I == 2) return z;
+            else if constexpr (I == 3) return w;
+            else static_assert(I < 4, "index out of bounds");
+        }
     private:
         static constexpr T Vec4::*components[] { &Vec4::x, &Vec4::y, &Vec4::z, &Vec4::w };
     };
 
     template<typename T>
     struct Mat3x3 {
+        using Type = T;
+
         using Row = Vec3<T>;
         Row rows[3];
 
@@ -354,6 +356,8 @@ namespace simcoe::math {
 
     template<typename T>
     struct Mat4x4 {
+        using Type = T;
+
         using Row = Vec4<T>;
         using Row3 = Vec3<T>;
         Row rows[4];
@@ -670,6 +674,24 @@ namespace simcoe::math {
     static_assert(sizeof(float4) == sizeof(float) * 4);
     static_assert(sizeof(float3x3) == sizeof(float) * 3 * 3);
     static_assert(sizeof(float4x4) == sizeof(float) * 4 * 4);
+}
+
+namespace std {
+    template<typename T>
+    struct tuple_size<simcoe::math::Vec2<T>> : std::integral_constant<size_t, 2> { };
+    template<typename T>
+    struct tuple_size<simcoe::math::Vec3<T>> : std::integral_constant<size_t, 3> { };
+    template<typename T>
+    struct tuple_size<simcoe::math::Vec4<T>> : std::integral_constant<size_t, 4> { };
+
+    template<size_t I, typename T>
+    struct tuple_element<I, simcoe::math::Vec2<T>> { using type = T; };
+
+    template<size_t I, typename T>
+    struct tuple_element<I, simcoe::math::Vec3<T>> { using type = T; };
+
+    template<size_t I, typename T>
+    struct tuple_element<I, simcoe::math::Vec4<T>> { using type = T; };
 }
 
 #define VEC2_HASH(T) \

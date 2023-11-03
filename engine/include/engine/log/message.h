@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine/log/sink.h"
+#include "engine/log/log.h"
 
 #include <string>
 #include <format>
@@ -18,7 +18,7 @@ namespace simcoe::log {
             addLine(std::vformat(fmt, std::make_format_args(args...)));
         }
 
-        void send(log::Level level);
+        void send(log::Level level) const;
 
     private:
         std::string msg;

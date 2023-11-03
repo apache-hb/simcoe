@@ -29,6 +29,10 @@ namespace {
     }
 }
 
+DebugService::DebugService() {
+
+}
+
 bool DebugService::createService() {
     if (!SymInitialize(GetCurrentProcess(), nullptr, TRUE)) {
         throwLastError("failed to initialize symbol engine");

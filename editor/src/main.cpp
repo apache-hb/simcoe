@@ -1,16 +1,19 @@
 // core
 #include "engine/core/mt.h"
 
+// logging
+#include "engine/log/sinks.h"
+
 // services
 #include "engine/service/service.h"
 #include "engine/service/debug.h"
-#include "engine/log/service.h"
 #include "engine/service/platform.h"
 #include "engine/service/freetype.h"
+#include "engine/log/service.h"
+#include "engine/threads/service.h"
 
 // threads
 #include "engine/threads/schedule.h"
-#include "engine/threads/service.h"
 #include "engine/threads/queue.h"
 
 // util
@@ -50,12 +53,6 @@
 #include "game/render/hud.h"
 #include "game/render/scene.h"
 
-#include <functional>
-#include <fstream>
-#include <iostream>
-
-using namespace std::chrono_literals;
-
 using namespace simcoe;
 using namespace simcoe::math;
 
@@ -74,10 +71,6 @@ enum WindowMode : int {
 
     eNone
 };
-
-// consts
-static constexpr auto kWindowWidth = 1920;
-static constexpr auto kWindowHeight = 1080;
 
 // game
 static game::World *pWorld = nullptr;
@@ -102,11 +95,14 @@ static sr::Context *pContext = nullptr;
 static sr::Graph *pGraph = nullptr;
 
 // debuggers
-static debug::LoggingDebug *pLoggingDebug = new debug::LoggingDebug();
-static debug::GdkDebug *pGdkDebug = nullptr;
-static debug::RyzenMonitorDebug *pRyzenDebug = nullptr;
-static debug::EngineDebug *pEngineDebug = nullptr;
-static debug::ThreadServiceDebug *pThreadDebug = nullptr;
+static std::vector<debug::ServiceDebug*> gDebugServices;
+
+template<typename T, typename... A>
+static T *addDebugService(A&&... args) {
+    auto *pService = new T(std::forward<A>(args)...);
+    gDebugServices.push_back(pService);
+    return pService;
+}
 
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
@@ -330,11 +326,9 @@ struct GameGui final : graph::IGuiPass {
         drawRenderSettings();
         drawFilePicker();
 
-        pLoggingDebug->drawWindow();
-        pGdkDebug->drawWindow();
-        pRyzenDebug->drawWindow();
-        pEngineDebug->drawWindow();
-        pThreadDebug->drawWindow();
+        for (auto *pService : gDebugServices) {
+            pService->drawWindow();
+        }
     }
 
     static constexpr ImGuiDockNodeFlags kDockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
@@ -415,11 +409,9 @@ struct GameGui final : graph::IGuiPass {
                 });
 
                 ImGui::SeparatorText("Services");
-                pLoggingDebug->drawMenuItem();
-                pGdkDebug->drawMenuItem();
-                pRyzenDebug->drawMenuItem();
-                pEngineDebug->drawMenuItem();
-                pThreadDebug->drawMenuItem();
+                for (auto *pService : gDebugServices) {
+                    pService->drawMenuItem();
+                }
 
                 ImGui::SeparatorText("ImGui");
                 ImGui::MenuItem("Dear ImGui Demo", nullptr, &bShowImGuiDemo);
@@ -608,16 +600,10 @@ struct GameGui final : graph::IGuiPass {
 static GameWindow gWindowCallbacks;
 
 static void startServiceDebuggers() {
-    pGdkDebug = new debug::GdkDebug();
-    pRyzenDebug = new debug::RyzenMonitorDebug();
-    pEngineDebug = new debug::EngineDebug(pWorld);
-    pThreadDebug = new debug::ThreadServiceDebug();
-
-    if (RyzenMonitorSerivce::getState() & eServiceCreated) {
-        ThreadService::newJob("ryzenmonitor", 1s, [] {
-            pRyzenDebug->updateCoreInfo();
-        });
-    }
+    addDebugService<debug::GdkDebug>();
+    addDebugService<debug::EngineDebug>(pWorld);
+    addDebugService<debug::ThreadServiceDebug>();
+    addDebugService<debug::RyzenMonitorDebug>();
 }
 
 ///
@@ -634,9 +620,9 @@ static void commonMain() {
     LOG_INFO("depot: {}", assets.string());
 
     const WindowCreateInfo windowCreateInfo = {
-        .title = "simcoe",
+        .title = PlatformService::getDefaultWindowTitle().c_str(),
         .style = WindowStyle::eWindowed,
-        .size = { kWindowWidth, kWindowHeight },
+        .size = PlatformService::getDefaultWindowSize(),
 
         .pCallbacks = &gWindowCallbacks
     };
@@ -737,6 +723,7 @@ static void commonMain() {
 
     while (PlatformService::waitForEvent() && !pWorld->shouldQuit()) {
         PlatformService::dispatchEvent();
+        ThreadService::checkMainQueue();
 
         pMainQueue->process();
     }
@@ -745,10 +732,8 @@ static void commonMain() {
 }
 
 static int serviceWrapper() try {
-    std::ofstream fd("editor.log");
-    log::StreamSink fdSink(fd);
-    LoggingService::addSink(pLoggingDebug);
-    LoggingService::addSink(&fdSink);
+    LoggingService::addSink("imgui", addDebugService<debug::LoggingDebug>());
+    LoggingService::addSink("file", new log::FileSink());
 
     auto engineServices = std::to_array({
         DebugService::service(),

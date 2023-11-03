@@ -87,6 +87,8 @@ namespace simcoe {
     using CommandLine = std::vector<std::string>;
 
     struct PlatformService final : IStaticService<PlatformService> {
+        PlatformService();
+
         // IStaticService
         static constexpr std::string_view kServiceName = "platform";
         static constexpr std::array kServiceDeps = { DebugService::kServiceName };
@@ -110,6 +112,9 @@ namespace simcoe {
         static size_t queryCounter();
 
         // win32 window creation
+        static const std::string& getDefaultWindowTitle() { return get()->defaultWindowTitle;}
+        static WindowSize getDefaultWindowSize() { return get()->defaultWindowSize; }
+
         static HINSTANCE getInstanceHandle();
         static int getShowCmd();
 
@@ -120,11 +125,14 @@ namespace simcoe {
         static void message(std::string_view title, std::string_view body);
 
     private:
+        // config data
+        std::string defaultWindowTitle = "simcoe";
+        WindowSize defaultWindowSize = { 1280, 720 };
+
+        // platform data
         HINSTANCE hInstance = nullptr;
         int nCmdShow = -1;
-
         MSG msg = {};
-
         size_t frequency = 0;
 
         fs::path exeDirectory;

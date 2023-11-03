@@ -74,6 +74,39 @@ namespace simcoe::core {
         uint16_t year;
     };
 
+    enum struct CastError { eNone, eOverflow, eUnderflow };
+
+    template<typename T, typename O>
+    struct CastResult {
+        static constexpr T kDstMin = std::numeric_limits<T>::min();
+        static constexpr T kDstMax = std::numeric_limits<T>::max();
+
+        static constexpr O kSrcMin = std::numeric_limits<O>::min();
+        static constexpr O kSrcMax = std::numeric_limits<O>::max();
+
+        T value;
+        CastError error = CastError::eNone;
+    };
+
+    template<typename T, typename O>
+    CastResult<T, O> checkedIntCast(O value) {
+        using C = CastResult<T, O>;
+
+        if constexpr (C::kDstMax > C::kSrcMax) {
+            if (value < C::kSrcMin) {
+                return { C::kDstMin, CastError::eUnderflow };
+            }
+        }
+
+        if constexpr (C::kDstMin < C::kSrcMin) {
+            if (value > C::kSrcMax) {
+                return { C::kDstMax, CastError::eOverflow };
+            }
+        }
+
+        return { static_cast<T>(value), CastError::eNone };
+    }
+
     template<typename T, typename O>
     T intCast(O value) {
         /* paranoia */

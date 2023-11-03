@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/config/config.h"
+
 #include "engine/threads/thread.h"
 
 namespace simcoe::log {
@@ -29,7 +31,7 @@ namespace simcoe::log {
     std::string formatMessage(const Message& msg);
     std::string formatMessageColour(const Message& msg);
 
-    struct ISink {
+    struct ISink : config::IConfig {
         virtual ~ISink() = default;
 
         ISink(bool bSplitLines = false)
@@ -43,18 +45,5 @@ namespace simcoe::log {
     private:
         // should each line be sent as as seperate message?
         bool bSplitLines;
-    };
-
-    struct StreamSink final : ISink {
-        StreamSink(std::ostream& os)
-            : ISink(true)
-            , os(os)
-        { }
-
-        void accept(const Message& msg) override;
-
-    private:
-        std::mutex mutex;
-        std::ostream& os;
     };
 }

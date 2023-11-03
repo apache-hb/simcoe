@@ -4,7 +4,7 @@
 
 #include "engine/service/platform.h"
 
-#include "engine/log/sink.h"
+#include "engine/log/log.h"
 
 #include <array>
 
@@ -64,7 +64,7 @@ namespace simcoe {
         }
 
         static bool shouldSend(log::Level level);
-        static void addSink(log::ISink *pSink);
+        static void addSink(std::string_view name, log::ISink *pSink);
 
     private:
         void sendMessageAlways(log::Level msgLevel, std::string_view msg);
@@ -73,11 +73,12 @@ namespace simcoe {
         // log filtering
         log::Level level = log::eInfo;
 
-        // sinks
-        void addLogSink(log::ISink *pSink);
+        void addNewSink(std::string_view name, log::ISink *pSink);
 
+        // log sinks
         mt::shared_mutex lock;
         std::vector<log::ISink*> sinks;
+        std::unordered_map<std::string_view, log::ISink*> lookup;
     };
 }
 

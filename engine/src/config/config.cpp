@@ -10,13 +10,15 @@ ConfigFile::ConfigFile(const fs::path& path)
     , config(loadFile(path))
 { }
 
-void ConfigFile::load(const ISchemaBase *pConfig, void *pObjectPtr) const {
-    ConfigContext ctx{name, pObjectPtr};
-    auto sectionName = pConfig->getName();
+void ConfigFile::load(std::string_view sectionName, const IConfig *pConfig) const {
+    auto *pSchema = pConfig->getSchema();
+    if (pSchema == nullptr) return;
+
+    ConfigContext ctx{name};
 
     if (auto field = config.get(sectionName); field) {
         if (field->is_table()) {
-            pConfig->load(ctx, *field->as_table());
+            pSchema->load(ctx, *field->as_table());
         } else {
             LOG_WARN("config file {} section for {} is not a table", sectionName, sectionName);
         }

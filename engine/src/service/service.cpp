@@ -57,12 +57,8 @@ ServiceRuntime::ServiceRuntime(std::span<IService*> services, const fs::path& pa
             ASSERTF(loaded.contains(dep), "{} depends on {}, but it's not loaded", name, dep);
         }
 
-        if (auto pSchema = pService->getSchema(); pSchema) {
-            LOG_INFO("configuring {} service", name);
-            cfg.load(pSchema, pService);
-        } else {
-            LOG_INFO("loading {} service", name);
-        }
+        LOG_INFO("configuring {} service", name);
+        cfg.load(name, pService);
 
         pService->create();
         loaded.emplace(name);

@@ -14,6 +14,8 @@ namespace simcoe {
     };
 
     struct DebugService final : IStaticService<DebugService> {
+        DebugService();
+
         // IStaticService
         static constexpr std::string_view kServiceName = "debug";
         static constexpr std::array<std::string_view, 0> kServiceDeps = { };

@@ -1,5 +1,4 @@
 #include "engine/log/message.h"
-#include "engine/log/sink.h"
 #include "engine/log/service.h"
 
 #include "engine/threads/service.h"
@@ -122,13 +121,13 @@ void ISink::addLogMessage(Level level, threads::ThreadId threadId, MessageTime t
     }
 }
 
-void StreamSink::accept(const Message& msg) {
-    std::lock_guard guard(mutex);
-    os << log::formatMessageColour(msg) << std::endl;
-}
-
 // pending message
 
-void PendingMessage::send(log::Level level) {
+void PendingMessage::addLine(std::string_view line) {
+    msg += '\n';
+    msg += line;
+}
+
+void PendingMessage::send(log::Level level) const {
     LoggingService::sendMessage(level, msg);
 }

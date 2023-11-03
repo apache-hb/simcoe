@@ -1,6 +1,4 @@
-#include "engine/config/schema.h"
-
-#include "engine/core/strings.h"
+#include "engine/config/ext/schema.h"
 
 #include "engine/log/service.h"
 
@@ -9,9 +7,8 @@ using namespace simcoe::config;
 
 // stack for debugging config loading
 
-ConfigContext::ConfigContext(std::string_view file, void *pObjectPtr)
-    : pObjectPtr(pObjectPtr)
-    , file(file)
+ConfigContext::ConfigContext(std::string_view file)
+    : file(file)
 { }
 
 void ConfigContext::enter(std::string_view name) {
@@ -43,8 +40,15 @@ void String::readNode(ConfigContext& ctx, const toml::node& node) const {
         return;
     }
 
-    std::string str = node.as_string()->get();
-    update(ctx, str);
+    update(ctx, node.as_string()->get());
+}
+
+void Bool::readNode(ConfigContext& ctx, const toml::node& node) const {
+    if (!ctx.verifyConfigField(node, toml::node_type::boolean)) {
+        return;
+    }
+
+    update(ctx, node.as_boolean()->get());
 }
 
 void Table::readNode(ConfigContext& ctx, const toml::node& node) const {
