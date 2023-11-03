@@ -108,20 +108,6 @@ static debug::RyzenMonitorDebug *pRyzenDebug = nullptr;
 static debug::EngineDebug *pEngineDebug = nullptr;
 static debug::ThreadServiceDebug *pThreadDebug = nullptr;
 
-struct FileLogger final : ISink {
-    FileLogger()
-        : file("game.log")
-    { }
-
-    void accept(const LogMessage& message) override {
-        file << logging::formatMessage(message) << "\n";
-    }
-
-    std::ofstream file;
-};
-
-static FileLogger *pFileLogger = nullptr;
-
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
         bWindowOpen = false;
@@ -759,8 +745,10 @@ static void commonMain() {
 }
 
 static int serviceWrapper() try {
+    std::ofstream fd("editor.log");
+    StreamSink fdSink(fd);
     LoggingService::addSink(pLoggingDebug);
-    pFileLogger = LoggingService::newSink<FileLogger>();
+    LoggingService::addSink(&fdSink);
 
     auto engineServices = std::to_array({
         DebugService::service(),
@@ -773,9 +761,8 @@ static int serviceWrapper() try {
         GdkService::service(),
         RyzenMonitorSerivce::service()
     });
-    ServiceRuntime runtime{engineServices};
+    ServiceRuntime runtime{engineServices, "engine"};
 
-    // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
     commonMain();
     LOG_INFO("no game exceptions have occured during runtime");
 

@@ -1,7 +1,7 @@
 #include "engine/service/platform.h"
 #include "engine/service/debug.h"
 
-#include "engine/util/strings.h"
+#include "engine/core/strings.h"
 
 #include <intsafe.h> // DWORD_MAX
 #include <comdef.h> // _com_error

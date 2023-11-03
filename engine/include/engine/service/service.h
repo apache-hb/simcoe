@@ -3,12 +3,19 @@
 #include "engine/core/macros.h"
 #include "engine/core/panic.h"
 
+#include "engine/config/config.h"
+
 #include <span>
 #include <string_view>
 #include <atomic>
 
 namespace simcoe {
     using NameSpan = std::span<const std::string_view>;
+
+    template<typename T>
+    concept TypeHasSchema = requires {
+        { T::gConfigSchema } -> std::convertible_to<const config::ISchemaBase*>;
+    };
 
     enum ServiceState {
         eServiceInitial = (1 << 0), // service has not been setup yet
@@ -20,30 +27,47 @@ namespace simcoe {
     struct IService {
         SM_NOCOPY(IService)
 
+        IService(std::string_view name)
+            : name(name)
+        { }
+
         IService() = default;
         virtual ~IService() = default;
 
-        virtual std::string_view getName() const = 0;
-        virtual NameSpan getDeps() const = 0;
-
         void create();
         void destroy();
+        std::string_view getName() const { return name; }
+
+        virtual const config::ISchemaBase *getSchema() const = 0;
+        virtual NameSpan getDeps() const = 0;
 
     protected:
         virtual bool createService() = 0;
         virtual void destroyService() = 0;
 
         ServiceState getState() const { return state; }
-
     private:
         ServiceState state = eServiceInitial;
+        std::string_view name;
     };
 
     template<typename T>
     struct IStaticService : IService {
         using IService::IService;
+        SM_NOMOVE(IStaticService)
 
-        std::string_view getName() const override { return T::kServiceName; }
+        IStaticService()
+            : IService(T::kServiceName)
+        { }
+
+        const config::ISchemaBase *getSchema() const override {
+            if constexpr (TypeHasSchema<T>) {
+                return T::gConfigSchema;
+            } else {
+                return nullptr;
+            }
+        }
+
         NameSpan getDeps() const override { return T::kServiceDeps; }
 
         static T *get() {
@@ -61,7 +85,7 @@ namespace simcoe {
     };
 
     struct ServiceRuntime {
-        ServiceRuntime(std::span<IService*> services);
+        ServiceRuntime(std::span<IService*> services, const fs::path& config);
         ~ServiceRuntime();
 
     private:

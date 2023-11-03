@@ -1,14 +1,13 @@
 #pragma once
 
-#include <filesystem>
+#include "engine/core/filesystem.h"
+
 #include <vector>
 #include <unordered_map>
 
 #include "engine/assets/font.h"
 
 namespace simcoe::assets {
-    namespace fs = std::filesystem;
-
     struct Assets {
         Assets(const fs::path& root) : root(root) { }
 

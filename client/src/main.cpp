@@ -54,7 +54,7 @@ static int innerMain() try {
         LoggingService::service(),
         PlatformService::service()
     });
-    ServiceRuntime runtime{engineServices};
+    ServiceRuntime runtime{engineServices, "client"};
 
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
     LOG_INFO("startup");

@@ -23,7 +23,7 @@ namespace editor::debug {
         }
 
         void AddPoint(float x, float y) {
-            if (Data.size() < MaxSize)
+            if (int(Data.size()) < MaxSize)
                 Data.push_back(ImVec2(x,y));
             else {
                 Data[Offset] = ImVec2(x,y);

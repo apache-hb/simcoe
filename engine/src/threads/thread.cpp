@@ -6,6 +6,7 @@
 
 #include "engine/core/unique.h"
 
+#include <intsafe.h>
 #include <string_view>
 
 using namespace simcoe;
@@ -90,7 +91,7 @@ ThreadHandle::ThreadHandle(ThreadInfo&& info)
         throwLastError(msg);
     }
 
-    if (ResumeThread(hThread) == -1) {
+    if (ResumeThread(hThread) == DWORD_MAX) {
         throwLastError("ResumeThread");
     }
 

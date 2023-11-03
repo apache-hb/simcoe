@@ -14,6 +14,8 @@ namespace simcoe {
         bool createService() override;
         void destroyService() override;
 
+        static void setup();
+
         // failure
         static std::string_view getFailureReason();
 

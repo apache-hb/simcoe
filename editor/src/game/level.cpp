@@ -8,7 +8,7 @@ using namespace game;
 
 ILevel::ILevel(const LevelInfo& info)
     : pWorld(info.pWorld)
-    , entities(new EntityPtr[info.entityLimit])
+    , entities(info.entityLimit)
     , indices(info.entityLimit)
 { }
 

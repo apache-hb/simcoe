@@ -11,6 +11,8 @@
 #include <format>
 
 namespace simcoe {
+    using MessageTime = std::chrono::system_clock::time_point;
+
     enum LogLevel {
         eAssert,
         eError,
@@ -24,9 +26,8 @@ namespace simcoe {
     struct LogMessage {
         LogLevel level;
 
-        std::string_view name;
         threads::ThreadId threadId;
-        std::chrono::system_clock::time_point time;
+        MessageTime time;
 
         std::string_view msg;
     };
@@ -39,14 +40,30 @@ namespace simcoe {
     struct ISink {
         virtual ~ISink() = default;
 
+        ISink(bool bSplitLines = false)
+            : bSplitLines(bSplitLines)
+        { }
+
         virtual void accept(const LogMessage& msg) = 0;
+
+        void addLogMessage(LogLevel level, threads::ThreadId threadId, MessageTime time, std::string_view msg);
+
+    private:
+        // should each line be sent as as seperate message?
+        bool bSplitLines;
     };
 
-    struct ConsoleSink : ISink {
+    struct StreamSink final : ISink {
+        StreamSink(std::ostream& os)
+            : ISink(true)
+            , os(os)
+        { }
+
         void accept(const LogMessage& msg) override;
 
     private:
-        std::mutex lock;
+        std::mutex mutex;
+        std::ostream& os;
     };
 
     struct LoggingService final : IStaticService<LoggingService> {
@@ -55,6 +72,7 @@ namespace simcoe {
         // IStaticService
         static constexpr std::string_view kServiceName = "logging";
         static constexpr std::array kServiceDeps = { PlatformService::kServiceName };
+        static const config::ISchemaBase *gConfigSchema;
 
         // IService
         bool createService() override;
@@ -128,11 +146,3 @@ namespace simcoe {
 #define LOG_WARN(...) simcoe::LoggingService::logWarn(__VA_ARGS__)
 #define LOG_ERROR(...) simcoe::LoggingService::logError(__VA_ARGS__)
 #define LOG_ASSERT(...) simcoe::LoggingService::logAssert(__VA_ARGS__)
-
-#define COLOUR_RED "\x1B[1;31m"    ///< ANSI escape string for red
-#define COLOUR_GREEN "\x1B[1;32m"  ///< ANSI escape string for green
-#define COLOUR_YELLOW "\x1B[1;33m" ///< ANSI escape string for yellow
-#define COLOUR_BLUE "\x1B[1;34m"   ///< ANSI escape string for blue
-#define COLOUR_PURPLE "\x1B[1;35m" ///< ANSI escape string for purple
-#define COLOUR_CYAN "\x1B[1;36m"   ///< ANSI escape string for cyan
-#define COLOUR_RESET "\x1B[0m"     ///< ANSI escape reset

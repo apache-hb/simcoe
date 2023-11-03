@@ -1,7 +1,7 @@
 #pragma once
 
 #include "engine/math/math.h"
-#include "engine/util/strings.h"
+#include "engine/core/strings.h"
 
 #include <string>
 #include <vector>

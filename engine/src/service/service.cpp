@@ -41,11 +41,14 @@ void IService::destroy() {
 
 // service runtime
 
-ServiceRuntime::ServiceRuntime(std::span<IService*> services)
+ServiceRuntime::ServiceRuntime(std::span<IService*> services, const fs::path& path)
     : services(services)
 {
     LOG_INFO("loading {} services", services.size());
     std::unordered_set<std::string_view> loaded;
+
+    LOG_INFO("config file: {}", path.string());
+    config::ConfigFile cfg{path};
 
     for (IService *pService : services) {
         auto name = pService->getName();
@@ -55,6 +58,12 @@ ServiceRuntime::ServiceRuntime(std::span<IService*> services)
             ASSERTF(loaded.contains(dep), "service {} depends on {}, but it's not loaded", name, dep);
         }
 
+        if (auto pSchema = pService->getSchema(); pSchema) {
+            LOG_INFO("configuring service {}", name);
+            cfg.load(pSchema, pService);
+        }
+
+        LOG_INFO("loading service {}", name);
         pService->create();
         loaded.emplace(name);
     }

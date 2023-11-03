@@ -11,7 +11,7 @@ namespace simcoe {
         struct SlotMapStorage {
             constexpr SlotMapStorage(size_t size)
                 : size(size)
-                , pSlots(new T[size])
+                , pSlots(size)
             {
                 reset();
             }

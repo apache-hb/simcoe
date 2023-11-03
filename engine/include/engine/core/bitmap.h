@@ -6,7 +6,7 @@
 
 namespace simcoe::core {
     namespace detail {
-        template<typename T, typename P>
+        template<typename T, typename Super>
         struct BitMapStorage {
             enum struct Index : size_t { eInvalid = SIZE_MAX };
 
@@ -24,7 +24,7 @@ namespace simcoe::core {
             }
 
             constexpr Index alloc() {
-                P *self = static_cast<P*>(this);
+                Super *self = static_cast<Super*>(this);
                 for (size_t i = 0; i < getSize(); i++) {
                     if (self->testSet(i)) {
                         return Index(i);

@@ -2,7 +2,7 @@
 
 #include "engine/service/logging.h"
 
-#include "engine/util/strings.h"
+#include "engine/core/strings.h"
 
 #include "ryzen/IBIOSEx.h"
 #include "ryzen/ICPUEx.h"

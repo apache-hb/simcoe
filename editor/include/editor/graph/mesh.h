@@ -6,8 +6,6 @@ namespace editor::graph {
     using namespace simcoe;
     using namespace simcoe::math;
 
-    namespace fs = assets::fs;
-
     struct ObjVertex {
         constexpr bool operator==(const ObjVertex& other) const = default;
 

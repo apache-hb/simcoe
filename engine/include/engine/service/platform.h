@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/core/filesystem.h"
+
 #include "engine/service/debug.h"
 
 #include "engine/math/math.h"
@@ -11,7 +13,6 @@
 
 namespace simcoe {
     using WindowSize = math::Resolution<int>;
-    namespace fs = std::filesystem;
 
     struct IWindowCallbacks {
         virtual ~IWindowCallbacks() = default;

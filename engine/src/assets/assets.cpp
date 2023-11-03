@@ -7,6 +7,7 @@
 
 #include <fstream>
 
+using namespace simcoe;
 using namespace simcoe::assets;
 
 namespace {

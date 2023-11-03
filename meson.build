@@ -9,6 +9,7 @@ project('simcoe', 'cpp',
         'warning_level=3',
 
         'tomlplusplus:build_lib=true',
+        'tomlplusplus:default_library=static',
 
         'libpng:tests=disabled',
         'zlib:tests=disabled',
@@ -18,9 +19,8 @@ project('simcoe', 'cpp',
         'harfbuzz:tests=disabled',
         'harfbuzz:freetype=disabled',
 
-        'freetype:harfbuzz=enabled',
-        'freetype:warning_level=0',
-        'freetype:cpp_args=-D_CRT_SECURE_NO_WARNINGS=1'
+        'freetype2:harfbuzz=enabled',
+        'freetype2:warning_level=0'
     ]
 )
 
@@ -119,6 +119,12 @@ src = [
     'engine/src/core/panic.cpp',
     'engine/src/core/utf8.cpp',
     'engine/src/core/bitmap.cpp',
+    'engine/src/core/strings.cpp',
+    'engine/src/core/units.cpp',
+
+    # config
+    'engine/src/config/config.cpp',
+    'engine/src/config/schema.cpp',
 
     # service
     'engine/src/service/service.cpp',
@@ -132,7 +138,6 @@ src = [
 
     # util
     'engine/src/util/retry.cpp',
-    'engine/src/util/strings.cpp',
     'engine/src/util/time.cpp',
 
     # input

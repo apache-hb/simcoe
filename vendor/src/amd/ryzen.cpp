@@ -4,7 +4,7 @@
 #include "engine/service/platform.h"
 
 #include "engine/core/unique.h"
-#include "engine/util/strings.h"
+#include "engine/core/strings.h"
 
 #include "ryzen/IPlatform.h"
 #include "ryzen/IDeviceManager.h"
@@ -42,15 +42,6 @@ namespace {
     using ServiceHandle = core::UniqueHandle<SC_HANDLE, DeleteScHandle, nullptr>;
 
     using InfoSink = std::unordered_map<std::string_view, std::string>;
-
-    std::string formatInfo(const InfoSink& sink) {
-        std::vector<std::string> info;
-        for (const auto& [key, value] : sink) {
-            info.emplace_back(std::format("{}: {}", key, value));
-        }
-        return util::join(info, ", ");
-    }
-
     using CpuVendor = std::array<char, 20>;
 
     CpuVendor getCpuVendor() {

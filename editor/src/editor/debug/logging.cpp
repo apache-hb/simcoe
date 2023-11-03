@@ -23,6 +23,42 @@ namespace {
     }
 }
 
+Message::Message(const LogMessage& msg)
+    : threadId(msg.threadId)
+    , level(msg.level)
+    , text(msg.msg)
+{
+    auto ms = chrono::duration_cast<chrono::milliseconds>(msg.time.time_since_epoch()).count() % 1000;
+    timestamp = std::format("{:%X}.{:<3}", msg.time, ms);
+
+    bIsMultiline = text.find_first_of("\r\n") != std::string::npos;
+}
+
+bool Message::filter(ImGuiTextFilter& filter) const {
+    return filter.PassFilter(text.c_str());
+}
+
+void Message::draw() const {
+    // this is all done inside a table, so we don't need to worry about spacing
+
+    ImGui::TableNextRow(); // but we do need to advance the row
+
+    ImU32 bgColour = bIsMultiline ? ImGui::GetColorU32(ImGuiCol_TableRowBgAlt) : ImGui::GetColorU32(ImGuiCol_TableRowBg);
+    ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, bgColour);
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", timestamp.c_str());
+    ImGui::TableNextColumn();
+    if (auto tid = ThreadService::getThreadName(threadId); tid.empty()) {
+        ImGui::Text("0x%lx", threadId);
+    } else {
+        ImGui::Text("%s", tid.data());
+    }
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", getLevelName(level));
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", text.c_str());
+}
+
 LoggingDebug::LoggingDebug()
     : ServiceDebug("Logs")
 {
@@ -73,21 +109,9 @@ void LoggingDebug::drawTable() {
         while (clipper.Step()) {
             for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
                 const auto& msg = messages[row];
-                if (!textFilter.PassFilter(msg.msg.c_str())) continue;
+                if (!msg.filter(textFilter)) continue;
 
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("%s", msg.time.c_str());
-                ImGui::TableNextColumn();
-                if (auto tid = ThreadService::getThreadName(msg.threadId); tid.empty()) {
-                    ImGui::Text("0x%lx", msg.threadId);
-                } else {
-                    ImGui::Text("%s", tid.data());
-                }
-                ImGui::TableNextColumn();
-                ImGui::Text("%s", getLevelName(msg.level));
-                ImGui::TableNextColumn();
-                ImGui::Text("%s", msg.msg.c_str());
+                msg.draw();
             }
         }
         ImGui::EndTable();
@@ -95,17 +119,8 @@ void LoggingDebug::drawTable() {
 }
 
 void LoggingDebug::accept(const LogMessage& msg) {
-    auto ms = chrono::duration_cast<chrono::milliseconds>(msg.time.time_since_epoch()).count() % 1000;
-    auto time = std::format("{:%X}.{:<3}", msg.time, ms);
-
     mt::write_lock lock(mutex);
-    messages.push_back({
-        .time = time,
-        .threadId = msg.threadId,
-        .level = msg.level,
-
-        .msg = std::string(msg.msg)
-    });
+    messages.emplace_back(msg);
 }
 
 void LoggingDebug::clear() {
