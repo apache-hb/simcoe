@@ -45,13 +45,13 @@ void debug::enumGlobalHandles(std::function<void(DebugHandle*)> callback) {
 // service debuggers
 
 void ServiceDebug::drawMenuItem() {
-    ImGui::MenuItem(name.data(), nullptr, &bOpen);
+    ImGui::MenuItem(name, nullptr, &bOpen);
 }
 
 void ServiceDebug::drawWindow() {
     if (!bOpen) return;
 
-    if (ImGui::Begin(name.data(), &bOpen)) {
+    if (ImGui::Begin(name, &bOpen)) {
         auto err = getFailureReason();
         if (!err.empty()) {
             ImGui::Text("Failed to initialize: %s", err.data());

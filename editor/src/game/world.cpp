@@ -16,14 +16,14 @@ World::World(const WorldInfo& info)
 // render
 
 void World::destroyRender() {
-    delete pRenderThread;
+    delete pRenderQueue;
 
     delete info.pRenderGraph;
     delete info.pRenderContext;
 }
 
 void World::tickRender() {
-    if (pRenderThread->process()) {
+    if (pRenderQueue->process()) {
         return;
     }
 

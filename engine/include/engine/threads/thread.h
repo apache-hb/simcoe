@@ -112,6 +112,8 @@ namespace simcoe::threads {
         ThreadType getType() const { return type; }
         ScheduleMask getAffinity() const { return mask; }
 
+        void requestStop() { stopper.request_stop(); }
+
         ~ThreadHandle();
 
     private:

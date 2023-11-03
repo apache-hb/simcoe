@@ -66,7 +66,7 @@ void EngineDebug::drawFrameTimes() {
     ImGui::PushItemWidth(200.f);
 
     if (ImGui::SliderFloat("Render tps", &renderStep, 1.f, 400.f)) {
-        pWorld->pRenderThread->add("set-render-step", [this, tps = 1.f / renderStep] {
+        pWorld->pRenderQueue->add("set-render-step", [this, tps = 1.f / renderStep] {
             pWorld->renderStep.updateDelta(tps);
         });
     }

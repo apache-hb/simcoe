@@ -37,20 +37,23 @@ namespace game {
         bool createService() override;
         void destroyService() override;
 
+        static void start();
+
         // GameService
         static void shutdown() {
             get()->bWindowOpen = false;
+            get()->pWorld->shutdown();
         }
 
         static bool shouldQuit() {
-            return !get()->bWindowOpen;
+            return get()->pWorld->shouldQuit();
         }
 
         static void resizeDisplay(const WindowSize& event) {
             if (!get()->bWindowOpen) return;
             if (!get()->pWorld) return;
 
-            get()->pWorld->pRenderThread->add("resize", [event]() {
+            get()->pWorld->pRenderQueue->add("resize", [event]() {
                 get()->pGraph->resizeDisplay(event.width, event.height);
                 LOG_INFO("resized display to: {}x{}", event.width, event.height);
             });
@@ -62,27 +65,27 @@ namespace game {
         }
 
         static void changeWindowMode(WindowMode newMode) {
-            get()->pWorld->pRenderThread->add("modechange", [newMode]() {
+            get()->pWorld->pRenderQueue->add("modechange", [newMode]() {
                 get()->setWindowMode(getWindowMode(), newMode);
             });
         }
 
         static void changeInternalRes(const simcoe::math::uint2& newRes) {
-            get()->pWorld->pRenderThread->add("reschange", [newRes]() {
+            get()->pWorld->pRenderQueue->add("reschange", [newRes]() {
                 get()->pGraph->resizeRender(newRes.width, newRes.height);
                 LOG_INFO("changed internal resolution to: {}x{}", newRes.width, newRes.height);
             });
         }
 
         static void changeBackBufferCount(UINT newCount) {
-            get()->pWorld->pRenderThread->add("backbufferchange", [newCount]() {
+            get()->pWorld->pRenderQueue->add("backbufferchange", [newCount]() {
                 get()->pGraph->changeBackBufferCount(newCount);
                 LOG_INFO("changed backbuffer count to: {}", newCount);
             });
         }
 
         static void changeCurrentAdapter(UINT newAdapter) {
-            get()->pWorld->pRenderThread->add("adapterchange", [newAdapter]() {
+            get()->pWorld->pRenderQueue->add("adapterchange", [newAdapter]() {
                 get()->pGraph->changeAdapter(newAdapter);
                 LOG_INFO("changed adapter to: {}", newAdapter);
             });

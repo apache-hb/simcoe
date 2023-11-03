@@ -101,7 +101,7 @@ void RyzenMonitorDebug::draw() {
 void RyzenMonitorDebug::drawWindow() {
     if (!bOpen) return;
 
-    if (ImGui::Begin(getName().data(), &bOpen)) {
+    if (ImGui::Begin(getName(), &bOpen)) {
         auto err = getFailureReason();
         if (!err.empty()) {
             ImGui::Text("Failed to initialize: %s", err.data());

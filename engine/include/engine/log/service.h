@@ -72,6 +72,8 @@ namespace simcoe {
 
         // log filtering
         log::Level level = log::eInfo;
+        std::string logpath = "engine.log";
+        bool bColour = true;
 
         void addNewSink(std::string_view name, log::ISink *pSink);
 

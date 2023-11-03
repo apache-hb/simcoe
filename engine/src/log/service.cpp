@@ -13,14 +13,6 @@ namespace chrono = std::chrono;
 
 LoggingService::LoggingService() {
     addNewSink("console", new log::ConsoleSink());
-    addNewSink("file", new log::FileSink());
-
-    config::Table::Fields fields;
-    for (const auto& [id, pSink] : lookup) {
-        fields[id] = pSink->getSchema();
-    }
-
-    config::Table *pSinks = new config::Table("sinks", fields);
 
     CFG_DECLARE("logging",
         CFG_FIELD_ENUM("level", &level,
@@ -30,23 +22,20 @@ LoggingService::LoggingService() {
             CFG_CASE("info", log::eInfo),
             CFG_CASE("debug", log::eDebug),
         ),
-        CFG_FIELD("sinks", pSinks)
+        CFG_FIELD_TABLE("sinks",
+            CFG_FIELD_TABLE("console",
+                CFG_FIELD_BOOL("colour", &bColour)
+            ),
+            CFG_FIELD_TABLE("file",
+                CFG_FIELD_STRING("path", &logpath)
+            )
+        )
     );
 }
 
-// // TODO: make log sinks configurable
-// const config::ISchemaBase *LoggingService::gConfigSchema
-//     = CFG_DECLARE(LoggingService, "logging", {
-//         CFG_FIELD_ENUM("level", level, {
-//             CFG_CASE("panic", log::eAssert),
-//             CFG_CASE("error", log::eError),
-//             CFG_CASE("warn", log::eWarn),
-//             CFG_CASE("info", log::eInfo),
-//             CFG_CASE("debug", log::eDebug),
-//         })
-//     });
-
 bool LoggingService::createService() {
+    addNewSink("file", new log::FileSink(logpath));
+
     LOG_INFO("log level: {}", log::toString(level));
     return true;
 }

@@ -22,7 +22,7 @@ namespace game {
         void destroyRender();
         void tickRender();
         util::TimeStep renderStep{ 1.f / 60.f };
-        threads::WorkQueue *pRenderThread = new threads::WorkQueue{64};
+        threads::WorkQueue *pRenderQueue = new threads::WorkQueue{64};
 
 
         void createPhysics() { }

@@ -303,11 +303,11 @@ namespace simcoe::render {
 
     protected:
         void setRenderTargetHandle(ResourceWrapper<IRTVHandle> *pHandle) {
-            this->pRenderTarget = addAttachment(pHandle, rhi::ResourceState::eRenderTarget);
+            pRenderTarget = addAttachment(pHandle, rhi::ResourceState::eRenderTarget);
         }
 
         void setDepthStencilHandle(ResourceWrapper<IDSVHandle> *pHandle) {
-            this->pDepthStencil = addAttachment(pHandle, rhi::ResourceState::eDepthWrite);
+            pDepthStencil = addAttachment(pHandle, rhi::ResourceState::eDepthWrite);
         }
 
     private:
@@ -416,16 +416,11 @@ namespace simcoe::render {
         void destroyIf(StateDep dep);
 
         std::atomic_bool lock;
-        std::recursive_mutex renderLock;
+        std::mutex renderLock;
 
     public:
-        void setResourceState(rhi::DeviceResource *pResource, rhi::ResourceState state) {
-            resourceStates[pResource] = state;
-        }
-
-        rhi::ResourceState getResourceState(rhi::DeviceResource *pResource) const {
-            return resourceStates.at(pResource);
-        }
+        void setResourceState(rhi::DeviceResource *pResource, rhi::ResourceState state);
+        rhi::ResourceState getResourceState(rhi::DeviceResource *pResource) const;
 
     private:
         std::unordered_map<rhi::DeviceResource*, rhi::ResourceState> resourceStates;

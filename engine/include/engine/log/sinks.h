@@ -17,7 +17,7 @@ namespace simcoe::log {
     };
 
     struct FileSink final : ISink {
-        FileSink();
+        FileSink(std::string path);
 
         void accept(const Message& msg) override;
 
@@ -25,7 +25,6 @@ namespace simcoe::log {
         void openFile(std::string_view path);
 
         std::mutex mutex;
-        std::string path;
         std::ofstream os;
     };
 }

@@ -41,7 +41,7 @@ namespace editor::debug {
     struct ServiceDebug {
         virtual ~ServiceDebug() = default;
 
-        std::string_view getName() const { return name; }
+        const char *getName() const { return name; }
         std::string_view getFailureReason() const { return failureReason; }
 
         void drawMenuItem();
@@ -49,7 +49,7 @@ namespace editor::debug {
 
         virtual void draw() = 0;
     protected:
-        ServiceDebug(std::string_view name)
+        ServiceDebug(const char *name)
             : name(name)
         { }
 
@@ -58,7 +58,7 @@ namespace editor::debug {
         bool bOpen = true;
 
     private:
-        std::string_view name;
+        const char *name;
         std::string_view failureReason = "";
     };
 }

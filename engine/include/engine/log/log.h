@@ -31,7 +31,7 @@ namespace simcoe::log {
     std::string formatMessage(const Message& msg);
     std::string formatMessageColour(const Message& msg);
 
-    struct ISink : config::IConfig {
+    struct ISink {
         virtual ~ISink() = default;
 
         ISink(bool bSplitLines = false)

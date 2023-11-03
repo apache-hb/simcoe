@@ -207,6 +207,9 @@ void Graph::destroyIf(StateDep dep) {
 
 void Graph::executePass(ICommandPass *pPass) {
     std::vector<rhi::Transition> barriers;
+
+    LOG_ERROR("pass: {}", pPass->getName());
+
     for (const auto *pInput : pPass->inputs) {
         auto *pHandle = pInput->getResourceHandle();
         rhi::DeviceResource *pResource = pHandle->getResource();
@@ -249,4 +252,13 @@ void Graph::addGraphObject(IGraphObject *pObject) {
         pObject->create();
         objects.push_back(pObject);
     });
+}
+
+void Graph::setResourceState(rhi::DeviceResource *pResource, rhi::ResourceState state) {
+    resourceStates[pResource] = state;
+    LOG_ERROR("resource `{}` state: {}", pResource->getName(), rhi::toString(state));
+}
+
+rhi::ResourceState Graph::getResourceState(rhi::DeviceResource *pResource) const {
+    return resourceStates.at(pResource);
 }

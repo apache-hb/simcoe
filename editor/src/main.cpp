@@ -84,21 +84,13 @@ struct GameWindow final : IWindowCallbacks {
 
 static GameWindow gWindowCallbacks;
 
-static void startServiceDebuggers() {
-    GameService::addDebugService<debug::GdkDebug>();
-    GameService::addDebugService<debug::ThreadServiceDebug>();
-    GameService::addDebugService<debug::RyzenMonitorDebug>();
-    GameService::addDebugService<debug::DepotDebug>();
-}
-
 ///
 /// entry point
 ///
 
 static void commonMain() {
     ThreadService::setThreadName("main");
-
-    startServiceDebuggers();
+    GameService::start();
 
     // setup game
 
@@ -112,7 +104,6 @@ static void commonMain() {
 
 static int serviceWrapper() try {
     LoggingService::addSink("imgui", GameService::addDebugService<debug::LoggingDebug>());
-    LoggingService::addSink("file", new log::FileSink());
 
     auto engineServices = std::to_array({
         DebugService::service(),

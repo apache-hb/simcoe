@@ -480,6 +480,9 @@ void ThreadService::shutdown() {
     mt::write_lock lock(getPoolLock());
     auto& handles = getPool();
     for (auto *pHandle : handles) {
+        pHandle->requestStop();
+    }
+    for (auto *pHandle : handles) {
         delete pHandle;
     }
     handles.clear();

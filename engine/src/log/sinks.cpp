@@ -1,4 +1,5 @@
 #include "engine/log/sinks.h"
+#include "engine/log/service.h"
 
 #include "engine/config/ext/builder.h"
 
@@ -10,11 +11,7 @@ using namespace simcoe::log;
 ConsoleSink::ConsoleSink(bool bColour)
     : ISink(true)
     , bColour(bColour)
-{
-    CFG_DECLARE("console",
-        CFG_FIELD_BOOL("colour", &bColour)
-    );
-}
+{ }
 
 void ConsoleSink::accept(const Message& msg) {
     std::lock_guard guard(mutex);
@@ -22,12 +19,13 @@ void ConsoleSink::accept(const Message& msg) {
     std::cout << it << "\n";
 }
 
-FileSink::FileSink()
+FileSink::FileSink(std::string path)
     : ISink(true)
+    , os(path)
 {
-    CFG_DECLARE("file",
-        CFG_FIELD_STRING("path", &path) // TODO: setup callback
-    );
+    if (!os.is_open()) {
+        LOG_WARN("failed to open log file: {}", path);
+    }
 }
 
 void FileSink::accept(const Message& msg) {
@@ -36,6 +34,6 @@ void FileSink::accept(const Message& msg) {
         return;
     }
 
-    auto it = log::formatMessageColour(msg);
+    auto it = log::formatMessage(msg);
     os << it << "\n";
 }

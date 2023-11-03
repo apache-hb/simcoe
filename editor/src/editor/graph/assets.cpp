@@ -24,9 +24,8 @@ void SwapChainHandle::create() {
         rhi::RenderTarget *pTarget = ctx->getRenderTarget(i);
         RenderTargetAlloc::Index rtvIndex = ctx->mapRenderTarget(pTarget);
 
-        setResourceState(pTarget, rhi::ResourceState::ePresent);
-
         pTarget->setName("swapchain-target-" + std::to_string(i));
+        setResourceState(pTarget, rhi::ResourceState::ePresent);
 
         targets[i] = { pTarget, rtvIndex };
     }

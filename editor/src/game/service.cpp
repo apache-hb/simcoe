@@ -3,6 +3,7 @@
 #include "engine/config/ext/builder.h"
 
 #include "engine/render/graph.h"
+#include "editor/debug/depot.h"
 
 // render passes
 #include "editor/graph/assets.h"
@@ -535,7 +536,7 @@ bool GameService::createService() {
     auto *pSceneTarget = pGraph->addResource<eg::SceneTargetHandle>();
     auto *pDepthTarget = pGraph->addResource<eg::DepthTargetHandle>();
 
-    pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
+    //pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
 
     // pGraph->addPass<graph::GameLevelPass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
 
@@ -562,30 +563,36 @@ bool GameService::createService() {
 
     pWorld = new game::World(info);
 
-    pRenderThread = ThreadService::newThread(threads::eRealtime, "render", [&](auto token) {
-        while (!token.stop_requested() && bWindowOpen) {
-            pWorld->tickRender();
-        }
-    });
-
-    pPhysicsThread = ThreadService::newThread(threads::eResponsive, "physics", [&](auto token) {
-        while (!token.stop_requested()) {
-            pWorld->tickPhysics();
-        }
-    });
-
-    pGameThread = ThreadService::newThread(threads::eRealtime, "game", [&](auto token) {
-        while (!token.stop_requested()) {
-            pWorld->tickGame();
-        }
-    });
-
-    addDebugService<debug::EngineDebug>(pWorld);
-
     return true;
 }
 
 void GameService::destroyService() {
     delete pGraph;
     delete pContext;
+}
+
+void GameService::start() {
+    addDebugService<debug::EngineDebug>(get()->pWorld);
+    addDebugService<debug::GdkDebug>();
+    addDebugService<debug::ThreadServiceDebug>();
+    addDebugService<debug::RyzenMonitorDebug>();
+    addDebugService<debug::DepotDebug>();
+
+    get()->pRenderThread = ThreadService::newThread(threads::eRealtime, "render", [&](auto token) {
+        while (!token.stop_requested() && get()->bWindowOpen) {
+            get()->pWorld->tickRender();
+        }
+    });
+
+    get()->pPhysicsThread = ThreadService::newThread(threads::eResponsive, "physics", [&](auto token) {
+        while (!token.stop_requested()) {
+            get()->pWorld->tickPhysics();
+        }
+    });
+
+    get()->pGameThread = ThreadService::newThread(threads::eRealtime, "game", [&](auto token) {
+        while (!token.stop_requested()) {
+            get()->pWorld->tickGame();
+        }
+    });
 }
