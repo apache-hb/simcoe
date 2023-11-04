@@ -23,28 +23,17 @@ namespace simcoe {
         bool createService() override;
         void destroyService() override;
 
-        // failure reason
-        static std::string_view getFailureReason();
-
         // geometry data
         static const threads::Geometry& getGeometry();
-
-        // os thread functions
         static threads::ThreadId getCurrentThreadId();
 
         /** talking to the main thread */
-        static void enqueueMain(std::string name, auto&& func) {
-            get()->mainQueue.enqueue({name, func});
-        }
-
-        static void checkMainQueue() {
-            auto& msg = get()->mainMessage;
-            while (get()->mainQueue.try_dequeue(msg)) {
-                msg.item();
-            }
-        }
+        static void enqueueMain(std::string name, threads::WorkItem&& task);
+        static void pollMainQueue();
 
         /** thread naming */
+
+        // TODO: remove thread naming from here, should really be debug only
 
         /**
          * @brief Set the name of a thread by its id
@@ -69,9 +58,7 @@ namespace simcoe {
         static void setWorkerCount(size_t count);
         static size_t getWorkerCount();
 
-        static void enqueueWork(std::string name, auto&& func) {
-            get()->workQueue.enqueue({ name, func });
-        }
+        static void enqueueWork(std::string name, threads::WorkItem&& func);
 
         /** scheduling api */
 
@@ -110,15 +97,6 @@ namespace simcoe {
         static void shutdown();
 
     private:
-        std::string_view failureReason = "";
-
-        threads::Geometry geometry = {};
-
-        // configurable stuff
-        size_t defaultWorkerCount = 0; // 0 means let the system decide
-        size_t maxWorkerCount = 0; // 0 means no limit
-        size_t workerDelay = 50; // ms
-
         // this grows memory fungus by design
         // if any value in here is changed after its created then
         // getThreadName can return invalid data
@@ -129,25 +107,6 @@ namespace simcoe {
         // all currently scheduled threads
         mt::shared_mutex threadHandleLock;
         std::vector<threads::ThreadHandle*> threadHandles;
-
-        static void runWorker(std::stop_token token);
-        static threads::ThreadHandle *newWorker();
-
-        // work queue
-        struct WorkMessage final {
-            std::string name;
-            threads::WorkItem item;
-        };
-
-        moodycamel::BlockingConcurrentQueue<WorkMessage> workQueue;
-
-        WorkMessage mainMessage;
-        moodycamel::ConcurrentQueue<WorkMessage> mainQueue;
-
-        // all worker threads
-        mt::shared_mutex workerLock;
-        size_t workerId = 0;
-        std::vector<threads::ThreadHandle*> workers;
 
     public:
         static std::shared_mutex &getPoolLock() { return get()->threadHandleLock; }

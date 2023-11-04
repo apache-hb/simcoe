@@ -9,7 +9,7 @@ GdkDebug::GdkDebug()
     : ServiceDebug("GDK")
 {
     if (GdkService::getState() & ~eServiceCreated) {
-        setFailureReason(GdkService::getFailureReason());
+        setServiceError(GdkService::getFailureReason());
     }
 }
 

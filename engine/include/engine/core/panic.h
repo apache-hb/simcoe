@@ -13,6 +13,11 @@ namespace simcoe::core {
     void panic(const PanicInfo& info, std::string_view msg);
 }
 
+// debug macros
+
+// TODO: have multiple asserts, one for debug, one for release
+// TODO: in release mode asserts should be turned into ensures for better performance
+
 #define ASSERTF(EXPR, ...) \
     do { \
         if (EXPR) { break; } \
@@ -21,3 +26,4 @@ namespace simcoe::core {
     } while (false)
 
 #define ASSERT(EXPR) ASSERTF(EXPR, #EXPR)
+#define NEVER(...) ASSERTF(false, __VA_ARGS__)

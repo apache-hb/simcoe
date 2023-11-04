@@ -155,9 +155,6 @@ namespace amd {
         bool createService() override;
         void destroyService() override;
 
-        // failure reason
-        static std::string_view getFailureReason();
-
         // monitor info
         static const BiosInfo *getBiosInfo();
         static const CpuInfo *getCpuInfo();
@@ -168,9 +165,6 @@ namespace amd {
     private:
         void setupBiosDevices();
         void setupCpuDevices();
-
-        // error info
-        std::string error = "";
 
         // dll handles
         HMODULE hPlatformModule = nullptr;

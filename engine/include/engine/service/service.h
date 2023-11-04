@@ -66,6 +66,18 @@ namespace simcoe {
         static ServiceState getState() {
             return get()->IService::getState();
         }
+
+        static std::string_view getFailureReason() {
+            return get()->failure;
+        }
+
+    protected:
+        void setFailureReason(std::string reason) {
+            failure = std::move(reason);
+        }
+
+    private:
+        std::string failure;
     };
 
     struct ServiceRuntime {

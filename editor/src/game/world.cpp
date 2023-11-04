@@ -23,7 +23,7 @@ void World::destroyRender() {
 }
 
 void World::tickRender() {
-    if (pRenderQueue->process()) {
+    if (pRenderQueue->tryGetMessage()) {
         return;
     }
 
@@ -53,7 +53,7 @@ void World::destroyPhysics() {
 }
 
 void World::tickPhysics() {
-    if (pPhysicsThread->process()) {
+    if (pPhysicsThread->tryGetMessage()) {
         return;
     }
 
@@ -67,7 +67,7 @@ void World::destroyGame() {
 }
 
 void World::tickGame() {
-    if (pGameThread->process()) {
+    if (pGameThread->tryGetMessage()) {
         return;
     }
 

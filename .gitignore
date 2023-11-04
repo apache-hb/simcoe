@@ -57,5 +57,6 @@ subprojects/harfbuzz*/
 subprojects/libpng*/
 subprojects/zlib*/
 subprojects/icu*/
+subprojects/tracy*/
 subprojects/tomlplusplus*/
 subprojects/packagecache

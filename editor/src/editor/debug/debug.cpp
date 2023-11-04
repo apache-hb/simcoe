@@ -45,14 +45,16 @@ void debug::enumGlobalHandles(std::function<void(DebugHandle*)> callback) {
 // service debuggers
 
 void ServiceDebug::drawMenuItem() {
-    ImGui::MenuItem(name, nullptr, &bOpen);
+    auto name = getServiceName();
+    ImGui::MenuItem(name.data(), nullptr, &bOpen);
 }
 
 void ServiceDebug::drawWindow() {
     if (!bOpen) return;
 
-    if (ImGui::Begin(name, &bOpen)) {
-        auto err = getFailureReason();
+    auto name = getServiceName();
+    if (ImGui::Begin(name.data(), &bOpen)) {
+        auto err = getServiceError();
         if (!err.empty()) {
             ImGui::Text("Failed to initialize: %s", err.data());
         } else {
@@ -63,6 +65,14 @@ void ServiceDebug::drawWindow() {
     ImGui::End();
 }
 
-void ServiceDebug::setFailureReason(std::string_view reason) {
-    failureReason = reason;
+std::string_view ServiceDebug::getServiceName() const {
+    return serviceName;
+}
+
+std::string_view ServiceDebug::getServiceError() const {
+    return serviceError;
+}
+
+void ServiceDebug::setServiceError(std::string_view reason) {
+    serviceError = reason;
 }

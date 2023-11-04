@@ -206,7 +206,7 @@ bool RyzenMonitorSerivce::createService() {
     auto fail = [&]<typename... A>(std::string_view fmt, A&&... args) {
         auto reason = std::vformat(fmt, std::make_format_args(args...));
         LOG_ERROR("RyzenMonitorSerivce setup failed: {}\n{}", reason, joinFields(fields));
-        error = reason;
+        setFailureReason(reason);
         return false;
     };
 
@@ -304,10 +304,6 @@ void RyzenMonitorSerivce::destroyService() {
 }
 
 // public api
-
-std::string_view RyzenMonitorSerivce::getFailureReason() {
-    return get()->error;
-}
 
 const BiosInfo *RyzenMonitorSerivce::getBiosInfo() {
     return get()->pBiosInfo;

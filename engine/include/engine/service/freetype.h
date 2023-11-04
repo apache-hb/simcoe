@@ -21,8 +21,5 @@ namespace simcoe {
 
         // FreeTypeService
         static FT_Library getLibrary();
-
-    private:
-        FT_Library library = nullptr;
     };
 }

@@ -62,7 +62,7 @@ RyzenMonitorDebug::RyzenMonitorDebug()
     : ServiceDebug("RyzenMonitor")
 {
     if (RyzenMonitorSerivce::getState() & ~eServiceCreated) {
-        setFailureReason(RyzenMonitorSerivce::getFailureReason());
+        setServiceError(RyzenMonitorSerivce::getFailureReason());
         return;
     }
 
@@ -101,8 +101,9 @@ void RyzenMonitorDebug::draw() {
 void RyzenMonitorDebug::drawWindow() {
     if (!bOpen) return;
 
-    if (ImGui::Begin(getName(), &bOpen)) {
-        auto err = getFailureReason();
+    auto name = getServiceName();
+    if (ImGui::Begin(name.data(), &bOpen)) {
+        auto err = getServiceError();
         if (!err.empty()) {
             ImGui::Text("Failed to initialize: %s", err.data());
             if (ImGui::Button("Launch subprocess (broken)")) {

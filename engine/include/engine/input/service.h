@@ -49,14 +49,6 @@ namespace simcoe {
         input::Win32Mouse *pMouse = nullptr;
         input::XInputGamepad *pGamepad0 = nullptr;
 
-        size_t pollInterval = 16; ///< how often to poll input devices (in ms)
-
-        bool bEnableKeyboard = true;
-        bool bEnableMouse = true;
-        bool bLockMouse = false;
-
-        bool bEnableGamepad0 = true;
-
     public:
         static mt::shared_mutex &getMutex() { return get()->mutex; }
         static input::Manager &getManager() { return get()->manager; }

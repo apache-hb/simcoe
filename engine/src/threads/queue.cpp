@@ -8,24 +8,42 @@
 using namespace simcoe;
 using namespace simcoe::threads;
 
-WorkQueue::WorkQueue(size_t size)
-    : workQueue(size)
-{ }
+// non-blocking
 
-void WorkQueue::add(std::string name, WorkItem item) {
-    WorkMessage event = {
-        .name = name,
-        .item = item
-    };
-
-    workQueue.enqueue(event);
-}
-
-bool WorkQueue::process() {
+bool WorkQueue::tryGetMessage() {
     if (workQueue.try_dequeue(message)) {
         message.item();
         return true;
     }
 
     return false;
+}
+
+// blocking
+
+bool BlockingWorkQueue::tryGetMessage() {
+    if (workQueue.try_dequeue(message)) {
+        message.item();
+        return true;
+    }
+
+    return false;
+}
+
+void BlockingWorkQueue::waitForMessage() {
+    workQueue.wait_dequeue(message);
+    message.item();
+}
+
+bool BlockingWorkQueue::process(std::chrono::milliseconds timeout) {
+    if (tryGetMessage(message, timeout)) {
+        message.item();
+        return true;
+    }
+
+    return false;
+}
+
+bool BlockingWorkQueue::tryGetMessage(WorkMessage& dst, std::chrono::milliseconds timeout) {
+    return workQueue.wait_dequeue_timed(dst, timeout);
 }

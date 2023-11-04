@@ -96,7 +96,7 @@ static void commonMain() {
 
     while (PlatformService::waitForEvent() && !GameService::shouldQuit()) {
         PlatformService::dispatchEvent();
-        ThreadService::checkMainQueue();
+        ThreadService::pollMainQueue();
     }
 
     PlatformService::quit();

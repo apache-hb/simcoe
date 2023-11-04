@@ -3,6 +3,12 @@
 
 using namespace simcoe;
 
+// internal data
+
+namespace {
+    FT_Library library = nullptr;
+}
+
 // freetype
 
 FreeTypeService::FreeTypeService() {
@@ -22,5 +28,5 @@ void FreeTypeService::destroyService() {
 }
 
 FT_Library FreeTypeService::getLibrary() {
-    return get()->library;
+    return library;
 }

@@ -41,24 +41,24 @@ namespace editor::debug {
     struct ServiceDebug {
         virtual ~ServiceDebug() = default;
 
-        const char *getName() const { return name; }
-        std::string_view getFailureReason() const { return failureReason; }
+        std::string_view getServiceName() const;
+        std::string_view getServiceError() const;
 
         void drawMenuItem();
         virtual void drawWindow();
 
         virtual void draw() = 0;
     protected:
-        ServiceDebug(const char *name)
-            : name(name)
+        ServiceDebug(std::string_view name)
+            : serviceName(name)
         { }
 
-        void setFailureReason(std::string_view reason);
+        void setServiceError(std::string_view reason);
 
         bool bOpen = true;
 
     private:
-        const char *name;
-        std::string_view failureReason = "";
+        std::string_view serviceName = "";
+        std::string_view serviceError = "";
     };
 }

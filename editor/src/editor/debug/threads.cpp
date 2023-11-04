@@ -24,7 +24,7 @@ ThreadServiceDebug::ThreadServiceDebug()
     , geometry(ThreadService::getGeometry())
 {
     if (ThreadService::getState() & ~eServiceCreated) {
-        setFailureReason(ThreadService::getFailureReason());
+        setServiceError(ThreadService::getFailureReason());
     }
 }
 

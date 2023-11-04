@@ -22,18 +22,12 @@ namespace microsoft {
         bool createService() override;
         void destroyService() override;
 
-        // failure reason
-        static std::string_view getFailureReason();
-
         // gdk info
         static const XSystemAnalyticsInfo& getAnalyticsInfo();
         static const GdkFeatureSet& getFeatures();
         static std::string_view getConsoleId();
 
     private:
-        // initialized when gdk is disabled
-        std::string failureReason;
-
         // initialized when gdk is enabled
         GdkFeatureSet features = {};
         XSystemAnalyticsInfo analyticsInfo = {};

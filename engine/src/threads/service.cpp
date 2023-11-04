@@ -13,53 +13,6 @@ using namespace simcoe::threads;
 
 using namespace std::chrono_literals;
 
-template<typename T>
-struct std::formatter<LOGICAL_PROCESSOR_RELATIONSHIP, T> : std::formatter<std::string_view, T> {
-    template<typename FormatContext>
-    auto format(LOGICAL_PROCESSOR_RELATIONSHIP rel, FormatContext& ctx) {
-        using f = std::formatter<std::string_view, T>;
-        switch (rel) {
-        case RelationProcessorCore: return f::format("RelationNumaNode", ctx);
-        case RelationNumaNode: return f::format("RelationNumaNode", ctx);
-        case RelationCache: return f::format("RelationCache", ctx);
-        case RelationProcessorPackage: return f::format("RelationProcessorPackage", ctx);
-        case RelationGroup: return f::format("RelationGroup", ctx);
-        case RelationProcessorDie: return f::format("RelationProcessorDie", ctx);
-        case RelationNumaNodeEx: return f::format("RelationNumaNodeEx", ctx);
-        case RelationProcessorModule: return f::format("RelationProcessorModule", ctx);
-        default: return f::format(std::format("LOGICAL_PROCESSOR_RELATIONSHIP({})", int(rel)), ctx);
-        }
-    }
-};
-
-template<typename T>
-struct std::formatter<PROCESSOR_CACHE_TYPE, T> : std::formatter<std::string_view, T> {
-    template<typename FormatContext>
-    auto format(PROCESSOR_CACHE_TYPE type, FormatContext& ctx) {
-        using f = std::formatter<std::string_view, T>;
-        switch (type) {
-        case CacheUnified: return f::format("CacheUnified", ctx);
-        case CacheInstruction: return f::format("CacheInstruction", ctx);
-        case CacheData: return f::format("CacheData", ctx);
-        case CacheTrace: return f::format("CacheTrace", ctx);
-        case CACHE_FULLY_ASSOCIATIVE: return f::format("CACHE_FULLY_ASSOCIATIVE", ctx);
-        default: return f::format(std::format("PROCESSOR_CACHE_TYPE({})", int(type)), ctx);
-        }
-    }
-};
-
-template<typename T>
-struct std::formatter<CPU_SET_INFORMATION_TYPE, T> : std::formatter<std::string_view, T> {
-    template<typename FormatContext>
-    auto format(CPU_SET_INFORMATION_TYPE type, FormatContext& ctx) {
-        using f = std::formatter<std::string_view, T>;
-        switch (type) {
-        case CpuSetInformation: return f::format("CpuSetInformation", ctx);
-        default: return f::format(std::format("CPU_SET_INFORMATION_TYPE({})", int(type)), ctx);
-        }
-    }
-};
-
 namespace {
     template<typename T>
     T *advance(T *ptr, size_t bytes) {
@@ -333,14 +286,55 @@ namespace {
             }
         }
     };
+
+    // config
+    namespace cfg {
+        size_t gDefaultWorkerCount = 0; // 0 means let the system decide
+        size_t gMaxWorkerCount = 0; // 0 means no limit
+        size_t gWorkerDelay = 50; // ms
+        size_t gWorkQueueSize = 256; // size of the work queue, this is shared between all workers
+
+        size_t gMainQueueSize = 64; // size of the main queue
+    }
+
+    // geometry data
+    Geometry gCpuGeometry = {};
+
+    // thread communication
+    WorkQueue *gMainQueue = nullptr;
+    BlockingWorkQueue *gWorkQueue = nullptr;
+
+    // worker thread data
+    mt::shared_mutex gWorkerLock;
+    std::atomic_size_t gWorkerId = 0;
+    std::vector<threads::ThreadHandle*> gWorkers;
+
+    threads::ThreadHandle *newWorkerThread() {
+        const auto kWorkerBody = [](std::stop_token token) {
+            WorkMessage msg;
+            auto interval = std::chrono::milliseconds(cfg::gWorkerDelay);
+
+            while (!token.stop_requested()) {
+                if (gWorkQueue->tryGetMessage(msg, interval)) {
+                    msg.item();
+                }
+            }
+        };
+
+        auto id = gWorkerId++;
+        return ThreadService::newThread(threads::eWorker, std::format("worker-{}", id), kWorkerBody);
+    }
 }
 
 ThreadService::ThreadService() {
     CFG_DECLARE("threads",
         CFG_FIELD_TABLE("workers",
-            CFG_FIELD_INT("initial", &defaultWorkerCount),
-            CFG_FIELD_INT("max", &maxWorkerCount),
-            CFG_FIELD_INT("interval", &workerDelay)
+            CFG_FIELD_INT("initial", &cfg::gDefaultWorkerCount),
+            CFG_FIELD_INT("max", &cfg::gMaxWorkerCount),
+            CFG_FIELD_INT("interval", &cfg::gWorkerDelay)
+        ),
+        CFG_FIELD_TABLE("queues",
+            CFG_FIELD_INT("main", &cfg::gMainQueueSize)
         )
     );
 }
@@ -400,14 +394,17 @@ bool ThreadService::createService() {
 
     LOG_INFO("CPU layout: (packages={} cores={} threads={} caches={})", builder.packages.size(), builder.cores.size(), builder.subcores.size(), processorInfoLayout.cacheCount);
 
-    geometry = {
+    gCpuGeometry = {
         .subcores = builder.subcores,
         .cores = builder.cores,
         .chiplets = builder.chiplets,
         .packages = builder.packages
     };
 
-    setWorkerCount(defaultWorkerCount);
+    setWorkerCount(cfg::gDefaultWorkerCount);
+
+    gMainQueue = new WorkQueue(cfg::gMainQueueSize);
+    gWorkQueue = new BlockingWorkQueue(cfg::gWorkQueueSize);
 
     return true;
 }
@@ -416,16 +413,24 @@ void ThreadService::destroyService() {
     ThreadService::shutdown();
 }
 
-std::string_view ThreadService::getFailureReason() {
-    return get()->failureReason;
+const Geometry& ThreadService::getGeometry() {
+    return gCpuGeometry;
 }
 
 ThreadId ThreadService::getCurrentThreadId() {
     return GetCurrentThreadId();
 }
 
-const Geometry& ThreadService::getGeometry() {
-    return get()->geometry;
+// main thread communication
+
+void ThreadService::enqueueMain(std::string name, WorkItem&& task) {
+    ASSERTF(gMainQueue, "main queue not initialized");
+    gMainQueue->add(std::move(name), std::move(task));
+}
+
+void ThreadService::pollMainQueue() {
+    ASSERTF(gMainQueue, "main queue not initialized");
+    gMainQueue->tryGetMessage();
 }
 
 // thread info
@@ -452,29 +457,33 @@ std::string_view ThreadService::getThreadName(ThreadId id) {
 
 void ThreadService::setWorkerCount(size_t count) {
     LOG_INFO("starting {} workers", count);
-    mt::write_lock lock(get()->workerLock);
-    auto& workers = get()->workers;
-    if (count < workers.size()) {
-        LOG_INFO("stopping {} workers", workers.size() - count);
-        for (size_t i = count; i < workers.size(); ++i) {
-            workers[i]->requestStop();
+    mt::write_lock lock(gWorkerLock);
+    if (count < gWorkers.size()) {
+        LOG_INFO("stopping {} workers", gWorkers.size() - count);
+        for (size_t i = count; i < gWorkers.size(); ++i) {
+            gWorkers[i]->requestStop();
         }
 
-        for (size_t i = count; i < workers.size(); ++i) {
-            delete workers[i];
+        for (size_t i = count; i < gWorkers.size(); ++i) {
+            delete gWorkers[i];
         }
     }
 
-    workers.resize(count);
+    gWorkers.resize(count);
 
-    for (size_t i = workers.size(); i < count; ++i) {
-        workers.push_back(newWorker());
+    for (size_t i = gWorkers.size(); i < count; ++i) {
+        gWorkers.push_back(newWorkerThread());
     }
 }
 
 size_t ThreadService::getWorkerCount() {
-    mt::read_lock lock(get()->workerLock);
-    return get()->workers.size();
+    mt::read_lock lock(gWorkerLock);
+    return gWorkers.size();
+}
+
+void ThreadService::enqueueWork(std::string name, threads::WorkItem&& func) {
+    ASSERTF(gWorkQueue, "work queue not initialized");
+    gWorkQueue->add(std::move(name), std::move(func));
 }
 
 threads::ThreadHandle *ThreadService::newThread(threads::ThreadType type, std::string_view name, threads::ThreadStart&& start) {
@@ -502,21 +511,4 @@ void ThreadService::shutdown() {
         delete pHandle;
     }
     handles.clear();
-}
-
-void ThreadService::runWorker(std::stop_token token) {
-    WorkMessage msg;
-    auto& queue = get()->workQueue;
-    auto interval = std::chrono::milliseconds(get()->workerDelay);
-
-    while (!token.stop_requested()) {
-        if (queue.wait_dequeue_timed(msg, interval)) {
-            msg.item();
-        }
-    }
-}
-
-threads::ThreadHandle *ThreadService::newWorker() {
-    size_t id = get()->workerId++;
-    return newThread(threads::eWorker, std::format("worker-{}", id), runWorker);
 }

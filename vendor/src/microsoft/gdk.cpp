@@ -83,10 +83,6 @@ void GdkService::destroyService() {
     XGameRuntimeUninitialize();
 }
 
-std::string_view GdkService::getFailureReason() {
-    return get()->failureReason;
-}
-
 // gdk info
 const XSystemAnalyticsInfo& GdkService::getAnalyticsInfo() {
     return get()->analyticsInfo;

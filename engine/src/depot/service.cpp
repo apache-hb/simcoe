@@ -52,23 +52,91 @@ private:
     HANDLE hFile = INVALID_HANDLE_VALUE;
 };
 
-// service
+namespace {
+    // config options
+    namespace cfg {
+        DWORD waitInterval = 100; // ms
+
+        size_t maxFileHandles = 0; // 0 = unlimited
+        std::string vfsRoot = "$exe"; // default to executable directory
+        depot::FileMode vfsMode = depot::eRead; // default to read only
+    }
+
+    // vfs stuff
+
+    std::string vfsPath;
+
+    // listen for fs changes
+    HANDLE hChange = INVALID_HANDLE_VALUE;
+    threads::ThreadHandle *pChangeNotify = nullptr;
+
+    // local handles (files inside the vfs dir)
+    mt::shared_mutex localMutex;
+    HandleMap localHandles;
+
+    // global handles (files anywhere else on the system)
+    mt::shared_mutex globalMutex;
+    HandleMap globalHandles;
+
+
+    std::string formatPath(std::string_view plainPath) {
+        // replace $cwd with current working directory
+        // replace $exe with executable directory
+
+        std::string path = std::string(plainPath);
+
+        // replace all file separators with native ones
+        for (char& c : path) {
+            if (c == '/' || c == '\\') {
+                c = fs::path::preferred_separator;
+            }
+        }
+
+        if (size_t pos = path.find("$cwd"); pos != std::string::npos) {
+            path.replace(pos, 4, fs::current_path().string());
+        }
+
+        if (size_t pos = path.find("$exe"); pos != std::string::npos) {
+            path.replace(pos, 4, PlatformService::getExeDirectory().string());
+        }
+
+        return path;
+    }
+
+    void notifyChange() {
+        // TODO: in here lock either local or global mutex, depending on whats changing
+        LOG_INFO("depot change detected");
+    }
+}
+
+// service getters
+
+mt::shared_mutex& DepotService::getVfsMutex() { return localMutex; }
+mt::shared_mutex& DepotService::getGlobalMutex() { return globalMutex; }
+
+HandleMap& DepotService::getHandles() { return localHandles; }
+HandleMap& DepotService::getGlobalHandles() { return globalHandles; }
+
+// service api
 
 DepotService::DepotService() {
     CFG_DECLARE("depot",
-        CFG_FIELD_INT("handles", &maxHandles),
+        CFG_FIELD_INT("handles", &cfg::maxFileHandles),
         CFG_FIELD_TABLE("vfs",
-            CFG_FIELD_STRING("root", &userVfsPath),
-            CFG_FIELD_ENUM("mode", &vfsMode,
+            CFG_FIELD_STRING("root", &cfg::vfsRoot),
+            CFG_FIELD_ENUM("mode", &cfg::vfsMode,
                 CFG_CASE("readonly", eRead),
                 CFG_CASE("readwrite", eReadWrite)
             )
+        ),
+        CFG_FIELD_TABLE("observer",
+            CFG_FIELD_INT("interval", &cfg::waitInterval)
         )
     );
 }
 
 bool DepotService::createService() {
-    vfsPath = formatVfsPath();
+    vfsPath = formatPath(cfg::vfsRoot);
     LOG_INFO("depot vfs path: {}", vfsPath);
 
     constexpr DWORD dwFilter = FILE_NOTIFY_CHANGE_FILE_NAME
@@ -83,18 +151,18 @@ bool DepotService::createService() {
     );
 
     if (hChange == INVALID_HANDLE_VALUE) {
+        setFailureReason("failed to create change notification handle");
         throwLastError("FindFirstChangeNotificationA");
     }
 
-    pChangeNotify = ThreadService::newThread(threads::eBackground, "depot", [this](std::stop_token token) {
+    pChangeNotify = ThreadService::newThread(threads::eBackground, "depot", [](std::stop_token token) {
         while (!token.stop_requested()) {
-            DWORD dwWait = WaitForSingleObject(hChange, 100);
+            DWORD dwWait = WaitForSingleObject(hChange, cfg::waitInterval);
             if (dwWait == WAIT_TIMEOUT) continue;
             if (dwWait == WAIT_ABANDONED) {
                 throwLastError("WaitForSingleObject");
             }
 
-            std::lock_guard lock(vfsMutex);
             notifyChange();
             if (!FindNextChangeNotification(hChange)) {
                 throwLastError("FindNextChangeNotification");
@@ -111,15 +179,11 @@ void DepotService::destroyService() {
     }
 }
 
-std::string_view DepotService::getFailureReason() {
-    return get()->failureReason;
-}
-
 std::shared_ptr<depot::IFile> DepotService::openFile(const fs::path& path) {
     {
-        mt::read_lock lock(get()->vfsMutex);
-        auto it = get()->handles.find(path);
-        if (it != get()->handles.end()) {
+        mt::read_lock lock(localMutex);
+        auto it = localHandles.find(path);
+        if (it != localHandles.end()) {
             return it->second;
         }
     }
@@ -142,8 +206,8 @@ std::shared_ptr<depot::IFile> DepotService::openFile(const fs::path& path) {
 
     auto handle = std::make_shared<FileHandle>(hFile);
 
-    mt::write_lock lock(get()->vfsMutex);
-    get()->handles.emplace(path, handle);
+    mt::write_lock lock(localMutex);
+    localHandles.emplace(path, handle);
 
     return handle;
 }
@@ -158,7 +222,7 @@ std::vector<std::byte> DepotService::loadBlob(const fs::path& path) {
 }
 
 fs::path DepotService::getAssetPath(const fs::path& path) {
-    return get()->vfsPath / path;
+    return vfsPath / path;
 }
 
 depot::Image DepotService::loadImage(const fs::path &path) {
@@ -213,9 +277,9 @@ depot::Font DepotService::loadFont(const fs::path& path) {
 
 std::shared_ptr<depot::IFile> DepotService::openExternalFile(const fs::path& path) {
     {
-        mt::read_lock lock(get()->globalMutex);
-        auto it = get()->globalHandles.find(path);
-        if (it != get()->globalHandles.end()) {
+        mt::read_lock lock(globalMutex);
+        auto it = globalHandles.find(path);
+        if (it != globalHandles.end()) {
             return it->second;
         }
     }
@@ -237,36 +301,8 @@ std::shared_ptr<depot::IFile> DepotService::openExternalFile(const fs::path& pat
 
     auto handle = std::make_shared<FileHandle>(hFile);
 
-    mt::write_lock lock(get()->globalMutex);
-    get()->globalHandles.emplace(path, handle);
+    mt::write_lock lock(globalMutex);
+    globalHandles.emplace(path, handle);
 
     return handle;
-}
-
-std::string DepotService::formatVfsPath() const {
-    // replace $cwd with current working directory
-    // replace $exe with executable directory
-
-    std::string path = userVfsPath;
-
-    // replace all file separators with native ones
-    for (char& c : path) {
-        if (c == '/' || c == '\\') {
-            c = fs::path::preferred_separator;
-        }
-    }
-
-    if (size_t pos = path.find("$cwd"); pos != std::string::npos) {
-        path.replace(pos, 4, fs::current_path().string());
-    }
-
-    if (size_t pos = path.find("$exe"); pos != std::string::npos) {
-        path.replace(pos, 4, PlatformService::getExeDirectory().string());
-    }
-
-    return path;
-}
-
-void DepotService::notifyChange() {
-    LOG_INFO("depot change detected");
 }
