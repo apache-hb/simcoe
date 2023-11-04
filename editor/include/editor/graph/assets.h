@@ -2,8 +2,6 @@
 
 #include "engine/core/units.h"
 
-#include "editor/debug/debug.h"
-
 #include "engine/render/graph.h"
 
 #include "engine/depot/image.h"

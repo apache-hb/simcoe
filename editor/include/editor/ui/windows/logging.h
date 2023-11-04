@@ -1,10 +1,10 @@
 #pragma once
 
-#include "editor/debug/debug.h"
+#include "editor/ui/ui.h"
 
 #include "imgui/imgui.h"
 
-namespace editor::debug {
+namespace editor::ui {
     struct Message {
         Message(const log::Message& msg);
 

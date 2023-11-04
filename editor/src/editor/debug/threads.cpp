@@ -1,11 +1,14 @@
-#include "editor/debug/service.h"
+#include "editor/ui/windows/threads.h"
 
 #include "engine/core/range.h"
 
 #include "imgui/imgui_internal.h"
 
 using namespace editor;
-using namespace editor::debug;
+using namespace editor::ui;
+
+using namespace simcoe;
+using namespace simcoe::threads;
 
 namespace {
     const char *getPriorityName(threads::ThreadType priority) {
@@ -21,20 +24,26 @@ namespace {
 
 ThreadServiceDebug::ThreadServiceDebug()
     : ServiceDebug("Threads")
-    , geometry(ThreadService::getGeometry())
 {
     if (ThreadService::getState() & ~eServiceCreated) {
         setServiceError(ThreadService::getFailureReason());
+        return;
+    }
+
+    geometry = ThreadService::getGeometry();
+
+    for (const auto& [index, chiplet] : core::enumerate<ChipletIndex>(geometry.chiplets)) {
+        fastestCores[index] = getFastestCore(chiplet);
     }
 }
 
 void ThreadServiceDebug::draw() {
     if (ImGui::BeginTabBar("packages")) {
-        for (threads::PackageIndex i : core::Range(threads::PackageIndex(geometry.packages.size()))) {
+        for (const auto& [i, package] : core::enumerate<PackageIndex>(geometry.packages)) {
             char label[32];
             snprintf(label, sizeof(label), "package: %u", uint16_t(i));
             if (ImGui::BeginTabItem(label)) {
-                drawPackage(i);
+                drawPackage(package);
                 ImGui::EndTabItem();
             }
         }
@@ -82,15 +91,15 @@ void ThreadServiceDebug::draw() {
     }
 }
 
-void ThreadServiceDebug::drawPackage(threads::PackageIndex i) {
+void ThreadServiceDebug::drawPackage(const threads::Package& package) const {
     ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_RowBg;
 
-    const auto& [mask, threads, cores, chiplets] = geometry.getPackage(i);
-    for (const auto& [index, cluster] : core::enumerate<threads::ChipletIndex>(chiplets)) {
+    const auto& [mask, threads, cores, chiplets] = package;
+    for (const auto& [index, chiplet] : core::enumerate<threads::ChipletIndex>(chiplets)) {
         char label[32];
         snprintf(label, sizeof(label), "chiplet: %u", uint16_t(index));
         if (ImGui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)) {
-            threads::CoreIndex fastest = getFastestCore(index);
+            threads::CoreIndex fastest = fastestCores.at(chiplet);
 
             if (ImGui::BeginTable("##cores", 3, flags)) {
                 ImGui::TableSetupColumn("core", ImGuiTableColumnFlags_WidthStretch, 100.f);
@@ -129,11 +138,11 @@ void ThreadServiceDebug::drawPackage(threads::PackageIndex i) {
     }
 }
 
-threads::CoreIndex ThreadServiceDebug::getFastestCore(threads::ChipletIndex cluster) const {
+CoreIndex ThreadServiceDebug::getFastestCore(const Chiplet& cluster) const {
     threads::CoreIndex fastest = threads::CoreIndex::eInvalid;
     uint16_t bestSchedule = UINT16_MAX;
 
-    for (threads::CoreIndex index : geometry.getChiplet(cluster).coreIds) {
+    for (threads::CoreIndex index : cluster.coreIds) {
         const auto& core = geometry.getCore(index);
         if (core.schedule < bestSchedule) {
             bestSchedule = core.schedule;

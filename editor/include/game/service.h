@@ -10,7 +10,7 @@
 
 #include "engine/math/math.h"
 
-#include "editor/debug/service.h"
+#include "editor/ui/service.h"
 
 #include "game/world.h"
 
@@ -98,7 +98,7 @@ namespace game {
             return pService;
         }
 
-        static std::span<editor::debug::ServiceDebug*> getDebugServices() {
+        static std::span<editor::ui::ServiceDebug*> getDebugServices() {
             return get()->debugServices;
         }
     private:
@@ -128,6 +128,6 @@ namespace game {
         threads::ThreadHandle *pPhysicsThread = nullptr;
         threads::ThreadHandle *pGameThread = nullptr;
 
-        std::vector<editor::debug::ServiceDebug*> debugServices;
+        std::vector<editor::ui::ServiceDebug*> debugServices;
     };
 }

@@ -57,13 +57,13 @@ namespace {
             }
 
             if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
-                throwLastError("GetLogicalProcessorInformationEx did not fail with ERROR_INSUFFICIENT_BUFFER");
+                debug::throwLastError("GetLogicalProcessorInformationEx did not fail with ERROR_INSUFFICIENT_BUFFER");
             }
 
             memory = std::make_unique<std::byte[]>(bufferSize);
             pBuffer = reinterpret_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *>(memory.get());
             if (!GetLogicalProcessorInformationEx(relation, pBuffer, &bufferSize)) {
-                throwLastError("GetLogicalProcessorInformationEx failed");
+                debug::throwLastError("GetLogicalProcessorInformationEx failed");
             }
 
             remaining = bufferSize;
@@ -123,13 +123,13 @@ namespace {
             }
 
             if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
-                throwLastError("GetSystemCpuSetInformation did not fail with ERROR_INSUFFICIENT_BUFFER");
+                debug::throwLastError("GetSystemCpuSetInformation did not fail with ERROR_INSUFFICIENT_BUFFER");
             }
 
             memory = std::make_unique<std::byte[]>(bufferSize);
             pBuffer = reinterpret_cast<SYSTEM_CPU_SET_INFORMATION *>(memory.get());
             if (!GetSystemCpuSetInformation(pBuffer, bufferSize, &bufferSize, GetCurrentProcess(), 0)) {
-                throwLastError("GetSystemCpuSetInformation failed");
+                debug::throwLastError("GetSystemCpuSetInformation failed");
             }
 
             remaining = bufferSize;
@@ -440,7 +440,7 @@ void ThreadService::setThreadName(std::string name, ThreadId id) {
     const auto& [it, inserted] = map.try_emplace(id, std::move(name));
     ASSERTF(inserted, "thread name for {:#x} already set to {}", id, it->second);
 
-    DebugService::setThreadName(name);
+    debug::setThreadName(name);
 }
 
 std::string_view ThreadService::getThreadName(ThreadId id) {

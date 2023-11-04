@@ -1,13 +1,13 @@
 #pragma once
 
-#include "editor/debug/debug.h"
+#include "editor/ui/ui.h"
 
 #include "engine/depot/vfs.h"
 
 #include "imgui/imgui.h"
 #include "imfiles/imfilebrowser.h"
 
-namespace editor::debug {
+namespace editor::ui {
     struct DepotDebug final : ServiceDebug {
         DepotDebug();
 

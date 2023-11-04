@@ -35,17 +35,18 @@
 #include "editor/graph/gui.h"
 #include "editor/graph/game.h"
 
-// debug gui
-#include "editor/debug/debug.h"
-#include "editor/debug/service.h"
-#include "editor/debug/logging.h"
-#include "editor/debug/depot.h"
-
+// imgui
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
 
 #include "imfiles/imfilebrowser.h"
 #include "implot/implot.h"
+
+// editor ui
+#include "editor/ui/ui.h"
+#include "editor/ui/windows/threads.h"
+#include "editor/ui/windows/depot.h"
+#include "editor/ui/windows/logging.h"
 
 // vendor
 #include "vendor/microsoft/gdk.h"
@@ -103,7 +104,7 @@ static void commonMain() {
 }
 
 static int serviceWrapper() try {
-    LoggingService::addSink("imgui", GameService::addDebugService<debug::LoggingDebug>());
+    LoggingService::addSink("imgui", GameService::addDebugService<ui::LoggingDebug>());
 
     auto engineServices = std::to_array({
         DebugService::service(),

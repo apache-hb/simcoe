@@ -1,4 +1,4 @@
-#include "editor/debug/logging.h"
+#include "editor/ui/windows/logging.h"
 
 #include "engine/core/units.h"
 #include "engine/threads/service.h"
@@ -6,7 +6,7 @@
 using namespace simcoe;
 
 using namespace editor;
-using namespace editor::debug;
+using namespace editor::ui;
 
 namespace chrono = std::chrono;
 

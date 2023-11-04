@@ -1,6 +1,8 @@
-#include "editor/debug/service.h"
+#include "editor/ui/windows/ryzen.h"
 
 #include "engine/core/win32.h"
+
+#include "engine/threads/service.h"
 
 #include "imgui/imgui_internal.h"
 #include "implot/implot.h"
@@ -11,7 +13,7 @@ using namespace simcoe;
 using namespace simcoe::threads;
 
 using namespace editor;
-using namespace editor::debug;
+using namespace editor::ui;
 
 using namespace std::chrono_literals;
 
@@ -33,7 +35,7 @@ namespace {
             ShellExecute(
                 /* hwnd= */ nullptr,
                 /* lpOperation= */ "runas",
-                /* lpFile= */ "C:\\Windows\\notepad.exe", // TODO: open us
+                /* lpFile= */ "C:\\Windows\\notepad.exe", // TODO: open the child process
                 /* lpParameters= */ nullptr,
                 /* lpDirectory= */ nullptr,
                 /* nShowCmd= */ SW_SHOWDEFAULT

@@ -1,9 +1,9 @@
-#include "editor/debug/depot.h"
+#include "editor/ui/windows/depot.h"
 
 #include "engine/depot/service.h"
 
 using namespace editor;
-using namespace editor::debug;
+using namespace editor::ui;
 
 using namespace simcoe;
 

@@ -1,44 +1,11 @@
 #pragma once
 
-#include "editor/debug/debug.h"
+#include "editor/ui/ui.h"
+#include "editor/ui/service.h"
 
 #include "vendor/amd/ryzen.h"
-#include "vendor/microsoft/gdk.h"
 
-#include "engine/service/platform.h"
-#include "engine/threads/service.h"
-
-namespace game { struct World; }
-
-namespace editor::debug {
-    // utility structure for realtime plot
-    struct ScrollingBuffer {
-        int MaxSize;
-        int Offset;
-        std::vector<ImVec2> Data;
-        ScrollingBuffer(int max_size = 2000) {
-            MaxSize = max_size;
-            Offset  = 0;
-            Data.reserve(MaxSize);
-        }
-
-        void AddPoint(float x, float y) {
-            if (int(Data.size()) < MaxSize)
-                Data.push_back(ImVec2(x,y));
-            else {
-                Data[Offset] = ImVec2(x,y);
-                Offset =  (Offset + 1) % MaxSize;
-            }
-        }
-
-        void Erase() {
-            if (Data.size() > 0) {
-                Data.clear();
-                Offset  = 0;
-            }
-        }
-    };
-
+namespace editor::ui {
     struct CoreInfoHistory {
         void addFrequency(float time, float f) {
             lastFrequency = f;
@@ -105,42 +72,5 @@ namespace editor::debug {
 
         Clock clock;
         float lastUpdate = 0.f;
-    };
-
-    struct GdkDebug final : ServiceDebug {
-        GdkDebug();
-
-        void draw() override;
-    };
-
-    struct EngineDebug final : ServiceDebug {
-        EngineDebug(game::World *pWorld);
-
-        void draw() override;
-
-    private:
-        void drawFrameTimes();
-        game::World *pWorld = nullptr;
-
-        float lastUpdate = 0.f;
-        float history = 10.f;
-        debug::ScrollingBuffer frameTimes = { 4000 };
-
-        float inputStep;
-        float renderStep;
-        float physicsStep;
-        float gameStep;
-    };
-
-    struct ThreadServiceDebug final : ServiceDebug {
-        ThreadServiceDebug();
-
-        void draw() override;
-
-    private:
-        void drawPackage(threads::PackageIndex i);
-        threads::CoreIndex getFastestCore(threads::ChipletIndex chiplet) const;
-
-        const threads::Geometry& geometry;
     };
 }

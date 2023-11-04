@@ -35,7 +35,7 @@ DebugService::DebugService() {
 
 bool DebugService::createService() {
     if (!SymInitialize(GetCurrentProcess(), nullptr, TRUE)) {
-        throwLastError("failed to initialize symbol engine");
+        debug::throwLastError("failed to initialize symbol engine");
     }
 
     return true;
@@ -107,19 +107,21 @@ typedef struct tagTHREADNAME_INFO {
 } THREADNAME_INFO;
 #pragma pack(pop)
 
-static constexpr DWORD dwRenameThreadMagic = 0x406D1388;
+namespace {
+    constexpr DWORD kRenameThreadMagic = 0x406D1388;
 
-static void setThreadDesc(std::string_view name) {
-    auto wide = util::widen(name);
-    SetThreadDescription(GetCurrentThread(), wide.c_str());
+    void setThreadDesc(std::string_view name) {
+        auto wide = util::widen(name);
+        SetThreadDescription(GetCurrentThread(), wide.c_str());
+    }
 }
 
-void DebugService::setThreadName(std::string_view name) {
+void debug::setThreadName(std::string_view name) {
     // set name for PIX
     setThreadDesc(name);
 
     /// set debugger name
-    THREADNAME_INFO info = {
+    const THREADNAME_INFO info = {
         .dwType = 0x1000,
         .szName = name.data(),
         .dwThreadID = DWORD_MAX,
@@ -127,12 +129,12 @@ void DebugService::setThreadName(std::string_view name) {
     };
 
     __try {
-        RaiseException(dwRenameThreadMagic, 0, sizeof(info) / sizeof(DWORD), reinterpret_cast<ULONG_PTR *>(&info));
+        RaiseException(kRenameThreadMagic, 0, sizeof(THREADNAME_INFO) / sizeof(DWORD), reinterpret_cast<const ULONG_PTR *>(&info));
     } __except (EXCEPTION_EXECUTE_HANDLER) {
     }
 }
 
-std::string DebugService::getThreadName() {
+std::string debug::getThreadName() {
     PWSTR wide;
     if (HRESULT hr = GetThreadDescription(GetCurrentThread(), &wide); SUCCEEDED(hr)) {
         auto result = util::narrow(wide);
@@ -148,7 +150,7 @@ std::string DebugService::getThreadName() {
 
 // error formatting
 
-std::string DebugService::getResultName(HRESULT hr) {
+std::string debug::getResultName(HRESULT hr) {
     _com_error err(hr);
     return err.ErrorMessage();
 }
@@ -157,7 +159,7 @@ bool endsWithAny(std::string_view str, std::string_view chars) {
     return str.find_last_of(chars) == str.size() - 1;
 }
 
-std::string DebugService::getErrorName(DWORD dwErrorCode) {
+std::string debug::getErrorName(DWORD dwErrorCode) {
     char *pMessage = nullptr;
     DWORD err = FormatMessageA(
         /* dwFlags = */ FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -185,6 +187,10 @@ std::string DebugService::getErrorName(DWORD dwErrorCode) {
 
 // utils
 
+void debug::throwLastError(std::string_view msg, DWORD err) {
+    throw std::runtime_error(std::format("{}: {}", msg, debug::getErrorName(err)));
+}
+
 void simcoe::throwLastError(std::string_view msg, DWORD err) {
-    throw std::runtime_error(std::format("{}: {}", msg, DebugService::getErrorName(err)));
+    throw std::runtime_error(std::format("{}: {}", msg, debug::getErrorName(err)));
 }

@@ -236,7 +236,7 @@ bool RyzenMonitorSerivce::createService() {
     // try and open the service manager
     ServiceHandle hManager = OpenSCManager(nullptr, nullptr, kDefaultAccess);
     if (hManager == nullptr) {
-        return fail("Failed to open service manager (err={})", DebugService::getErrorName());
+        return fail("Failed to open service manager (err={})", debug::getErrorName());
     }
 
     // does the service exist?
@@ -247,7 +247,7 @@ bool RyzenMonitorSerivce::createService() {
 
     SERVICE_STATUS status = {};
     if (!QueryServiceStatus(hService.get(), &status)) {
-        return fail("Failed to query service status (err={})", DebugService::getErrorName());
+        return fail("Failed to query service status (err={})", debug::getErrorName());
     }
 
     if (status.dwCurrentState != SERVICE_RUNNING) {
@@ -260,17 +260,17 @@ bool RyzenMonitorSerivce::createService() {
 
     fields["driverbin"] = driverBinDir.string();
     if (!AddDllDirectory(driverBinDir.c_str())) {
-        return fail("Failed to add driver bin directory to dll search path (err={})", DebugService::getErrorName());
+        return fail("Failed to add driver bin directory to dll search path (err={})", debug::getErrorName());
     }
 
     hPlatformModule = LoadLibraryEx("Platform", nullptr, kSearchFlags);
     if (hPlatformModule == nullptr) {
-        return fail("Failed to load `Platform.dll` (err={})", DebugService::getErrorName());
+        return fail("Failed to load `Platform.dll` (err={})", debug::getErrorName());
     }
 
     auto *pGetPlatform = (decltype(&GetPlatform))GetProcAddress(hPlatformModule, kGetPlatformSymbol);
     if (pGetPlatform == nullptr) {
-        return fail("Failed to get `GetPlatform` function (err={})", DebugService::getErrorName());
+        return fail("Failed to get `GetPlatform` function (err={})", debug::getErrorName());
     }
 
     // TODO: is this UB?

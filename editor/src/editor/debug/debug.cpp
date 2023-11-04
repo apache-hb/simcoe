@@ -1,4 +1,4 @@
-#include "editor/debug/debug.h"
+#include "editor/ui/ui.h"
 
 #include "engine/core/mt.h"
 
@@ -8,19 +8,19 @@
 using namespace simcoe;
 
 using namespace editor;
-using namespace editor::debug;
+using namespace editor::ui;
 
 // global debug handles
 
 namespace {
     mt::shared_mutex gLock;
-    std::unordered_set<debug::DebugHandle*> gHandles;
+    std::unordered_set<ui::DebugHandle*> gHandles;
 }
 
-debug::GlobalHandle debug::addGlobalHandle(const std::string &name, std::function<void ()> draw) {
+ui::GlobalHandle ui::addGlobalHandle(const std::string &name, std::function<void ()> draw) {
     DebugHandle *pHandle = new DebugHandle(name, draw);
     GlobalHandle userHandle(pHandle, [](auto *pHandle) {
-        debug::removeGlobalHandle(pHandle);
+        ui::removeGlobalHandle(pHandle);
         delete pHandle;
     });
 
@@ -30,12 +30,12 @@ debug::GlobalHandle debug::addGlobalHandle(const std::string &name, std::functio
     return userHandle;
 }
 
-void debug::removeGlobalHandle(DebugHandle *pHandle) {
+void ui::removeGlobalHandle(DebugHandle *pHandle) {
     mt::write_lock lock(gLock);
     gHandles.erase(pHandle);
 }
 
-void debug::enumGlobalHandles(std::function<void(DebugHandle*)> callback) {
+void ui::enumGlobalHandles(std::function<void(DebugHandle*)> callback) {
     mt::read_lock lock(gLock);
     for (auto *pHandle : gHandles) {
         callback(pHandle);

@@ -6,7 +6,7 @@
 
 #include <functional>
 
-namespace editor::debug {
+namespace editor::ui {
     using namespace simcoe;
 
     // debug handles

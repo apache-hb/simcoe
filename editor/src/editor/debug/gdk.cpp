@@ -1,7 +1,9 @@
-#include "editor/debug/service.h"
+#include "editor/ui/windows/gdk.h"
+
+#include "vendor/microsoft/gdk.h"
 
 using namespace editor;
-using namespace editor::debug;
+using namespace editor::ui;
 
 using microsoft::GdkService;
 

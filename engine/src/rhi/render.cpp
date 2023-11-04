@@ -20,7 +20,7 @@ using namespace simcoe::rhi;
 #define HR_CHECK(expr) \
     do { \
         if (HRESULT hr = (expr); FAILED(hr)) { \
-            auto msg = std::format("{} ({})", #expr, DebugService::getResultName(hr)); \
+            auto msg = std::format("{} ({})", #expr, debug::getResultName(hr)); \
             LOG_ERROR(msg); \
             throw std::runtime_error(msg); \
         } \

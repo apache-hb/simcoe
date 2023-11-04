@@ -3,7 +3,13 @@
 #include "engine/config/ext/builder.h"
 
 #include "engine/render/graph.h"
-#include "editor/debug/depot.h"
+
+// editor ui
+#include "editor/ui/windows/depot.h"
+#include "editor/ui/windows/engine.h"
+#include "editor/ui/windows/gdk.h"
+#include "editor/ui/windows/threads.h"
+#include "editor/ui/windows/ryzen.h"
 
 // render passes
 #include "editor/graph/assets.h"
@@ -98,7 +104,7 @@ struct GameGui final : eg::IGuiPass {
         currentImage = core::intCast<int>(images.size()) - 1;
     }
 
-    debug::GlobalHandle imageHandle = debug::addGlobalHandle("Images", [this] {
+    ui::GlobalHandle imageHandle = ui::addGlobalHandle("Images", [this] {
         // draw a grid of images
         float windowWidth = ImGui::GetWindowWidth();
         float cellWidth = 250.f;
@@ -182,7 +188,7 @@ struct GameGui final : eg::IGuiPass {
         ImGui::Image((ImTextureID)offset, { totalWidth, totalHeight });
     }
 
-    debug::GlobalHandle sceneHandle = debug::addGlobalHandle("Scene", [this] { sceneDebug(); });
+    ui::GlobalHandle sceneHandle = ui::addGlobalHandle("Scene", [this] { sceneDebug(); });
 
     void create() override {
         IGuiPass::create();
@@ -220,7 +226,7 @@ struct GameGui final : eg::IGuiPass {
         if (bShowImGuiDemo) ImGui::ShowDemoWindow(&bShowImGuiDemo);
         if (bShowImPlotDemo) ImPlot::ShowDemoWindow(&bShowImPlotDemo);
 
-        debug::enumGlobalHandles([](auto *pHandle) {
+        ui::enumGlobalHandles([](auto *pHandle) {
             bool bEnabled = pHandle->isEnabled();
             if (!bEnabled) return;
 
@@ -310,7 +316,7 @@ struct GameGui final : eg::IGuiPass {
             }
 
             if (ImGui::BeginMenu("Windows")) {
-                debug::enumGlobalHandles([](auto *pHandle) {
+                ui::enumGlobalHandles([](auto *pHandle) {
                     bool bEnabled = pHandle->isEnabled();
                     if (ImGui::MenuItem(pHandle->getName(), nullptr, &bEnabled)) {
                         pHandle->setEnabled(bEnabled);
@@ -571,11 +577,11 @@ void GameService::destroyService() {
 }
 
 void GameService::start() {
-    addDebugService<debug::EngineDebug>(get()->pWorld);
-    addDebugService<debug::GdkDebug>();
-    addDebugService<debug::ThreadServiceDebug>();
-    addDebugService<debug::RyzenMonitorDebug>();
-    addDebugService<debug::DepotDebug>();
+    addDebugService<ui::EngineDebug>(get()->pWorld);
+    addDebugService<ui::GdkDebug>();
+    addDebugService<ui::ThreadServiceDebug>();
+    addDebugService<ui::RyzenMonitorDebug>();
+    addDebugService<ui::DepotDebug>();
 
     get()->pRenderThread = ThreadService::newThread(threads::eRealtime, "render", [&](auto token) {
         while (!token.stop_requested() && get()->bWindowOpen) {
