@@ -1,6 +1,9 @@
 #include "engine/service/platform.h"
 #include "engine/service/debug.h"
 
+#include "engine/log/service.h"
+
+#include "engine/core/unique.h"
 #include "engine/core/strings.h"
 
 #include <intsafe.h> // DWORD_MAX
@@ -110,17 +113,22 @@ typedef struct tagTHREADNAME_INFO {
 namespace {
     constexpr DWORD kRenameThreadMagic = 0x406D1388;
 
-    void setThreadDesc(std::string_view name) {
+    using CloseThreadFn = decltype([](HANDLE hThread) { CloseHandle(hThread); });
+
+    using ThreadHandle = core::UniqueHandle<HANDLE, CloseThreadFn, nullptr>;
+
+    void setThreadDebugName(std::string_view name) {
         auto wide = util::widen(name);
-        SetThreadDescription(GetCurrentThread(), wide.c_str());
+        if (HRESULT hr = SetThreadDescription(GetCurrentThread(), wide.c_str()); FAILED(hr)) {
+            LOG_WARN("failed to set thread name `{}` (hr = {})", name, debug::getResultName(hr));
+        }
     }
 }
 
 void debug::setThreadName(std::string_view name) {
-    // set name for PIX
-    setThreadDesc(name);
+    setThreadDebugName(name);
 
-    /// set debugger name
+    /// other debuggers use this to name threads
     const THREADNAME_INFO info = {
         .dwType = 0x1000,
         .szName = name.data(),
@@ -132,20 +140,6 @@ void debug::setThreadName(std::string_view name) {
         RaiseException(kRenameThreadMagic, 0, sizeof(THREADNAME_INFO) / sizeof(DWORD), reinterpret_cast<const ULONG_PTR *>(&info));
     } __except (EXCEPTION_EXECUTE_HANDLER) {
     }
-}
-
-std::string debug::getThreadName() {
-    PWSTR wide;
-    if (HRESULT hr = GetThreadDescription(GetCurrentThread(), &wide); SUCCEEDED(hr)) {
-        auto result = util::narrow(wide);
-        LocalFree(wide);
-
-        if (result.length() > 0) {
-            return result;
-        }
-    }
-
-    return std::format("0x{:x}", GetCurrentThreadId());
 }
 
 // error formatting
@@ -188,9 +182,5 @@ std::string debug::getErrorName(DWORD dwErrorCode) {
 // utils
 
 void debug::throwLastError(std::string_view msg, DWORD err) {
-    throw std::runtime_error(std::format("{}: {}", msg, debug::getErrorName(err)));
-}
-
-void simcoe::throwLastError(std::string_view msg, DWORD err) {
     throw std::runtime_error(std::format("{}: {}", msg, debug::getErrorName(err)));
 }

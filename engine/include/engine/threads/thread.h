@@ -96,7 +96,7 @@ namespace simcoe::threads {
     struct ThreadInfo {
         ThreadType type;
         ScheduleMask mask;
-        std::string_view name;
+        std::string name;
         ThreadStart start;
     };
 
@@ -131,7 +131,7 @@ namespace simcoe::threads {
         ScheduleMask mask;
 
         // thread data
-        std::string_view name;
+        std::string name;
         std::stop_source stopper = {};
     };
 }

@@ -19,6 +19,15 @@ void ConsoleSink::accept(const Message& msg) {
     std::cout << it << "\n";
 }
 
+bool ConsoleSink::hasColourSupport() {
+    DWORD dwMode = 0;
+    if (!GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwMode)) {
+        return false;
+    }
+
+    return dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+}
+
 FileSink::FileSink(std::string path)
     : ISink(true)
     , os(path)

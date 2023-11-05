@@ -2,6 +2,8 @@
 
 #include "engine/core/panic.h"
 
+#include "engine/math/hash.h"
+
 #include "engine/depot/service.h"
 
 #include "tinyobj/loader.h"
@@ -39,13 +41,8 @@ void ObjMesh::loadAsset() {
 
     bool ok = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &error, assetPath.string().c_str(), assetPath.parent_path().string().c_str());
 
-    if (!warn.empty()) {
-        LOG_WARN("tinyobj warn {}", warn);
-    }
-
-    if (!error.empty()) {
-        LOG_ERROR("tinyobj error {}", error);
-    }
+    if (!warn.empty()) { LOG_WARN("tinyobj warn {}", warn); }
+    if (!error.empty()) { LOG_ERROR("tinyobj error {}", error); }
 
     if (!ok) {
         LOG_ERROR("failed to load obj {}", path.string());

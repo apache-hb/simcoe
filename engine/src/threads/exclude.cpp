@@ -16,5 +16,5 @@ void ThreadExclusiveRegion::migrate(ThreadId expectedId, std::string_view expect
 
 void ThreadExclusiveRegion::verify(std::string_view detail) {
     ThreadId currentThreadId = ThreadService::getCurrentThreadId();
-    ASSERTF(currentThreadId == expectedThreadId, "thread migration detected: locked to {}, visited by {} (info: {})", expectedThreadName, DebugService::getThreadName(), detail);
+    ASSERTF(currentThreadId == expectedThreadId, "thread migration detected: locked to {}, visited by {} (info: {})", expectedThreadName, threads::getThreadName(), detail);
 }

@@ -81,7 +81,7 @@ freetype2 = dependency('freetype2')
 
 # threading
 threads = dependency('threads')
-moodycamel = subproject('atomic-queue').get_variable('queue')
+moodycamel = dependency('concurrentqueue')
 
 # vendor
 gdk = subproject('gdk').get_variable('gdk')
@@ -107,8 +107,9 @@ config.set10('SERVICE_GDK', services.contains('gdk'))
 ###
 
 args = [
-    '/wd4324' # disable warning C4324: structure was padded due to alignment specifier
-              # we want this because of UNIFORM_BUFFER
+    '/wd4324', # disable warning C4324: structure was padded due to alignment specifier
+               # we want this because of UNIFORM_BUFFER
+    '/wd4554'  # concurrentqueue tries to disable this internally but fails for some reason
 ]
 
 src = [
@@ -156,6 +157,7 @@ src = [
     'engine/src/threads/exclude.cpp',
     'engine/src/threads/thread.cpp',
     'engine/src/threads/scheduler.cpp',
+    'engine/src/threads/name.cpp',
 
     # freetype
     'engine/src/service/freetype.cpp',
@@ -164,6 +166,7 @@ src = [
     'engine/src/depot/service.cpp',
     'engine/src/depot/vfs.cpp',
     'engine/src/depot/font.cpp',
+    'engine/src/depot/image.cpp',
 
     # rhi
     'engine/src/rhi/render.cpp',
@@ -284,14 +287,19 @@ src = [
     # 'editor/src/editor/graph/game.cpp',
     # 'editor/src/editor/graph/mipmap.cpp',
 
-    # game debug
-    'editor/src/editor/debug/debug.cpp',
-    'editor/src/editor/debug/ryzen.cpp',
-    'editor/src/editor/debug/gdk.cpp',
-    'editor/src/editor/debug/engine.cpp',
-    'editor/src/editor/debug/threads.cpp',
-    'editor/src/editor/debug/logging.cpp',
-    'editor/src/editor/debug/depot.cpp',
+    # editor ui
+    'editor/src/editor/ui/ui.cpp',
+
+    # ui components
+    'editor/src/editor/ui/components/buffer.cpp',
+
+    # uis for services
+    'editor/src/editor/ui/windows/ryzen.cpp',
+    'editor/src/editor/ui/windows/gdk.cpp',
+    'editor/src/editor/ui/windows/engine.cpp',
+    'editor/src/editor/ui/windows/threads.cpp',
+    'editor/src/editor/ui/windows/logging.cpp',
+    'editor/src/editor/ui/windows/depot.cpp',
 
     # game framework
     'editor/src/game/service.cpp',

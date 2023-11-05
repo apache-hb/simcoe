@@ -88,6 +88,10 @@ namespace simcoe {
 
     using CommandLine = std::vector<std::string>;
 
+    namespace system {
+        CommandLine getCommandLine();
+    }
+
     struct PlatformService final : IStaticService<PlatformService> {
         PlatformService();
 
@@ -101,7 +105,6 @@ namespace simcoe {
 
         // PlatformService
         static void setup(HINSTANCE hInstance, int nCmdShow, IWindowCallbacks *pCallbacks);
-        static CommandLine getCommandLine();
 
         // win32 event loop
         static bool getEvent();
@@ -117,30 +120,10 @@ namespace simcoe {
         static Window& getWindow();
         static void showWindow();
 
-        static HINSTANCE getInstanceHandle();
-        static int getShowCmd();
-
         // directory of the executable
-        static fs::path getExeDirectory();
+        static const fs::path& getExeDirectory();
 
         // message box
         static void message(std::string_view title, std::string_view body);
-
-    private:
-        // config data
-        std::string defaultWindowTitle = "simcoe";
-        WindowSize defaultWindowSize = { 1280, 720 };
-
-        // platform data
-        HINSTANCE hInstance = nullptr;
-        int nCmdShow = -1;
-        IWindowCallbacks *pCallbacks = nullptr;
-
-        Window *pWindow = nullptr;
-
-        MSG msg = {};
-        size_t frequency = 0;
-
-        fs::path exeDirectory;
     };
 }

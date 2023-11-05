@@ -59,4 +59,5 @@ subprojects/zlib*/
 subprojects/icu*/
 subprojects/tracy*/
 subprojects/tomlplusplus*/
+subprojects/concurrentqueue*/
 subprojects/packagecache

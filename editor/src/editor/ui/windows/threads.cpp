@@ -64,7 +64,7 @@ void ThreadServiceDebug::draw() {
         ImGui::TableHeadersRow();
 
         for (const auto *pThread : pool) {
-            auto threadName = ThreadService::getThreadName(pThread->getId());
+            auto threadName = queryThreadName(pThread->getId());
             ImGui::TableNextColumn();
             ImGui::Text("%s", threadName.data());
 
@@ -151,4 +151,8 @@ CoreIndex ThreadServiceDebug::getFastestCore(const Chiplet& cluster) const {
     }
 
     return fastest;
+}
+
+std::string_view ThreadServiceDebug::queryThreadName(ts::ThreadId id) {
+    return ts::getThreadName(id);
 }

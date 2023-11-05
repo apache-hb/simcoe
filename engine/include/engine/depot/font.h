@@ -20,7 +20,11 @@ namespace simcoe::depot {
     };
 
     struct Font {
-        Font(const char *path);
+        SM_DEPRECATED("this is broken for some reason, use the filepath constructor for now")
+        Font(std::shared_ptr<IFile> pFile);
+
+        Font(const fs::path& path);
+
         ~Font();
 
         void setFontSize(int pt, int dpi);

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "editor/ui/ui.h"
+#include "editor/ui/service.h"
 
 #include "engine/threads/service.h"
 
@@ -17,5 +17,8 @@ namespace editor::ui {
 
         ts::Geometry geometry = {};
         std::unordered_map<ts::ChipletIndex, ts::CoreIndex> fastestCores = {};
+
+        std::string_view queryThreadName(ts::ThreadId id);
+        std::unordered_map<ts::ThreadId, std::string> threadNames = {};
     };
 }

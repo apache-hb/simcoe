@@ -7,7 +7,7 @@
 
 #include "engine/threads/thread.h"
 
-#include "moodycamel/blockingconcurrentqueue.h"
+#include "blockingconcurrentqueue.h"
 
 namespace simcoe::threads {
     using WorkItem = std::function<void()>;
@@ -17,7 +17,7 @@ namespace simcoe::threads {
         WorkItem item;
     };
 
-    template<template<class...> typename TQueue>
+    template<typename T, template<class...> typename TQueue>
     struct BaseWorkQueue {
         BaseWorkQueue(size_t size)
             : workQueue(size)
@@ -28,22 +28,22 @@ namespace simcoe::threads {
         }
 
     protected:
-        WorkMessage message;
-        TQueue<WorkMessage> workQueue;
+        T message;
+        TQueue<T> workQueue;
     };
 
     /// !IMPORTANT! these queues are thread safe to emplace into to, but not to remove from
 
-    struct WorkQueue : public BaseWorkQueue<moodycamel::ConcurrentQueue> {
-        using Super = BaseWorkQueue<moodycamel::ConcurrentQueue>;
+    struct WorkQueue : public BaseWorkQueue<WorkMessage, moodycamel::ConcurrentQueue> {
+        using Super = BaseWorkQueue<WorkMessage, moodycamel::ConcurrentQueue>;
         using Super::Super;
 
         // try and process a message immediately
         bool tryGetMessage();
     };
 
-    struct BlockingWorkQueue : public BaseWorkQueue<moodycamel::BlockingConcurrentQueue> {
-        using Super = BaseWorkQueue<moodycamel::BlockingConcurrentQueue>;
+    struct BlockingWorkQueue : public BaseWorkQueue<WorkMessage, moodycamel::BlockingConcurrentQueue> {
+        using Super = BaseWorkQueue<WorkMessage, moodycamel::BlockingConcurrentQueue>;
         using Super::Super;
 
         // try and process a message immediately

@@ -23,21 +23,15 @@ namespace simcoe {
         bool createService() override;
         void destroyService() override;
 
-        // vfs
+        // open a file inside the depot
         static std::shared_ptr<depot::IFile> openFile(const fs::path& path);
-        static std::vector<std::byte> loadBlob(const fs::path& path);
         static fs::path getAssetPath(const fs::path& path);
-        static depot::Image loadImage(const fs::path& path);
-        static depot::Font loadFont(const fs::path& path);
 
         // global files
         static std::shared_ptr<depot::IFile> openExternalFile(const fs::path& path);
 
         // internal data
-        static mt::shared_mutex& getVfsMutex();
-        static mt::shared_mutex& getGlobalMutex();
-
+        static mt::shared_mutex& getMutex();
         static HandleMap& getHandles();
-        static HandleMap& getGlobalHandles();
     };
 }

@@ -69,8 +69,8 @@ void PostPass::create() {
     display = createLetterBoxDisplay(createInfo.renderWidth, createInfo.renderHeight, createInfo.displayWidth, createInfo.displayHeight);
 
     const rhi::GraphicsPipelineInfo psoCreateInfo = {
-        .vertexShader = DepotService::loadBlob("blit.vs.cso"),
-        .pixelShader = DepotService::loadBlob("blit.ps.cso"),
+        .vertexShader = DepotService::openFile("blit.vs.cso")->blob(),
+        .pixelShader = DepotService::openFile("blit.ps.cso")->blob(),
 
         .attributes = {
             { "POSITION", offsetof(Vertex, position), rhi::TypeFormat::eFloat3 },

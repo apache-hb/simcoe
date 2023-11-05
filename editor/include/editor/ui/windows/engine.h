@@ -1,7 +1,9 @@
 #pragma once
 
-#include "editor/ui/ui.h"
 #include "editor/ui/service.h"
+#include "editor/ui/components/buffer.h"
+
+#include "game/tick.h"
 
 namespace game { struct World; }
 
@@ -17,7 +19,7 @@ namespace editor::ui {
 
         float lastUpdate = 0.f;
         float history = 10.f;
-        ScrollingBuffer frameTimes = { 4000 };
+        ScrollingBuffer tickTimes[game::eTickCount] = {};
 
         float inputStep;
         float renderStep;

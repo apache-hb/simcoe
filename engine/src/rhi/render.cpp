@@ -458,12 +458,12 @@ void DisplayQueue::present(bool allowTearing, UINT syncInterval) {
         failedFrames = 0;
     } else {
         failedFrames += 1; // count consecutive failed frames
-        LOG_INFO("present failed: {}", DebugService::getResultName(hr));
+        LOG_INFO("present failed: {}", debug::getResultName(hr));
     }
 
     if (failedFrames > 3) {
         LOG_ERROR("too many failed frames, exiting");
-        throw std::runtime_error(std::format("too many failed frames, last error {}", DebugService::getResultName(hr)));
+        throw std::runtime_error(std::format("too many failed frames, last error {}", debug::getResultName(hr)));
     }
 }
 
@@ -490,7 +490,7 @@ void Device::remove() {
 
 void Device::reportFaultInfo() {
     HRESULT removedReason = get()->GetDeviceRemovedReason();
-    LOG_INFO("device removed reason: {}", DebugService::getResultName(removedReason));
+    LOG_INFO("device removed reason: {}", debug::getResultName(removedReason));
 
     if (!(createFlags & eCreateExtendedInfo)) {
         return;
@@ -498,14 +498,14 @@ void Device::reportFaultInfo() {
 
     ComPtr<ID3D12DeviceRemovedExtendedData> pData = nullptr;
     if (HRESULT hr = get()->QueryInterface(IID_PPV_ARGS(&pData)); FAILED(hr)) {
-        LOG_WARN("failed to retrieve ID3D12DeviceRemovedExtendedData interface ({})", DebugService::getResultName(hr));
+        LOG_WARN("failed to retrieve ID3D12DeviceRemovedExtendedData interface ({})", debug::getResultName(hr));
         return;
     }
 
     D3D12_DRED_AUTO_BREADCRUMBS_OUTPUT breadOutput = {};
 
     if (HRESULT hr = pData->GetAutoBreadcrumbsOutput(&breadOutput); FAILED(hr)) {
-        LOG_WARN("failed to retrieve auto breadcrumbs ({})", DebugService::getResultName(hr));
+        LOG_WARN("failed to retrieve auto breadcrumbs ({})", debug::getResultName(hr));
         return;
     }
 
@@ -524,7 +524,7 @@ void Device::reportFaultInfo() {
     D3D12_DRED_PAGE_FAULT_OUTPUT faultOutput = {};
 
     if (HRESULT hr = pData->GetPageFaultAllocationOutput(&faultOutput); FAILED(hr)) {
-        LOG_WARN("failed to retrieve page fault allocation ({})", DebugService::getResultName(hr));
+        LOG_WARN("failed to retrieve page fault allocation ({})", debug::getResultName(hr));
         return;
     }
 

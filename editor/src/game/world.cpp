@@ -31,7 +31,12 @@ void World::tickRender() {
 
     try {
         pGraph->execute();
-        renderStep.waitForNextTick();
+
+        float now = clock.now();
+        float delta = now - lastRenderTime;
+        lastRenderTime = now;
+        tickAlerts.enqueue({ eTickRender, now, delta });
+
     } catch (const std::runtime_error& e) {
         renderFaults += 1;
         LOG_ERROR("fault: {}", e.what());
@@ -57,6 +62,12 @@ void World::tickPhysics() {
         return;
     }
 
+    float now = clock.now();
+    float delta = now - lastPhysicsTime;
+    lastPhysicsTime = now;
+
+    tickAlerts.enqueue({ eTickPhysics, now, delta });
+
     physicsStep.waitForNextTick();
 }
 
@@ -70,6 +81,12 @@ void World::tickGame() {
     if (pGameThread->tryGetMessage()) {
         return;
     }
+
+    float now = clock.now();
+    float delta = now - lastGameTime;
+    lastGameTime = now;
+
+    tickAlerts.enqueue({ eTickGame, now, delta });
 
     gameStep.waitForNextTick();
 }

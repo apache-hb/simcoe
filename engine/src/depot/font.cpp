@@ -21,7 +21,7 @@ namespace {
         ASSERTF(pBitmap->pixel_mode == FT_PIXEL_MODE_GRAY, "unsupported pixel mode (mode={})", pBitmap->pixel_mode);
 
         auto writePixel = [&](size_t x, size_t y, std::byte value) {
-            size_t index = (y * image.width + x) * 4;
+            size_t index = (y * image.size.width + x) * 4;
             if (index + 3 > image.data.size()) return;
 
             image.data[index + 0] = std::byte(255 * colour.x);
@@ -52,12 +52,7 @@ namespace {
 
             height = face->size->metrics.height;
 
-            image = {
-                .format = ImageFormat::eRGBA8,
-                .width = size.width,
-                .height = size.height,
-                .data = std::vector<std::byte>(size.width * size.height * 4)
-            };
+            image = { size };
         }
 
         void setMatrixAngle(float deg) {
@@ -114,17 +109,34 @@ namespace {
     };
 }
 
-Font::Font(const char *path) {
+Font::Font(std::shared_ptr<IFile> pFile) {
     FT_Library library = FreeTypeService::getLibrary();
+    auto memory = pFile->blob();
 
-    if (FT_Error error = FT_New_Face(library, path, 0, &face)) {
-        LOG_ASSERT("failed to load font face from `{}` (fterr={})", path, FT_Error_String(error));
+    const FT_Byte *pData = reinterpret_cast<FT_Byte *>(memory.data());
+    FT_Long length = core::intCast<FT_Long>(memory.size());
+
+    if (FT_Error error = FT_New_Memory_Face(library, pData, length, 0, &face)) {
+        LOG_ASSERT("failed to load font face from `{}` (fterr={})", pFile->getName(), FT_Error_String(error));
     }
 
     if (FT_Error error = FT_Select_Charmap(face, FT_ENCODING_UNICODE)) {
         LOG_ASSERT("failed to select unicode charmap (fterr={})", FT_Error_String(error));
     }
 }
+
+Font::Font(const fs::path& path) {
+    FT_Library library = FreeTypeService::getLibrary();
+
+    if (FT_Error error = FT_New_Face(library, path.string().c_str(), 0, &face)) {
+        LOG_ASSERT("failed to load font face from `{}` (fterr={})", path.string(), FT_Error_String(error));
+    }
+
+    if (FT_Error error = FT_Select_Charmap(face, FT_ENCODING_UNICODE)) {
+        LOG_ASSERT("failed to select unicode charmap (fterr={})", FT_Error_String(error));
+    }
+}
+
 
 Font::~Font() {
     FT_Done_Face(face);

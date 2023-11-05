@@ -3,31 +3,28 @@
 #include "editor/ui/ui.h"
 
 namespace editor::ui {
-    // utility structure for realtime plot
-    struct ScrollingBuffer {
-        int MaxSize;
-        int Offset;
-        std::vector<ImVec2> Data;
-        ScrollingBuffer(int max_size = 2000) {
-            MaxSize = max_size;
-            Offset  = 0;
-            Data.reserve(MaxSize);
-        }
+    // service debuggers
+    struct ServiceDebug {
+        virtual ~ServiceDebug() = default;
 
-        void AddPoint(float x, float y) {
-            if (int(Data.size()) < MaxSize)
-                Data.push_back(ImVec2(x,y));
-            else {
-                Data[Offset] = ImVec2(x,y);
-                Offset =  (Offset + 1) % MaxSize;
-            }
-        }
+        std::string_view getServiceName() const;
+        std::string_view getServiceError() const;
 
-        void Erase() {
-            if (Data.size() > 0) {
-                Data.clear();
-                Offset  = 0;
-            }
-        }
+        void drawMenuItem();
+        virtual void drawWindow();
+
+        virtual void draw() = 0;
+    protected:
+        ServiceDebug(std::string_view name)
+            : serviceName(name)
+        { }
+
+        void setServiceError(std::string_view reason);
+
+        bool bOpen = true;
+
+    private:
+        std::string_view serviceName = "";
+        std::string_view serviceError = "";
     };
 }

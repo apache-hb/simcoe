@@ -1,6 +1,6 @@
 #pragma once
 
-#include "editor/ui/ui.h"
+#include "editor/ui/service.h"
 
 #include "engine/depot/vfs.h"
 

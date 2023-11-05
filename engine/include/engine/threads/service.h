@@ -31,28 +31,6 @@ namespace simcoe {
         static void enqueueMain(std::string name, threads::WorkItem&& task);
         static void pollMainQueue();
 
-        /** thread naming */
-
-        // TODO: remove thread naming from here, should really be debug only
-
-        /**
-         * @brief Set the name of a thread by its id
-         *
-         * @note this function must be called only once per thread
-         *
-         * @param name the name of the thread
-         * @param id the id of the thread
-         */
-        static void setThreadName(std::string name, threads::ThreadId id = getCurrentThreadId());
-
-        /**
-         * @brief Get the name of a thread by its id
-         *
-         * @param id the id of the thread
-         * @return std::string_view the name of the thread, empty if no name is set or the thread doesnt exist
-         */
-        static std::string_view getThreadName(threads::ThreadId id = getCurrentThreadId());
-
         /** worker api */
 
         static void setWorkerCount(size_t count);
@@ -70,7 +48,7 @@ namespace simcoe {
          * @param start the function to run on the thread
          * @return threads::ThreadHandle* the handle to the thread
          */
-        static threads::ThreadHandle *newThread(threads::ThreadType type, std::string_view name, threads::ThreadStart&& start);
+        static threads::ThreadHandle *newThread(threads::ThreadType type, std::string name, threads::ThreadStart&& start);
 
         /**
          * @brief create a new job thread and schedule it
@@ -81,7 +59,7 @@ namespace simcoe {
          * @return threads::ThreadHandle* the handle to the thread
          */
         template<typename Rep, typename Period>
-        static threads::ThreadHandle *newJob(std::string_view name, std::chrono::duration<Rep, Period> delay, auto&& step) {
+        static threads::ThreadHandle *newJob(std::string name, std::chrono::duration<Rep, Period> delay, auto&& step) {
             return newThread(threads::eWorker, name, [delay, step](std::stop_token stop) {
                 while (!stop.stop_requested()) {
                     step();
@@ -97,13 +75,6 @@ namespace simcoe {
         static void shutdown();
 
     private:
-        // this grows memory fungus by design
-        // if any value in here is changed after its created then
-        // getThreadName can return invalid data
-        // we want to return a string_view to avoid memory allocations inside the logger
-        mt::shared_mutex threadNameLock;
-        std::unordered_map<threads::ThreadId, std::string> threadNames;
-
         // all currently scheduled threads
         mt::shared_mutex threadHandleLock;
         std::vector<threads::ThreadHandle*> threadHandles;
@@ -112,4 +83,11 @@ namespace simcoe {
         static std::shared_mutex &getPoolLock() { return get()->threadHandleLock; }
         static std::vector<threads::ThreadHandle*> &getPool() { return get()->threadHandles; }
     };
+
+    namespace threads {
+        ThreadId getCurrentThreadId();
+
+        void setThreadName(std::string name, ThreadId id = getCurrentThreadId());
+        std::string_view getThreadName(ThreadId id = getCurrentThreadId());
+    }
 }

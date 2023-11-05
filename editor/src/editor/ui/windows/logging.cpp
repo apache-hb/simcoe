@@ -35,7 +35,7 @@ void Message::draw() const {
     ImGui::TableNextColumn();
     ImGui::Text("%s", timestamp.c_str());
     ImGui::TableNextColumn();
-    if (auto tid = ThreadService::getThreadName(threadId); tid.empty()) {
+    if (auto tid = threads::getThreadName(threadId); tid.empty()) {
         ImGui::Text("0x%lx", threadId);
     } else {
         ImGui::Text("%s", tid.data());

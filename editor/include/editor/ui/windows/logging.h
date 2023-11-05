@@ -1,8 +1,7 @@
 #pragma once
 
-#include "editor/ui/ui.h"
-
-#include "imgui/imgui.h"
+#include "editor/ui/service.h"
+#include "editor/ui/components/buffer.h"
 
 namespace editor::ui {
     struct Message {

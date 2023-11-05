@@ -90,7 +90,7 @@ static GameWindow gWindowCallbacks;
 ///
 
 static void commonMain() {
-    ThreadService::setThreadName("main");
+    debug::setThreadName("main");
     GameService::start();
 
     // setup game
@@ -135,6 +135,8 @@ static int serviceWrapper() try {
 }
 
 static int innerMain() {
+    threads::setThreadName("main");
+
     LOG_INFO("bringing up services");
     int result = serviceWrapper();
     LOG_INFO("all services shut down gracefully");

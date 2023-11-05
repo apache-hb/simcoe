@@ -40,7 +40,37 @@ namespace gr = game::graph;
 // window mode
 static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless", "Fullscreen" });
 
-void GameService::setWindowMode(WindowMode oldMode, WindowMode newMode) {
+namespace {
+    namespace cfg {
+        // render config
+        size_t adapterIndex = 0;
+        UINT backBufferCount = 2;
+        simcoe::math::uint2 internalSize = { 1920 * 2, 1080 * 2 };
+        size_t renderFaultLimit = 3;
+
+        // game config
+        size_t entityLimit = 0x1000;
+        size_t seed = 0;
+    }
+
+    // render
+    std::atomic_bool bWindowOpen = true;
+    WindowMode windowMode = eModeWindowed;
+    simcoe::render::Context *pContext = nullptr;
+    simcoe::render::Graph *pGraph = nullptr;
+
+    // game
+    World *pWorld = nullptr;
+
+    // threads
+    threads::ThreadHandle *pRenderThread = nullptr;
+    threads::ThreadHandle *pPhysicsThread = nullptr;
+    threads::ThreadHandle *pGameThread = nullptr;
+
+    std::vector<editor::ui::ServiceDebug*> debugServices;
+}
+
+void setWindowMode(WindowMode oldMode, WindowMode newMode) {
     if (oldMode == newMode) return;
     windowMode = newMode;
 
@@ -504,17 +534,17 @@ struct GameGui final : eg::IGuiPass {
 GameService::GameService() {
     CFG_DECLARE("game",
         CFG_FIELD_TABLE("render",
-            CFG_FIELD_INT("adapter", &adapterIndex),
-            CFG_FIELD_INT("backBufferCount", &backBufferCount),
+            CFG_FIELD_INT("adapter", &cfg::adapterIndex),
+            CFG_FIELD_INT("backBufferCount", &cfg::backBufferCount),
             CFG_FIELD_TABLE("size",
-                CFG_FIELD_INT("width", &internalSize.width),
-                CFG_FIELD_INT("height", &internalSize.height)
+                CFG_FIELD_INT("width", &cfg::internalSize.width),
+                CFG_FIELD_INT("height", &cfg::internalSize.height)
             ),
-            CFG_FIELD_INT("faultLimit", &renderFaultLimit)
+            CFG_FIELD_INT("faultLimit", &cfg::renderFaultLimit)
         ),
         CFG_FIELD_TABLE("world",
-            CFG_FIELD_INT("entityLimit", &entityLimit),
-            CFG_FIELD_INT("seed", &seed)
+            CFG_FIELD_INT("entityLimit", &cfg::entityLimit),
+            CFG_FIELD_INT("seed", &cfg::seed)
         )
     );
 }
@@ -525,14 +555,14 @@ bool GameService::createService() {
     const sr::RenderCreateInfo createInfo = {
         .hWindow = window.getHandle(),
 
-        .adapterIndex = adapterIndex,
-        .backBufferCount = backBufferCount,
+        .adapterIndex = cfg::adapterIndex,
+        .backBufferCount = cfg::backBufferCount,
 
         .displayWidth = size.width,
         .displayHeight = size.height,
 
-        .renderWidth = internalSize.width,
-        .renderHeight = internalSize.height,
+        .renderWidth = cfg::internalSize.width,
+        .renderHeight = cfg::internalSize.height,
     };
 
     pContext = sr::Context::create(createInfo);
@@ -556,12 +586,12 @@ bool GameService::createService() {
     pGraph->addPass<eg::PresentPass>(pBackBuffers);
 
     const game::WorldInfo info = {
-        .entityLimit = entityLimit,
-        .seed = seed,
+        .entityLimit = cfg::entityLimit,
+        .seed = cfg::seed,
 
         .pRenderContext = pContext,
         .pRenderGraph = pGraph,
-        .renderFaultLimit = renderFaultLimit,
+        .renderFaultLimit = cfg::renderFaultLimit,
 
         .pHudPass = pHudPass,
         .pScenePass = pScenePass
@@ -577,27 +607,87 @@ void GameService::destroyService() {
 }
 
 void GameService::start() {
-    addDebugService<ui::EngineDebug>(get()->pWorld);
+    addDebugService<ui::EngineDebug>(pWorld);
     addDebugService<ui::GdkDebug>();
     addDebugService<ui::ThreadServiceDebug>();
     addDebugService<ui::RyzenMonitorDebug>();
     addDebugService<ui::DepotDebug>();
 
-    get()->pRenderThread = ThreadService::newThread(threads::eRealtime, "render", [&](auto token) {
-        while (!token.stop_requested() && get()->bWindowOpen) {
-            get()->pWorld->tickRender();
+    pRenderThread = ThreadService::newThread(threads::eRealtime, "render", [&](auto token) {
+        while (!token.stop_requested() && bWindowOpen) {
+            pWorld->tickRender();
         }
     });
 
-    get()->pPhysicsThread = ThreadService::newThread(threads::eResponsive, "physics", [&](auto token) {
+    pPhysicsThread = ThreadService::newThread(threads::eResponsive, "physics", [&](auto token) {
         while (!token.stop_requested()) {
-            get()->pWorld->tickPhysics();
+            pWorld->tickPhysics();
         }
     });
 
-    get()->pGameThread = ThreadService::newThread(threads::eRealtime, "game", [&](auto token) {
+    pGameThread = ThreadService::newThread(threads::eRealtime, "game", [&](auto token) {
         while (!token.stop_requested()) {
-            get()->pWorld->tickGame();
+            pWorld->tickGame();
         }
     });
+}
+
+// GameService
+void GameService::shutdown() {
+    bWindowOpen = false;
+    pWorld->shutdown();
+}
+
+bool GameService::shouldQuit() {
+    return pWorld->shouldQuit();
+}
+
+void GameService::resizeDisplay(const WindowSize& event) {
+    if (!bWindowOpen) return;
+    if (!pWorld) return;
+
+    pWorld->pRenderQueue->add("resize", [event]() {
+        pGraph->resizeDisplay(event.width, event.height);
+        LOG_INFO("resized display to: {}x{}", event.width, event.height);
+    });
+}
+
+// editable stuff
+WindowMode GameService::getWindowMode() {
+    return windowMode;
+}
+
+void GameService::changeWindowMode(WindowMode newMode) {
+    pWorld->pRenderQueue->add("modechange", [newMode]() {
+        setWindowMode(getWindowMode(), newMode);
+    });
+}
+
+void GameService::changeInternalRes(const simcoe::math::uint2& newRes) {
+    pWorld->pRenderQueue->add("reschange", [newRes]() {
+        pGraph->resizeRender(newRes.width, newRes.height);
+        LOG_INFO("changed internal resolution to: {}x{}", newRes.width, newRes.height);
+    });
+}
+
+void GameService::changeBackBufferCount(UINT newCount) {
+    pWorld->pRenderQueue->add("backbufferchange", [newCount]() {
+        pGraph->changeBackBufferCount(newCount);
+        LOG_INFO("changed backbuffer count to: {}", newCount);
+    });
+}
+
+void GameService::changeCurrentAdapter(UINT newAdapter) {
+    pWorld->pRenderQueue->add("adapterchange", [newAdapter]() {
+        pGraph->changeAdapter(newAdapter);
+        LOG_INFO("changed adapter to: {}", newAdapter);
+    });
+}
+
+void GameService::addDebugService(editor::ui::ServiceDebug *pService) {
+    debugServices.push_back(pService);
+}
+
+std::span<editor::ui::ServiceDebug*> GameService::getDebugServices() {
+    return debugServices;
 }

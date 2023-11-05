@@ -13,7 +13,10 @@ namespace simcoe::depot {
     struct IFile {
         virtual ~IFile() = default;
 
-        IFile(FileMode mode) : mode(mode) { }
+        IFile(std::string name, FileMode mode)
+            : name(name)
+            , mode(mode)
+        { }
 
         virtual size_t size() const = 0;
         virtual size_t read(void *pBuffer, size_t size) = 0;
@@ -22,8 +25,10 @@ namespace simcoe::depot {
         std::vector<std::byte> blob();
 
         FileMode getMode() const { return mode; }
+        std::string_view getName() const { return name; }
 
     private:
+        std::string name;
         FileMode mode = eRead;
     };
 

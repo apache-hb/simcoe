@@ -84,7 +84,7 @@ namespace editor::graph {
         void create() override;
         void destroy() override;
 
-        uint2 getSize() const { return uint2::from(core::intCast<uint32_t>(image.width), core::intCast<uint32_t>(image.height)); }
+        uint2 getSize() const { return image.size.as<uint32_t>(); }
 
     private:
         // image path

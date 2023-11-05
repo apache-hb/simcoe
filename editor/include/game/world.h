@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/entity.h"
+#include "game/tick.h"
 
 #include "engine/threads/queue.h"
 #include "engine/util/time.h"
@@ -22,6 +23,7 @@ namespace game {
         void destroyRender();
         void tickRender();
         util::TimeStep renderStep{ 1.f / 60.f };
+        float lastRenderTime = 0.f;
         threads::WorkQueue *pRenderQueue = new threads::WorkQueue{64};
 
 
@@ -29,6 +31,7 @@ namespace game {
         void destroyPhysics();
         void tickPhysics();
         util::TimeStep physicsStep{ 1.f / 60.f };
+        float lastPhysicsTime = 0.f;
         threads::WorkQueue *pPhysicsThread = new threads::WorkQueue{64};
 
 
@@ -36,7 +39,11 @@ namespace game {
         void destroyGame();
         void tickGame();
         util::TimeStep gameStep{ 1.f / 60.f };
+        float lastGameTime = 0.f;
         threads::WorkQueue *pGameThread = new threads::WorkQueue{64};
+
+        // each thread sends a tick message to this queue when it ticks
+        moodycamel::ConcurrentQueue<TickAlert> tickAlerts{256};
 
 
         template<std::derived_from<ILevel> T, typename... A> requires std::is_constructible_v<T, LevelInfo, A...>
@@ -62,6 +69,7 @@ namespace game {
 
         // game engine lock to ensure thread safety
         std::mutex lock;
+        Clock clock;
 
         // rng for generating entity ids
         std::mt19937_64 rng;

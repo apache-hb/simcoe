@@ -2,10 +2,11 @@
 
 #include "engine/service/service.h"
 
-#include <vector>
-#include <array>
-
 #include "engine/core/win32.h"
+
+#include "engine/threads/thread.h"
+
+#include <array>
 
 namespace simcoe {
     struct StackFrame {
@@ -15,7 +16,6 @@ namespace simcoe {
 
     namespace debug {
         void setThreadName(std::string_view name);
-        std::string getThreadName();
 
         std::string getResultName(HRESULT hr);
         std::string getErrorName(DWORD err = GetLastError());
@@ -41,29 +41,5 @@ namespace simcoe {
 
         // DebugService
         static std::vector<StackFrame> backtrace();
-
-        SM_DEPRECATED("use debug::setThreadName instead")
-        static void setThreadName(std::string_view name) {
-            debug::setThreadName(name);
-        }
-
-        SM_DEPRECATED("use debug::getThreadName instead")
-        static std::string getThreadName() {
-            return debug::getThreadName();
-        }
-
-        // win32 specific debug helpers
-        SM_DEPRECATED("use debug::getResultName instead")
-        static std::string getResultName(HRESULT hr) {
-            return debug::getResultName(hr);
-        }
-
-        SM_DEPRECATED("use debug::getErrorName instead")
-        static std::string getErrorName(DWORD err = GetLastError()) {
-            return debug::getErrorName(err);
-        }
     };
-
-    SM_DEPRECATED("use debug::throwLastError or debug::throwSystemError instead")
-    void throwLastError(std::string_view msg, DWORD err = GetLastError());
 }

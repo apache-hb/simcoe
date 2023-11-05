@@ -53,8 +53,8 @@ namespace {
     template<bool Colour>
     std::string formatMessageInner(MessageTime time, Level level, auto name, std::string_view msg) {
         constexpr const char *kFormat = std::is_same_v<decltype(name), std::string_view>
-            ? "[{:%X}.{:<3}:{}{:^5}{}:{:^8}] {}"
-            : "[{:%X}.{:<3}:{}{:^5}{}:{:^#8x}] {}";
+            ? "[{:%X}.{:<3}:{}{}{}:{:^8}] {}"
+            : "[{:%X}.{:<3}:{}{}{}:{:^#8x}] {}";
 
         auto ms = chrono::duration_cast<chrono::milliseconds>(time.time_since_epoch()).count() % 1000;
         return std::format(kFormat,
@@ -81,7 +81,7 @@ std::string_view log::toString(log::Level level) {
 // sinks
 
 std::string log::formatMessage(const Message& msg) {
-    auto name = ThreadService::getThreadName(msg.threadId);
+    auto name = threads::getThreadName(msg.threadId);
     if (name.empty()) {
         return formatMessageInner<false>(msg.time, msg.level, msg.threadId, msg.msg);
     }
@@ -92,7 +92,7 @@ std::string log::formatMessage(const Message& msg) {
 }
 
 std::string log::formatMessageColour(const Message& msg) {
-    auto name = ThreadService::getThreadName(msg.threadId);
+    auto name = threads::getThreadName(msg.threadId);
     if (name.empty()) {
         return formatMessageInner<true>(msg.time, msg.level, msg.threadId, msg.msg);
     }

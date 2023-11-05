@@ -1,21 +1,16 @@
 #pragma once
 
-#include "editor/ui/ui.h"
 #include "editor/ui/service.h"
+#include "editor/ui/components/buffer.h"
 
 #include "vendor/amd/ryzen.h"
 
 namespace editor::ui {
     struct CoreInfoHistory {
-        void addFrequency(float time, float f) {
-            lastFrequency = f;
-            frequency.AddPoint(time, f);
-        }
+        CoreInfoHistory();
 
-        void addResidency(float time, float r) {
-            lastResidency = r;
-            residency.AddPoint(time, r);
-        }
+        void addFrequency(float time, float f);
+        void addResidency(float time, float r);
 
         float lastFrequency = 0.f;
         float lastResidency = 0.f;

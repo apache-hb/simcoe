@@ -1,13 +1,8 @@
 #pragma once
 
-#include "engine/service/freetype.h"
-
-#include "engine/core/filesystem.h"
-#include "engine/core/utf8.h"
+#include "engine/depot/vfs.h"
 
 #include "engine/math/math.h"
-
-#include <span>
 
 namespace simcoe::depot {
     enum struct ImageFormat {
@@ -15,9 +10,12 @@ namespace simcoe::depot {
     };
 
     struct Image {
-        ImageFormat format;
-        size_t width;
-        size_t height;
+        Image() = default;
+        Image(math::size2 size);
+        Image(std::shared_ptr<IFile> pFile);
+
+        ImageFormat format = ImageFormat::eRGBA8;
+        math::size2 size = { 0, 0 };
 
         std::vector<std::byte> data;
     };

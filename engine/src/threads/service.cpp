@@ -433,26 +433,6 @@ void ThreadService::pollMainQueue() {
     gMainQueue->tryGetMessage();
 }
 
-// thread info
-void ThreadService::setThreadName(std::string name, ThreadId id) {
-    mt::write_lock lock(get()->threadNameLock);
-    auto& map = get()->threadNames;
-    const auto& [it, inserted] = map.try_emplace(id, std::move(name));
-    ASSERTF(inserted, "thread name for {:#x} already set to {}", id, it->second);
-
-    debug::setThreadName(name);
-}
-
-std::string_view ThreadService::getThreadName(ThreadId id) {
-    mt::read_lock lock(get()->threadNameLock);
-    auto& map = get()->threadNames;
-    if (auto it = map.find(id); it != map.end()) {
-        return it->second;
-    }
-
-    return "";
-}
-
 // scheduler
 
 void ThreadService::setWorkerCount(size_t count) {
@@ -486,7 +466,7 @@ void ThreadService::enqueueWork(std::string name, threads::WorkItem&& func) {
     gWorkQueue->add(std::move(name), std::move(func));
 }
 
-threads::ThreadHandle *ThreadService::newThread(threads::ThreadType type, std::string_view name, threads::ThreadStart&& start) {
+threads::ThreadHandle *ThreadService::newThread(threads::ThreadType type, std::string name, threads::ThreadStart&& start) {
     auto *pHandle = new threads::ThreadHandle({
         .type = type,
         .mask = ScheduleMask(),

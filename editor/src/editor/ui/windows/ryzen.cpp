@@ -60,6 +60,21 @@ namespace {
     }
 }
 
+CoreInfoHistory::CoreInfoHistory() {
+    addFrequency(0.f, 0.f);
+    addResidency(0.f, 0.f);
+}
+
+void CoreInfoHistory::addFrequency(float time, float f) {
+    lastFrequency = f;
+    frequency.addPoint(time, f);
+}
+
+void CoreInfoHistory::addResidency(float time, float r) {
+    lastResidency = r;
+    residency.addPoint(time, r);
+}
+
 RyzenMonitorDebug::RyzenMonitorDebug()
     : ServiceDebug("RyzenMonitor")
 {
@@ -70,11 +85,6 @@ RyzenMonitorDebug::RyzenMonitorDebug()
 
     if (const amd::CpuInfo *pCpuInfo = RyzenMonitorSerivce::getCpuInfo()) {
         coreData.resize(pCpuInfo->getCoreCount());
-    }
-
-    for (auto& data : coreData) {
-        data.addFrequency(lastUpdate, 0.f);
-        data.addResidency(lastUpdate, 0.f);
     }
 
     bInfoDirty = true;
@@ -187,7 +197,7 @@ void RyzenMonitorDebug::drawCoreHistory(size_t i, float width, float heightRatio
         ImPlot::SetupAxes("Time", "Frequency (MHz)", xFlags, yFlags);
         ImPlot::SetupAxisLimits(ImAxis_X1, lastUpdate - history, lastUpdate, ImGuiCond_Always);
         ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f, 6000.f, ImGuiCond_Always);
-        ImPlot::PlotShaded(fId, &freqHistory.Data[0].x, &freqHistory.Data[0].y, core::intCast<int>(freqHistory.Data.size()), -INFINITY, ImPlotShadedFlags_None, freqHistory.Offset, 2 * sizeof(float));
+        ImPlot::PlotShaded(fId, freqHistory.xs(), freqHistory.ys(), freqHistory.size(), -INFINITY, ImPlotShadedFlags_None, freqHistory.offset(), ScrollingBuffer::getStride());
         ImPlot::EndPlot();
     }
 
@@ -195,7 +205,7 @@ void RyzenMonitorDebug::drawCoreHistory(size_t i, float width, float heightRatio
         ImPlot::SetupAxes("Time", "Residency (%)", xFlags, yFlags);
         ImPlot::SetupAxisLimits(ImAxis_X1, lastUpdate - history, lastUpdate, ImGuiCond_Always);
         ImPlot::SetupAxisLimits(ImAxis_Y1, 0.f, 100.f, ImGuiCond_Always);
-        ImPlot::PlotShaded(rId, &resHistory.Data[0].x, &resHistory.Data[0].y, core::intCast<int>(resHistory.Data.size()), -INFINITY, ImPlotShadedFlags_None, resHistory.Offset, 2 * sizeof(float));
+        ImPlot::PlotShaded(rId, resHistory.xs(), resHistory.ys(), resHistory.size(), -INFINITY, ImPlotShadedFlags_None, resHistory.offset(), ScrollingBuffer::getStride());
         ImPlot::EndPlot();
     }
 

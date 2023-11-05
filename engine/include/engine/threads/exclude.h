@@ -7,12 +7,12 @@ namespace simcoe::threads {
     struct ThreadExclusiveRegion {
         ThreadExclusiveRegion(
             ThreadId expectedId = ThreadService::getCurrentThreadId(),
-            std::string_view expectedName = ThreadService::getThreadName()
+            std::string_view expectedName = threads::getThreadName()
         );
 
         void migrate(
             ThreadId expectedId = ThreadService::getCurrentThreadId(),
-            std::string_view expectedName = ThreadService::getThreadName()
+            std::string_view expectedName = threads::getThreadName()
         );
 
         void verify(std::string_view detail = "");

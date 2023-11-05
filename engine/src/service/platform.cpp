@@ -20,6 +20,21 @@ using namespace simcoe;
 namespace {
     constexpr auto kClassName = "simcoe";
 
+    namespace cfg {
+        std::string windowTitle = "simcoe";
+        WindowSize windowSize = { 1280, 720 };
+    }
+
+    HINSTANCE gInstance = nullptr;
+    int gCmdShow = -1;
+    IWindowCallbacks *gCallbacks = nullptr;
+
+    fs::path exeDirectory;
+    size_t gFrequency = 0;
+
+    Window *gWindow = nullptr;
+    MSG gMsg = {};
+
     size_t getClockFrequency() {
         LARGE_INTEGER frequency;
         QueryPerformanceFrequency(&frequency);
@@ -36,65 +51,68 @@ namespace {
 PlatformService::PlatformService() {
     CFG_DECLARE("platform",
         CFG_FIELD_TABLE("window",
-            CFG_FIELD_STRING("title", &defaultWindowTitle),
+            CFG_FIELD_STRING("title", &cfg::windowTitle),
             CFG_FIELD_TABLE("size",
-                CFG_FIELD_INT("width", &defaultWindowSize.width),
-                CFG_FIELD_INT("height", &defaultWindowSize.height)
+                CFG_FIELD_INT("width", &cfg::windowSize.width),
+                CFG_FIELD_INT("height", &cfg::windowSize.height)
             )
         )
     );
 }
 
 bool PlatformService::createService() {
-    ASSERTF(hInstance, "hInstance is not set, please call PlatformService::setup()");
-    ASSERTF(nCmdShow != -1, "nCmdShow is not set, please call PlatformService::setup()");
+    ASSERTF(gInstance, "hInstance is not set, please call PlatformService::setup()");
+    ASSERTF(gCmdShow != -1, "nCmdShow is not set, please call PlatformService::setup()");
+    ASSERTF(gCallbacks != nullptr, "window callbacks are not set, please call PlatformService::setup()");
 
-    frequency = getClockFrequency();
+    gFrequency = getClockFrequency();
+
+    LOG_INFO("frequency: {} Hz", gFrequency);
 
     if (!SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)) {
-        throwLastError("failed to set dpi awareness");
+        debug::throwLastError("failed to set dpi awareness");
     }
 
     const WNDCLASSA kClass = {
         .style = CS_HREDRAW | CS_VREDRAW,
         .lpfnWndProc = Window::callback,
-        .hInstance = hInstance,
+        .hInstance = gInstance,
         .lpszClassName = kClassName
     };
 
     if (RegisterClassA(&kClass) == 0) {
-        throwLastError("failed to register window class");
+        debug::throwLastError("failed to register window class");
     }
 
     char currentPath[0x1000];
     if (!GetModuleFileNameA(nullptr, currentPath, sizeof(currentPath))) {
-        throwLastError("failed to get current path");
+        debug::throwLastError("failed to get current path");
     }
 
     exeDirectory = fs::path(currentPath).parent_path();
 
     WindowCreateInfo info = {
-        .title = defaultWindowTitle.c_str(),
+        .title = cfg::windowTitle.c_str(),
         .style = WindowStyle::eWindowed,
-        .size = defaultWindowSize,
-        .pCallbacks = pCallbacks
+        .size = cfg::windowSize,
+        .pCallbacks = gCallbacks
     };
-    pWindow = new Window(info);
+    gWindow = new Window(info);
 
     return true;
 }
 
 void PlatformService::destroyService() {
-    UnregisterClassA(kClassName, hInstance);
+    UnregisterClassA(kClassName, gInstance);
 }
 
 void PlatformService::setup(HINSTANCE hInstance, int nCmdShow, IWindowCallbacks *pCallbacks) {
-    get()->hInstance = hInstance;
-    get()->nCmdShow = nCmdShow;
-    get()->pCallbacks = pCallbacks;
+    gInstance = hInstance;
+    gCmdShow = nCmdShow;
+    gCallbacks = pCallbacks;
 }
 
-CommandLine PlatformService::getCommandLine() {
+CommandLine system::getCommandLine() {
     CommandLine args;
 
     int argc;
@@ -109,17 +127,16 @@ CommandLine PlatformService::getCommandLine() {
 }
 
 bool PlatformService::getEvent() {
-    return PeekMessage(&get()->msg, NULL, 0, 0, PM_REMOVE) != 0;
+    return PeekMessage(&gMsg, NULL, 0, 0, PM_REMOVE) != 0;
 }
 
 bool PlatformService::waitForEvent() {
-    return GetMessage(&get()->msg, NULL, 0, 0) != 0;
+    return GetMessage(&gMsg, NULL, 0, 0) != 0;
 }
 
 void PlatformService::dispatchEvent() {
-    MSG msg = get()->msg;
-    TranslateMessage(&msg);
-    DispatchMessage(&msg);
+    TranslateMessage(&gMsg);
+    DispatchMessage(&gMsg);
 }
 
 void PlatformService::quit(int code) {
@@ -127,7 +144,7 @@ void PlatformService::quit(int code) {
 }
 
 size_t PlatformService::getFrequency() {
-    return get()->frequency;
+    return gFrequency;
 }
 
 size_t PlatformService::queryCounter() {
@@ -135,27 +152,20 @@ size_t PlatformService::queryCounter() {
 }
 
 Window& PlatformService::getWindow() {
-    return *get()->pWindow;
+    return *gWindow;
 }
 
 void PlatformService::showWindow() {
     getWindow().showWindow();
 }
 
-HINSTANCE PlatformService::getInstanceHandle() {
-    return get()->hInstance;
-}
-
-int PlatformService::getShowCmd() {
-    return get()->nCmdShow;
-}
-
-fs::path PlatformService::getExeDirectory() {
-    return get()->exeDirectory;
+const fs::path& PlatformService::getExeDirectory() {
+    return exeDirectory;
 }
 
 void PlatformService::message(std::string_view title, std::string_view body) {
-    MessageBox(nullptr, body.data(), title.data(), MB_ICONERROR | MB_SYSTEMMODAL);
+    HWND hWnd = gWindow == nullptr ? nullptr : gWindow->getHandle();
+    MessageBox(hWnd, body.data(), title.data(), MB_ICONERROR | MB_SYSTEMMODAL);
     std::cout << title << ": " << body << std::endl;
 }
 
@@ -255,12 +265,12 @@ Window::Window(const WindowCreateInfo& createInfo)
         /* nHeight = */ height,
         /* hWndParent = */ nullptr,
         /* hMenu = */ nullptr,
-        /* hInstance = */ PlatformService::getInstanceHandle(),
+        /* hInstance = */ gInstance,
         /* lpParam = */ this
     );
 
     if (!hWindow) {
-        throwLastError("failed to create window");
+        debug::throwLastError("failed to create window");
     }
 
     showWindow();
@@ -273,7 +283,7 @@ Window::~Window() {
 }
 
 void Window::showWindow() {
-    ShowWindow(hWindow, PlatformService::getShowCmd());
+    ShowWindow(hWindow, gCmdShow);
     UpdateWindow(hWindow);
 }
 

@@ -693,37 +693,3 @@ namespace std {
     template<size_t I, typename T>
     struct tuple_element<I, simcoe::math::Vec4<T>> { using type = T; };
 }
-
-#define VEC2_HASH(T) \
-template<> \
-struct std::hash<simcoe::math::Vec2<T>> { \
-    size_t operator()(const simcoe::math::Vec2<T>& it) const { \
-        return std::hash<T>()(it.x) ^ std::hash<T>()(it.y); \
-    } \
-};
-
-#define VEC3_HASH(T) \
-template<> \
-struct std::hash<simcoe::math::Vec3<T>> { \
-    size_t operator()(const simcoe::math::Vec3<T>& it) const { \
-        return std::hash<T>()(it.x) ^ std::hash<T>()(it.y) ^ std::hash<T>()(it.z); \
-    } \
-};
-
-#define VEC4_HASH(T) \
-template<> \
-struct std::hash<simcoe::math::Vec4<T>> { \
-    size_t operator()(const simcoe::math::Vec4<T>& it) const { \
-        return std::hash<T>()(it.x) ^ std::hash<T>()(it.y) ^ std::hash<T>()(it.z) ^ std::hash<T>()(it.w); \
-    } \
-};
-
-#define VEC_HASH(T) \
-VEC2_HASH(T) \
-VEC3_HASH(T) \
-VEC4_HASH(T)
-
-VEC_HASH(int)
-VEC_HASH(uint32_t)
-VEC_HASH(size_t)
-VEC_HASH(float)

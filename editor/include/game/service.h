@@ -40,94 +40,30 @@ namespace game {
         static void start();
 
         // GameService
-        static void shutdown() {
-            get()->bWindowOpen = false;
-            get()->pWorld->shutdown();
-        }
+        static void shutdown();
+        static bool shouldQuit();
 
-        static bool shouldQuit() {
-            return get()->pWorld->shouldQuit();
-        }
 
-        static void resizeDisplay(const WindowSize& event) {
-            if (!get()->bWindowOpen) return;
-            if (!get()->pWorld) return;
-
-            get()->pWorld->pRenderQueue->add("resize", [event]() {
-                get()->pGraph->resizeDisplay(event.width, event.height);
-                LOG_INFO("resized display to: {}x{}", event.width, event.height);
-            });
-        }
+        static void resizeDisplay(const WindowSize& event);
 
         // editable stuff
-        static WindowMode getWindowMode() {
-            return get()->windowMode;
-        }
+        static WindowMode getWindowMode();
 
-        static void changeWindowMode(WindowMode newMode) {
-            get()->pWorld->pRenderQueue->add("modechange", [newMode]() {
-                get()->setWindowMode(getWindowMode(), newMode);
-            });
-        }
-
-        static void changeInternalRes(const simcoe::math::uint2& newRes) {
-            get()->pWorld->pRenderQueue->add("reschange", [newRes]() {
-                get()->pGraph->resizeRender(newRes.width, newRes.height);
-                LOG_INFO("changed internal resolution to: {}x{}", newRes.width, newRes.height);
-            });
-        }
-
-        static void changeBackBufferCount(UINT newCount) {
-            get()->pWorld->pRenderQueue->add("backbufferchange", [newCount]() {
-                get()->pGraph->changeBackBufferCount(newCount);
-                LOG_INFO("changed backbuffer count to: {}", newCount);
-            });
-        }
-
-        static void changeCurrentAdapter(UINT newAdapter) {
-            get()->pWorld->pRenderQueue->add("adapterchange", [newAdapter]() {
-                get()->pGraph->changeAdapter(newAdapter);
-                LOG_INFO("changed adapter to: {}", newAdapter);
-            });
-        }
+        static void changeWindowMode(WindowMode newMode);
+        static void changeInternalRes(const simcoe::math::uint2& newRes);
+        static void changeBackBufferCount(UINT newCount);
+        static void changeCurrentAdapter(UINT newAdapter);
 
         template<typename T, typename... A>
         static T *addDebugService(A&&... args) {
             auto *pService = new T(std::forward<A>(args)...);
-            get()->debugServices.push_back(pService);
+            addDebugService(pService);
             return pService;
         }
 
-        static std::span<editor::ui::ServiceDebug*> getDebugServices() {
-            return get()->debugServices;
-        }
+        static std::span<editor::ui::ServiceDebug*> getDebugServices();
+
     private:
-        // render config
-        size_t adapterIndex = 0;
-        UINT backBufferCount = 2;
-        simcoe::math::uint2 internalSize = { 1920 * 2, 1080 * 2 };
-        size_t renderFaultLimit = 3;
-
-        // game config
-        size_t entityLimit = 0x1000;
-        size_t seed = 0;
-
-        void setWindowMode(WindowMode oldMode, WindowMode newMode);
-
-        // render
-        std::atomic_bool bWindowOpen = true;
-        WindowMode windowMode = eModeWindowed;
-        simcoe::render::Context *pContext = nullptr;
-        simcoe::render::Graph *pGraph = nullptr;
-
-        // game
-        World *pWorld = nullptr;
-
-        // threads
-        threads::ThreadHandle *pRenderThread = nullptr;
-        threads::ThreadHandle *pPhysicsThread = nullptr;
-        threads::ThreadHandle *pGameThread = nullptr;
-
-        std::vector<editor::ui::ServiceDebug*> debugServices;
+        static void addDebugService(editor::ui::ServiceDebug *pService);
     };
 }

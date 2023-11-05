@@ -1,6 +1,6 @@
 #pragma once
 
-#include "editor/ui/ui.h"
+#include "editor/ui/service.h"
 
 namespace editor::ui {
     struct GdkDebug final : ServiceDebug {

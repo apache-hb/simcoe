@@ -1,5 +1,7 @@
 #include "editor/graph/assets.h"
 
+#include "engine/math/format.h"
+
 #include "engine/depot/service.h"
 
 using namespace editor;
@@ -116,16 +118,15 @@ void DepthTargetHandle::destroy() {
 TextureHandle::TextureHandle(Graph *pGraph, std::string name)
     : ISingleResourceHandle(pGraph, name)
     , name(name)
+    , image(DepotService::openFile(name))
 {
-    image = DepotService::loadImage(name);
-
-    LOG_INFO("texture {} ({}x{})", name, image.width, image.height);
+    LOG_INFO("texture {} ({})", name, image.size);
 }
 
 void TextureHandle::create() {
     const rhi::TextureInfo textureInfo = {
-        .width = image.width,
-        .height = image.height,
+        .width = image.size.width,
+        .height = image.size.height,
 
         .format = rhi::TypeFormat::eRGBA8
     };
@@ -163,7 +164,10 @@ namespace {
     }
 
     depot::Font loadFont(const RenderCreateInfo& createInfo, std::string_view name) {
-        depot::Font font = DepotService::loadFont(name);
+        fs::path path = name;
+        path.replace_extension("ttf");
+
+        depot::Font font = { DepotService::getAssetPath(path) };
         UINT dpi = getWindowDpi(createInfo);
         font.setFontSize(32, dpi);
         return font;
@@ -193,13 +197,13 @@ void TextHandle::setFontSize(size_t pt) {
 
 void TextHandle::draw() {
     bitmap = font.drawText(segments, start, size);
-    LOG_INFO("font (ttf={}, bitmap={}x{})", ttf, bitmap.width, bitmap.height);
+    LOG_INFO("font (ttf={}, bitmap={})", ttf, bitmap.size);
 }
 
 void TextHandle::upload() {
     const rhi::TextureInfo textureInfo = {
-        .width = bitmap.width,
-        .height = bitmap.height,
+        .width = bitmap.size.width,
+        .height = bitmap.size.height,
 
         .format = rhi::TypeFormat::eRGBA8
     };

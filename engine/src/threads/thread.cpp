@@ -43,6 +43,9 @@ struct ThreadStartInfo {
 
 namespace {
     DWORD runThread(core::UniquePtr<ThreadStartInfo> pInfo, ThreadId id) try {
+        threads::setThreadName(std::string(pInfo->name));
+        debug::setThreadName(pInfo->name);
+
         LOG_INFO("thread {:#06x} started", id);
         pInfo->start(pInfo->token);
         LOG_INFO("thread {:#06x} stopped", id);
@@ -81,21 +84,21 @@ ThreadHandle::ThreadHandle(ThreadInfo&& info)
         /*lpThreadId=*/ &id
     );
 
-    if (hThread == nullptr) { throwLastError("CreateThread"); }
-
-    ThreadService::setThreadName(std::string(name), id);
+    if (hThread == nullptr) {
+        debug::throwLastError("CreateThread");
+    }
 
     const GROUP_AFFINITY affinity = mask;
     if (SetThreadGroupAffinity(hThread, &affinity, nullptr) == 0) {
-        auto msg = std::format("SetThreadGroupAffinity failed, internal state corruption!!! thread affinity mask: {}", affinity);
-        throwLastError(msg);
+        auto msg = std::format("SetThreadGroupAffinity failed. thread affinity mask: {}", affinity);
+        debug::throwLastError(msg);
     }
 
     if (ResumeThread(hThread) == DWORD_MAX) {
-        throwLastError("ResumeThread");
+        debug::throwLastError("ResumeThread");
     }
 
-    LOG_INFO("created thread (name={}, id={:#06x}) with mask {}", ThreadService::getThreadName(id), id, affinity);
+    LOG_INFO("created thread (name={}, id={:#06x}) with mask {}", name, id, affinity);
 }
 
 ThreadHandle::~ThreadHandle() {
@@ -104,7 +107,7 @@ ThreadHandle::~ThreadHandle() {
 
     // TODO: make sure the thread closes
     if (WaitForSingleObject(hThread, INFINITE) != WAIT_OBJECT_0) {
-        throwLastError(std::format("WaitForSingleObject failed for thread (name={}, id={:#06x})", name, id));
+        debug::throwLastError(std::format("WaitForSingleObject failed for thread (name={}, id={:#06x})", name, id));
     }
 
     CloseHandle(hThread);
