@@ -59,6 +59,7 @@ void LoggingService::addSink(std::string_view name, log::ISink *pSink) {
 void LoggingService::sendMessageAlways(log::Level msgLevel, std::string_view msg) {
     auto threadId = ThreadService::getCurrentThreadId();
     auto currentTime = chrono::system_clock::now();
+    // auto utcTime = chrono::current_zone()->to_local(currentTime); TODO: fix this
 
     mt::read_lock guard(lock);
     for (log::ISink *pSink : sinks) {

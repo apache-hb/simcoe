@@ -6,6 +6,8 @@
 
 #include "engine/render/graph.h"
 
+using namespace std::chrono_literals;
+
 using namespace game;
 
 World::World(const WorldInfo& info)
@@ -31,12 +33,6 @@ void World::tickRender() {
 
     try {
         pGraph->execute();
-
-        float now = clock.now();
-        float delta = now - lastRenderTime;
-        lastRenderTime = now;
-        tickAlerts.enqueue({ eTickRender, now, delta });
-
     } catch (const std::runtime_error& e) {
         renderFaults += 1;
         LOG_ERROR("fault: {}", e.what());
@@ -44,6 +40,7 @@ void World::tickRender() {
 
         if (renderFaults >= info.renderFaultLimit) {
             LOG_ERROR("render fault exceeded limit of {}. exiting...", info.renderFaultLimit);
+            throw;
         }
 
         LOG_ERROR("attempting to recover...");
@@ -62,13 +59,7 @@ void World::tickPhysics() {
         return;
     }
 
-    float now = clock.now();
-    float delta = now - lastPhysicsTime;
-    lastPhysicsTime = now;
-
-    tickAlerts.enqueue({ eTickPhysics, now, delta });
-
-    physicsStep.waitForNextTick();
+    std::this_thread::sleep_for(16ms);
 }
 
 // game
@@ -82,13 +73,7 @@ void World::tickGame() {
         return;
     }
 
-    float now = clock.now();
-    float delta = now - lastGameTime;
-    lastGameTime = now;
-
-    tickAlerts.enqueue({ eTickGame, now, delta });
-
-    gameStep.waitForNextTick();
+    std::this_thread::sleep_for(16ms);
 }
 
 // correct shutdown order is:

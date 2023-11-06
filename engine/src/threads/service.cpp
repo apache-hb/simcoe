@@ -306,7 +306,7 @@ namespace {
 
     // worker thread data
     mt::shared_mutex gWorkerLock;
-    std::atomic_size_t gWorkerId = 0;
+    size_t gWorkerId = 0;
     std::vector<threads::ThreadHandle*> gWorkers;
 
     threads::ThreadHandle *newWorkerThread() {
@@ -321,8 +321,8 @@ namespace {
             }
         };
 
-        auto id = gWorkerId++;
-        return ThreadService::newThread(threads::eWorker, std::format("worker-{}", id), kWorkerBody);
+        auto id = std::format("worker.{}", gWorkerId++);
+        return ThreadService::newThread(threads::eWorker, id, kWorkerBody);
     }
 }
 
@@ -401,10 +401,10 @@ bool ThreadService::createService() {
         .packages = builder.packages
     };
 
-    setWorkerCount(cfg::gDefaultWorkerCount);
-
     gMainQueue = new WorkQueue(cfg::gMainQueueSize);
     gWorkQueue = new BlockingWorkQueue(cfg::gWorkQueueSize);
+
+    setWorkerCount(cfg::gDefaultWorkerCount);
 
     return true;
 }
@@ -438,20 +438,15 @@ void ThreadService::pollMainQueue() {
 void ThreadService::setWorkerCount(size_t count) {
     LOG_INFO("starting {} workers", count);
     mt::write_lock lock(gWorkerLock);
-    if (count < gWorkers.size()) {
-        LOG_INFO("stopping {} workers", gWorkers.size() - count);
-        for (size_t i = count; i < gWorkers.size(); ++i) {
-            gWorkers[i]->requestStop();
-        }
 
-        for (size_t i = count; i < gWorkers.size(); ++i) {
-            delete gWorkers[i];
-        }
+    // TODO: this leaks memory
+    for (auto *pWorker : gWorkers) {
+        pWorker->requestStop();
     }
 
-    gWorkers.resize(count);
+    gWorkers.clear();
 
-    for (size_t i = gWorkers.size(); i < count; ++i) {
+    for (size_t i = 0; i < count; ++i) {
         gWorkers.push_back(newWorkerThread());
     }
 }

@@ -22,7 +22,6 @@ namespace game {
         void createRender() { }
         void destroyRender();
         void tickRender();
-        util::TimeStep renderStep{ 1.f / 60.f };
         float lastRenderTime = 0.f;
         threads::WorkQueue *pRenderQueue = new threads::WorkQueue{64};
 
@@ -30,7 +29,6 @@ namespace game {
         void createPhysics() { }
         void destroyPhysics();
         void tickPhysics();
-        util::TimeStep physicsStep{ 1.f / 60.f };
         float lastPhysicsTime = 0.f;
         threads::WorkQueue *pPhysicsThread = new threads::WorkQueue{64};
 
@@ -38,12 +36,8 @@ namespace game {
         void createGame() { }
         void destroyGame();
         void tickGame();
-        util::TimeStep gameStep{ 1.f / 60.f };
         float lastGameTime = 0.f;
         threads::WorkQueue *pGameThread = new threads::WorkQueue{64};
-
-        // each thread sends a tick message to this queue when it ticks
-        moodycamel::ConcurrentQueue<TickAlert> tickAlerts{256};
 
 
         template<std::derived_from<ILevel> T, typename... A> requires std::is_constructible_v<T, LevelInfo, A...>
