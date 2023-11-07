@@ -1,0 +1,6 @@
+[wrap-file]
+source_filename = stub.zip
+patch_directory = ryzenmonitor
+
+[provide]
+dependency_names = ryzenmonitor
