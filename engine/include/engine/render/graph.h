@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/render/render.h"
+#include "engine/threads/mutex.h"
 
 #include <unordered_map>
 
@@ -406,9 +407,15 @@ namespace simcoe::render {
         template<typename F>
         void withLock(F&& func) {
             lock = true;
-            std::lock_guard guard(renderLock);
+            std::lock_guard guard(mutex);
 
-            func();
+            // TODO: need defer
+            try {
+                func();
+            } catch (...) {
+                lock = false;
+                throw;
+            }
 
             lock = false;
         }
@@ -416,8 +423,8 @@ namespace simcoe::render {
         void createIf(StateDep dep);
         void destroyIf(StateDep dep);
 
-        std::atomic_bool lock;
-        std::mutex renderLock;
+        std::atomic_bool lock = false;
+        mt::Mutex mutex{"graph"};
 
     public:
         void setResourceState(rhi::DeviceResource *pResource, rhi::ResourceState state);

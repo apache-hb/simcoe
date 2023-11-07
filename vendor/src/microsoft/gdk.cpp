@@ -1,5 +1,7 @@
 #include "vendor/microsoft/gdk.h"
 
+#include "engine/core/error.h"
+
 #include "engine/log/service.h"
 
 #include "XGameRuntime.h"
@@ -12,9 +14,7 @@ using namespace simcoe;
 #define HR_CHECK(expr) \
     do { \
         if (HRESULT hr = (expr); FAILED(hr)) { \
-            auto msg = std::format("gdk-error: {} ({})", #expr, gdkErrorString(hr)); \
-            LOG_ERROR(msg); \
-            throw std::runtime_error(msg); \
+            core::throwNonFatal("gdk-error: {} ({})", #expr, gdkErrorString(hr)); \
         } \
     } while (false)
 

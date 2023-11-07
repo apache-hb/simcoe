@@ -1,6 +1,8 @@
 #pragma once
 
 #include "engine/core/bitmap.h"
+#include "engine/core/error.h"
+
 #include "engine/log/service.h"
 
 #include "engine/depot/image.h"
@@ -53,7 +55,7 @@ namespace simcoe::render {
                 return idx;
             }
 
-            throw std::runtime_error("out of descriptor heap space");
+            core::throwFatal("descriptor heap is full");
         }
 
         void release(Index index) {

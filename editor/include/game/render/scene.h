@@ -2,6 +2,8 @@
 
 #include "engine/render/graph.h"
 
+#include "engine/threads/mutex.h"
+
 #include <unordered_set>
 
 namespace game::graph {
@@ -28,7 +30,7 @@ namespace game::graph {
         void removeSceneObject(ISceneObject *pObject);
 
     private:
-        std::mutex lock;
+        simcoe::mt::Mutex mutex{"ScenePass"};
 
         std::unordered_set<ISceneObject*> objects;
     };

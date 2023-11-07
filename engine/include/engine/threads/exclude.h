@@ -1,6 +1,7 @@
 #pragma once
 
-#include "engine/service/debug.h"
+#include "engine/debug/service.h"
+
 #include "engine/threads/service.h"
 
 namespace simcoe::threads {

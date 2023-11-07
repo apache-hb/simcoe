@@ -2,7 +2,7 @@
 
 #include "engine/threads/service.h"
 
-#include "engine/service/debug.h"
+#include "engine/debug/service.h"
 #include "engine/log/service.h"
 
 using namespace simcoe;

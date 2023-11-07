@@ -5,6 +5,8 @@
 #include "engine/core/array.h"
 #include "engine/service/platform.h"
 
+#include "engine/threads/mutex.h"
+
 #include <unordered_set>
 #include <random>
 
@@ -41,7 +43,7 @@ namespace game {
     private:
         World *pWorld;
         // game engine lock to ensure thread safety
-        std::mutex lock;
+        mt::Mutex lock{"world"};
 
         // timekeeping
         Clock clock;

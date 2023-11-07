@@ -126,12 +126,14 @@ struct GameGui final : eg::IGuiPass {
     std::vector<ImageData> images;
     int currentImage = 0;
 
-    void addImage(std::string imageName) {
+    void addImage(std::string imageName) try {
         auto *pHandle = pGraph->addResource<eg::TextureHandle>(imageName);
         auto *pAttachment = addAttachment(pHandle, rhi::ResourceState::eTextureRead);
 
         images.push_back({ imageName, pHandle, pAttachment });
         currentImage = core::intCast<int>(images.size()) - 1;
+    } catch (const core::Error& err) {
+        LOG_WARN("failed to load image: {}", err.what());
     }
 
     ui::GlobalHandle imageHandle = ui::addGlobalHandle("Images", [this] {

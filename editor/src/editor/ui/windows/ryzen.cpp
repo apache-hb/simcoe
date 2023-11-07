@@ -323,7 +323,7 @@ void RyzenMonitorDebug::drawCpuInfo() {
         unsigned parked = pCpuInfo->getCorePark();
         ImGui::Text("Cores: %u (parked: %u)", cores, parked);
 
-        if (bInfoDirty && monitorLock.try_lock()) {
+        if (bInfoDirty && lock.tryLock()) {
             packageData = pCpuInfo->getPackageData();
             socData = pCpuInfo->getSocData();
             const auto& coreInfo = pCpuInfo->getCoreData();
@@ -337,7 +337,7 @@ void RyzenMonitorDebug::drawCpuInfo() {
             }
 
             bInfoDirty = false;
-            monitorLock.unlock();
+            lock.unlock();
         }
     } else {
         ImGui::Text("Failed to get cpu info");
@@ -418,7 +418,7 @@ void RyzenMonitorDebug::drawCoreInfo() {
 }
 
 void RyzenMonitorDebug::updateCoreInfo() {
-    std::lock_guard guard(monitorLock);
+    std::lock_guard guard(lock);
     if (RyzenMonitorSerivce::updateCpuInfo()) {
         bInfoDirty = true;
         lastUpdate = clock.now();

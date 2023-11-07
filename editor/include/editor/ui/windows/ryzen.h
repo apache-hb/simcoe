@@ -3,6 +3,7 @@
 #include "editor/ui/service.h"
 #include "editor/ui/components/buffer.h"
 
+#include "engine/threads/mutex.h"
 #include "vendor/amd/ryzen.h"
 
 namespace editor::ui {
@@ -61,7 +62,7 @@ namespace editor::ui {
         amd::SocData socData = {};
         std::vector<CoreInfoHistory> coreData;
 
-        std::mutex monitorLock;
+        mt::Mutex lock{"monitor"};
         bool bInfoDirty = true;
         size_t updates = 0;
 

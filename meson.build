@@ -109,7 +109,8 @@ config.set10('SERVICE_GDK', services.contains('gdk'))
 args = [
     '/wd4324', # disable warning C4324: structure was padded due to alignment specifier
                # we want this because of UNIFORM_BUFFER
-    '/wd4554'  # concurrentqueue tries to disable this internally but fails for some reason
+    '/wd4554',  # concurrentqueue tries to disable this internally but fails for some reason
+    '-D_HAS_EXCEPTIONS=0'
 ]
 
 src = [
@@ -122,6 +123,7 @@ src = [
     'engine/src/core/bitmap.cpp',
     'engine/src/core/strings.cpp',
     'engine/src/core/units.cpp',
+    'engine/src/core/error.cpp',
 
     # config
     'engine/src/config/config.cpp',
@@ -134,7 +136,9 @@ src = [
 
     # os
     'engine/src/service/platform.cpp',
-    'engine/src/service/debug.cpp',
+
+    # debug
+    'engine/src/debug/service.cpp',
 
     # logging
     'engine/src/log/service.cpp',
@@ -158,6 +162,7 @@ src = [
     'engine/src/threads/thread.cpp',
     'engine/src/threads/scheduler.cpp',
     'engine/src/threads/name.cpp',
+    'engine/src/threads/mutex.cpp',
 
     # freetype
     'engine/src/service/freetype.cpp',

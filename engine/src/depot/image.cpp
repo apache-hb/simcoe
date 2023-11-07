@@ -1,5 +1,6 @@
 #include "engine/depot/image.h"
 
+#include "engine/core/error.h"
 #include "engine/core/units.h"
 
 #include <stb/stb_image.h>
@@ -28,7 +29,7 @@ Image::Image(std::shared_ptr<IFile> pFile) {
     stbi_uc *pData = stbi_load_from_memory(pBuffer, blobSize, &imageWidth, &imageHeight, nullptr, kChannels);
 
     if (pData == nullptr) {
-        throw std::runtime_error(std::format("Failed to load image: {}", pFile->getName()));
+        core::throwNonFatal("Failed to load image: {}", pFile->getName());
     }
 
     // round up to nearest power of 2

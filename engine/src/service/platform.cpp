@@ -1,5 +1,6 @@
 #include "engine/service/platform.h"
-#include "engine/service/debug.h"
+#include "engine/core/error.h"
+#include "engine/debug/service.h"
 
 #include "engine/core/strings.h"
 #include "engine/core/panic.h"
@@ -110,6 +111,15 @@ void PlatformService::setup(HINSTANCE hInstance, int nCmdShow, IWindowCallbacks 
     gInstance = hInstance;
     gCmdShow = nCmdShow;
     gCallbacks = pCallbacks;
+
+    // TODO: should this really go here?
+    std::set_terminate([] {
+        auto bt = DebugService::backtrace();
+        LOG_ERROR("terminate called");
+        for (const auto& frame : bt) {
+            LOG_ERROR("  {} @ {}", frame.pc, frame.symbol);
+        }
+    });
 }
 
 CommandLine system::getCommandLine() {
@@ -240,7 +250,7 @@ namespace {
         case WindowStyle::eWindowed: return WS_OVERLAPPEDWINDOW;
         case WindowStyle::eBorderlessFixed: return WS_POPUP;
         case WindowStyle::eBorderlessMoveable: return WS_POPUP | WS_THICKFRAME;
-        default: throw std::runtime_error("invalid window style");
+        default: core::throwFatal("invalid window style");
         }
     }
 

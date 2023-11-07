@@ -1,4 +1,5 @@
 #include "engine/log/service.h"
+#include "engine/core/error.h"
 #include "engine/log/sinks.h"
 
 #include "engine/config/ext/builder.h"
@@ -58,18 +59,19 @@ void LoggingService::addSink(std::string_view name, log::ISink *pSink) {
 
 void LoggingService::sendMessageAlways(log::Level msgLevel, std::string_view msg) {
     auto threadId = ThreadService::getCurrentThreadId();
-    auto currentTime = chrono::system_clock::now();
+    //auto currentTime = chrono::system_clock::now();
+    auto currentUtcTime = chrono::utc_clock::to_sys(chrono::utc_clock::now());
     // auto utcTime = chrono::current_zone()->to_local(currentTime); TODO: fix this
 
     mt::read_lock guard(lock);
     for (log::ISink *pSink : sinks) {
-        pSink->addLogMessage(msgLevel, threadId, currentTime, msg);
+        pSink->addLogMessage(msgLevel, threadId, currentUtcTime, msg);
     }
 }
 
 void LoggingService::throwAssert(std::string msg) {
     sendMessage(log::eAssert, msg);
-    throw std::runtime_error(msg);
+    core::throwFatal(msg);
 }
 
 void LoggingService::addNewSink(std::string_view id, log::ISink *pSink) {

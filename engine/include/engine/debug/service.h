@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/debug/backtrace.h"
+
 #include "engine/service/service.h"
 
 #include "engine/core/win32.h"
@@ -9,11 +11,6 @@
 #include <array>
 
 namespace simcoe {
-    struct StackFrame {
-        std::string symbol;
-        size_t pc = 0;
-    };
-
     namespace debug {
         void setThreadName(std::string_view name);
 
@@ -40,6 +37,6 @@ namespace simcoe {
         void destroyService() override;
 
         // DebugService
-        static std::vector<StackFrame> backtrace();
+        static debug::Backtrace backtrace();
     };
 }

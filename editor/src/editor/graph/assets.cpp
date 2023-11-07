@@ -118,9 +118,14 @@ void DepthTargetHandle::destroy() {
 TextureHandle::TextureHandle(Graph *pGraph, std::string name)
     : ISingleResourceHandle(pGraph, name)
     , name(name)
-    , image(DepotService::openFile(name))
 {
-    LOG_INFO("texture {} ({})", name, image.size);
+    try {
+        image = DepotService::openFile(name);
+        LOG_INFO("texture {} ({})", name, image.size);
+    } catch (core::Error& err) {
+        LOG_WARN("failed to load texture {}: {}", name, err.what());
+        throw;
+    }
 }
 
 void TextureHandle::create() {

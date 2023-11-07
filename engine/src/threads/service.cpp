@@ -1,5 +1,6 @@
 #include "engine/threads/service.h"
 
+#include "engine/core/error.h"
 #include "engine/core/units.h"
 
 #include "engine/config/ext/builder.h"
@@ -53,7 +54,7 @@ namespace {
     struct ProcessorInfo {
         ProcessorInfo(LOGICAL_PROCESSOR_RELATIONSHIP relation) {
             if (GetLogicalProcessorInformationEx(relation, nullptr, &bufferSize)) {
-                throw std::runtime_error("GetLogicalProcessorInformationEx did not fail");
+                core::throwNonFatal("GetLogicalProcessorInformationEx did not fail");
             }
 
             if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
@@ -119,7 +120,7 @@ namespace {
     struct CpuSetInfo {
         CpuSetInfo() {
             if (GetSystemCpuSetInformation(nullptr, 0, &bufferSize, GetCurrentProcess(), 0)) {
-                throw std::runtime_error("GetSystemCpuSetInformation did not fail");
+                core::throwNonFatal("GetSystemCpuSetInformation did not fail");
             }
 
             if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
@@ -292,8 +293,8 @@ namespace {
         size_t gDefaultWorkerCount = 0; // 0 means let the system decide
         size_t gMaxWorkerCount = 0; // 0 means no limit
         size_t gWorkerDelay = 50; // ms
-        size_t gWorkQueueSize = 256; // size of the work queue, this is shared between all workers
 
+        size_t gWorkQueueSize = 256; // size of the work queue, this is shared between all workers
         size_t gMainQueueSize = 64; // size of the main queue
     }
 
@@ -334,7 +335,8 @@ ThreadService::ThreadService() {
             CFG_FIELD_INT("interval", &cfg::gWorkerDelay)
         ),
         CFG_FIELD_TABLE("queues",
-            CFG_FIELD_INT("main", &cfg::gMainQueueSize)
+            CFG_FIELD_INT("main", &cfg::gMainQueueSize),
+            CFG_FIELD_INT("worker", &cfg::gWorkQueueSize)
         )
     );
 }

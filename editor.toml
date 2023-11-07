@@ -26,6 +26,10 @@ max = 16
 # polling interval in ms
 interval = 50
 
+[threads.queues]
+main = 256
+worker = 1024
+
 ### depot config
 
 [depot]
@@ -41,6 +45,9 @@ root = "$exe/editor.exe.p"
 # mode of the virtual file system [readonly, readwrite]
 mode = "readonly"
 
+[depot.observer]
+
+interval = 50
 
 ### input config
 
@@ -55,3 +62,25 @@ capture = true # lock mouse input to window
 [input.xinput]
 gamepad0 = true # enable first gamepad
 
+
+### debug config
+
+[debug]
+
+srcdir = "G:/github/simcoe"
+
+
+### game config
+
+[game.render]
+adapter = 0
+backBufferCount = 2
+
+# twice the size of the window
+size = { width = 3840, height = 2160 }
+
+faultLimit = 1
+
+[game.world]
+entityLimit = 2048
+seed = 1

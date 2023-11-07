@@ -1,7 +1,8 @@
+#include "engine/core/error.h"
 #include "engine/core/units.h"
 #include "engine/rhi/rhi.h"
 
-#include "engine/service/debug.h"
+#include "engine/debug/service.h"
 
 #include "engine/log/message.h"
 #include "engine/log/service.h"
@@ -20,9 +21,7 @@ using namespace simcoe::rhi;
 #define HR_CHECK(expr) \
     do { \
         if (HRESULT hr = (expr); FAILED(hr)) { \
-            auto msg = std::format("{} ({})", #expr, debug::getResultName(hr)); \
-            LOG_ERROR(msg); \
-            throw std::runtime_error(msg); \
+            core::throwNonFatal("{} ({})", #expr, debug::getResultName(hr)); \
         } \
     } while (false)
 
@@ -52,7 +51,7 @@ static D3D12_RESOURCE_STATES getResourceState(ResourceState state) {
     case ResourceState::eUniform: return D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
     case ResourceState::eDepthWrite: return D3D12_RESOURCE_STATE_DEPTH_WRITE;
     case ResourceState::eCopyDest: return D3D12_RESOURCE_STATE_COPY_DEST;
-    default: throw std::runtime_error("invalid resource state");
+    default: core::throwFatal("invalid resource state {}", int(state));
     }
 }
 
@@ -61,7 +60,7 @@ static D3D12_COMMAND_LIST_TYPE getCommandType(CommandType type) {
     case CommandType::eDirect: return D3D12_COMMAND_LIST_TYPE_DIRECT;
     case CommandType::eCopy: return D3D12_COMMAND_LIST_TYPE_COPY;
     case CommandType::eCompute: return D3D12_COMMAND_LIST_TYPE_COMPUTE;
-    default: throw std::runtime_error("invalid command type");
+    default: core::throwFatal("invalid command type {}", int(type));
     }
 }
 
@@ -79,7 +78,7 @@ DXGI_FORMAT simcoe::rhi::getTypeFormat(TypeFormat fmt) {
     case TypeFormat::eFloat4: return DXGI_FORMAT_R32G32B32A32_FLOAT;
 
     case TypeFormat::eRGBA8: return DXGI_FORMAT_R8G8B8A8_UNORM;
-    default: throw std::runtime_error("invalid type format");
+    default: core::throwFatal("invalid type format {}", int(fmt));
     }
 }
 
@@ -94,7 +93,7 @@ std::string_view simcoe::rhi::toString(ResourceState state) {
     case ResourceState::eIndexBuffer: return "index-buffer";
     case ResourceState::eDepthWrite: return "depth-write";
     case ResourceState::eCopyDest: return "copy-dest";
-    default: return "unknown";
+    default: core::throwFatal("invalid resource state {}", int(state));
     }
 }
 
@@ -110,7 +109,7 @@ std::string_view simcoe::rhi::toString(TypeFormat format) {
     case TypeFormat::eFloat4: return "float4";
     case TypeFormat::eRGBA8: return "rgba8";
 
-    default: return "unknown";
+    default: core::throwFatal("invalid type format {}", int(format));
     }
 }
 
@@ -121,7 +120,7 @@ static size_t getByteSize(TypeFormat fmt) {
 
     case TypeFormat::eFloat3: return sizeof(math::float3);
     case TypeFormat::eFloat4: return sizeof(math::float4);
-    default: throw std::runtime_error("invalid type format");
+    default: core::throwFatal("invalid type format {}", int(fmt));
     }
 }
 
@@ -129,14 +128,14 @@ static D3D_PRIMITIVE_TOPOLOGY getTopology(Topology topology) {
     switch (topology) {
     case Topology::eTriangleList: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
     case Topology::eTriangleStrip: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
-    default: throw std::runtime_error("invalid topology");
+    default: core::throwFatal("invalid topology {}", int(topology));
     }
 }
 
 static size_t getPixelByteSize(TypeFormat fmt) {
     switch (fmt) {
     case TypeFormat::eRGBA8: return 4;
-    default: throw std::runtime_error("invalid pixel format");
+    default: core::throwFatal("invalid type format {}", int(fmt));
     }
 }
 
@@ -145,7 +144,7 @@ static D3D12_SHADER_VISIBILITY getVisibility(InputVisibility visibility) {
     case InputVisibility::ePixel: return D3D12_SHADER_VISIBILITY_PIXEL;
     case InputVisibility::eVertex: return D3D12_SHADER_VISIBILITY_VERTEX;
     case InputVisibility::eCompute: return D3D12_SHADER_VISIBILITY_ALL;
-    default: throw std::runtime_error("invalid shader visibility");
+    default: core::throwFatal("invalid input visibility {}", int(visibility));
     }
 }
 
@@ -453,7 +452,7 @@ void DisplayQueue::present(bool allowTearing, UINT syncInterval) {
         LOG_ERROR("consecutive failed presents: {}", failedFrames.load());
     } else if (hr == DXGI_ERROR_DEVICE_REMOVED) {
         LOG_INFO("device removed, cannot present");
-        throw std::runtime_error("device removed during present");
+        core::throwNonFatal("device removed during present");
     } else if (SUCCEEDED(hr)) {
         failedFrames = 0;
     } else {
@@ -463,7 +462,7 @@ void DisplayQueue::present(bool allowTearing, UINT syncInterval) {
 
     if (failedFrames > 3) {
         LOG_ERROR("too many failed frames, exiting");
-        throw std::runtime_error(std::format("too many failed frames, last error {}", debug::getResultName(hr)));
+        core::throwFatal("too many failed frames, last error {}", debug::getResultName(hr));
     }
 }
 
@@ -1396,9 +1395,9 @@ void Fence::wait(size_t value) {
     get()->SetEventOnCompletion(value, hEvent);
     DWORD err = WaitForSingleObject(hEvent, INFINITE);
     switch (err) {
-    case WAIT_FAILED: throw std::runtime_error(std::format("fence wait failed (error={})", GetLastError()));
-    case WAIT_ABANDONED: throw std::runtime_error("fence wait abandoned");
-    case WAIT_TIMEOUT: throw std::runtime_error("fence wait timeout");
+    case WAIT_FAILED: core::throwNonFatal("fence wait failed (error={})", GetLastError());
+    case WAIT_ABANDONED: core::throwNonFatal("fence wait abandoned");
+    case WAIT_TIMEOUT: core::throwNonFatal("fence wait timeout");
     case WAIT_OBJECT_0:
         break;
     }

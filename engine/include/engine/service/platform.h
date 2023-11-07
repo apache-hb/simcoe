@@ -2,7 +2,7 @@
 
 #include "engine/core/filesystem.h"
 
-#include "engine/service/debug.h"
+#include "engine/debug/service.h"
 
 #include "engine/math/math.h"
 

@@ -1,20 +1,10 @@
 // core
-#include "engine/service/debug.h"
+#include "engine/core/error.h"
+#include "engine/debug/service.h"
 #include "engine/service/platform.h"
 #include "engine/log/service.h"
 
 using namespace simcoe;
-
-// globals
-static Window *pWindow = nullptr;
-
-// helpers
-template<typename T>
-struct Cleanup {
-    Cleanup(T *ptr) : ptr(ptr) { }
-    ~Cleanup() { delete ptr; }
-    T *ptr;
-};
 
 // callbacks
 
@@ -33,15 +23,7 @@ static GameWindowCallbacks gWindowCallbacks;
 static void commonMain() {
     LOG_INFO("main");
 
-    const WindowCreateInfo createInfo = {
-        .title = "Client",
-        .style = WindowStyle::eWindowed,
-        .size = { 1280, 720 },
-
-        .pCallbacks = &gWindowCallbacks
-    };
-
-    Cleanup window(pWindow = new Window(createInfo));
+    PlatformService::showWindow();
 
     while (PlatformService::getEvent()) {
         PlatformService::dispatchEvent();
@@ -62,7 +44,7 @@ static int innerMain() try {
     LOG_INFO("shutdown");
 
     return 0;
-} catch (const std::exception& err) {
+} catch (const core::Error& err) {
     LOG_ERROR("unhandled exception: {}", err.what());
     return 99;
 } catch (...) {

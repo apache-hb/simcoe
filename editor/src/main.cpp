@@ -6,7 +6,7 @@
 
 // services
 #include "engine/service/service.h"
-#include "engine/service/debug.h"
+#include "engine/debug/service.h"
 #include "engine/service/platform.h"
 #include "engine/service/freetype.h"
 #include "engine/log/service.h"
@@ -126,7 +126,7 @@ static int serviceWrapper() try {
     LOG_INFO("no game exceptions have occured during runtime");
 
     return 0;
-} catch (const std::exception& err) {
+} catch (const core::Error& err) {
     LOG_ERROR("unhandled exception: {}", err.what());
     return 99;
 } catch (...) {

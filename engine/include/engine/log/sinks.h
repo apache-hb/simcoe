@@ -2,6 +2,8 @@
 
 #include "engine/log/log.h"
 
+#include "engine/threads/mutex.h"
+
 #include <fstream>
 
 namespace simcoe::log {
@@ -15,7 +17,7 @@ namespace simcoe::log {
     private:
         bool bColour;
 
-        std::mutex mutex;
+        mt::Mutex mutex{"log::ConsoleSink"};
     };
 
     struct FileSink final : ISink {
@@ -26,7 +28,7 @@ namespace simcoe::log {
     private:
         void openFile(std::string_view path);
 
-        std::mutex mutex;
+        mt::Mutex mutex{"log::FileSink"};
         std::ofstream os;
     };
 }

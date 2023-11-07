@@ -1,5 +1,6 @@
 #include "engine/config/source.h"
 
+#include "engine/core/error.h"
 #include "engine/log/service.h"
 
 #include <toml++/toml.h>
@@ -106,7 +107,7 @@ ISource *config::loadToml(const fs::path &path) try {
 } catch (const toml::parse_error &e) {
     LOG_ERROR("while parsing toml file {}\n{}", path.string(), e.what());
     return nullptr;
-} catch (const std::exception &e) {
+} catch (const core::Error &e) {
     LOG_ERROR("while loading toml file {}\n{}", path.string(), e.what());
     return nullptr;
 }

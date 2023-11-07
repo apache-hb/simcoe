@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine/service/debug.h"
+#include "engine/debug/service.h"
 
 #include "XSystem.h"
 #include "XGameRuntimeFeature.h"

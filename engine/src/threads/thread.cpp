@@ -1,8 +1,9 @@
 #include "engine/threads/thread.h"
 
+#include "engine/core/error.h"
 #include "engine/threads/service.h"
 #include "engine/log/service.h"
-#include "engine/service/debug.h"
+#include "engine/debug/service.h"
 
 #include "engine/core/unique.h"
 
@@ -12,16 +13,16 @@
 using namespace simcoe;
 using namespace simcoe::threads;
 
-namespace {
-    constexpr uint8_t first_bit(uint64_t bits) {
-        for (uint8_t i = 0; i < 64; ++i) {
-            if (bits & (1ull << i)) {
-                return i;
-            }
-        }
+using namespace std::chrono_literals;
 
-        return 0;
+static constexpr uint8_t first_bit(uint64_t bits) {
+    for (uint8_t i = 0; i < 64; ++i) {
+        if (bits & (1ull << i)) {
+            return i;
+        }
     }
+
+    return 0;
 }
 
 template<typename T>
@@ -50,11 +51,11 @@ namespace {
         pInfo->start(pInfo->token);
         LOG_INFO("thread {:#06x} stopped", id);
         return 0;
-    } catch (std::exception& err) {
-        LOG_ERROR("thread {:#06x} failed with exception: {}", id, err.what());
+    } catch (const core::Error& err) {
+        LOG_ERROR("thread {:#06x} failed with engine error: {}", id, err.what());
         return 99;
-    } catch (...) {
-        LOG_ERROR("thread {:#06x} failed with unknown exception", id);
+    } catch (const std::exception& err) {
+        LOG_ERROR("thread {:#06x} failed with exception: {}", id, err.what());
         return 99;
     }
 }

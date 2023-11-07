@@ -33,7 +33,7 @@ void World::tickRender() {
 
     try {
         pGraph->execute();
-    } catch (const std::runtime_error& e) {
+    } catch (const core::Error& e) {
         renderFaults += 1;
         LOG_ERROR("fault: {}", e.what());
         LOG_ERROR("render fault. {} total fault{}", renderFaults, renderFaults > 1 ? "s" : "");

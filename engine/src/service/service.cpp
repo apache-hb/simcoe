@@ -1,5 +1,6 @@
 #include "engine/service/service.h"
 
+#include "engine/core/error.h"
 #include "engine/log/service.h"
 
 #include "engine/core/panic.h"
@@ -22,7 +23,7 @@ void IService::create() try {
         LOG_ERROR("failed to load {} service", getName());
         state = eServiceFaulted;
     }
-} catch (std::exception& err) {
+} catch (const core::Error& err) {
     LOG_ERROR("failed to load {} service: {}", getName(), err.what());
     state = eServiceFaulted;
 }

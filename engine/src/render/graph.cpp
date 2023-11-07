@@ -80,7 +80,7 @@ void IRenderPass::executePass() {
 ///
 
 void Graph::removePass(ICommandPass *pPass) {
-    std::lock_guard guard(renderLock);
+    std::lock_guard guard(mutex);
 
     std::erase(passes, pPass);
     pPass->destroy();
@@ -88,7 +88,7 @@ void Graph::removePass(ICommandPass *pPass) {
 }
 
 void Graph::removeResource(IResourceHandle *pHandle) {
-    std::lock_guard guard(renderLock);
+    std::lock_guard guard(mutex);
 
     std::erase(resources, pHandle);
     pHandle->destroy();
@@ -96,7 +96,7 @@ void Graph::removeResource(IResourceHandle *pHandle) {
 }
 
 void Graph::removeObject(IGraphObject *pObject) {
-    std::lock_guard guard(renderLock);
+    std::lock_guard guard(mutex);
 
     std::erase(objects, pObject);
     pObject->destroy();
@@ -164,7 +164,7 @@ void Graph::resumeFromFault() {
 bool Graph::execute() {
     if (lock) { return false; }
 
-    std::lock_guard guard(renderLock);
+    std::lock_guard guard(mutex);
     pCurrentRenderTarget = nullptr;
     pCurrentDepthStencil = nullptr;
 

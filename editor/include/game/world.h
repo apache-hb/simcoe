@@ -4,6 +4,8 @@
 #include "game/tick.h"
 
 #include "engine/threads/queue.h"
+#include "engine/threads/mutex.h"
+
 #include "engine/util/time.h"
 
 #include <unordered_set>
@@ -62,7 +64,7 @@ namespace game {
         std::atomic_bool bShutdown = false;
 
         // game engine lock to ensure thread safety
-        std::mutex lock;
+        mt::Mutex lock{"world"};
         Clock clock;
 
         // rng for generating entity ids

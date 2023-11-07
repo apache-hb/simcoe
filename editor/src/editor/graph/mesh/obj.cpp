@@ -1,5 +1,6 @@
 #include "editor/graph/mesh.h"
 
+#include "engine/core/error.h"
 #include "engine/core/panic.h"
 
 #include "engine/math/hash.h"
@@ -45,8 +46,7 @@ void ObjMesh::loadAsset() {
     if (!error.empty()) { LOG_ERROR("tinyobj error {}", error); }
 
     if (!ok) {
-        LOG_ERROR("failed to load obj {}", path.string());
-        throw std::runtime_error("failed to load obj");
+        core::throwNonFatal("failed to load obj {}", path.string());
     }
 
     LOG_INFO("loaded obj {} (shapes={})", path.string(), shapes.size());

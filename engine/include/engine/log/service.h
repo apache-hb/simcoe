@@ -2,6 +2,7 @@
 
 #include "engine/core/mt.h"
 
+#include "engine/service/service.h"
 #include "engine/service/platform.h"
 
 #include "engine/log/log.h"

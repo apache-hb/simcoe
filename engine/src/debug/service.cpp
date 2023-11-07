@@ -1,10 +1,11 @@
-#include "engine/service/platform.h"
-#include "engine/service/debug.h"
-
+#include "engine/debug/service.h"
+#include "engine/core/error.h"
 #include "engine/log/service.h"
 
 #include "engine/core/unique.h"
 #include "engine/core/strings.h"
+
+#include "engine/config/ext/builder.h"
 
 #include <intsafe.h> // DWORD_MAX
 #include <comdef.h> // _com_error
@@ -16,6 +17,10 @@ using namespace simcoe;
 
 namespace {
     constexpr size_t kNameLength = 0x1000;
+
+    namespace cfg {
+        std::string sourceRoot = ".";
+    }
 
     BOOL getFrame(STACKFRAME *pFrame, CONTEXT *pContext, HANDLE hProcess, HANDLE hThread) {
         return StackWalk(
@@ -33,13 +38,17 @@ namespace {
 }
 
 DebugService::DebugService() {
-
+    CFG_DECLARE("debug",
+        CFG_FIELD_STRING("srcdir", &cfg::sourceRoot)
+    );
 }
 
 bool DebugService::createService() {
     if (!SymInitialize(GetCurrentProcess(), nullptr, TRUE)) {
         debug::throwLastError("failed to initialize symbol engine");
     }
+
+    LOG_INFO("source root: {}", cfg::sourceRoot);
 
     return true;
 }
@@ -48,7 +57,7 @@ void DebugService::destroyService() {
     SymCleanup(GetCurrentProcess());
 }
 
-std::vector<StackFrame> DebugService::backtrace() {
+debug::Backtrace DebugService::backtrace() {
     HANDLE hThread = GetCurrentThread();
     HANDLE hProcess = GetCurrentProcess();
 
@@ -79,7 +88,7 @@ std::vector<StackFrame> DebugService::backtrace() {
         }
     };
 
-    std::vector<StackFrame> result;
+    debug::Backtrace result;
     char name[kNameLength] = {};
 
     while (getFrame(&frame, &ctx, hProcess, hThread)) {
@@ -182,5 +191,5 @@ std::string debug::getErrorName(DWORD dwErrorCode) {
 // utils
 
 void debug::throwLastError(std::string_view msg, DWORD err) {
-    throw std::runtime_error(std::format("{}: {}", msg, debug::getErrorName(err)));
+    core::throwFatal("{}: {}", msg, getErrorName(err));
 }
