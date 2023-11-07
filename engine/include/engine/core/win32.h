@@ -1,8 +1,7 @@
 #pragma once
 
 #define WIN32_LEAN_AND_MEAN
-#ifndef NOMINMAX
-#   define NOMINMAX
-#endif
+#define NOMINMAX
+#define NOSYSMETRICS
 
-#include <Windows.h>
+#include <windows.h>

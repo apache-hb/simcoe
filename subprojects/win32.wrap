@@ -1,0 +1,6 @@
+[wrap-file]
+source_filename = stub.zip
+patch_directory = win32
+
+[provide]
+dependency_names = win32_dbghlp, win32_netapi, win32_xinput

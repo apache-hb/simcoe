@@ -4,8 +4,8 @@
 
 #include "engine/core/strings.h"
 
-#include "ryzen/IBIOSEx.h"
-#include "ryzen/ICPUEx.h"
+#include "ryzenmonitor/IBIOSEx.h"
+#include "ryzenmonitor/ICPUEx.h"
 
 using namespace amd;
 using namespace simcoe;

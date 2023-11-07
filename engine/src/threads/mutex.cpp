@@ -3,19 +3,19 @@
 
 #include "engine/threads/service.h"
 
-#include <simcoe-config.h>
+#include <sm-config.h>
 
 using namespace simcoe;
 using namespace simcoe::mt;
 
 Mutex::Mutex([[maybe_unused]] std::string name)
-#if DEBUG_ENGINE
+#if SM_DEBUG_THREADS
     : name(std::move(name))
     , owner(0)
 #endif
 { }
 
-#if DEBUG_ENGINE
+#if SM_DEBUG_THREADS
 #   define DEBUG_TRY(...) try { __VA_ARGS__ }
 #   define DEBUG_CATCH(err, ...) catch (err) { __VA_ARGS__ }
 #else
@@ -24,7 +24,7 @@ Mutex::Mutex([[maybe_unused]] std::string name)
 #endif
 
 void Mutex::lock() {
-#if DEBUG_ENGINE
+#if SM_DEBUG_THREADS
     if (owner == threads::getCurrentThreadId()) {
         core::throwFatal("Mutex '{}' is already locked by this thread", name);
     }
@@ -39,7 +39,7 @@ void Mutex::lock() {
 }
 
 bool Mutex::tryLock() {
-#if DEBUG_ENGINE
+#if SM_DEBUG_THREADS
     if (owner == threads::getCurrentThreadId()) {
         core::throwFatal("Mutex '{}' is already locked by this thread", name);
     }
@@ -55,7 +55,7 @@ bool Mutex::tryLock() {
 
 void Mutex::unlock() {
     mutex.unlock();
-#if DEBUG_ENGINE
+#if SM_DEBUG_THREADS
     owner = 0;
 #endif
 }

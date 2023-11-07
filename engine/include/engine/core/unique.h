@@ -1,10 +1,10 @@
 #pragma once
 
-#include <simcoe-config.h>
+#include <sm-config.h>
 
 #include "engine/core/macros.h"
 
-#ifdef DEBUG_ENGINE
+#ifdef SM_ENGINE_DEBUG
 #   include "engine/core/panic.h"
 #endif
 

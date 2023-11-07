@@ -6,8 +6,8 @@
 #include "engine/core/unique.h"
 #include "engine/core/strings.h"
 
-#include "ryzen/IPlatform.h"
-#include "ryzen/IDeviceManager.h"
+#include "ryzenmonitor/IPlatform.h"
+#include "ryzenmonitor/IDeviceManager.h"
 
 #include <filesystem>
 #include <unordered_map>

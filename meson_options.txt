@@ -1,24 +1,41 @@
 option('debug-render',
-    description : 'enable render debug layers',
+    description : 'enable d3d12 render debug layer',
+    type : 'feature',
+    value : 'auto'
+)
+
+option('debug-threads',
+    description : 'enable intrusive thread debugging',
     type : 'feature',
     value : 'auto'
 )
 
 option('gui-app',
-    description : 'enable gui app',
+    description : 'link as a gui app on windows',
     type : 'feature',
     value : 'auto'
 )
 
-option('windows-store',
+option('package-msstore',
     description : 'package for windows store',
     type : 'feature',
     value : 'auto'
 )
 
-option('services',
-    description : 'optional editor services to enable',
-    choices : [ 'ryzenmonitor', 'gdk' ],
-    type : 'array',
-    value : [ 'ryzenmonitor', 'gdk' ]
+option('package-steam',
+    description : 'package for steam',
+    type : 'feature',
+    value : 'auto'
+)
+
+option('gameruntime',
+    description : 'enable windows gameruntime integration',
+    type : 'feature',
+    value : 'auto'
+)
+
+option('ryzenmonitor',
+    description : 'enable ryzenmonitor integration',
+    type : 'feature',
+    value : 'auto'
 )

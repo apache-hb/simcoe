@@ -7,7 +7,7 @@
 #include <string>
 #include <mutex>
 
-#include <simcoe-config.h>
+#include <sm-config.h>
 
 namespace simcoe::mt {
     struct Mutex {
@@ -19,7 +19,7 @@ namespace simcoe::mt {
         bool tryLock();
         void unlock();
     private:
-#if DEBUG_ENGINE
+#if SM_DEBUG_THREADS
         std::string name; /// the name of the mutex
         threads::ThreadId owner; /// the thread that currently owns the mutex
 #endif

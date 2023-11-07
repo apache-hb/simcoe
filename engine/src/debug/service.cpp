@@ -5,8 +5,6 @@
 #include "engine/core/unique.h"
 #include "engine/core/strings.h"
 
-#include "engine/config/ext/builder.h"
-
 #include <intsafe.h> // DWORD_MAX
 #include <comdef.h> // _com_error
 #include <dbghelp.h>
@@ -38,9 +36,7 @@ namespace {
 }
 
 DebugService::DebugService() {
-    CFG_DECLARE("debug",
-        CFG_FIELD_STRING("srcdir", &cfg::sourceRoot)
-    );
+
 }
 
 bool DebugService::createService() {

@@ -6,7 +6,7 @@
 #include "engine/core/units.h"
 #include "engine/core/array.h"
 
-#include "ryzen/IPlatform.h"
+#include "ryzenmonitor/IPlatform.h"
 
 #include <array>
 #include <vector>

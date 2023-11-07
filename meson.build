@@ -28,26 +28,20 @@ project('simcoe', 'cpp',
 ### config
 ###
 
-# fuck you
-add_global_arguments('-DNOMINMAX', language : 'cpp')
-
 buildtype = get_option('buildtype')
 is_release = buildtype.contains('release')
 is_debug = buildtype.contains('debug')
 
-# if we're building in release mode, we dont want render debugging
+# if we're building in release mode, we dont want intrusive debugging
+debug_threads = get_option('debug-threads').disable_auto_if(is_release)
 debug_render = get_option('debug-render').disable_auto_if(is_release)
 
 # if we're building in release mode, we want a gui app
 gui_app = get_option('gui-app').enable_auto_if(is_release)
 
 # if we're building for release, we want a windows store bundle
-package_app = get_option('windows-store').enable_auto_if(is_release)
-
-message('buildtype:', buildtype)
-message('render debug layers:', debug_render.allowed())
-message('building as a windows gui app:', gui_app.enabled())
-message('packaging for windows store deploy:', package_app.enabled())
+msstore_package = get_option('package-msstore')
+steam_package = get_option('package-steam')
 
 data_dir = meson.current_source_dir()/'data'
 script_dir = data_dir/'scripts'
@@ -59,13 +53,11 @@ script_dir = data_dir/'scripts'
 # argo = subproject('argo').get_variable('argo') TODO: config
 
 # windows deps
-win32 = subproject('win32')
+dbghelp = dependency('win32_dbghlp')
+xinput = dependency('win32_xinput')
 
-dbghelp = win32.get_variable('dbghelp')
-netapi = win32.get_variable('netapi')
-
+# rendering stuff
 directx = subproject('directx').get_variable('directx')
-xinput = subproject('xinput').get_variable('xinput')
 
 # config
 tomlpp = dependency('tomlplusplus')
@@ -83,24 +75,27 @@ freetype2 = dependency('freetype2')
 threads = dependency('threads')
 moodycamel = dependency('concurrentqueue')
 
-# vendor
-gdk = subproject('gdk').get_variable('gdk')
-ryzen = subproject('ryzen').get_variable('ryzen')
-
 ###
 ### args
 ###
 
-config = configuration_data()
-config.set10('DEBUG_ENGINE', is_debug)
-config.set10('DEBUG_RENDER', debug_render.allowed())
+gameruntime = dependency('gameruntime', required : false)
+ryzenmonitor = dependency('ryzenmonitor', required : false)
 
-services = get_option('services')
+opt_ryzenmonitor = get_option('ryzenmonitor').disable_auto_if(not ryzenmonitor.found())
+opt_gameruntime = get_option('gameruntime').disable_auto_if(not gameruntime.found())
 
-config.set10('SERVICE_DEBUG', is_debug)
-config.set10('SERVICE_LOGGING', true)
-config.set10('SERVICE_RYZEN', services.contains('ryzenmonitor'))
-config.set10('SERVICE_GDK', services.contains('gdk'))
+cdata = configuration_data()
+cdata.set10('SM_DEBUG', is_debug)
+cdata.set10('SM_DEBUG_THREADS', debug_threads.allowed())
+cdata.set10('SM_DEBUG_RENDER', debug_render.allowed())
+
+cdata.set10('SM_SERVICE_DEBUG', is_debug)
+cdata.set10('SM_SERVICE_LOGGING', true)
+cdata.set10('SM_SERVICE_RYZENMONITOR', opt_ryzenmonitor.enabled())
+cdata.set10('SM_SERVICE_GAMERUNTIME', opt_gameruntime.enabled())
+
+cfg_header = configure_file(output : 'sm-config.h', configuration : cdata)
 
 ###
 ### engine
@@ -110,12 +105,12 @@ args = [
     '/wd4324', # disable warning C4324: structure was padded due to alignment specifier
                # we want this because of UNIFORM_BUFFER
     '/wd4554',  # concurrentqueue tries to disable this internally but fails for some reason
-    '-D_HAS_EXCEPTIONS=0'
+    '-D_HAS_EXCEPTIONS=0' # we want the stl to not use exceptions, easier to debug that way
 ]
 
 src = [
     # config
-    configure_file(output : 'simcoe-config.h', configuration : config),
+    cfg_header,
 
     # core
     'engine/src/core/panic.cpp',
@@ -181,11 +176,6 @@ src = [
     'engine/src/render/render.cpp',
     'engine/src/render/graph.cpp',
     'engine/src/render/assets.cpp',
-
-    # vendor
-    'vendor/src/microsoft/gdk.cpp',
-    'vendor/src/amd/ryzen.cpp',
-    'vendor/src/amd/devices.cpp'
 ]
 
 inc = [
@@ -207,11 +197,19 @@ deps = [
     stb, harfbuzz, freetype2, tomlpp,
 
     # render
-    directx,
-
-    # vendor
-    gdk, ryzen, netapi
+    directx
 ]
+
+if opt_ryzenmonitor.enabled()
+    netapi = dependency('win32_netapi')
+    src += [ 'vendor/src/amd/ryzen.cpp', 'vendor/src/amd/devices.cpp' ]
+    deps += [ ryzenmonitor, netapi ]
+endif
+
+if opt_gameruntime.enabled()
+    src += [ 'vendor/src/microsoft/gdk.cpp' ]
+    deps += [ gameruntime ]
+endif
 
 libengine = library('engine', src,
     include_directories : inc,
@@ -402,8 +400,34 @@ client = executable('client', src,
     gui_app : gui_app.enabled()
 )
 
-if package_app.enabled()
-    # mkdir bundle
-    # makepkg pack /f data/config/layout.xml /lt /d build /nogameos /pc /pd bundle
-    # wdapp install bundle\32190Simcoe.Swarm1983_1.0.0.0_x64__7vy8vpnrb1vvr.msixvc /bootstrapper
+if msstore_package.enabled()
+    # mkdir msstore-bundle
+    # makepkg pack /f data/config/layout.xml /lt /d build /nogameos /pc /pd msstore-bundle
+    # wdapp install msstore-bundle\32190Simcoe.Swarm1983_1.0.0.0_x64__7vy8vpnrb1vvr.msixvc /bootstrapper
 endif
+
+if steam_package.enabled()
+    # mkdir steam-bundle
+    # TODO: how does steam want the files laid out?
+endif
+
+build_summary = {
+    'Services': {
+        'Microsoft XGameRuntime': opt_gameruntime.enabled(),
+        'Ryzen Monitoring SDK': opt_ryzenmonitor.enabled()
+    },
+    'Config': {
+        'Engine debug': is_debug,
+        'Threads debug': debug_threads.allowed(),
+        'Render debug': debug_render.allowed(),
+        'Windows console app': not gui_app.enabled()
+    },
+    'Deploy': {
+        'Microsoft store': msstore_package.enabled(),
+        'Steam': steam_package.enabled()
+    }
+}
+
+foreach section_title, section : build_summary
+    summary(section, bool_yn : true, section : section_title)
+endforeach

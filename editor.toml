@@ -63,12 +63,6 @@ capture = true # lock mouse input to window
 gamepad0 = true # enable first gamepad
 
 
-### debug config
-
-[debug]
-
-srcdir = "G:/github/simcoe"
-
 
 ### game config
 

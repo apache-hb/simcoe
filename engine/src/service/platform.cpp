@@ -257,6 +257,13 @@ namespace {
     void sendCommand(Window *pWindow, UserCommandFn fn) {
         PostMessage(pWindow->getHandle(), WM_USER_COMMAND, reinterpret_cast<WPARAM>(fn), 0);
     }
+
+    RECT getPrimaryMonitorRect() {
+        HMONITOR hMonitor = MonitorFromWindow(nullptr, MONITOR_DEFAULTTOPRIMARY);
+        MONITORINFO info = { .cbSize = sizeof(info) };
+        GetMonitorInfo(hMonitor, &info);
+        return info.rcMonitor;
+    }
 }
 
 Window::Window(const WindowCreateInfo& createInfo)
@@ -265,12 +272,17 @@ Window::Window(const WindowCreateInfo& createInfo)
     ASSERTF(pCallbacks != nullptr, "window callbacks must be provided");
     auto [width, height] = createInfo.size;
 
+    RECT rect = getPrimaryMonitorRect();
+
+    int x = (rect.right - rect.left - width) / 2;
+    int y = (rect.bottom - rect.top - height) / 2;
+
     hWindow = CreateWindow(
         /* lpClassName = */ kClassName,
         /* lpWindowName = */ createInfo.title,
         /* dwStyle = */ getStyle(createInfo.style),
-        /* x = */ (GetSystemMetrics(SM_CXSCREEN) - width) / 2,
-        /* y = */ (GetSystemMetrics(SM_CYSCREEN) - height) / 2,
+        /* x = */ x,
+        /* y = */ y,
         /* nWidth = */ width,
         /* nHeight = */ height,
         /* hWndParent = */ nullptr,
