@@ -1,6 +1,6 @@
 #include "editor/ui/windows/gdk.h"
 
-#include "vendor/microsoft/gdk.h"
+#include "vendor/gameruntime/service.h"
 
 using namespace editor;
 using namespace editor::ui;

@@ -7,7 +7,7 @@ using namespace simcoe;
 using namespace simcoe::render;
 
 namespace {
-#if DEBUG_RENDER
+#if SM_DEBUG_RENDER
     constexpr auto kFactoryFlags = rhi::eCreateDebug;
     constexpr auto kDeviceFlags = rhi::CreateFlags(rhi::eCreateDebug | rhi::eCreateInfoQueue | rhi::eCreateExtendedInfo);
 #else

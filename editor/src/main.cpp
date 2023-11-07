@@ -49,8 +49,8 @@
 #include "editor/ui/windows/logging.h"
 
 // vendor
-#include "vendor/microsoft/gdk.h"
-#include "vendor/amd/ryzen.h"
+#include "vendor/gameruntime/service.h"
+#include "vendor/ryzenmonitor/service.h"
 
 // game
 #include "game/service.h"

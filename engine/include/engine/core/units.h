@@ -6,9 +6,7 @@
 #include <string_view>
 #include <string>
 
-#if DEBUG_ENGINE
-#   include <limits>
-#endif
+#include <limits>
 
 namespace simcoe::core {
     struct Memory {
@@ -110,7 +108,7 @@ namespace simcoe::core {
     template<typename T, typename O>
     T intCast(O value) {
         /* paranoia */
-#if DEBUG_ENGINE
+#if SM_DEBUG
         static constexpr T kDstMin = std::numeric_limits<T>::min();
         static constexpr T kDstMax = std::numeric_limits<T>::max();
 

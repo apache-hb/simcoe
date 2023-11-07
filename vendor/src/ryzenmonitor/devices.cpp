@@ -1,4 +1,4 @@
-#include "vendor/amd/ryzen.h"
+#include "vendor/ryzenmonitor/service.h"
 
 #include "engine/log/service.h"
 
@@ -41,17 +41,6 @@ namespace {
         case 5: return "unsupported function";
         default: return std::format("unknown error {}", err);
         }
-    }
-}
-
-std::string_view amd::toString(OcMode mode) {
-    switch (mode) {
-    case OcMode::eModeManual: return "manual";
-    case OcMode::eModePbo: return "pbo";
-    case OcMode::eModeAuto: return "auto";
-    case OcMode::eModeEco: return "eco";
-    case OcMode::eModeDefault: return "default";
-    default: return "unknown";
     }
 }
 

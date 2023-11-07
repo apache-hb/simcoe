@@ -1,12 +1,7 @@
 #pragma once
 
-#include <sm-config.h>
-
 #include "engine/core/macros.h"
-
-#ifdef SM_ENGINE_DEBUG
-#   include "engine/core/panic.h"
-#endif
+#include "engine/core/panic.h"
 
 #include <utility>
 
@@ -75,7 +70,7 @@ namespace simcoe::core {
 
         UniquePtr(T *pData, size_t size)
             : Super(pData)
-#if DEBUG_ENGINE
+#if SM_DEBUG
             , size(size)
 #endif
         { }
@@ -99,7 +94,7 @@ namespace simcoe::core {
         }
 
     private:
-#if DEBUG_ENGINE
+#if SM_DEBUG
         void verifyIndex(size_t index) const {
             ASSERTF(index < size, "index out of bounds ({} < {})", index, size);
         }

@@ -7,8 +7,6 @@
 #include <string>
 #include <mutex>
 
-#include <sm-config.h>
-
 namespace simcoe::mt {
     struct Mutex {
         SM_NOCOPY(Mutex)

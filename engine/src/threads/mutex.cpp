@@ -3,8 +3,6 @@
 
 #include "engine/threads/service.h"
 
-#include <sm-config.h>
-
 using namespace simcoe;
 using namespace simcoe::mt;
 

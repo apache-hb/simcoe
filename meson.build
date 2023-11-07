@@ -79,11 +79,18 @@ moodycamel = dependency('concurrentqueue')
 ### args
 ###
 
-gameruntime = dependency('gameruntime', required : false)
-ryzenmonitor = dependency('ryzenmonitor', required : false)
+gameruntime = dependency('gameruntime',
+    fallback : [ 'gameruntime', 'gameruntime_dep' ],
+    required : false
+)
 
-opt_ryzenmonitor = get_option('ryzenmonitor').disable_auto_if(not ryzenmonitor.found())
-opt_gameruntime = get_option('gameruntime').disable_auto_if(not gameruntime.found())
+ryzenmonitor = dependency('ryzenmonitor',
+    fallback : [ 'ryzenmonitor', 'ryzenmonitor_dep' ],
+    required : false
+)
+
+opt_ryzenmonitor = get_option('ryzenmonitor').enable_auto_if(ryzenmonitor.found())
+opt_gameruntime = get_option('gameruntime').enable_auto_if(gameruntime.found())
 
 cdata = configuration_data()
 cdata.set10('SM_DEBUG', is_debug)
@@ -200,14 +207,23 @@ deps = [
     directx
 ]
 
+### ryzenmonitor service
+
+src += [ 'vendor/src/ryzenmonitor/common.cpp' ]
+
 if opt_ryzenmonitor.enabled()
     netapi = dependency('win32_netapi')
-    src += [ 'vendor/src/amd/ryzen.cpp', 'vendor/src/amd/devices.cpp' ]
+    src += [
+        'vendor/src/ryzenmonitor/service.cpp',
+        'vendor/src/ryzenmonitor/devices.cpp'
+    ]
     deps += [ ryzenmonitor, netapi ]
 endif
 
+### gameruntime service
+
 if opt_gameruntime.enabled()
-    src += [ 'vendor/src/microsoft/gdk.cpp' ]
+    src += [ 'vendor/src/gameruntime/service.cpp' ]
     deps += [ gameruntime ]
 endif
 

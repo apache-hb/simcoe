@@ -1,4 +1,4 @@
-#include "vendor/amd/ryzen.h"
+#include "vendor/ryzenmonitor/service.h"
 
 #include "engine/log/service.h"
 #include "engine/service/platform.h"
@@ -17,6 +17,10 @@
 #include <shlobj.h>
 #include <versionhelpers.h>
 #include <lm.h>
+
+#if SM_SERVICE_RYZENMONITOR != 1
+#   error "Compiling RyzenMonitorSerivce without RyzenMonitor enabled"
+#endif
 
 using namespace simcoe;
 using namespace amd;

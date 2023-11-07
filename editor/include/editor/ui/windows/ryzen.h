@@ -4,7 +4,7 @@
 #include "editor/ui/components/buffer.h"
 
 #include "engine/threads/mutex.h"
-#include "vendor/amd/ryzen.h"
+#include "vendor/ryzenmonitor/service.h"
 
 namespace editor::ui {
     struct CoreInfoHistory {

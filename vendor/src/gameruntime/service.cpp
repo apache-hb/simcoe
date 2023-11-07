@@ -1,4 +1,4 @@
-#include "vendor/microsoft/gdk.h"
+#include "vendor/gameruntime/service.h"
 
 #include "engine/core/error.h"
 

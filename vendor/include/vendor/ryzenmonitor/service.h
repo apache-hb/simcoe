@@ -6,10 +6,11 @@
 #include "engine/core/units.h"
 #include "engine/core/array.h"
 
-#include "ryzenmonitor/IPlatform.h"
-
 #include <array>
 #include <vector>
+
+struct IPlatform;
+struct IDeviceManager;
 
 class IBIOSEx;
 class ICPUEx;
