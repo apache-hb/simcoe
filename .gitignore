@@ -60,4 +60,7 @@ subprojects/icu*/
 subprojects/tracy*/
 subprojects/tomlplusplus*/
 subprojects/concurrentqueue*/
+subprojects/win32*/
+subprojects/gameruntime*/
+subprojects/ryzenmonitor*/
 subprojects/packagecache
