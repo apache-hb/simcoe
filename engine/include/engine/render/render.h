@@ -28,6 +28,8 @@ namespace simcoe::render {
         UINT renderWidth;
         UINT renderHeight;
 
+        size_t rtvHeapSize = 16;
+        size_t dsvHeapSize = 4;
         size_t srvHeapSize = 1024;
     };
 

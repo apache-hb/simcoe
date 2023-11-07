@@ -43,7 +43,11 @@ void Message::draw() const {
     ImGui::TableNextColumn();
     ImGui::Text("%s", log::toString(level).data());
     ImGui::TableNextColumn();
-    ImGui::Text("%s", text.c_str());
+    if (repititions > 1) {
+        ImGui::Text("%s (x %d)", text.c_str(), repititions);
+    } else {
+        ImGui::Text("%s", text.c_str());
+    }
 }
 
 LoggingDebug::LoggingDebug()
@@ -74,9 +78,6 @@ void LoggingDebug::draw() {
     if (bClear) clear();
 
     drawTable();
-
-    if (bAutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
-        ImGui::SetScrollHereY(0.999f);
 }
 
 void LoggingDebug::drawTable() {
@@ -91,27 +92,32 @@ void LoggingDebug::drawTable() {
         // freeze the first row so it's always visible when scrolling
 
         mt::read_lock lock(mutex);
-        ImGuiListClipper clipper;
-        clipper.Begin(core::intCast<int>(messages.size()));
-        while (clipper.Step()) {
-            for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
-                const auto& msg = messages[row];
-                if (!msg.filter(textFilter)) continue;
+        for (size_t row = 0; row < messages.size(); ++row) {
+            const auto& msg = messages[row];
+            if (!msg.filter(textFilter)) continue;
 
-                msg.draw();
-            }
+            msg.draw();
         }
+
+        // TODO: new messages dont appear for some reason
+
+        if (bAutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
+            ImGui::SetScrollHereY(1.0f);
+        }
+
         ImGui::EndTable();
     }
 }
 
 void LoggingDebug::accept(const log::Message& msg) {
     mt::write_lock lock(mutex);
+
+    if (!messages.empty() && messages.back().repeat(msg.msg)) return;
+
     messages.emplace_back(msg);
 }
 
 void LoggingDebug::clear() {
     mt::write_lock lock(mutex);
-
     messages.clear();
 }

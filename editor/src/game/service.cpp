@@ -48,6 +48,10 @@ namespace {
         simcoe::math::uint2 internalSize = { 1920 * 2, 1080 * 2 };
         size_t renderFaultLimit = 3;
 
+        size_t rtvHeapSize = 16;
+        size_t dsvHeapSize = 16;
+        size_t srvHeapSize = 1024;
+
         // game config
         size_t entityLimit = 0x1000;
         size_t seed = 0;
@@ -542,7 +546,10 @@ GameService::GameService() {
                 CFG_FIELD_INT("width", &cfg::internalSize.width),
                 CFG_FIELD_INT("height", &cfg::internalSize.height)
             ),
-            CFG_FIELD_INT("faultLimit", &cfg::renderFaultLimit)
+            CFG_FIELD_INT("faultLimit", &cfg::renderFaultLimit),
+            CFG_FIELD_INT("rtvHeapSize", &cfg::rtvHeapSize),
+            CFG_FIELD_INT("dsvHeapSize", &cfg::dsvHeapSize),
+            CFG_FIELD_INT("srvHeapSize", &cfg::srvHeapSize)
         ),
         CFG_FIELD_TABLE("world",
             CFG_FIELD_INT("entityLimit", &cfg::entityLimit),
@@ -565,6 +572,10 @@ bool GameService::createService() {
 
         .renderWidth = cfg::internalSize.width,
         .renderHeight = cfg::internalSize.height,
+
+        .rtvHeapSize = cfg::rtvHeapSize,
+        .dsvHeapSize = cfg::dsvHeapSize,
+        .srvHeapSize = cfg::srvHeapSize
     };
 
     pContext = sr::Context::create(createInfo);

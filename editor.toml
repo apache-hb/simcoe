@@ -81,6 +81,10 @@ size = { width = 3840, height = 2160 }
 
 faultLimit = 1
 
+rtvHeapSize = 16
+dsvHeapSize = 16
+srvHeapSize = 1024
+
 [game.world]
 entityLimit = 2048
 seed = 1

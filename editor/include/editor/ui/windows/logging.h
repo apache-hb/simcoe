@@ -10,6 +10,14 @@ namespace editor::ui {
         bool filter(ImGuiTextFilter& filter) const;
         void draw() const;
 
+        bool repeat(std::string_view msg) {
+            if (msg == text) {
+                repititions += 1;
+                return true;
+            }
+            return false;
+        }
+
     private:
         // time as a string, HH:MM:SS.mmm format
         std::string timestamp;
@@ -22,6 +30,8 @@ namespace editor::ui {
         // if the message contains newlines, we put borders above and below it
         bool bIsMultiline;
         std::string text;
+
+        int repititions = 1;
     };
 
     struct LoggingDebug final : ServiceDebug, log::ISink {
