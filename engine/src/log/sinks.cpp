@@ -1,25 +1,17 @@
 #include "engine/log/sinks.h"
 #include "engine/log/service.h"
 
-#include "engine/config/ext/builder.h"
-
 #include <iostream>
+
+#include "engine/config/system.h"
 
 using namespace simcoe;
 using namespace simcoe::log;
 
-ConsoleSink::ConsoleSink(bool bColour)
-    : ISink(true)
-    , bColour(bColour)
-{ }
+config::ConfigValue<bool> cfgLogColour("logging/console", "colour", "enable coloured console output", true);
+config::ConfigValue<std::string> cfgLogPath("logging/file", "path", "path to log file", "log.txt");
 
-void ConsoleSink::accept(const Message& msg) {
-    std::lock_guard guard(mutex);
-    auto it = bColour ? log::formatMessageColour(msg) : log::formatMessage(msg);
-    std::cout << it << "\n";
-}
-
-bool ConsoleSink::hasColourSupport() {
+bool hasColourSupport() {
     DWORD dwMode = 0;
     if (!GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwMode)) {
         return false;
@@ -28,12 +20,23 @@ bool ConsoleSink::hasColourSupport() {
     return dwMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING;
 }
 
-FileSink::FileSink(std::string path)
+ConsoleSink::ConsoleSink()
     : ISink(true)
-    , os(path)
+    , bColour(hasColourSupport() && cfgLogColour.getValue())
+{ }
+
+void ConsoleSink::accept(const Message& msg) {
+    std::lock_guard guard(mutex);
+    auto it = bColour ? log::formatMessageColour(msg) : log::formatMessage(msg);
+    std::cout << it << "\n";
+}
+
+FileSink::FileSink()
+    : ISink(true)
+    , os(cfgLogPath.getValue())
 {
     if (!os.is_open()) {
-        LOG_WARN("failed to open log file: {}", path);
+        LOG_WARN("failed to open log file: {}", cfgLogPath.getValue());
     }
 }
 

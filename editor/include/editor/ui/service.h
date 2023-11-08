@@ -3,9 +3,9 @@
 #include "editor/ui/ui.h"
 
 namespace editor::ui {
-    // service debuggers
-    struct ServiceDebug {
-        virtual ~ServiceDebug() = default;
+    // service ui panel
+    struct ServiceUi {
+        virtual ~ServiceUi() = default;
 
         std::string_view getServiceName() const;
         std::string_view getServiceError() const;
@@ -15,7 +15,7 @@ namespace editor::ui {
 
         virtual void draw() = 0;
     protected:
-        ServiceDebug(std::string_view name)
+        ServiceUi(std::string_view name)
             : serviceName(name)
         { }
 

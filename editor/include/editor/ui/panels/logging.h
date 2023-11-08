@@ -34,8 +34,8 @@ namespace editor::ui {
         int repititions = 1;
     };
 
-    struct LoggingDebug final : ServiceDebug, log::ISink {
-        LoggingDebug();
+    struct LoggingUi final : ServiceUi, log::ISink {
+        LoggingUi();
 
         void draw() override;
 

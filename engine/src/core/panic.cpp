@@ -11,6 +11,8 @@ using namespace simcoe;
 // fall back between services depending on whats available
 
 void core::panic(const PanicInfo &info, std::string_view msg) {
+    LOG_ERROR("PANIC {}:{} @ {} :: {}", info.file, info.line, info.fn, msg);
+
     if (PlatformService::getState() & ~eServiceFaulted) {
         auto title = std::format("PANIC {}:{} @ {}", info.file, info.line, info.fn);
         PlatformService::message(title, msg);

@@ -3,8 +3,8 @@
 #include "editor/ui/service.h"
 
 namespace editor::ui {
-    struct GdkDebug final : ServiceDebug {
-        GdkDebug();
+    struct GameRuntimeUi final : ServiceUi {
+        GameRuntimeUi();
 
         void draw() override;
     };

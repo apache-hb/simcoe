@@ -1,4 +1,4 @@
-#include "editor/ui/windows/logging.h"
+#include "editor/ui/panels/logging.h"
 
 #include "engine/core/units.h"
 #include "engine/threads/service.h"
@@ -50,13 +50,13 @@ void Message::draw() const {
     }
 }
 
-LoggingDebug::LoggingDebug()
-    : ServiceDebug("Logs")
+LoggingUi::LoggingUi()
+    : ServiceUi("Logs")
 {
     clear();
 }
 
-void LoggingDebug::draw() {
+void LoggingUi::draw() {
     // Options menu
     if (ImGui::BeginPopup("Options")) {
         ImGui::Checkbox("Auto-scroll", &bAutoScroll);
@@ -80,7 +80,7 @@ void LoggingDebug::draw() {
     drawTable();
 }
 
-void LoggingDebug::drawTable() {
+void LoggingUi::drawTable() {
     ImGuiTableFlags flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_Hideable | ImGuiTableFlags_ScrollY;
     if (ImGui::BeginTable("logs", 4, flags)) {
         ImGui::TableSetupScrollFreeze(0, 1);
@@ -109,7 +109,7 @@ void LoggingDebug::drawTable() {
     }
 }
 
-void LoggingDebug::accept(const log::Message& msg) {
+void LoggingUi::accept(const log::Message& msg) {
     mt::write_lock lock(mutex);
 
     if (!messages.empty() && messages.back().repeat(msg.msg)) return;
@@ -117,7 +117,7 @@ void LoggingDebug::accept(const log::Message& msg) {
     messages.emplace_back(msg);
 }
 
-void LoggingDebug::clear() {
+void LoggingUi::clear() {
     mt::write_lock lock(mutex);
     messages.clear();
 }

@@ -1,8 +1,9 @@
 #include "engine/depot/service.h"
 
-#include "engine/config/ext/builder.h"
-
+#include "engine/core/units.h"
 #include "engine/log/service.h"
+
+#include "engine/config/system.h"
 
 #include <stb/stb_image.h>
 
@@ -52,16 +53,19 @@ private:
     HANDLE hFile = INVALID_HANDLE_VALUE;
 };
 
+config::ConfigValue<size_t> cfgWaitInterval("depot", "waitInterval", "Interval between depot change notifications (in ms)", 100);
+config::ConfigValue<size_t> cfgMaxFileHandles("depot", "maxFileHandles", "Maximum number of file handles to keep open (0 = unlimited)", 0);
+
+config::ConfigValue<std::string> cfgVfsRoot("depot/vfs", "root", "Root directory for the virtual file system", "$exe");
+
+const config::ConfigFlagMap kModeFlags = {
+    { "read", eRead },
+    { "readwrite", eReadWrite }
+};
+
+config::ConfigEnumValue<depot::FileMode> cfgVfsMode("depot/vfs", "mode", "Mode for the virtual file system", depot::eRead, kModeFlags);
+
 namespace {
-    // config options
-    namespace cfg {
-        DWORD waitInterval = 100; // ms
-
-        size_t maxFileHandles = 0; // 0 = unlimited
-        std::string vfsRoot = "$exe"; // default to executable directory
-        depot::FileMode vfsMode = depot::eRead; // default to read only
-    }
-
     // vfs stuff
 
     std::string vfsPath;
@@ -110,23 +114,11 @@ HandleMap& DepotService::getHandles() { return handles; }
 // service api
 
 DepotService::DepotService() {
-    CFG_DECLARE("depot",
-        CFG_FIELD_INT("handles", &cfg::maxFileHandles),
-        CFG_FIELD_TABLE("vfs",
-            CFG_FIELD_STRING("root", &cfg::vfsRoot),
-            CFG_FIELD_ENUM("mode", &cfg::vfsMode,
-                CFG_CASE("readonly", eRead),
-                CFG_CASE("readwrite", eReadWrite)
-            )
-        ),
-        CFG_FIELD_TABLE("observer",
-            CFG_FIELD_INT("interval", &cfg::waitInterval)
-        )
-    );
+
 }
 
 bool DepotService::createService() {
-    vfsPath = formatPath(cfg::vfsRoot);
+    vfsPath = formatPath(cfgVfsRoot.getValue());
     LOG_INFO("depot vfs path: {}", vfsPath);
 
     constexpr DWORD dwFilter = FILE_NOTIFY_CHANGE_FILE_NAME
@@ -147,7 +139,7 @@ bool DepotService::createService() {
 
     pChangeNotify = ThreadService::newThread(threads::eBackground, "depot", [](std::stop_token token) {
         while (!token.stop_requested()) {
-            DWORD dwWait = WaitForSingleObject(hChange, cfg::waitInterval);
+            DWORD dwWait = WaitForSingleObject(hChange, cfgWaitInterval.getValueAs<DWORD>());
             if (dwWait == WAIT_TIMEOUT) continue;
             if (dwWait == WAIT_ABANDONED) {
                 debug::throwLastError("WaitForSingleObject");

@@ -8,8 +8,8 @@
 namespace game { struct World; }
 
 namespace editor::ui {
-    struct EngineDebug final : ServiceDebug {
-        EngineDebug(game::World *pWorld);
+    struct WorldUi final : ServiceUi {
+        WorldUi(game::World *pWorld);
 
         void draw() override;
 

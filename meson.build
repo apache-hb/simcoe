@@ -128,9 +128,8 @@ src = [
     'engine/src/core/error.cpp',
 
     # config
-    'engine/src/config/config.cpp',
-    'engine/src/config/schema.cpp',
-    'engine/src/config/source.cpp',
+    'engine/src/config/service.cpp',
+    'engine/src/config/system.cpp',
     'engine/src/config/toml.cpp',
 
     # service
@@ -313,12 +312,13 @@ src = [
     'editor/src/editor/ui/components/buffer.cpp',
 
     # uis for services
-    'editor/src/editor/ui/windows/ryzen.cpp',
-    'editor/src/editor/ui/windows/gdk.cpp',
-    'editor/src/editor/ui/windows/engine.cpp',
-    'editor/src/editor/ui/windows/threads.cpp',
-    'editor/src/editor/ui/windows/logging.cpp',
-    'editor/src/editor/ui/windows/depot.cpp',
+    'editor/src/editor/ui/panels/ryzenmonitor.cpp',
+    'editor/src/editor/ui/panels/gameruntime.cpp',
+    'editor/src/editor/ui/panels/world.cpp',
+    'editor/src/editor/ui/panels/threads.cpp',
+    'editor/src/editor/ui/panels/logging.cpp',
+    'editor/src/editor/ui/panels/depot.cpp',
+    'editor/src/editor/ui/panels/config.cpp',
 
     # game framework
     'editor/src/game/service.cpp',

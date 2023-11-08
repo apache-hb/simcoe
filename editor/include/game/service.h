@@ -61,9 +61,9 @@ namespace game {
             return pService;
         }
 
-        static std::span<editor::ui::ServiceDebug*> getDebugServices();
+        static std::span<editor::ui::ServiceUi*> getDebugServices();
 
     private:
-        static void addDebugService(editor::ui::ServiceDebug *pService);
+        static void addDebugService(editor::ui::ServiceUi *pService);
     };
 }

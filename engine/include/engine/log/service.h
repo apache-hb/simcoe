@@ -26,40 +26,40 @@ namespace simcoe {
         static void logDebug(std::string_view msg, A&&... args) {
             if (!shouldSend(log::eDebug)) { return; }
 
-            get()->sendMessageAlways(log::eDebug, std::vformat(msg, std::make_format_args(args...)));
+            sendMessageAlways(log::eDebug, std::vformat(msg, std::make_format_args(args...)));
         }
 
         template<typename... A>
         static void logInfo(std::string_view msg, A&&... args) {
             if (!shouldSend(log::eInfo)) { return; }
 
-            get()->sendMessageAlways(log::eInfo, std::vformat(msg, std::make_format_args(args...)));
+            sendMessageAlways(log::eInfo, std::vformat(msg, std::make_format_args(args...)));
         }
 
         template<typename... A>
         static void logWarn(std::string_view msg, A&&... args) {
             if (!shouldSend(log::eWarn)) { return; }
 
-            get()->sendMessageAlways(log::eWarn, std::vformat(msg, std::make_format_args(args...)));
+            sendMessageAlways(log::eWarn, std::vformat(msg, std::make_format_args(args...)));
         }
 
         template<typename... A>
         static void logError(std::string_view msg, A&&... args) {
             if (!shouldSend(log::eError)) { return; }
 
-            get()->sendMessageAlways(log::eError, std::vformat(msg, std::make_format_args(args...)));
+            sendMessageAlways(log::eError, std::vformat(msg, std::make_format_args(args...)));
         }
 
         template<typename... A>
         static void logAssert(std::string_view msg, A&&... args) {
             // we always send asserts
-            get()->throwAssert(std::vformat(msg, std::make_format_args(args...)));
+            throwAssert(std::vformat(msg, std::make_format_args(args...)));
         }
 
         static bool sendMessage(log::Level msgLevel, std::string_view msg) {
             if (!shouldSend(msgLevel)) { return false; }
 
-            get()->sendMessageAlways(msgLevel, msg);
+            sendMessageAlways(msgLevel, msg);
             return true;
         }
 
@@ -67,20 +67,8 @@ namespace simcoe {
         static void addSink(std::string_view name, log::ISink *pSink);
 
     private:
-        void sendMessageAlways(log::Level msgLevel, std::string_view msg);
-        void throwAssert(std::string msg);
-
-        // log filtering
-        log::Level level = log::eInfo;
-        std::string logpath = "engine.log";
-        bool bColour = true;
-
-        void addNewSink(std::string_view name, log::ISink *pSink);
-
-        // log sinks
-        mt::shared_mutex lock;
-        std::vector<log::ISink*> sinks;
-        std::unordered_map<std::string_view, log::ISink*> lookup;
+        static void sendMessageAlways(log::Level msgLevel, std::string_view msg);
+        static void throwAssert(std::string msg);
     };
 }
 

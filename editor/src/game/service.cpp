@@ -1,15 +1,14 @@
 #include "game/service.h"
 
-#include "engine/config/ext/builder.h"
-
 #include "engine/render/graph.h"
 
 // editor ui
-#include "editor/ui/windows/depot.h"
-#include "editor/ui/windows/engine.h"
-#include "editor/ui/windows/gdk.h"
-#include "editor/ui/windows/threads.h"
-#include "editor/ui/windows/ryzen.h"
+#include "editor/ui/panels/config.h"
+#include "editor/ui/panels/depot.h"
+#include "editor/ui/panels/world.h"
+#include "editor/ui/panels/threads.h"
+#include "editor/ui/panels/ryzenmonitor.h"
+#include "editor/ui/panels/gameruntime.h"
 
 // render passes
 #include "editor/graph/assets.h"
@@ -41,22 +40,6 @@ namespace gr = game::graph;
 static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless", "Fullscreen" });
 
 namespace {
-    namespace cfg {
-        // render config
-        size_t adapterIndex = 0;
-        UINT backBufferCount = 2;
-        simcoe::math::uint2 internalSize = { 1920 * 2, 1080 * 2 };
-        size_t renderFaultLimit = 3;
-
-        size_t rtvHeapSize = 16;
-        size_t dsvHeapSize = 16;
-        size_t srvHeapSize = 1024;
-
-        // game config
-        size_t entityLimit = 0x1000;
-        size_t seed = 0;
-    }
-
     // render
     std::atomic_bool bWindowOpen = true;
     WindowMode windowMode = eModeWindowed;
@@ -71,8 +54,23 @@ namespace {
     threads::ThreadHandle *pPhysicsThread = nullptr;
     threads::ThreadHandle *pGameThread = nullptr;
 
-    std::vector<editor::ui::ServiceDebug*> debugServices;
+    std::vector<editor::ui::ServiceUi*> debugServices;
 }
+
+config::ConfigValue<size_t> cfgRenderWidth("render/display", "width", "Render width", 1920);
+config::ConfigValue<size_t> cfgRenderHeight("render/display", "height", "Render height", 1080);
+
+config::ConfigValue<size_t> cfgRenderFaultLimit("render", "faultLimit", "Render fault limit", 0);
+
+config::ConfigValue<size_t> cfgAdapterIndex("d3d12", "adapter", "Which adapter to use", 0);
+config::ConfigValue<size_t> cfgBackBufferCount("d3d12", "backBufferCount", "How many backbuffers to use", 2);
+
+config::ConfigValue<size_t> cfgRtvHeapSize("d3d12", "rtvHeapSize", "RTV heap size", 16);
+config::ConfigValue<size_t> cfgDsvHeapSize("d3d12", "dsvHeapSize", "DSV heap size", 16);
+config::ConfigValue<size_t> cfgSrvHeapSize("d3d12", "srvHeapSize", "SRV heap size", 1024);
+
+config::ConfigValue<size_t> cfgEntityLimit("game", "entityLimit", "Entity limit", 0x1000);
+config::ConfigValue<size_t> cfgSeed("game", "seed", "World seed", 0);
 
 void setWindowMode(WindowMode oldMode, WindowMode newMode) {
     if (oldMode == newMode) return;
@@ -538,24 +536,7 @@ struct GameGui final : eg::IGuiPass {
 };
 
 GameService::GameService() {
-    CFG_DECLARE("game",
-        CFG_FIELD_TABLE("render",
-            CFG_FIELD_INT("adapter", &cfg::adapterIndex),
-            CFG_FIELD_INT("backBufferCount", &cfg::backBufferCount),
-            CFG_FIELD_TABLE("size",
-                CFG_FIELD_INT("width", &cfg::internalSize.width),
-                CFG_FIELD_INT("height", &cfg::internalSize.height)
-            ),
-            CFG_FIELD_INT("faultLimit", &cfg::renderFaultLimit),
-            CFG_FIELD_INT("rtvHeapSize", &cfg::rtvHeapSize),
-            CFG_FIELD_INT("dsvHeapSize", &cfg::dsvHeapSize),
-            CFG_FIELD_INT("srvHeapSize", &cfg::srvHeapSize)
-        ),
-        CFG_FIELD_TABLE("world",
-            CFG_FIELD_INT("entityLimit", &cfg::entityLimit),
-            CFG_FIELD_INT("seed", &cfg::seed)
-        )
-    );
+
 }
 
 bool GameService::createService() {
@@ -564,18 +545,18 @@ bool GameService::createService() {
     const sr::RenderCreateInfo createInfo = {
         .hWindow = window.getHandle(),
 
-        .adapterIndex = cfg::adapterIndex,
-        .backBufferCount = cfg::backBufferCount,
+        .adapterIndex = cfgAdapterIndex.getValue(),
+        .backBufferCount = core::intCast<UINT>(cfgBackBufferCount.getValue()),
 
         .displayWidth = size.width,
         .displayHeight = size.height,
 
-        .renderWidth = cfg::internalSize.width,
-        .renderHeight = cfg::internalSize.height,
+        .renderWidth = core::intCast<UINT>(cfgRenderWidth.getValue()),
+        .renderHeight = core::intCast<UINT>(cfgRenderHeight.getValue()),
 
-        .rtvHeapSize = cfg::rtvHeapSize,
-        .dsvHeapSize = cfg::dsvHeapSize,
-        .srvHeapSize = cfg::srvHeapSize
+        .rtvHeapSize = cfgRtvHeapSize.getValue(),
+        .dsvHeapSize = cfgDsvHeapSize.getValue(),
+        .srvHeapSize = cfgSrvHeapSize.getValue()
     };
 
     pContext = sr::Context::create(createInfo);
@@ -599,12 +580,12 @@ bool GameService::createService() {
     pGraph->addPass<eg::PresentPass>(pBackBuffers);
 
     const game::WorldInfo info = {
-        .entityLimit = cfg::entityLimit,
-        .seed = cfg::seed,
+        .entityLimit = cfgEntityLimit.getValue(),
+        .seed = cfgSeed.getValue(),
 
         .pRenderContext = pContext,
         .pRenderGraph = pGraph,
-        .renderFaultLimit = cfg::renderFaultLimit,
+        .renderFaultLimit = cfgRenderFaultLimit.getValue(),
 
         .pHudPass = pHudPass,
         .pScenePass = pScenePass
@@ -620,11 +601,12 @@ void GameService::destroyService() {
 }
 
 void GameService::start() {
-    addDebugService<ui::EngineDebug>(pWorld);
-    addDebugService<ui::GdkDebug>();
-    addDebugService<ui::ThreadServiceDebug>();
-    addDebugService<ui::RyzenMonitorDebug>();
-    addDebugService<ui::DepotDebug>();
+    addDebugService<ui::ConfigUi>();
+    addDebugService<ui::DepotUi>();
+    addDebugService<ui::WorldUi>(pWorld);
+    addDebugService<ui::GameRuntimeUi>();
+    addDebugService<ui::ThreadServiceUi>();
+    addDebugService<ui::RyzenMonitorUi>();
 
     pRenderThread = ThreadService::newThread(threads::eRealtime, "render", [&](auto token) {
         while (!token.stop_requested() && bWindowOpen) {
@@ -697,10 +679,10 @@ void GameService::changeCurrentAdapter(UINT newAdapter) {
     });
 }
 
-void GameService::addDebugService(editor::ui::ServiceDebug *pService) {
+void GameService::addDebugService(editor::ui::ServiceUi *pService) {
     debugServices.push_back(pService);
 }
 
-std::span<editor::ui::ServiceDebug*> GameService::getDebugServices() {
+std::span<editor::ui::ServiceUi*> GameService::getDebugServices() {
     return debugServices;
 }

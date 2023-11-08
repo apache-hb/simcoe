@@ -1,4 +1,4 @@
-#include "editor/ui/windows/ryzen.h"
+#include "editor/ui/panels/ryzenmonitor.h"
 
 #include "engine/core/win32.h"
 
@@ -75,8 +75,8 @@ void CoreInfoHistory::addResidency(float time, float r) {
     residency.addPoint(time, r);
 }
 
-RyzenMonitorDebug::RyzenMonitorDebug()
-    : ServiceDebug("RyzenMonitor")
+RyzenMonitorUi::RyzenMonitorUi()
+    : ServiceUi("RyzenMonitor")
 {
     if (RyzenMonitorSerivce::getState() & ~eServiceCreated) {
         setServiceError(RyzenMonitorSerivce::getFailureReason());
@@ -94,7 +94,7 @@ RyzenMonitorDebug::RyzenMonitorDebug()
     });
 }
 
-void RyzenMonitorDebug::draw() {
+void RyzenMonitorUi::draw() {
     ImGui::Text("Updates: %zu", updates);
 
     if (ImGui::CollapsingHeader("BIOS", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -110,7 +110,7 @@ void RyzenMonitorDebug::draw() {
     drawCoreInfo();
 }
 
-void RyzenMonitorDebug::drawWindow() {
+void RyzenMonitorUi::drawWindow() {
     if (!bOpen) return;
 
     auto name = getServiceName();
@@ -133,7 +133,7 @@ void RyzenMonitorDebug::drawWindow() {
     ImGui::End();
 }
 
-void RyzenMonitorDebug::drawBiosInfo() {
+void RyzenMonitorUi::drawBiosInfo() {
     if (const amd::BiosInfo *pBiosInfo = RyzenMonitorSerivce::getBiosInfo()) {
         auto vendor = pBiosInfo->getVendor();
         auto version = pBiosInfo->getVersion();
@@ -168,7 +168,7 @@ void RyzenMonitorDebug::drawBiosInfo() {
     }
 }
 
-void RyzenMonitorDebug::drawCoreHistory(size_t i, float width, float heightRatio, bool bHover) {
+void RyzenMonitorUi::drawCoreHistory(size_t i, float width, float heightRatio, bool bHover) {
     float history = 10.f;
     const auto& data = coreData[i];
     const auto& freqHistory = data.frequency;
@@ -212,7 +212,7 @@ void RyzenMonitorDebug::drawCoreHistory(size_t i, float width, float heightRatio
     ImPlot::PopStyleVar();
 }
 
-ImVec4 RyzenMonitorDebug::getUsageColour(float usage) {
+ImVec4 RyzenMonitorUi::getUsageColour(float usage) {
     ImVec4 blue = ImVec4(0.f, 0.f, 1.f, 1.f);
     ImVec4 red = ImVec4(1.f, 0.f, 0.f, 1.f);
 
@@ -235,7 +235,7 @@ namespace {
     }
 }
 
-void RyzenMonitorDebug::drawCoreInfoCurrentData() {
+void RyzenMonitorUi::drawCoreInfoCurrentData() {
     float width = ImGui::GetWindowWidth();
     float cellWidth = 150.f;
     size_t cols = size_t(width / cellWidth);
@@ -259,7 +259,7 @@ void RyzenMonitorDebug::drawCoreInfoCurrentData() {
     ImGui::EndTable();
 }
 
-void RyzenMonitorDebug::drawCoreInfoHistory() {
+void RyzenMonitorUi::drawCoreInfoHistory() {
     float windowWidth = ImGui::GetWindowWidth();
     float cellWidth = 250.f;
     size_t cols = size_t(windowWidth / cellWidth);
@@ -284,7 +284,7 @@ void RyzenMonitorDebug::drawCoreInfoHistory() {
     ImGui::PopStyleVar();
 }
 
-void RyzenMonitorDebug::drawCoreHover(size_t i) {
+void RyzenMonitorUi::drawCoreHover(size_t i) {
     if (displayMode == eDisplayHistory) return;
     if (hoverMode == eHoverNothing) return;
 
@@ -303,7 +303,7 @@ void RyzenMonitorDebug::drawCoreHover(size_t i) {
     }
 }
 
-void RyzenMonitorDebug::drawCpuInfo() {
+void RyzenMonitorUi::drawCpuInfo() {
     if (const amd::CpuInfo *pCpuInfo = RyzenMonitorSerivce::getCpuInfo()) {
         auto cpuName = pCpuInfo->getName();
         auto description = pCpuInfo->getDescription();
@@ -344,7 +344,7 @@ void RyzenMonitorDebug::drawCpuInfo() {
     }
 }
 
-void RyzenMonitorDebug::drawPackageInfo() {
+void RyzenMonitorUi::drawPackageInfo() {
     if (ImGui::CollapsingHeader("Package info")) {
         ImGui::Text("Overclock mode: %s", amd::toString(packageData.mode).data());
         ImGui::Text("Average Core Voltage: %.1f V", packageData.avgCoreVoltage);
@@ -372,7 +372,7 @@ void RyzenMonitorDebug::drawPackageInfo() {
     }
 }
 
-void RyzenMonitorDebug::drawSocInfo() {
+void RyzenMonitorUi::drawSocInfo() {
     if (ImGui::CollapsingHeader("SOC info")) {
         ImGui::Text("Voltage: %.1f A", socData.voltage);
 
@@ -397,7 +397,7 @@ void RyzenMonitorDebug::drawSocInfo() {
     }
 }
 
-void RyzenMonitorDebug::drawCoreInfo() {
+void RyzenMonitorUi::drawCoreInfo() {
     if (ImGui::CollapsingHeader("Core info")) {
         ImGui::PushItemWidth(100.f);
         ImGui::Combo("Hover mode", (int*)&hoverMode, kHoverNames.data(), core::intCast<int>(kHoverNames.size()));
@@ -417,7 +417,7 @@ void RyzenMonitorDebug::drawCoreInfo() {
     }
 }
 
-void RyzenMonitorDebug::updateCoreInfo() {
+void RyzenMonitorUi::updateCoreInfo() {
     std::lock_guard guard(lock);
     if (RyzenMonitorSerivce::updateCpuInfo()) {
         bInfoDirty = true;

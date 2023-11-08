@@ -78,7 +78,8 @@ namespace {
 
         void draw(char32_t codepoint, math::float4 colour) {
             if (FT_Error error = FT_Load_Char(face, codepoint, FT_LOAD_RENDER)) {
-                LOG_ASSERT("failed to load glyph (codepoint={}, fterr={})", uint32_t(codepoint), FT_Error_String(error));
+                const char *pError = FT_Error_String(error);
+                LOG_ASSERT("failed to load glyph (codepoint={}, fterr={})", uint32_t(codepoint), pError == nullptr ? "unknown" : pError);
             }
 
             FT_Bitmap *bitmap = &slot->bitmap;
@@ -129,7 +130,8 @@ Font::Font(const fs::path& path) {
     FT_Library library = FreeTypeService::getLibrary();
 
     if (FT_Error error = FT_New_Face(library, path.string().c_str(), 0, &face)) {
-        LOG_ASSERT("failed to load font face from `{}` (fterr={})", path.string(), FT_Error_String(error));
+        const char *pError = FT_Error_String(error);
+        LOG_ASSERT("failed to load font face from `{}` (fterr={})", path.string(), pError == nullptr ? "unknown" : pError);
     }
 
     if (FT_Error error = FT_Select_Charmap(face, FT_ENCODING_UNICODE)) {

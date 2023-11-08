@@ -3,6 +3,7 @@
 #include "engine/debug/service.h"
 #include "engine/service/platform.h"
 #include "engine/log/service.h"
+#include "engine/config/service.h"
 
 using namespace simcoe;
 
@@ -32,11 +33,12 @@ static void commonMain() {
 
 static int innerMain() try {
     auto engineServices = std::to_array({
+        ConfigService::service(),
         DebugService::service(),
         LoggingService::service(),
         PlatformService::service()
     });
-    ServiceRuntime runtime{engineServices, "client"};
+    ServiceRuntime runtime{engineServices};
 
     // dont use a Region here because we dont want to print `shutdown` if an exception is thrown
     LOG_INFO("startup");

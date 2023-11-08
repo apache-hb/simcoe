@@ -1,4 +1,4 @@
-#include "editor/ui/windows/gdk.h"
+#include "editor/ui/panels/gameruntime.h"
 
 #include "vendor/gameruntime/service.h"
 
@@ -7,15 +7,15 @@ using namespace editor::ui;
 
 using microsoft::GdkService;
 
-GdkDebug::GdkDebug()
-    : ServiceDebug("GDK")
+GameRuntimeUi::GameRuntimeUi()
+    : ServiceUi("GDK")
 {
     if (GdkService::getState() & ~eServiceCreated) {
         setServiceError(GdkService::getFailureReason());
     }
 }
 
-void GdkDebug::draw() {
+void GameRuntimeUi::draw() {
     auto info = GdkService::getAnalyticsInfo();
     auto id = GdkService::getConsoleId();
     const auto& features = GdkService::getFeatures();

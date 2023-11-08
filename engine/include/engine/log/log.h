@@ -1,7 +1,5 @@
 #pragma once
 
-#include "engine/config/config.h"
-
 #include "engine/threads/thread.h"
 
 namespace simcoe::log {

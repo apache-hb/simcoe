@@ -8,8 +8,8 @@
 #include "imfiles/imfilebrowser.h"
 
 namespace editor::ui {
-    struct DepotDebug final : ServiceDebug {
-        DepotDebug();
+    struct DepotUi final : ServiceUi {
+        DepotUi();
 
         void draw() override;
 

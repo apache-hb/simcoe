@@ -21,8 +21,8 @@ namespace editor::ui {
         ScrollingBuffer residency = { 60 };
     };
 
-    struct RyzenMonitorDebug final : ServiceDebug {
-        RyzenMonitorDebug();
+    struct RyzenMonitorUi final : ServiceUi {
+        RyzenMonitorUi();
 
         void draw() override;
         void drawWindow() override;

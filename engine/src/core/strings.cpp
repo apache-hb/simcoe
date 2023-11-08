@@ -3,6 +3,7 @@
 #include "engine/core/win32.h"
 
 using namespace simcoe;
+using namespace simcoe::util;
 
 std::string util::narrow(std::wstring_view wstr) {
     std::string result(wstr.size() + 1, '\0');
@@ -43,4 +44,18 @@ std::string util::join(std::span<const std::string_view> all, std::string_view d
 
 std::string util::join(std::span<const std::string> all, std::string_view delim) {
     return joinInner(all, delim);
+}
+
+
+SplitView::SplitView(std::string_view text, std::string_view delim)
+    : text(text)
+    , delim(delim)
+{ }
+
+SplitViewIter SplitView::begin() const {
+    return SplitViewIter(text, delim);
+}
+
+SplitViewIter SplitView::end() const {
+    return SplitViewIter({}, delim);
 }

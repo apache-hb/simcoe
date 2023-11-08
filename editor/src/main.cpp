@@ -13,6 +13,7 @@
 #include "engine/threads/service.h"
 #include "engine/depot/service.h"
 #include "engine/input/service.h"
+#include "engine/config/service.h"
 
 // threads
 #include "engine/threads/schedule.h"
@@ -44,9 +45,9 @@
 
 // editor ui
 #include "editor/ui/ui.h"
-#include "editor/ui/windows/threads.h"
-#include "editor/ui/windows/depot.h"
-#include "editor/ui/windows/logging.h"
+#include "editor/ui/panels/threads.h"
+#include "editor/ui/panels/depot.h"
+#include "editor/ui/panels/logging.h"
 
 // vendor
 #include "vendor/gameruntime/service.h"
@@ -104,9 +105,10 @@ static void commonMain() {
 }
 
 static int serviceWrapper() try {
-    LoggingService::addSink("imgui", GameService::addDebugService<ui::LoggingDebug>());
+    LoggingService::addSink("imgui", GameService::addDebugService<ui::LoggingUi>());
 
     auto engineServices = std::to_array({
+        ConfigService::service(),
         DebugService::service(),
 
         PlatformService::service(),
@@ -120,7 +122,7 @@ static int serviceWrapper() try {
         GdkService::service(),
         RyzenMonitorSerivce::service()
     });
-    ServiceRuntime runtime{engineServices, "editor"};
+    ServiceRuntime runtime{engineServices};
 
     commonMain();
     LOG_INFO("no game exceptions have occured during runtime");

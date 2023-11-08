@@ -1,4 +1,4 @@
-#include "editor/ui/windows/depot.h"
+#include "editor/ui/panels/depot.h"
 
 #include "engine/depot/service.h"
 
@@ -17,11 +17,11 @@ namespace {
     }
 }
 
-DepotDebug::DepotDebug()
-    : ServiceDebug("Depot")
+DepotUi::DepotUi()
+    : ServiceUi("Depot")
 { }
 
-void DepotDebug::draw() {
+void DepotUi::draw() {
     mt::read_lock lock(DepotService::getMutex());
 
     if (ImGui::Button("Open File")) {

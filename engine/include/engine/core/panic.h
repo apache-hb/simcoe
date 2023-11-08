@@ -13,6 +13,7 @@ namespace simcoe::core {
         size_t line;
     };
 
+    [[noreturn]]
     void panic(const PanicInfo& info, std::string_view msg);
 }
 

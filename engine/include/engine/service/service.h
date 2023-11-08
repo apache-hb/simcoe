@@ -3,8 +3,6 @@
 #include "engine/core/macros.h"
 #include "engine/core/panic.h"
 
-#include "engine/config/config.h"
-
 #include <span>
 #include <string_view>
 #include <atomic>
@@ -19,7 +17,7 @@ namespace simcoe {
         eServiceFaulted = (1 << 3) // service has been created but failed to initialize
     };
 
-    struct IService : config::IConfig {
+    struct IService {
         SM_NOCOPY(IService)
 
         IService(std::string_view name)
@@ -81,7 +79,7 @@ namespace simcoe {
     };
 
     struct ServiceRuntime {
-        ServiceRuntime(std::span<IService*> services, const fs::path& config);
+        ServiceRuntime(std::span<IService*> services);
         ~ServiceRuntime();
 
     private:

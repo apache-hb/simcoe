@@ -45,12 +45,12 @@ void ui::enumGlobalHandles(std::function<void(DebugHandle*)> callback) {
 
 // service debuggers
 
-void ServiceDebug::drawMenuItem() {
+void ServiceUi::drawMenuItem() {
     auto name = getServiceName();
     ImGui::MenuItem(name.data(), nullptr, &bOpen);
 }
 
-void ServiceDebug::drawWindow() {
+void ServiceUi::drawWindow() {
     if (!bOpen) return;
 
     auto name = getServiceName();
@@ -66,14 +66,14 @@ void ServiceDebug::drawWindow() {
     ImGui::End();
 }
 
-std::string_view ServiceDebug::getServiceName() const {
+std::string_view ServiceUi::getServiceName() const {
     return serviceName;
 }
 
-std::string_view ServiceDebug::getServiceError() const {
+std::string_view ServiceUi::getServiceError() const {
     return serviceError;
 }
 
-void ServiceDebug::setServiceError(std::string_view reason) {
+void ServiceUi::setServiceError(std::string_view reason) {
     serviceError = reason;
 }

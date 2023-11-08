@@ -1,4 +1,4 @@
-#include "editor/ui/windows/engine.h"
+#include "editor/ui/panels/world.h"
 
 #include "game/world.h"
 
@@ -7,13 +7,13 @@
 using namespace editor;
 using namespace editor::ui;
 
-EngineDebug::EngineDebug(game::World *pWorld)
-    : ServiceDebug("Engine")
+WorldUi::WorldUi(game::World *pWorld)
+    : ServiceUi("World")
     , pWorld(pWorld)
 {
     SM_ASSERT(pWorld != nullptr);
 }
 
-void EngineDebug::draw() {
+void WorldUi::draw() {
 
 }

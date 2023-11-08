@@ -8,11 +8,9 @@
 
 namespace simcoe::log {
     struct ConsoleSink final : ISink {
-        ConsoleSink(bool bColour = hasColourSupport());
+        ConsoleSink();
 
         void accept(const Message& msg) override;
-
-        static bool hasColourSupport();
 
     private:
         bool bColour;
@@ -21,7 +19,7 @@ namespace simcoe::log {
     };
 
     struct FileSink final : ISink {
-        FileSink(std::string path);
+        FileSink();
 
         void accept(const Message& msg) override;
 

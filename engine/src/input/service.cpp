@@ -4,55 +4,41 @@
 #include "engine/input/win32-device.h"
 #include "engine/input/xinput-device.h"
 
-#include "engine/config/ext/builder.h"
+#include "engine/config/system.h"
 
 using namespace simcoe;
 
 // internal data
 
-namespace {
-    namespace cfg {
-        size_t pollInterval = 16; ///< how often to poll input devices (in ms)
+config::ConfigValue<int64_t> cfgPollInterval("input", "poll-interval", "How often to poll input devices (in ms)", 16);
 
-        bool bEnableKeyboard = true; ///< enable keyboard input
-        bool bEnableMouse = true; ///< enable mouse input
-        bool bLockMouse = false; ///< lock mouse to window
+config::ConfigValue<bool> cfgEnableKeyboard("input", "keyboardenable", "Enable keyboard input", true);
+config::ConfigValue<bool> cfgEnableMouse("input", "mouseenable", "Enable mouse input", true);
+config::ConfigValue<bool> cfgLockMouse("input", "mousecapture", "Lock mouse to window", false);
 
-        bool bEnableGamepad0 = true; ///< enable xinput gamepad0
-    }
-}
+config::ConfigValue<bool> cfgEnableGamepad0("input/xinput", "gamepad0", "Enable xinput gamepad0", true);
 
 // service api
 
 InputService::InputService() {
-    CFG_DECLARE("input",
-        CFG_FIELD_INT("interval", &cfg::pollInterval),
-        CFG_FIELD_TABLE("mouse",
-            CFG_FIELD_BOOL("enable", &cfg::bEnableMouse),
-            CFG_FIELD_BOOL("capture", &cfg::bLockMouse)
-        ),
-        CFG_FIELD_BOOL("keyboard", &cfg::bEnableKeyboard),
-        CFG_FIELD_TABLE("xinput",
-            CFG_FIELD_BOOL("gamepad0", &cfg::bEnableGamepad0)
-        )
-    );
+
 }
 
 bool InputService::createService() {
-    if (cfg::bEnableKeyboard) {
+    if (cfgEnableKeyboard.getValue()) {
         addSource(new input::Win32Keyboard());
     }
 
-    if (cfg::bEnableMouse) {
-        addSource(new input::Win32Mouse(PlatformService::getWindow(), cfg::bLockMouse));
+    if (cfgEnableMouse.getValue()) {
+        addSource(new input::Win32Mouse(PlatformService::getWindow(), cfgLockMouse.getValue()));
     }
 
-    if (cfg::bEnableGamepad0) {
+    if (cfgEnableGamepad0.getValue()) {
         addSource(new input::XInputGamepad(0));
     }
 
-    pThread = ThreadService::newThread(threads::eResponsive, "input", [this](std::stop_token stop) {
-        auto interval = std::chrono::milliseconds(cfg::pollInterval);
+    pThread = ThreadService::newThread(threads::eResponsive, "input", [](std::stop_token stop) {
+        auto interval = std::chrono::milliseconds(cfgPollInterval.getValue());
 
         while (!stop.stop_requested()) {
             pollInput();

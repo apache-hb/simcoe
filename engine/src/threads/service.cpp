@@ -3,7 +3,7 @@
 #include "engine/core/error.h"
 #include "engine/core/units.h"
 
-#include "engine/config/ext/builder.h"
+#include "engine/config/system.h"
 
 #include "engine/log/service.h"
 
@@ -13,6 +13,13 @@ using namespace simcoe;
 using namespace simcoe::threads;
 
 using namespace std::chrono_literals;
+
+config::ConfigValue<size_t> cfgDefaultWorkerCount("threads/workers", "initial", "Default number of worker threads (0 = system default)", 0);
+config::ConfigValue<size_t> cfgMaxWorkerCount("threads/workers", "max", "Maximum number of worker threads (0 = no limit)", 0);
+config::ConfigValue<size_t> cfgWorkerDelay("threads/workers", "delay", "Delay between worker thread polls (in ms)", 50);
+
+config::ConfigValue<size_t> cfgWorkQueueSize("threads", "workQueueSize", "Size of the work queue", 256);
+config::ConfigValue<size_t> cfgMainQueueSize("threads", "mainQueueSize", "Size of the main queue", 64);
 
 namespace {
     template<typename T>
@@ -288,16 +295,6 @@ namespace {
         }
     };
 
-    // config
-    namespace cfg {
-        size_t gDefaultWorkerCount = 0; // 0 means let the system decide
-        size_t gMaxWorkerCount = 0; // 0 means no limit
-        size_t gWorkerDelay = 50; // ms
-
-        size_t gWorkQueueSize = 256; // size of the work queue, this is shared between all workers
-        size_t gMainQueueSize = 64; // size of the main queue
-    }
-
     // geometry data
     Geometry gCpuGeometry = {};
 
@@ -313,7 +310,7 @@ namespace {
     threads::ThreadHandle *newWorkerThread() {
         const auto kWorkerBody = [](std::stop_token token) {
             WorkMessage msg;
-            auto interval = std::chrono::milliseconds(cfg::gWorkerDelay);
+            auto interval = std::chrono::milliseconds(cfgWorkerDelay.getValue());
 
             while (!token.stop_requested()) {
                 if (gWorkQueue->tryGetMessage(msg, interval)) {
@@ -328,17 +325,7 @@ namespace {
 }
 
 ThreadService::ThreadService() {
-    CFG_DECLARE("threads",
-        CFG_FIELD_TABLE("workers",
-            CFG_FIELD_INT("initial", &cfg::gDefaultWorkerCount),
-            CFG_FIELD_INT("max", &cfg::gMaxWorkerCount),
-            CFG_FIELD_INT("interval", &cfg::gWorkerDelay)
-        ),
-        CFG_FIELD_TABLE("queues",
-            CFG_FIELD_INT("main", &cfg::gMainQueueSize),
-            CFG_FIELD_INT("worker", &cfg::gWorkQueueSize)
-        )
-    );
+
 }
 
 bool ThreadService::createService() {
@@ -403,10 +390,10 @@ bool ThreadService::createService() {
         .packages = builder.packages
     };
 
-    gMainQueue = new WorkQueue(cfg::gMainQueueSize);
-    gWorkQueue = new BlockingWorkQueue(cfg::gWorkQueueSize);
+    gMainQueue = new WorkQueue(cfgMainQueueSize.getValue());
+    gWorkQueue = new BlockingWorkQueue(cfgWorkQueueSize.getValue());
 
-    setWorkerCount(cfg::gDefaultWorkerCount);
+    setWorkerCount(cfgDefaultWorkerCount.getValue());
 
     return true;
 }
@@ -438,6 +425,7 @@ void ThreadService::pollMainQueue() {
 // scheduler
 
 void ThreadService::setWorkerCount(size_t count) {
+    count = count == 0 ? std::thread::hardware_concurrency() / 2 : count;
     LOG_INFO("starting {} workers", count);
     mt::write_lock lock(gWorkerLock);
 

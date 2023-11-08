@@ -10,25 +10,31 @@
 
 namespace simcoe::config {
     struct INode;
+    struct ConfigEntry;
 
-    using NodeMap = std::unordered_map<std::string, INode*>;
-    using NodeVec = std::vector<INode*>;
+    using NodeMap = std::unordered_map<std::string, const INode*>;
 
-    enum NodeType {
-        eBool,
-        eInt,
-        eFloat,
-        eString,
-        eTable,
-        eArray,
+    enum ValueType {
+        eConfigBool,
+        eConfigString,
+        eConfigInt,
+        eConfigFloat,
 
-        eUnkonwn
+        eConfigEnum,
+        eConfigFlags,
+
+        eConfigGroup,
+
+        eConfigError,
+
+        eConfigCount
     };
 
     struct INode {
         virtual ~INode() = default;
 
-        virtual NodeType getType() const = 0;
+        // reading api
+        virtual ValueType getType() const = 0;
 
         template<typename T>
         T getUnchecked() const {
@@ -37,36 +43,49 @@ namespace simcoe::config {
             return value;
         }
 
+        template<std::integral T>
+        bool get(T& value) const {
+            if (int64_t v; get(v)) {
+                value = static_cast<T>(v);
+                return true;
+            }
+
+            return false;
+        }
+
         virtual bool get(bool& value) const = 0;
         virtual bool get(int64_t& value) const = 0;
+        virtual bool get(float& value) const = 0;
         virtual bool get(std::string& value) const = 0;
         virtual bool get(NodeMap &value) const = 0;
-        virtual bool get(NodeVec &value) const = 0;
     };
-
-    bool isArrayAll(const NodeVec& nodes, NodeType type);
 
     struct ISource {
         virtual ~ISource() = default;
 
-        virtual INode *load() = 0;
+        virtual const INode *load(const fs::path& path) = 0;
+        virtual bool save(const fs::path& path, const INode *pNode) = 0;
+
+        virtual const INode *create(bool value) = 0;
+        virtual const INode *create(int64_t value) = 0;
+        virtual const INode *create(float value) = 0;
+        virtual const INode *create(std::string_view value) = 0;
+        virtual const INode *create(const NodeMap &value) = 0;
     };
 
-    ISource *loadToml(const fs::path& path);
+    ISource *newTomlSource();
 }
 
 template<typename T>
-struct std::formatter<simcoe::config::NodeType, T> : std::formatter<std::string_view, T> {
-    template<typename FormatContext>
-    auto format(simcoe::config::NodeType type, FormatContext& ctx) {
+struct std::formatter<simcoe::config::ValueType, T> : std::formatter<std::string_view, T> {
+    auto format(simcoe::config::ValueType type, auto& ctx) {
         using f = std::formatter<std::string_view, T>;
         switch (type) {
-        case simcoe::config::eBool: return f::format("bool", ctx);
-        case simcoe::config::eInt: return f::format("int", ctx);
-        case simcoe::config::eFloat: return f::format("float", ctx);
-        case simcoe::config::eString: return f::format("string", ctx);
-        case simcoe::config::eTable: return f::format("table", ctx);
-        case simcoe::config::eArray: return f::format("array", ctx);
+        case simcoe::config::eConfigBool: return f::format("bool", ctx);
+        case simcoe::config::eConfigInt: return f::format("int", ctx);
+        case simcoe::config::eConfigFloat: return f::format("float", ctx);
+        case simcoe::config::eConfigString: return f::format("string", ctx);
+        case simcoe::config::eConfigGroup: return f::format("table", ctx);
         default: return f::format("unknown", ctx);
         }
     }

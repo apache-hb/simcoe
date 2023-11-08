@@ -5,7 +5,7 @@
 #include "engine/core/strings.h"
 #include "engine/core/panic.h"
 
-#include "engine/config/ext/builder.h"
+#include "engine/config/system.h"
 
 #include "engine/log/service.h"
 
@@ -21,10 +21,6 @@ using namespace simcoe;
 namespace {
     constexpr auto kClassName = "simcoe";
 
-    namespace cfg {
-        std::string windowTitle = "simcoe";
-        WindowSize windowSize = { 1280, 720 };
-    }
 
     HINSTANCE gInstance = nullptr;
     int gCmdShow = -1;
@@ -49,16 +45,12 @@ namespace {
     }
 }
 
+config::ConfigValue<std::string> cfgWindowTitle("platform/window", "title", "window title", "simcoe");
+config::ConfigValue<int> cfgWindowWidth("platform/window", "width", "window width", 1280);
+config::ConfigValue<int> cfgWindowHeight("platform/window", "height", "window height", 720);
+
 PlatformService::PlatformService() {
-    CFG_DECLARE("platform",
-        CFG_FIELD_TABLE("window",
-            CFG_FIELD_STRING("title", &cfg::windowTitle),
-            CFG_FIELD_TABLE("size",
-                CFG_FIELD_INT("width", &cfg::windowSize.width),
-                CFG_FIELD_INT("height", &cfg::windowSize.height)
-            )
-        )
-    );
+
 }
 
 bool PlatformService::createService() {
@@ -92,10 +84,12 @@ bool PlatformService::createService() {
 
     exeDirectory = fs::path(currentPath).parent_path();
 
+    auto title = cfgWindowTitle.getValue();
+
     WindowCreateInfo info = {
-        .title = cfg::windowTitle.c_str(),
+        .title = title.c_str(),
         .style = WindowStyle::eWindowed,
-        .size = cfg::windowSize,
+        .size = { cfgWindowWidth.getValue(), cfgWindowHeight.getValue() },
         .pCallbacks = gCallbacks
     };
     gWindow = new Window(info);

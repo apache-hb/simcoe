@@ -1,7 +1,8 @@
-#include "editor/ui/windows/threads.h"
+#include "editor/ui/panels/threads.h"
 
 #include "engine/core/range.h"
 
+#include "engine/core/units.h"
 #include "imgui/imgui_internal.h"
 
 using namespace editor;
@@ -22,14 +23,15 @@ namespace {
     }
 }
 
-ThreadServiceDebug::ThreadServiceDebug()
-    : ServiceDebug("Threads")
+ThreadServiceUi::ThreadServiceUi()
+    : ServiceUi("Threads")
 {
     if (ThreadService::getState() & ~eServiceCreated) {
         setServiceError(ThreadService::getFailureReason());
         return;
     }
 
+    workers = core::intCast<int>(ThreadService::getWorkerCount());
     geometry = ThreadService::getGeometry();
 
     for (const auto& [index, chiplet] : core::enumerate<ChipletIndex>(geometry.chiplets)) {
@@ -37,7 +39,7 @@ ThreadServiceDebug::ThreadServiceDebug()
     }
 }
 
-void ThreadServiceDebug::draw() {
+void ThreadServiceUi::draw() {
     if (ImGui::BeginTabBar("packages")) {
         for (const auto& [i, package] : core::enumerate<PackageIndex>(geometry.packages)) {
             char label[32];
@@ -54,7 +56,10 @@ void ThreadServiceDebug::draw() {
     mt::read_lock lock(ThreadService::getPoolLock());
     auto& pool = ThreadService::getPool();
     ImGui::Text("total threads: %zu", pool.size());
-    ImGui::Text("worker threads: %zu", ThreadService::getWorkerCount());
+
+    if (ImGui::InputInt("Worker Threads", &workers)) {
+        ThreadService::setWorkerCount(workers);
+    }
 
     if (ImGui::BeginTable("Threads", 4, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_RowBg)) {
         ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthStretch, 100.f);
@@ -64,7 +69,7 @@ void ThreadServiceDebug::draw() {
         ImGui::TableHeadersRow();
 
         for (const auto *pThread : pool) {
-            auto threadName = queryThreadName(pThread->getId());
+            auto threadName = ts::getThreadName(pThread->getId());
             ImGui::TableNextColumn();
             ImGui::Text("%s", threadName.data());
 
@@ -91,7 +96,7 @@ void ThreadServiceDebug::draw() {
     }
 }
 
-void ThreadServiceDebug::drawPackage(const threads::Package& package) const {
+void ThreadServiceUi::drawPackage(const threads::Package& package) const {
     ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_RowBg;
 
     const auto& [mask, threads, cores, chiplets] = package;
@@ -138,7 +143,7 @@ void ThreadServiceDebug::drawPackage(const threads::Package& package) const {
     }
 }
 
-CoreIndex ThreadServiceDebug::getFastestCore(const Chiplet& cluster) const {
+CoreIndex ThreadServiceUi::getFastestCore(const Chiplet& cluster) const {
     threads::CoreIndex fastest = threads::CoreIndex::eInvalid;
     uint16_t bestSchedule = UINT16_MAX;
 
@@ -151,8 +156,4 @@ CoreIndex ThreadServiceDebug::getFastestCore(const Chiplet& cluster) const {
     }
 
     return fastest;
-}
-
-std::string_view ThreadServiceDebug::queryThreadName(ts::ThreadId id) {
-    return ts::getThreadName(id);
 }

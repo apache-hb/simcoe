@@ -2,7 +2,7 @@
 #include "engine/core/error.h"
 #include "engine/log/sinks.h"
 
-#include "engine/config/ext/builder.h"
+#include "engine/config/system.h"
 
 #include "engine/threads/service.h"
 
@@ -12,32 +12,30 @@ using namespace simcoe;
 
 namespace chrono = std::chrono;
 
-LoggingService::LoggingService() {
-    addNewSink("console", new log::ConsoleSink());
+const config::ConfigFlagMap kLevelNames = {
+    { "assert", log::eAssert },
+    { "error", log::eError },
+    { "warn", log::eWarn },
+    { "info", log::eInfo },
+    { "debug", log::eDebug },
+};
 
-    CFG_DECLARE("logging",
-        CFG_FIELD_ENUM("level", &level,
-            CFG_CASE("panic", log::eAssert),
-            CFG_CASE("error", log::eError),
-            CFG_CASE("warn", log::eWarn),
-            CFG_CASE("info", log::eInfo),
-            CFG_CASE("debug", log::eDebug),
-        ),
-        CFG_FIELD_TABLE("sinks",
-            CFG_FIELD_TABLE("console",
-                CFG_FIELD_BOOL("colour", &bColour)
-            ),
-            CFG_FIELD_TABLE("file",
-                CFG_FIELD_STRING("path", &logpath)
-            )
-        )
-    );
+config::ConfigEnumValue<log::Level> cfgLogLevel("logging", "level", "default logging level", log::eInfo, kLevelNames);
+
+namespace {
+    // log sinks
+    mt::shared_mutex lock;
+    std::vector<log::ISink*> sinks;
+    std::unordered_map<std::string_view, log::ISink*> lookup;
+}
+
+LoggingService::LoggingService() {
+    addSink("console", new log::ConsoleSink());
+    addSink("file", new log::FileSink());
 }
 
 bool LoggingService::createService() {
-    addNewSink("file", new log::FileSink(logpath));
-
-    LOG_INFO("log level: {}", log::toString(level));
+    LOG_INFO("log level: {}", log::toString(cfgLogLevel.getValue()));
     return true;
 }
 
@@ -48,20 +46,20 @@ void LoggingService::destroyService() {
 // public interface
 
 bool LoggingService::shouldSend(log::Level level) {
-    return get()->level >= level;
+    return cfgLogLevel.getValue() >= level;
 }
 
 void LoggingService::addSink(std::string_view name, log::ISink *pSink) {
-    get()->addNewSink(name, pSink);
+    mt::write_lock guard(lock);
+    sinks.push_back(pSink);
+    lookup.emplace(name, pSink);
 }
 
 // private interface
 
 void LoggingService::sendMessageAlways(log::Level msgLevel, std::string_view msg) {
     auto threadId = ThreadService::getCurrentThreadId();
-    //auto currentTime = chrono::system_clock::now();
     auto currentUtcTime = chrono::utc_clock::to_sys(chrono::utc_clock::now());
-    // auto utcTime = chrono::current_zone()->to_local(currentTime); TODO: fix this
 
     mt::read_lock guard(lock);
     for (log::ISink *pSink : sinks) {
@@ -72,10 +70,4 @@ void LoggingService::sendMessageAlways(log::Level msgLevel, std::string_view msg
 void LoggingService::throwAssert(std::string msg) {
     sendMessage(log::eAssert, msg);
     core::throwFatal(msg);
-}
-
-void LoggingService::addNewSink(std::string_view id, log::ISink *pSink) {
-    mt::write_lock guard(lock);
-    sinks.push_back(pSink);
-    lookup.emplace(id, pSink);
 }
