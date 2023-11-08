@@ -15,15 +15,19 @@
 !*.png
 !*.jpg
 !*.ogg
+!*.wav
 !data/libs/agility/*
 !data/libs/warp/*
 !data/config/*
 !data/models/*
 !data/fonts/*
+!data/audio/*
 
-# gameinput
-!subprojects/gdk/lib/*
-!subprojects/ryzen/lib/*
+# dont ignore prebuilt vendor libs
+!subprojects/packagefiles/**/*.lib
+
+# a bit of a hack to get meson to play nice
+!subprojects/packagefiles/stub.zip
 
 # dont ignore readme and build files
 !*.md

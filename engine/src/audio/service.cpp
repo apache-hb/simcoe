@@ -16,6 +16,12 @@ namespace {
     IXAudio2 *pAudioRuntime = nullptr;
     IXAudio2MasteringVoice *pAudioMasterVoice = nullptr;
 
+    std::mutex gBufferMutex;
+    std::vector<std::shared_ptr<audio::SoundBuffer>> gBuffers;
+
+    std::mutex gVoiceMutex;
+    std::vector<std::shared_ptr<audio::VoiceHandle>> gVoices;
+
     std::string xaErrorString(HRESULT hr) {
         switch (hr) {
         case XAUDIO2_E_INVALID_CALL: return "xaudio2:invalid-call";
@@ -25,6 +31,18 @@ namespace {
         default: return debug::getResultName(hr);
         }
     }
+
+    struct AudioCallbacks final : IXAudio2EngineCallback {
+        void OnProcessingPassStart() noexcept override { }
+
+        void OnProcessingPassEnd() noexcept override { }
+
+        void OnCriticalError(HRESULT hr) noexcept override {
+            core::throwNonFatal("xaudio2 critical error: {}", xaErrorString(hr));
+        }
+    };
+
+    AudioCallbacks gAudioCallbacks;
 }
 
 #define XA_CHECK(EXPR) \
@@ -58,6 +76,8 @@ bool AudioService::createService() {
     pAudioRuntime->SetDebugConfiguration(&kDebugConfig);
     LOG_INFO("Audio debug logging enabled");
 #endif
+
+    pAudioRuntime->RegisterForCallbacks(&gAudioCallbacks);
 
     XA_CHECK(pAudioRuntime->StartEngine());
 

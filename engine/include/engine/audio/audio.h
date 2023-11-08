@@ -17,7 +17,9 @@ namespace simcoe::audio {
         XAUDIO2_BUFFER buffer;
     };
 
-    struct SoundHandle {
+    struct VoiceHandle {
+        void pause();
+
         IXAudio2SourceVoice *pVoice = nullptr;
     };
 
