@@ -116,11 +116,11 @@ namespace simcoe::core {
         static constexpr O kSrcMax = std::numeric_limits<O>::max();
 
         if constexpr (kDstMax > kSrcMax) {
-            ASSERTF(value >= kSrcMin, "value {} would underflow", value);
+            SM_ASSERTF(value >= kSrcMin, "value {} would underflow (limit: {})", value, kSrcMin);
         }
 
         if constexpr (kDstMin < kSrcMin) {
-            ASSERTF(value <= kSrcMax, "value {} would overflow", value);
+            SM_ASSERTF(value <= kSrcMax, "value {} would overflow (limit: {})", value, kSrcMax);
         }
 #endif
 

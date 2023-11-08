@@ -51,7 +51,7 @@ namespace simcoe {
         }
 
         void release(Index index, const T& value) {
-            ASSERT(get(index) == value);
+            SM_ASSERTF(get(index) == value, "invalid release of {} from {}", value, size_t(index));
             set(index, Empty);
         }
 
@@ -60,13 +60,13 @@ namespace simcoe {
         }
 
         T get(Index index) const {
-            ASSERT(index != Index::eInvalid);
+            SM_ASSERT(index != Index::eInvalid);
 
             return Super::pSlots[size_t(index)];
         }
 
         void set(Index index, const T& value) {
-            ASSERT(index != Index::eInvalid);
+            SM_ASSERT(index != Index::eInvalid);
 
             Super::pSlots[size_t(index)] = value;
         }
@@ -95,26 +95,27 @@ namespace simcoe {
         }
 
         void release(Index index, const T& value) {
-            ASSERT(index != Index::eInvalid);
+            SM_ASSERT(index != Index::eInvalid);
 
             T expected = value;
-            ASSERT(Super::pSlots[size_t(index)].compare_exchange_strong(expected, Empty));
+            auto result = Super::pSlots[size_t(index)].compare_exchange_strong(expected, Empty);
+            SM_ASSERTF(result, "invalid release of {} from {}", value, index);
         }
 
         bool test(Index index, const T& expected) const {
-            ASSERT(index != Index::eInvalid);
+            SM_ASSERT(index != Index::eInvalid);
 
             return Super::pSlots[size_t(index)].load() == expected;
         }
 
         T get(Index index) const {
-            ASSERT(index != Index::eInvalid);
+            SM_ASSERT(index != Index::eInvalid);
 
             return Super::pSlots[size_t(index)].load();
         }
 
         void set(Index index, const T& value) {
-            ASSERT(index != Index::eInvalid);
+            SM_ASSERT(index != Index::eInvalid);
 
             Super::pSlots[size_t(index)].store(value);
         }

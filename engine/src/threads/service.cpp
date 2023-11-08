@@ -27,7 +27,7 @@ namespace {
         { }
 
         SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *operator++() {
-            ASSERTF(remaining > 0, "iterator overrun");
+            SM_ASSERT(remaining > 0);
 
             remaining -= pBuffer->Size;
             if (remaining > 0) {
@@ -94,7 +94,7 @@ namespace {
         { }
 
         SYSTEM_CPU_SET_INFORMATION *operator++() {
-            ASSERTF(remaining > 0, "iterator overrun");
+            SM_ASSERT(remaining > 0);
 
             remaining -= pBuffer->Size;
             if (remaining > 0) {
@@ -426,12 +426,12 @@ ThreadId ThreadService::getCurrentThreadId() {
 // main thread communication
 
 void ThreadService::enqueueMain(std::string name, WorkItem&& task) {
-    ASSERTF(gMainQueue, "main queue not initialized");
+    SM_ASSERT(gMainQueue != nullptr);
     gMainQueue->add(std::move(name), std::move(task));
 }
 
 void ThreadService::pollMainQueue() {
-    ASSERTF(gMainQueue, "main queue not initialized");
+    SM_ASSERT(gMainQueue != nullptr);
     gMainQueue->tryGetMessage();
 }
 
@@ -459,7 +459,7 @@ size_t ThreadService::getWorkerCount() {
 }
 
 void ThreadService::enqueueWork(std::string name, threads::WorkItem&& func) {
-    ASSERTF(gWorkQueue, "work queue not initialized");
+    SM_ASSERT(gWorkQueue != nullptr);
     gWorkQueue->add(std::move(name), std::move(func));
 }
 

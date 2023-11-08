@@ -18,7 +18,7 @@ namespace {
     constexpr math::float4 kBlack = math::float4(1.f, 1.f, 1.f, 1.f);
 
     void bltGlyph(Image& image, FT_Bitmap *pBitmap, FT_UInt x, FT_UInt y, math::float4 colour) {
-        ASSERTF(pBitmap->pixel_mode == FT_PIXEL_MODE_GRAY, "unsupported pixel mode (mode={})", pBitmap->pixel_mode);
+        SM_ASSERTF(pBitmap->pixel_mode == FT_PIXEL_MODE_GRAY, "unsupported pixel mode (mode={})", pBitmap->pixel_mode);
 
         auto writePixel = [&](size_t x, size_t y, std::byte value) {
             size_t index = (y * image.size.width + x) * 4;

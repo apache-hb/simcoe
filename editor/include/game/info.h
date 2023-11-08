@@ -86,9 +86,16 @@ namespace game {
 
 template<typename T>
 struct std::formatter<game::EntityTag, T> : std::formatter<std::string_view, T> {
-    template<typename FormatContext>
-    auto format(const game::EntityTag& tag, FormatContext& ctx) {
+    auto format(const game::EntityTag& tag, auto& ctx) {
         auto it = std::format("(index={}, version={})", game::EntitySlotType(tag.slot), game::EntityVersionType(tag.version));
+        return std::formatter<std::string_view, T>::format(it, ctx);
+    }
+};
+
+template<typename T>
+struct std::formatter<game::EntityVersion, T> : std::formatter<std::string_view, T> {
+    auto format(const game::EntityVersion& version, auto& ctx) {
+        auto it = std::format("{}", game::EntityVersionType(version));
         return std::formatter<std::string_view, T>::format(it, ctx);
     }
 };
@@ -96,7 +103,8 @@ struct std::formatter<game::EntityTag, T> : std::formatter<std::string_view, T> 
 template<>
 struct std::hash<game::EntityTag> {
     size_t operator()(const game::EntityTag& tag) const {
-        return std::hash<game::EntitySlotType>()(game::EntitySlotType(tag.slot)) ^ std::hash<game::EntityVersionType>()(game::EntityVersionType(tag.version));
+        return std::hash<game::EntitySlotType>()(game::EntitySlotType(tag.slot))
+             ^ std::hash<game::EntityVersionType>()(game::EntityVersionType(tag.version));
     }
 };
 

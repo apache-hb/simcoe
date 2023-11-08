@@ -52,10 +52,10 @@ ServiceRuntime::ServiceRuntime(std::span<IService*> services, const fs::path& pa
 
     for (IService *pService : services) {
         auto name = pService->getName();
-        ASSERTF(!loaded.contains(name), "{} service already loaded", name);
+        SM_ASSERTF(!loaded.contains(name), "{} service already loaded", name);
 
         for (std::string_view dep : pService->getDeps()) {
-            ASSERTF(loaded.contains(dep), "{} depends on {}, but it's not loaded", name, dep);
+            SM_ASSERTF(loaded.contains(dep), "{} depends on {}, but it's not loaded", name, dep);
         }
 
         LOG_INFO("configuring {} service", name);

@@ -7,7 +7,7 @@
 #   undef assert
 #endif
 
-#define assert ASSERT
+#define assert SM_ASSERT
 
 #include <algorithm>
 #include <array>

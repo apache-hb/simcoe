@@ -43,7 +43,7 @@ EntityTag ILevel::newEntityIndex() {
     EntityVersion version = pWorld->newEntityVersion();
     EntitySlot slot = indices.alloc(version);
 
-    ASSERTF(slot != EntitySlot::eInvalid, "failed to allocate entity index");
+    SM_ASSERT(slot != EntitySlot::eInvalid);
 
     return { slot, version };
 }
@@ -62,11 +62,11 @@ EntityInfo ILevel::newEntityInfo(const EntityTag& tag, std::string_view name) {
 // entity sanity checks
 
 IEntity *ILevel::getEntityInner(const EntityTag& tag) {
-    ASSERTF(tag.slot != EntitySlot::eInvalid, "attempting to access invalid entity: {}", tag);
-    ASSERTF(indices.test(tag.slot, tag.version), "attempting to access stale entity: {}", tag);
+    SM_ASSERTF(tag.slot != EntitySlot::eInvalid, "attempting to access invalid entity: {}", tag);
+    SM_ASSERTF(indices.test(tag.slot, tag.version), "attempting to access stale entity: {}", tag);
 
     IEntity *pEntity = entities[EntitySlotType(tag.slot)];
-    ASSERTF(!isEntityStale(pEntity, tag.version), "entity is stale: (entity={}, world={})", pEntity->getTag(), tag);
+    SM_ASSERTF(!isEntityStale(pEntity, tag.version), "entity is stale: (entity={}, world={})", pEntity->getTag(), tag);
 
     return pEntity;
 }

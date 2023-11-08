@@ -3,12 +3,12 @@
 using namespace game;
 
 void WorldInfo::verify() const {
-    ASSERTF(entityLimit > 0, "entityLimit must be greater than 0");
+    SM_ASSERT(entityLimit > 0);
 
-    ASSERTF(pRenderContext != nullptr, "pRender must not be null");
-    ASSERTF(pRenderGraph != nullptr, "pRenderGraph must not be null");
-    ASSERTF(renderFaultLimit > 0, "renderFaultLimit must be greater than 0");
+    SM_ASSERT(pRenderContext != nullptr);
+    SM_ASSERT(pRenderGraph != nullptr);
+    SM_ASSERT(renderFaultLimit > 0);
 
-    ASSERTF(pHudPass != nullptr, "pHudPass must not be null");
-    ASSERTF(pScenePass != nullptr, "pScenePass must not be null");
+    SM_ASSERT(pHudPass != nullptr);
+    SM_ASSERT(pScenePass != nullptr);
 }

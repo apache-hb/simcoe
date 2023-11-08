@@ -583,11 +583,11 @@ namespace simcoe::math {
         }
 
         static constexpr Mat4x4 lookToLH(const Row3& eye, const Row3& dir, const Row3& up) {
-            ASSERT(eye != Row3::zero());
-            ASSERT(up != Row3::zero());
+            SM_ASSERT(eye != Row3::zero());
+            SM_ASSERT(up != Row3::zero());
 
-            ASSERT(!eye.isinf());
-            ASSERT(!up.isinf());
+            SM_ASSERT(!eye.isinf());
+            SM_ASSERT(!up.isinf());
 
             auto r2 = dir.normal();
             auto r0 = Row3::cross(up, r2).normal();

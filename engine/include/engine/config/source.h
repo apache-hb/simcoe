@@ -33,7 +33,7 @@ namespace simcoe::config {
         template<typename T>
         T getUnchecked() const {
             T value;
-            ASSERTF(get(value), "failed to get value");
+            SM_ASSERT(get(value));
             return value;
         }
 

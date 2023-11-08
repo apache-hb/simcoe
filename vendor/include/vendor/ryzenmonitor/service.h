@@ -9,8 +9,8 @@
 #include <array>
 #include <vector>
 
-struct IPlatform;
-struct IDeviceManager;
+class IPlatform;
+class IDeviceManager;
 
 class IBIOSEx;
 class ICPUEx;

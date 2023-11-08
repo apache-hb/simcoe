@@ -25,12 +25,12 @@ namespace simcoe::core {
         { }
 
         T &operator[](size_t index) {
-            ASSERTF(index < size, "index out of bounds ({} < {})", index, size);
+            SM_ASSERTF(index < size, "index out of bounds ({} < {})", index, size);
             return Super::get()[index];
         }
 
         const T& operator[](size_t index) const {
-            ASSERTF(index < size, "index out of bounds ({} < {})", index, size);
+            SM_ASSERTF(index < size, "index out of bounds ({} < {})", index, size);
             return Super::get()[index];
         }
 

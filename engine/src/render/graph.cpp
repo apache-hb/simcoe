@@ -29,12 +29,12 @@ void IResourceHandle::setCurrentState(rhi::ResourceState state) {
 }
 
 rhi::ResourceState IResourceHandle::getResourceState(rhi::DeviceResource *pResource) const {
-    ASSERTF(pResource != nullptr, "resource missing in {}", getName());
+    SM_ASSERTF(pResource != nullptr, "resource missing in {}", getName());
     return pGraph->getResourceState(getResource());
 }
 
 void IResourceHandle::setResourceState(rhi::DeviceResource *pResource, rhi::ResourceState state) {
-    ASSERTF(pResource != nullptr, "resource missing in {}", getName());
+    SM_ASSERTF(pResource != nullptr, "resource missing in {}", getName());
     pGraph->setResourceState(pResource, state);
 }
 
@@ -43,7 +43,7 @@ void IResourceHandle::setResourceState(rhi::DeviceResource *pResource, rhi::Reso
 ///
 
 void IRenderPass::executePass() {
-    ASSERTF(pRenderTarget != nullptr, "no render target set for pass {}", getName());
+    SM_ASSERTF(pRenderTarget != nullptr, "no render target set for pass {}", getName());
     IRTVHandle *pNewTarget = pRenderTarget->getInner();
     auto rtvIndex = pNewTarget->getRtvIndex();
     auto newClear = pNewTarget->getClearColour();

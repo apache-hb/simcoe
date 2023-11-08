@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 
 namespace simcoe::config {
     struct ConfigValueBase {
@@ -20,13 +21,15 @@ namespace simcoe::config {
     struct ConfigValue : ConfigValueBase {
         ConfigValue(std::string name, std::string description, T defaultValue)
             : ConfigValueBase(name, description)
-            , value(defaultValue)
+            , defaultValue(defaultValue)
+            , currentValue(defaultValue)
         { }
 
-        operator T() const {
-            return value;
-        }
+        T getValue() const { return currentValue; }
+        void setValue(T update) { currentValue = update; }
+
     private:
-        T value;
+        const T defaultValue;
+        T currentValue;
     };
 }

@@ -62,9 +62,9 @@ PlatformService::PlatformService() {
 }
 
 bool PlatformService::createService() {
-    ASSERTF(gInstance, "hInstance is not set, please call PlatformService::setup()");
-    ASSERTF(gCmdShow != -1, "nCmdShow is not set, please call PlatformService::setup()");
-    ASSERTF(gCallbacks != nullptr, "window callbacks are not set, please call PlatformService::setup()");
+    SM_ASSERTF(gInstance, "hInstance is not set, please call PlatformService::setup()");
+    SM_ASSERTF(gCmdShow != -1, "nCmdShow is not set, please call PlatformService::setup()");
+    SM_ASSERTF(gCallbacks != nullptr, "window callbacks are not set, please call PlatformService::setup()");
 
     gFrequency = getClockFrequency();
 
@@ -269,7 +269,7 @@ namespace {
 Window::Window(const WindowCreateInfo& createInfo)
     : pCallbacks(createInfo.pCallbacks)
 {
-    ASSERTF(pCallbacks != nullptr, "window callbacks must be provided");
+    SM_ASSERT(pCallbacks != nullptr);
     auto [width, height] = createInfo.size;
 
     RECT rect = getPrimaryMonitorRect();

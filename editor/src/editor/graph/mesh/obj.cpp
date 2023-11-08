@@ -50,7 +50,7 @@ void ObjMesh::loadAsset() {
     }
 
     LOG_INFO("loaded obj {} (shapes={})", path.string(), shapes.size());
-    ASSERT(shapes.size() >= 1);
+    SM_ASSERTF(shapes.size() >= 1, "obj {} has no shapes", path.string());
 
     const auto& shape = shapes[0];
     std::unordered_map<ObjVertex, uint16_t> uniqueVertices;
@@ -58,8 +58,8 @@ void ObjMesh::loadAsset() {
     const auto& vertices = attrib.vertices;
     const auto& texcoords = attrib.texcoords;
     const auto& indices = shape.mesh.indices;
-    ASSERT(vertices.size() % 3 == 0);
-    ASSERT(indices.size() % 3 == 0);
+    SM_ASSERTF(vertices.size() % 3 == 0, "invalid vertex count {}", vertices.size());
+    SM_ASSERTF(indices.size() % 3 == 0, "invalid index count {}", indices.size());
 
     LOG_INFO("(vertices={} uvs={} indices={})", vertices.size(), texcoords.size(), indices.size());
 
@@ -112,7 +112,7 @@ void ObjMesh::loadAsset() {
             indexData.push_back(i2);
             indexData.push_back(i3);
         } else {
-            ASSERTF(false, "unsupported face vertex count {}", verts);
+            SM_NEVER("unsupported face vertex count {}", verts);
         }
 
         offset += verts;

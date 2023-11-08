@@ -13,7 +13,7 @@ IEntity::IEntity(const EntityInfo& info)
 { }
 
 IEntity::~IEntity() {
-    ASSERTF(refs == 0, "attempting to delete entity `{}` while it still has {} live references references", name, refs.load());
+    SM_ASSERTF(refs == 0, "attempting to delete entity `{}` while it still has {} live references references", name, refs.load());
 }
 
 void IEntity::track() {
@@ -21,7 +21,7 @@ void IEntity::track() {
 }
 
 void IEntity::untrack() {
-    ASSERTF(refs > 0, "attempting to untrack entity `{}` with no live references", name);
+    SM_ASSERTF(refs > 0, "attempting to untrack entity `{}` with no live references", name);
     refs -= 1;
 }
 

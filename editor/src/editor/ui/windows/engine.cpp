@@ -11,7 +11,7 @@ EngineDebug::EngineDebug(game::World *pWorld)
     : ServiceDebug("Engine")
     , pWorld(pWorld)
 {
-    ASSERTF(pWorld != nullptr, "World is null");
+    SM_ASSERT(pWorld != nullptr);
 }
 
 void EngineDebug::draw() {

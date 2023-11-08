@@ -96,7 +96,7 @@ namespace simcoe::core {
     private:
 #if SM_DEBUG
         void verifyIndex(size_t index) const {
-            ASSERTF(index < size, "index out of bounds ({} < {})", index, size);
+            SM_ASSERTF(index < size, "index out of bounds ({} < {})", index, size);
         }
         size_t size;
 #else
