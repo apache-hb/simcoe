@@ -11,13 +11,6 @@
 using namespace microsoft;
 using namespace simcoe;
 
-#define HR_CHECK(expr) \
-    do { \
-        if (HRESULT hr = (expr); FAILED(hr)) { \
-            core::throwNonFatal("gdk-error: {} ({})", #expr, gdkErrorString(hr)); \
-        } \
-    } while (false)
-
 #define E_GAME_MISSING_GAME_CONFIG ((HRESULT)0x87E5001FL)
 
 namespace {
@@ -50,7 +43,9 @@ bool GdkService::createService() {
     analyticsInfo = XSystemGetAnalyticsInfo();
 
     size_t size = consoleId.size();
-    HR_CHECK(XSystemGetConsoleId(consoleId.size(), consoleId.data(), &size));
+    if (HRESULT hr = XSystemGetConsoleId(consoleId.size(), consoleId.data(), &size); FAILED(hr)) {
+        core::throwNonFatal("gameruntime init error: {}", gdkErrorString(hr));
+    }
     consoleId[size] = '\0';
 
     CHECK_FEATURE(XAccessibility);

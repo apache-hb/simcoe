@@ -1,0 +1,57 @@
+[d3d12]
+adapter = 0
+backBufferCount = 2
+dsvHeapSize = 16
+rtvHeapSize = 16
+srvHeapSize = 1024
+
+[depot]
+maxFileHandles = 0
+waitInterval = 100
+
+    [depot.vfs]
+    mode = 'read'
+    root = '$exe/editor.exe.p'
+
+[engine.input]
+keyboardenable = true
+mousecapture = false
+mouseenable = true
+poll-interval = 16
+
+    [engine.input.xinput]
+    gamepad0 = true
+
+[game]
+entityLimit = 4096
+seed = 0
+
+[logging]
+level = ''
+
+    [logging.console]
+    colour = true
+
+    [logging.file]
+    path = 'log.txt'
+
+[platform.window]
+width = 1920
+height = 1080
+title = 'editor'
+
+[render]
+faultLimit = 3
+
+    [render.display]
+    width = 3840
+    height = 2160
+
+[threads]
+mainQueueSize = 64
+workQueueSize = 256
+
+    [threads.workers]
+    delay = 50
+    initial = 4
+    max = 16

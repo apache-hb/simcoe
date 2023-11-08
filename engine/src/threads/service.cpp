@@ -319,7 +319,7 @@ namespace {
             }
         };
 
-        auto id = std::format("worker.{}", gWorkerId++);
+        auto id = std::format("work.{}", gWorkerId++);
         return ThreadService::newThread(threads::eWorker, id, kWorkerBody);
     }
 }

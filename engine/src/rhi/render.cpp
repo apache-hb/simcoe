@@ -18,13 +18,6 @@ using Microsoft::WRL::ComPtr;
 using namespace simcoe;
 using namespace simcoe::rhi;
 
-#define HR_CHECK(expr) \
-    do { \
-        if (HRESULT hr = (expr); FAILED(hr)) { \
-            core::throwNonFatal("{} ({})", #expr, debug::getResultName(hr)); \
-        } \
-    } while (false)
-
 static D3D_ROOT_SIGNATURE_VERSION getRootSigVersion(ID3D12Device4 *pDevice) {
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = { .HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1 };
     if (FAILED(pDevice->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData)))) {

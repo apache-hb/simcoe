@@ -44,3 +44,10 @@ namespace simcoe::core {
         throw Error(false, msg, std::forward<A>(args)...);
     }
 }
+
+#define HR_CHECK(expr) \
+    do { \
+        if (HRESULT hr = (expr); FAILED(hr)) { \
+            core::throwNonFatal("{} ({})", #expr, debug::getResultName(hr)); \
+        } \
+    } while (false)

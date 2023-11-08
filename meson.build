@@ -11,6 +11,9 @@ project('simcoe', 'cpp',
         'tomlplusplus:build_lib=true',
         'tomlplusplus:default_library=static',
 
+        'vorbis:warning_level=0',
+        'ogg:warning_level=0',
+
         'libpng:tests=disabled',
         'zlib:tests=disabled',
 
@@ -66,6 +69,7 @@ tomlpp = dependency('tomlplusplus')
 stb = subproject('stb').get_variable('stb')
 zlib = dependency('zlib')
 libpng = dependency('libpng')
+vorbis = dependency('vorbis')
 
 # font loading
 harfbuzz = dependency('harfbuzz')
@@ -174,6 +178,10 @@ src = [
     'engine/src/depot/font.cpp',
     'engine/src/depot/image.cpp',
 
+    # audio
+    'engine/src/audio/service.cpp',
+    'engine/src/audio/vorbis.cpp',
+
     # rhi
     'engine/src/rhi/render.cpp',
     'engine/src/rhi/vendor.cpp',
@@ -199,8 +207,11 @@ deps = [
     # threads
     moodycamel, threads,
 
+    # config
+    tomlpp,
+
     # assets
-    stb, harfbuzz, freetype2, tomlpp,
+    stb, harfbuzz, freetype2, vorbis,
 
     # render
     directx
