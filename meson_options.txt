@@ -10,6 +10,12 @@ option('debug-threads',
     value : 'auto'
 )
 
+option('debug-audio',
+    description : 'enable xaudio2 debugging',
+    type : 'feature',
+    value : 'auto'
+)
+
 option('gui-app',
     description : 'link as a gui app on windows',
     type : 'feature',

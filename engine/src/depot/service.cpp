@@ -1,5 +1,6 @@
 #include "engine/depot/service.h"
 
+#include "engine/core/error.h"
 #include "engine/core/units.h"
 #include "engine/log/service.h"
 
@@ -11,6 +12,15 @@ using namespace simcoe;
 using namespace depot;
 
 // handles
+
+static DWORD remapMoveMethod(SeekMode mode) {
+    switch (mode) {
+    case eAbsolute: return FILE_BEGIN;
+    case eCurrent: return FILE_CURRENT;
+    case eEnd: return FILE_END;
+    default: core::throwFatal("invalid seek mode: {}", int(mode));
+    }
+}
 
 struct FileHandle final : IFile {
     FileHandle(std::string name, HANDLE hFile)
@@ -47,6 +57,30 @@ struct FileHandle final : IFile {
         }
 
         return dwWritten;
+    }
+
+    size_t seek(size_t offset, SeekMode seek) override {
+        LARGE_INTEGER liOffset;
+        liOffset.QuadPart = core::intCast<LONGLONG>(offset);
+
+        LARGE_INTEGER liNewPos;
+        if (!SetFilePointerEx(hFile, liOffset, &liNewPos, remapMoveMethod(seek))) {
+            debug::throwLastError("SetFilePointerEx");
+        }
+
+        return core::intCast<size_t>(liNewPos.QuadPart);
+    }
+
+    size_t tell() const override {
+        LARGE_INTEGER liPos;
+        liPos.QuadPart = 0;
+
+        LARGE_INTEGER liNewPos;
+        if (!SetFilePointerEx(hFile, liPos, &liNewPos, FILE_CURRENT)) {
+            debug::throwLastError("SetFilePointerEx");
+        }
+
+        return core::intCast<size_t>(liNewPos.QuadPart);
     }
 
 private:

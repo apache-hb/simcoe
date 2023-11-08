@@ -189,3 +189,7 @@ std::string debug::getErrorName(DWORD dwErrorCode) {
 void debug::throwLastError(std::string_view msg, DWORD err) {
     core::throwFatal("{}: {}", msg, getErrorName(err));
 }
+
+bool debug::isAttached() {
+    return IsDebuggerPresent();
+}

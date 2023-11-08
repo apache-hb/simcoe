@@ -10,6 +10,12 @@ namespace simcoe::depot {
         eCount
     };
 
+    enum SeekMode {
+        eAbsolute,
+        eCurrent,
+        eEnd
+    };
+
     struct IFile {
         virtual ~IFile() = default;
 
@@ -21,6 +27,8 @@ namespace simcoe::depot {
         virtual size_t size() const = 0;
         virtual size_t read(void *pBuffer, size_t size) = 0;
         virtual size_t write(const void *pBuffer, size_t size) = 0;
+        virtual size_t seek(size_t offset, SeekMode seek) = 0;
+        virtual size_t tell() const = 0;
 
         std::vector<std::byte> blob();
 

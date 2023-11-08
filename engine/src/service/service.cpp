@@ -57,6 +57,7 @@ ServiceRuntime::ServiceRuntime(std::span<IService*> services)
 
         pService->create();
         loaded.emplace(name);
+        LOG_INFO("loaded {} service", name);
     }
 }
 

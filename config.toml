@@ -27,7 +27,7 @@ entityLimit = 4096
 seed = 0
 
 [logging]
-level = ''
+level = 'debug'
 
     [logging.console]
     colour = true

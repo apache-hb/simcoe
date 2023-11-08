@@ -1,8 +1,8 @@
 #pragma once
 
-#include "engine/service/service.h"
-
 #include "engine/depot/service.h"
+
+#include "engine/audio/audio.h"
 
 namespace simcoe {
     struct AudioService final : IStaticService<AudioService> {
@@ -13,5 +13,8 @@ namespace simcoe {
         // IService
         bool createService() override;
         void destroyService() override;
+
+        // audio api
+        static std::shared_ptr<audio::SoundHandle> playSound(std::shared_ptr<audio::SoundBuffer> buffer);
     };
 }

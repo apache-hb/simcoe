@@ -1,5 +1,6 @@
 #include "game/service.h"
 
+#include "editor/ui/panels/audio.h"
 #include "engine/render/graph.h"
 
 // editor ui
@@ -604,6 +605,7 @@ void GameService::start() {
     addDebugService<ui::ConfigUi>();
     addDebugService<ui::DepotUi>();
     addDebugService<ui::WorldUi>(pWorld);
+    addDebugService<ui::AudioUi>();
     addDebugService<ui::GameRuntimeUi>();
     addDebugService<ui::ThreadServiceUi>();
     addDebugService<ui::RyzenMonitorUi>();

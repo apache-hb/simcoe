@@ -38,6 +38,7 @@ is_debug = buildtype.contains('debug')
 # if we're building in release mode, we dont want intrusive debugging
 debug_threads = get_option('debug-threads').disable_auto_if(is_release)
 debug_render = get_option('debug-render').disable_auto_if(is_release)
+debug_audio = get_option('debug-audio').disable_auto_if(is_release)
 
 # if we're building in release mode, we want a gui app
 gui_app = get_option('gui-app').enable_auto_if(is_release)
@@ -70,6 +71,7 @@ stb = subproject('stb').get_variable('stb')
 zlib = dependency('zlib')
 libpng = dependency('libpng')
 vorbis = dependency('vorbis')
+vorbisfile = dependency('vorbisfile')
 
 # font loading
 harfbuzz = dependency('harfbuzz')
@@ -100,6 +102,7 @@ cdata = configuration_data()
 cdata.set10('SM_DEBUG', is_debug)
 cdata.set10('SM_DEBUG_THREADS', debug_threads.allowed())
 cdata.set10('SM_DEBUG_RENDER', debug_render.allowed())
+cdata.set10('SM_DEBUG_AUDIO', debug_audio.allowed())
 
 cdata.set10('SM_SERVICE_DEBUG', is_debug)
 cdata.set10('SM_SERVICE_LOGGING', true)
@@ -211,7 +214,7 @@ deps = [
     tomlpp,
 
     # assets
-    stb, harfbuzz, freetype2, vorbis,
+    stb, harfbuzz, freetype2, vorbis, vorbisfile,
 
     # render
     directx
@@ -330,6 +333,7 @@ src = [
     'editor/src/editor/ui/panels/logging.cpp',
     'editor/src/editor/ui/panels/depot.cpp',
     'editor/src/editor/ui/panels/config.cpp',
+    'editor/src/editor/ui/panels/audio.cpp',
 
     # game framework
     'editor/src/game/service.cpp',
@@ -395,6 +399,9 @@ src = [
     copy.process('data/images/store/logo480x480.png'),
     copy.process('data/images/store/splash.png'),
 
+    # audio
+    copy.process('data/audio/Rondo_Alla_Turka.ogg'),
+
     # imgui config
     copy.process('data/config/imgui.ini')
 ]
@@ -447,6 +454,7 @@ build_summary = {
         'Engine debug': is_debug,
         'Threads debug': debug_threads.allowed(),
         'Render debug': debug_render.allowed(),
+        'Audio debug': debug_audio.allowed(),
         'Windows console app': not gui_app.enabled()
     },
     'Deploy': {
