@@ -17,10 +17,10 @@ namespace {
     IXAudio2MasteringVoice *pAudioMasterVoice = nullptr;
 
     std::mutex gBufferMutex;
-    std::vector<std::shared_ptr<audio::SoundBuffer>> gBuffers;
+    std::vector<audio::SoundBufferPtr> gBuffers;
 
     std::mutex gVoiceMutex;
-    std::vector<std::shared_ptr<audio::VoiceHandle>> gVoices;
+    std::vector<audio::VoiceHandlePtr> gVoices;
 
     std::string xaErrorString(HRESULT hr) {
         switch (hr) {
@@ -38,7 +38,7 @@ namespace {
         void OnProcessingPassEnd() noexcept override { }
 
         void OnCriticalError(HRESULT hr) noexcept override {
-            core::throwNonFatal("xaudio2 critical error: {}", xaErrorString(hr));
+            LOG_ERROR("xaudio2 critical error: {}", xaErrorString(hr));
         }
     };
 
@@ -102,13 +102,13 @@ void AudioService::destroyService() {
     CoUninitialize();
 }
 
-std::shared_ptr<audio::SoundHandle> AudioService::playSound(std::shared_ptr<audio::SoundBuffer> buffer) {
+audio::SoundBufferPtr AudioService::loadVorbisOgg(std::shared_ptr<depot::IFile> buffer) {
+    return audio::loadVorbisOgg(buffer); // TODO: keep data in service memory
+}
+
+audio::VoiceHandlePtr AudioService::createVoice(const audio::SoundFormat& format) {
     IXAudio2SourceVoice *pVoice = nullptr;
-    XA_CHECK(pAudioRuntime->CreateSourceVoice(&pVoice, (WAVEFORMATEX*)&buffer->format));
+    XA_CHECK(pAudioRuntime->CreateSourceVoice(&pVoice, (WAVEFORMATEX*)&format.format));
 
-    XA_CHECK(pVoice->SubmitSourceBuffer(&buffer->buffer));
-
-    XA_CHECK(pVoice->Start());
-
-    return std::make_shared<audio::SoundHandle>(pVoice);
+    return std::make_shared<audio::VoiceHandle>(pVoice);
 }

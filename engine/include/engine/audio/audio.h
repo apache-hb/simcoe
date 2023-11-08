@@ -7,6 +7,10 @@
 #include <xaudio2.h>
 
 namespace simcoe::audio {
+    struct SoundFormat {
+        WAVEFORMATEX format;
+    };
+
     struct SoundBuffer {
         std::string name;
 
@@ -18,10 +22,14 @@ namespace simcoe::audio {
     };
 
     struct VoiceHandle {
-        void pause();
+        void play(std::shared_ptr<SoundBuffer> buffer);
+        void stop();
 
         IXAudio2SourceVoice *pVoice = nullptr;
     };
 
-    std::shared_ptr<SoundBuffer> loadVorbisOgg(std::shared_ptr<depot::IFile> file);
+    using SoundBufferPtr = std::shared_ptr<SoundBuffer>;
+    using VoiceHandlePtr = std::shared_ptr<VoiceHandle>;
+
+    SoundBufferPtr loadVorbisOgg(std::shared_ptr<depot::IFile> file);
 }

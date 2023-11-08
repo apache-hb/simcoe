@@ -15,7 +15,13 @@ namespace simcoe {
         void destroyService() override;
 
         // audio api
-        static std::shared_ptr<audio::SoundBuffer> loadVorbisOgg(std::shared_ptr<depot::IFile> file);
-        static std::shared_ptr<audio::VoiceHandle> createVoice();
+        static audio::SoundBufferPtr loadVorbisOgg(std::shared_ptr<depot::IFile> file);
+        static audio::VoiceHandlePtr createVoice(const audio::SoundFormat& format);
+
+        static mt::shared_mutex& getBufferMutex();
+        static std::vector<audio::SoundBufferPtr>& getBuffers();
+
+        static mt::shared_mutex& getVoiceMutex();
+        static std::vector<audio::VoiceHandlePtr>& getVoices();
     };
 }

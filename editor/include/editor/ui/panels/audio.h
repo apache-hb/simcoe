@@ -8,6 +8,7 @@
 #include "imfiles/imfilebrowser.h"
 
 namespace editor::ui {
+    namespace a = simcoe::audio;
     struct AudioUi final : ServiceUi {
         AudioUi();
 
@@ -15,8 +16,8 @@ namespace editor::ui {
 
     private:
         ImGui::FileBrowser openVorbisFile;
-        std::vector<std::shared_ptr<simcoe::audio::SoundBuffer>> buffers;
+        std::vector<a::SoundBufferPtr> buffers;
 
-        std::vector<std::shared_ptr<simcoe::audio::SoundHandle>> sounds;
+        std::vector<a::VoiceHandlePtr> voices;
     };
 }

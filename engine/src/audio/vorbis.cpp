@@ -82,13 +82,7 @@ std::shared_ptr<SoundBuffer> audio::loadVorbisOgg(std::shared_ptr<depot::IFile> 
         .wBitsPerSample = core::intCast<WORD>(2 * wChannels)
     };
 
-    SoundBuffer buffer = {
-        .name = std::string(file->getName()),
-        .channels = core::intCast<size_t>(pInfo->channels),
-
-        .format = format,
-    };
-
+    std::vector<uint8_t> buffer;
     uint8_t data[0x1000];
     while (true) {
         int bitstream = 0;
@@ -100,18 +94,26 @@ std::shared_ptr<SoundBuffer> audio::loadVorbisOgg(std::shared_ptr<depot::IFile> 
             break;
         }
 
-        buffer.data.insert(buffer.data.end(), data, data + ret);
+        buffer.insert(buffer.end(), data, data + ret);
     }
 
     XAUDIO2_BUFFER xbuffer = {
         .Flags = XAUDIO2_END_OF_STREAM, // this is the only buffer
-        .AudioBytes = core::intCast<UINT32>(buffer.data.size()),
-        .pAudioData = static_cast<const BYTE*>(buffer.data.data())
+        .AudioBytes = core::intCast<UINT32>(buffer.size()),
+        .pAudioData = static_cast<const BYTE*>(buffer.data())
     };
-
-    buffer.buffer = xbuffer;
 
     ov_clear(&vf);
 
-    return std::make_shared<SoundBuffer>(std::move(buffer));
+    auto *pSound = new audio::SoundBuffer {
+        .name = std::string(file->getName()),
+
+        .channels = core::intCast<size_t>(pInfo->channels),
+        .data = buffer,
+
+        .format = format,
+        .buffer = xbuffer
+    };
+
+    return audio::SoundBufferPtr(pSound);
 }

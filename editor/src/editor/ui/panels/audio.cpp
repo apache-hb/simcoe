@@ -45,9 +45,9 @@ void AudioUi::draw() {
             ImGui::Text("%zu", pSoundBuffer->channels);
             ImGui::TableNextColumn();
             if (ImGui::Button("Play")) {
-                ThreadService::enqueueWork("sound", [&, pSoundBuffer] {
-                    sounds.push_back(AudioService::playSound(pSoundBuffer));
-                });
+                // ThreadService::enqueueWork("sound", [&, pSoundBuffer] {
+                //     sounds.push_back(AudioService::playSound(pSoundBuffer));
+                // });
             }
         }
 
