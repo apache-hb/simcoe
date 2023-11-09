@@ -33,7 +33,7 @@ level = 'debug'
     colour = true
 
     [logging.file]
-    path = 'log.txt'
+    path = 'engine.log'
 
 [platform.window]
 width = 1920

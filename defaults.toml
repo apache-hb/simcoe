@@ -33,7 +33,7 @@ level = 'info'
     colour = true
 
     [logging.file]
-    path = 'log.txt'
+    path = 'engine.log'
 
 [platform.window]
 height = 720
