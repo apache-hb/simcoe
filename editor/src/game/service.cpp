@@ -61,14 +61,8 @@ namespace {
 config::ConfigValue<size_t> cfgRenderWidth("render/display", "width", "Render width", 1920);
 config::ConfigValue<size_t> cfgRenderHeight("render/display", "height", "Render height", 1080);
 
-config::ConfigValue<size_t> cfgRenderFaultLimit("render", "faultLimit", "Render fault limit", 0);
-
 config::ConfigValue<size_t> cfgAdapterIndex("d3d12", "adapter", "Which adapter to use", 0);
 config::ConfigValue<size_t> cfgBackBufferCount("d3d12", "backBufferCount", "How many backbuffers to use", 2);
-
-config::ConfigValue<size_t> cfgRtvHeapSize("d3d12", "rtvHeapSize", "RTV heap size", 16);
-config::ConfigValue<size_t> cfgDsvHeapSize("d3d12", "dsvHeapSize", "DSV heap size", 16);
-config::ConfigValue<size_t> cfgSrvHeapSize("d3d12", "srvHeapSize", "SRV heap size", 1024);
 
 config::ConfigValue<size_t> cfgEntityLimit("game", "entityLimit", "Entity limit", 0x1000);
 config::ConfigValue<size_t> cfgSeed("game", "seed", "World seed", 0);
@@ -553,11 +547,7 @@ bool GameService::createService() {
         .displayHeight = size.height,
 
         .renderWidth = core::intCast<UINT>(cfgRenderWidth.getCurrentValue()),
-        .renderHeight = core::intCast<UINT>(cfgRenderHeight.getCurrentValue()),
-
-        .rtvHeapSize = cfgRtvHeapSize.getCurrentValue(),
-        .dsvHeapSize = cfgDsvHeapSize.getCurrentValue(),
-        .srvHeapSize = cfgSrvHeapSize.getCurrentValue()
+        .renderHeight = core::intCast<UINT>(cfgRenderHeight.getCurrentValue())
     };
 
     pContext = sr::Context::create(createInfo);
@@ -586,7 +576,6 @@ bool GameService::createService() {
 
         .pRenderContext = pContext,
         .pRenderGraph = pGraph,
-        .renderFaultLimit = cfgRenderFaultLimit.getCurrentValue(),
 
         .pHudPass = pHudPass,
         .pScenePass = pScenePass

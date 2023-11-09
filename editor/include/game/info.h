@@ -67,7 +67,6 @@ namespace game {
         // render config
         render::Context *pRenderContext = nullptr;
         render::Graph *pRenderGraph = nullptr;
-        size_t renderFaultLimit = 3;
 
         // game render config
         graph::HudPass *pHudPass = nullptr;

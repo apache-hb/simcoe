@@ -20,7 +20,7 @@ const config::ConfigFlagMap kLevelNames = {
     { "debug", log::eDebug },
 };
 
-config::ConfigValue<log::Level> cfgLogLevel("logging", "level", "default logging level", log::eInfo, kLevelNames);
+config::ConfigValue<log::Level> cfgLogLevel("logging", "level", "default logging level", log::eInfo, kLevelNames, config::eDynamic);
 
 namespace {
     // log sinks

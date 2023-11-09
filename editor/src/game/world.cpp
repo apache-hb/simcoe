@@ -3,12 +3,16 @@
 #include "game/entity.h"
 
 #include "engine/input/input.h"
+#include "engine/config/system.h"
 
 #include "engine/render/graph.h"
 
+using namespace simcoe;
+using namespace game;
+
 using namespace std::chrono_literals;
 
-using namespace game;
+config::ConfigValue<size_t> cfgRenderFaultLimit("render", "faultLimit", "Render fault limit", 1, config::eDynamic);
 
 World::World(const WorldInfo& info)
     : rng(info.seed)
@@ -38,8 +42,9 @@ void World::tickRender() {
         LOG_ERROR("fault: {}", e.what());
         LOG_ERROR("render fault. {} total fault{}", renderFaults, renderFaults > 1 ? "s" : "");
 
-        if (renderFaults >= info.renderFaultLimit) {
-            LOG_ERROR("render fault exceeded limit of {}. exiting...", info.renderFaultLimit);
+        auto faultLimit = cfgRenderFaultLimit.getCurrentValue();
+        if (renderFaults >= faultLimit) {
+            LOG_ERROR("render fault exceeded limit of {}. exiting...", faultLimit);
             throw;
         }
 

@@ -1,7 +1,8 @@
 #include "engine/render/render.h"
+
 #include "engine/core/units.h"
 
-#include <DirectXMath.h>
+#include "engine/config/system.h"
 
 using namespace simcoe;
 using namespace simcoe::render;
@@ -15,6 +16,10 @@ namespace {
     constexpr auto kDeviceFlags = rhi::eCreateInfoQueue;
 #endif
 }
+
+config::ConfigValue<UINT> cfgRtvHeapSize("d3d12", "rtvHeapSize", "RTV heap size", 16);
+config::ConfigValue<UINT> cfgDsvHeapSize("d3d12", "dsvHeapSize", "DSV heap size", 16);
+config::ConfigValue<UINT> cfgSrvHeapSize("d3d12", "srvHeapSize", "SRV heap size", 1024);
 
 Context *Context::create(const RenderCreateInfo& createInfo) {
     return new Context(createInfo);
@@ -164,10 +169,13 @@ void Context::destroyFrameData() {
 }
 
 void Context::createHeaps() {
-    pRenderTargetAlloc = new RenderTargetAlloc(pDevice->createRenderTargetHeap(16), 16);
-    pDepthStencilAlloc = new DepthStencilAlloc(pDevice->createDepthStencilHeap(16), 16);
+    UINT rtvHeapSize = cfgRtvHeapSize.getCurrentValue();
+    pRenderTargetAlloc = new RenderTargetAlloc(pDevice->createRenderTargetHeap(rtvHeapSize), rtvHeapSize);
 
-    UINT srvHeapSize = core::intCast<UINT>(createInfo.srvHeapSize);
+    UINT dsvHeapSize = cfgDsvHeapSize.getCurrentValue();
+    pDepthStencilAlloc = new DepthStencilAlloc(pDevice->createDepthStencilHeap(dsvHeapSize), dsvHeapSize);
+
+    UINT srvHeapSize = cfgSrvHeapSize.getCurrentValue();
     pResourceAlloc = new ShaderResourceAlloc(pDevice->createShaderDataHeap(srvHeapSize), srvHeapSize);
 }
 

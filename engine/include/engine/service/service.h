@@ -10,6 +10,14 @@
 namespace simcoe {
     using NameSpan = std::span<const std::string_view>;
 
+    enum EngineState {
+        eEngineCrashed,
+        eEngineStartup,
+        eEngineRunning,
+
+        eEngineCount
+    };
+
     enum ServiceState {
         eServiceInitial = (1 << 0), // service has not been setup yet
         eServiceSetup   = (1 << 1), // service has been setup

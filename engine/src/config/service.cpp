@@ -19,7 +19,7 @@ bool ConfigService::createService() {
 
     config::IConfigEntry *pConfig = config::getConfig();
 
-    pConfig->parseConfigValue(pRoot);
+    pConfig->readConfigValue(pRoot);
 
     return true;
 }

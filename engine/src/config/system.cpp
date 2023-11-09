@@ -18,8 +18,8 @@ using namespace simcoe::config;
 // };
 
 struct ConfigGroup final : IConfigEntry {
-    ConfigGroup(std::string name, std::string_view description)
-        : IConfigEntry({ .name = name, .description = description, .type = eConfigGroup, .flags = eConfigDefault })
+    ConfigGroup(std::string_view name, std::string_view description)
+        : IConfigEntry({ .name = name, .description = description, .type = eConfigGroup, .flags = eDefault })
     {
         LOG_INFO("creating config group {}", name);
     }
@@ -43,11 +43,11 @@ struct ConfigGroup final : IConfigEntry {
         return true; // pretend we're always modified to make saving code simpler
     }
 
-    bool parseConfigValue(const INode *pNode) override {
+    bool readConfigValue(const INode *pNode) override {
         if (NodeMap map; pNode->get(map)) {
             for (auto& [name, pChild] : getChildren()) {
                 if (auto it = map.find(name); it != map.end()) {
-                    pChild->parseConfigValue(it->second);
+                    pChild->readConfigValue(it->second);
                 }
             }
 
@@ -110,7 +110,7 @@ static void addToConfig(std::string_view path, IConfigEntry *pEntry) {
 }
 
 IConfigEntry::IConfigEntry(std::string_view path, const ConfigEntryInfo& info)
-    : info(info)
+    : entryInfo(info)
 {
     SM_ASSERT(!info.name.empty());
     // descriptions and categories are optional
@@ -120,7 +120,7 @@ IConfigEntry::IConfigEntry(std::string_view path, const ConfigEntryInfo& info)
 }
 
 IConfigEntry::IConfigEntry(const ConfigEntryInfo& info)
-    : info(info)
+    : entryInfo(info)
 { }
 
 IConfigEntry *config::getConfig() {

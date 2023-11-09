@@ -8,8 +8,8 @@
 using namespace simcoe;
 using namespace simcoe::log;
 
-config::ConfigValue<bool> cfgLogColour("logging/console", "colour", "enable coloured console output", true);
-config::ConfigValue<std::string> cfgLogPath("logging/file", "path", "path to log file", "log.txt");
+config::ConfigValue<bool> cfgLogColour("logging/console", "colour", "enable coloured console output", true, config::eDynamic);
+config::ConfigValue<std::string> cfgLogPath("logging/file", "path", "path to log file", "log.txt", config::eReadOnly);
 
 bool hasColourSupport() {
     DWORD dwMode = 0;
