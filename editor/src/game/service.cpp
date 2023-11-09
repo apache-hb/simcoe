@@ -546,18 +546,18 @@ bool GameService::createService() {
     const sr::RenderCreateInfo createInfo = {
         .hWindow = window.getHandle(),
 
-        .adapterIndex = cfgAdapterIndex.getValue(),
-        .backBufferCount = core::intCast<UINT>(cfgBackBufferCount.getValue()),
+        .adapterIndex = cfgAdapterIndex.getCurrentValue(),
+        .backBufferCount = core::intCast<UINT>(cfgBackBufferCount.getCurrentValue()),
 
         .displayWidth = size.width,
         .displayHeight = size.height,
 
-        .renderWidth = core::intCast<UINT>(cfgRenderWidth.getValue()),
-        .renderHeight = core::intCast<UINT>(cfgRenderHeight.getValue()),
+        .renderWidth = core::intCast<UINT>(cfgRenderWidth.getCurrentValue()),
+        .renderHeight = core::intCast<UINT>(cfgRenderHeight.getCurrentValue()),
 
-        .rtvHeapSize = cfgRtvHeapSize.getValue(),
-        .dsvHeapSize = cfgDsvHeapSize.getValue(),
-        .srvHeapSize = cfgSrvHeapSize.getValue()
+        .rtvHeapSize = cfgRtvHeapSize.getCurrentValue(),
+        .dsvHeapSize = cfgDsvHeapSize.getCurrentValue(),
+        .srvHeapSize = cfgSrvHeapSize.getCurrentValue()
     };
 
     pContext = sr::Context::create(createInfo);
@@ -581,12 +581,12 @@ bool GameService::createService() {
     pGraph->addPass<eg::PresentPass>(pBackBuffers);
 
     const game::WorldInfo info = {
-        .entityLimit = cfgEntityLimit.getValue(),
-        .seed = cfgSeed.getValue(),
+        .entityLimit = cfgEntityLimit.getCurrentValue(),
+        .seed = cfgSeed.getCurrentValue(),
 
         .pRenderContext = pContext,
         .pRenderGraph = pGraph,
-        .renderFaultLimit = cfgRenderFaultLimit.getValue(),
+        .renderFaultLimit = cfgRenderFaultLimit.getCurrentValue(),
 
         .pHudPass = pHudPass,
         .pScenePass = pScenePass

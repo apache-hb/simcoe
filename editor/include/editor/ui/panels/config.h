@@ -20,6 +20,6 @@ namespace editor::ui {
         int saveConfigType = 0;
         fs::path saveConfigName;
 
-        void drawConfigEntry(const std::string& name, config::ConfigEntry *pEntry);
+        void drawConfigEntry(const std::string& name, config::IConfigEntry *pEntry);
     };
 }

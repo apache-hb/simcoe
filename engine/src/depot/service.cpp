@@ -97,7 +97,7 @@ const config::ConfigFlagMap kModeFlags = {
     { "readwrite", eReadWrite }
 };
 
-config::ConfigEnumValue<depot::FileMode> cfgVfsMode("depot/vfs", "mode", "Mode for the virtual file system", depot::eRead, kModeFlags);
+config::ConfigValue<depot::FileMode> cfgVfsMode("depot/vfs", "mode", "Mode for the virtual file system", depot::eRead, kModeFlags);
 
 namespace {
     // vfs stuff
@@ -152,7 +152,7 @@ DepotService::DepotService() {
 }
 
 bool DepotService::createService() {
-    vfsPath = formatPath(cfgVfsRoot.getValue());
+    vfsPath = formatPath(cfgVfsRoot.getCurrentValue());
     LOG_INFO("depot vfs path: {}", vfsPath);
 
     constexpr DWORD dwFilter = FILE_NOTIFY_CHANGE_FILE_NAME
@@ -173,7 +173,7 @@ bool DepotService::createService() {
 
     pChangeNotify = ThreadService::newThread(threads::eBackground, "depot", [](std::stop_token token) {
         while (!token.stop_requested()) {
-            DWORD dwWait = WaitForSingleObject(hChange, cfgWaitInterval.getValueAs<DWORD>());
+            DWORD dwWait = WaitForSingleObject(hChange, core::intCast<DWORD>(cfgWaitInterval.getCurrentValue()));
             if (dwWait == WAIT_TIMEOUT) continue;
             if (dwWait == WAIT_ABANDONED) {
                 debug::throwLastError("WaitForSingleObject");

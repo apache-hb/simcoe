@@ -25,20 +25,20 @@ InputService::InputService() {
 }
 
 bool InputService::createService() {
-    if (cfgEnableKeyboard.getValue()) {
+    if (cfgEnableKeyboard.getCurrentValue()) {
         addSource(new input::Win32Keyboard());
     }
 
-    if (cfgEnableMouse.getValue()) {
-        addSource(new input::Win32Mouse(PlatformService::getWindow(), cfgLockMouse.getValue()));
+    if (cfgEnableMouse.getCurrentValue()) {
+        addSource(new input::Win32Mouse(PlatformService::getWindow(), cfgLockMouse.getCurrentValue()));
     }
 
-    if (cfgEnableGamepad0.getValue()) {
+    if (cfgEnableGamepad0.getCurrentValue()) {
         addSource(new input::XInputGamepad(0));
     }
 
     pThread = ThreadService::newThread(threads::eResponsive, "input", [](std::stop_token stop) {
-        auto interval = std::chrono::milliseconds(cfgPollInterval.getValue());
+        auto interval = std::chrono::milliseconds(cfgPollInterval.getCurrentValue());
 
         while (!stop.stop_requested()) {
             pollInput();

@@ -19,5 +19,6 @@ namespace simcoe {
         // public api
         static bool loadConfig(const fs::path& path);
         static bool saveConfig(const fs::path& path, bool bModifiedOnly);
+        static bool saveDefaultConfig(const fs::path& path);
     };
 }

@@ -84,12 +84,12 @@ bool PlatformService::createService() {
 
     exeDirectory = fs::path(currentPath).parent_path();
 
-    auto title = cfgWindowTitle.getValue();
+    auto title = cfgWindowTitle.getCurrentValue();
 
     WindowCreateInfo info = {
         .title = title.c_str(),
         .style = WindowStyle::eWindowed,
-        .size = { cfgWindowWidth.getValue(), cfgWindowHeight.getValue() },
+        .size = { cfgWindowWidth.getCurrentValue(), cfgWindowHeight.getCurrentValue() },
         .pCallbacks = gCallbacks
     };
     gWindow = new Window(info);

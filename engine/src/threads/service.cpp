@@ -310,7 +310,7 @@ namespace {
     threads::ThreadHandle *newWorkerThread() {
         const auto kWorkerBody = [](std::stop_token token) {
             WorkMessage msg;
-            auto interval = std::chrono::milliseconds(cfgWorkerDelay.getValue());
+            auto interval = std::chrono::milliseconds(cfgWorkerDelay.getCurrentValue());
 
             while (!token.stop_requested()) {
                 if (gWorkQueue->tryGetMessage(msg, interval)) {
@@ -390,10 +390,10 @@ bool ThreadService::createService() {
         .packages = builder.packages
     };
 
-    gMainQueue = new WorkQueue(cfgMainQueueSize.getValue());
-    gWorkQueue = new BlockingWorkQueue(cfgWorkQueueSize.getValue());
+    gMainQueue = new WorkQueue(cfgMainQueueSize.getCurrentValue());
+    gWorkQueue = new BlockingWorkQueue(cfgWorkQueueSize.getCurrentValue());
 
-    setWorkerCount(cfgDefaultWorkerCount.getValue());
+    setWorkerCount(cfgDefaultWorkerCount.getCurrentValue());
 
     return true;
 }

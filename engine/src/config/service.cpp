@@ -17,9 +17,9 @@ bool ConfigService::createService() {
         return false;
     }
 
-    config::ConfigEntry *pConfig = config::getConfig();
+    config::IConfigEntry *pConfig = config::getConfig();
 
-    pConfig->parseValue(pRoot);
+    pConfig->parseConfigValue(pRoot);
 
     return true;
 }
@@ -32,7 +32,7 @@ bool ConfigService::loadConfig(const fs::path&) {
     return false;
 }
 
-static const INode *collapseConfig(ISource *pSource, ConfigEntry *pEntry, bool bModifiedOnly) {
+static const INode *collapseConfig(ISource *pSource, IConfigEntry *pEntry, bool bModifiedOnly) {
     if (bModifiedOnly && !pEntry->isModified()) {
         return nullptr;
     }
@@ -40,31 +40,31 @@ static const INode *collapseConfig(ISource *pSource, ConfigEntry *pEntry, bool b
     switch (pEntry->getType()) {
     case eConfigBool: {
         bool value = false;
-        pEntry->saveValue(&value, sizeof(bool));
+        pEntry->unparseCurrentValue(&value, sizeof(bool));
         return pSource->create(value);
     }
     case eConfigInt: {
         int64_t value = 0;
-        pEntry->saveValue(&value, sizeof(int64_t));
+        pEntry->unparseCurrentValue(&value, sizeof(int64_t));
         return pSource->create(value);
     }
     case eConfigFloat: {
         float value = 0;
-        pEntry->saveValue(&value, sizeof(float));
+        pEntry->unparseCurrentValue(&value, sizeof(float));
         return pSource->create(value);
     }
     case eConfigEnum:
     case eConfigFlags:
     case eConfigString: {
         std::string value;
-        pEntry->saveValue(&value, sizeof(std::string));
+        pEntry->unparseCurrentValue(&value, sizeof(std::string));
         return pSource->create(value);
     }
     case eConfigGroup: {
         NodeMap map;
         for (auto& [name, pChild] : pEntry->getChildren()) {
-            if (const INode *pNode = collapseConfig(pSource, pChild, bModifiedOnly); pNode != nullptr) {
-                map[name] = pNode;
+            if (const INode *pNode = collapseConfig(pSource, pChild, bModifiedOnly)) {
+                map.emplace(name, pNode);
             }
         }
 
@@ -79,5 +79,50 @@ static const INode *collapseConfig(ISource *pSource, ConfigEntry *pEntry, bool b
 bool ConfigService::saveConfig(const fs::path& path, bool bModifiedOnly) {
     config::ISource *pSource = config::newTomlSource();
     const INode *pRoot = collapseConfig(pSource, config::getConfig(), bModifiedOnly);
+    return pSource->save(path, pRoot);
+}
+
+static const INode *collapseDefaultConfig(ISource *pSource, IConfigEntry *pEntry) {
+    switch (pEntry->getType()) {
+    case eConfigBool: {
+        bool value = false;
+        pEntry->unparseDefaultValue(&value, sizeof(bool));
+        return pSource->create(value);
+    }
+    case eConfigInt: {
+        int64_t value = 0;
+        pEntry->unparseDefaultValue(&value, sizeof(int64_t));
+        return pSource->create(value);
+    }
+    case eConfigFloat: {
+        float value = 0;
+        pEntry->unparseDefaultValue(&value, sizeof(float));
+        return pSource->create(value);
+    }
+    case eConfigEnum:
+    case eConfigFlags:
+    case eConfigString: {
+        std::string value;
+        pEntry->unparseDefaultValue(&value, sizeof(std::string));
+        return pSource->create(value);
+    }
+    case eConfigGroup: {
+        NodeMap map;
+        for (auto& [name, pChild] : pEntry->getChildren()) {
+            const INode *pNode = collapseDefaultConfig(pSource, pChild);
+            map.emplace(name, pNode);
+        }
+
+        return pSource->create(map);
+    }
+
+    default:
+        SM_NEVER("collapseDefaultConfig not implemented for type {}", pEntry->getType());
+    }
+}
+
+bool ConfigService::saveDefaultConfig(const fs::path &path) {
+    config::ISource *pSource = config::newTomlSource();
+    const INode *pRoot = collapseDefaultConfig(pSource, config::getConfig());
     return pSource->save(path, pRoot);
 }

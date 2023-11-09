@@ -17,21 +17,21 @@ using namespace simcoe::config;
 //     return m;
 // };
 
-struct ConfigGroup final : ConfigEntry {
+struct ConfigGroup final : IConfigEntry {
     ConfigGroup(std::string name, std::string_view description)
-        : ConfigEntry({ .name = name, .description = description, .type = eConfigGroup, .flags = eConfigDefault })
+        : IConfigEntry({ .name = name, .description = description, .type = eConfigGroup, .flags = eConfigDefault })
     {
         LOG_INFO("creating config group {}", name);
     }
 
-    void addEntry(ConfigEntry *pEntry) {
+    void addEntry(IConfigEntry *pEntry) {
         SM_ASSERT(pEntry);
         SM_ASSERTF(getEntry(std::string(pEntry->getName())) == nullptr, "entry with name {} already exists in {}", pEntry->getName(), getName());
 
         children.emplace(pEntry->getName(), pEntry);
     }
 
-    ConfigEntry *getEntry(const std::string& name) {
+    IConfigEntry *getEntry(const std::string& name) {
         if (auto it = children.find(name); it != children.end()) {
             return it->second;
         }
@@ -43,15 +43,11 @@ struct ConfigGroup final : ConfigEntry {
         return true; // pretend we're always modified to make saving code simpler
     }
 
-    void setCurrentValue(SM_UNUSED const void *pData) override {
-        SM_NEVER("setCurrentValue used on group {}", getName());
-    }
-
-    bool parseValue(SM_UNUSED const INode *pNode) override {
+    bool parseConfigValue(const INode *pNode) override {
         if (NodeMap map; pNode->get(map)) {
             for (auto& [name, pChild] : getChildren()) {
                 if (auto it = map.find(name); it != map.end()) {
-                    pChild->parseValue(it->second);
+                    pChild->parseConfigValue(it->second);
                 }
             }
 
@@ -60,10 +56,6 @@ struct ConfigGroup final : ConfigEntry {
             LOG_WARN("failed to parse config group {}", getName());
             return false;
         }
-    }
-
-    void saveValue(SM_UNUSED void *pData, SM_UNUSED size_t size) const override {
-        SM_NEVER("saveValue used on group {}", getName());
     }
 
     const ConfigMap& getChildren() const override { return children; }
@@ -79,7 +71,7 @@ static auto getRootGroup = []() -> ConfigGroup* {
 
 // add an entry to the config on a given path
 // creating groups as needed, if path is empty then add to the root config
-static void addToConfig(std::string_view path, ConfigEntry *pEntry) {
+static void addToConfig(std::string_view path, IConfigEntry *pEntry) {
     SM_ASSERT(pEntry != nullptr);
 
     auto *pConfig = getRootGroup();
@@ -117,7 +109,7 @@ static void addToConfig(std::string_view path, ConfigEntry *pEntry) {
     pConfig->addEntry(pEntry);
 }
 
-ConfigEntry::ConfigEntry(std::string_view path, const ConfigEntryInfo& info)
+IConfigEntry::IConfigEntry(std::string_view path, const ConfigEntryInfo& info)
     : info(info)
 {
     SM_ASSERT(!info.name.empty());
@@ -127,10 +119,10 @@ ConfigEntry::ConfigEntry(std::string_view path, const ConfigEntryInfo& info)
     addToConfig(path, this);
 }
 
-ConfigEntry::ConfigEntry(const ConfigEntryInfo& info)
+IConfigEntry::IConfigEntry(const ConfigEntryInfo& info)
     : info(info)
 { }
 
-ConfigEntry *config::getConfig() {
+IConfigEntry *config::getConfig() {
     return getRootGroup();
 }

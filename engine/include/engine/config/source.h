@@ -10,7 +10,7 @@
 
 namespace simcoe::config {
     struct INode;
-    struct ConfigEntry;
+    struct IConfigEntry;
 
     using NodeMap = std::unordered_map<std::string, const INode*>;
 

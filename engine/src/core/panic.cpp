@@ -13,6 +13,11 @@ using namespace simcoe;
 void core::panic(const PanicInfo &info, std::string_view msg) {
     LOG_ERROR("PANIC {}:{} @ {} :: {}", info.file, info.line, info.fn, msg);
 
+    auto backtrace = DebugService::backtrace();
+    for (auto& it : backtrace) {
+        LOG_ERROR("{} @ {}", it.symbol, it.pc);
+    }
+
     if (PlatformService::getState() & ~eServiceFaulted) {
         auto title = std::format("PANIC {}:{} @ {}", info.file, info.line, info.fn);
         PlatformService::message(title, msg);

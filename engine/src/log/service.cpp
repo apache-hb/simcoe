@@ -20,7 +20,7 @@ const config::ConfigFlagMap kLevelNames = {
     { "debug", log::eDebug },
 };
 
-config::ConfigEnumValue<log::Level> cfgLogLevel("logging", "level", "default logging level", log::eInfo, kLevelNames);
+config::ConfigValue<log::Level> cfgLogLevel("logging", "level", "default logging level", log::eInfo, kLevelNames);
 
 namespace {
     // log sinks
@@ -35,7 +35,7 @@ LoggingService::LoggingService() {
 }
 
 bool LoggingService::createService() {
-    LOG_INFO("log level: {}", log::toString(cfgLogLevel.getValue()));
+    LOG_INFO("log level: {}", log::toString(cfgLogLevel.getCurrentValue()));
     return true;
 }
 
@@ -46,7 +46,7 @@ void LoggingService::destroyService() {
 // public interface
 
 bool LoggingService::shouldSend(log::Level level) {
-    return cfgLogLevel.getValue() >= level;
+    return cfgLogLevel.getCurrentValue() >= level;
 }
 
 void LoggingService::addSink(std::string_view name, log::ISink *pSink) {

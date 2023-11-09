@@ -22,7 +22,7 @@ bool hasColourSupport() {
 
 ConsoleSink::ConsoleSink()
     : ISink(true)
-    , bColour(hasColourSupport() && cfgLogColour.getValue())
+    , bColour(hasColourSupport() && cfgLogColour.getCurrentValue())
 { }
 
 void ConsoleSink::accept(const Message& msg) {
@@ -33,10 +33,10 @@ void ConsoleSink::accept(const Message& msg) {
 
 FileSink::FileSink()
     : ISink(true)
-    , os(cfgLogPath.getValue())
+    , os(cfgLogPath.getCurrentValue())
 {
     if (!os.is_open()) {
-        LOG_WARN("failed to open log file: {}", cfgLogPath.getValue());
+        LOG_WARN("failed to open log file: {}", cfgLogPath.getCurrentValue());
     }
 }
 

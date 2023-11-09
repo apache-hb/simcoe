@@ -8,9 +8,9 @@
 #include <unordered_map>
 
 namespace simcoe::config {
-    struct ConfigEntry;
+    struct IConfigEntry;
 
-    using ConfigMap = std::unordered_map<std::string, ConfigEntry*>;
+    using ConfigMap = std::unordered_map<std::string, IConfigEntry*>;
     using ConfigFlagMap = std::unordered_map<std::string_view, int64_t>;
     using ConfigNameMap = std::unordered_map<int64_t, std::string_view>;
 
@@ -18,6 +18,7 @@ namespace simcoe::config {
         eConfigDefault = 0, ///< default
 
         eConfigReadOnly = 1 << 0, ///< this entry is read only
+        eConfigDynamic = 1 << 1, ///< this entry can be modified at runtime
     };
 
     struct ConfigEntryInfo {
@@ -27,12 +28,52 @@ namespace simcoe::config {
         ValueFlag flags;
     };
 
-    struct ConfigEntry {
+    namespace detail {
+        template<typename T>
+        struct ConfigValueTraits;
+
+        template<>
+        struct ConfigValueTraits<bool> {
+            static constexpr ValueType kType = eConfigBool;
+            using StorageType = bool;
+            using SaveType = bool;
+        };
+
+        template<>
+        struct ConfigValueTraits<std::string> {
+            static constexpr ValueType kType = eConfigString;
+            using StorageType = std::string;
+            using SaveType = std::string;
+        };
+
+        template<std::integral T>
+        struct ConfigValueTraits<T> {
+            static constexpr ValueType kType = eConfigInt;
+            using StorageType = T;
+            using SaveType = int64_t;
+        };
+
+        template<typename T> requires std::is_enum_v<T>
+        struct ConfigValueTraits<T> {
+            static constexpr ValueType kType = eConfigEnum;
+            using StorageType = T;
+            using SaveType = std::string;
+        };
+
+        template<>
+        struct ConfigValueTraits<float> {
+            static constexpr ValueType kType = eConfigFloat;
+            using StorageType = float;
+            using SaveType = float;
+        };
+    }
+
+    struct IConfigEntry {
         // constructor for groups
-        ConfigEntry(const ConfigEntryInfo& info);
+        IConfigEntry(const ConfigEntryInfo& info);
 
         // constructor for a child of the config
-        ConfigEntry(std::string_view path, const ConfigEntryInfo& info);
+        IConfigEntry(std::string_view path, const ConfigEntryInfo& info);
 
         std::string_view getName() const { return info.name; }
         std::string_view getDescription() const { return info.description; }
@@ -42,82 +83,120 @@ namespace simcoe::config {
 
         virtual bool isModified() const = 0;
 
-        virtual const void *getCurrentValue() const { SM_NEVER("getCurrentValue"); }
-        virtual const void *getDefaultValue() const { SM_NEVER("getDefaultValue"); }
+        // these all operate on the inner representation of the value
+        template<typename T>
+        T getCurrentValue2() const {
+            using StorageType = typename detail::ConfigValueTraits<T>::StorageType;
+            constexpr auto kExpectedType = detail::ConfigValueTraits<T>::kType;
+            SM_ASSERTF(getType() == kExpectedType, "invalid type for config value (expected {}, got {})", kExpectedType, getType());
 
-        /**
-         * @brief Set the Current Value object
-         * @note should only be called from c++ code to set stuff
-         * @param pData the same type as stored
-         */
-        virtual void setCurrentValue(SM_UNUSED const void *pData) = 0;
+            StorageType value;
+            saveCurrentValue(&value, sizeof(StorageType));
+            return T(value);
+        }
+
+        template<typename T>
+        T getDefaultValue2() const {
+            using StorageType = typename detail::ConfigValueTraits<T>::StorageType;
+            constexpr auto kExpectedType = detail::ConfigValueTraits<T>::kType;
+            SM_ASSERTF(getType() == kExpectedType, "invalid type for config value (expected {}, got {})", kExpectedType, getType());
+
+            StorageType value;
+            saveDefaultValue(&value, sizeof(StorageType));
+            return T(value);
+        }
+
+        ///
+        /// config parsing and unparsing
+        ///
 
         /**
          * @brief parse a value from some other data
-         * @note used for loading from config files
+         *
          * @param pData the node to parse from
-         * @return true if the value was parsed
+         * @return true if the value was loaded properly
          */
-        virtual bool parseValue(SM_UNUSED const INode *pNode) = 0;
+        virtual bool parseConfigValue(SM_UNUSED const INode *pNode) { SM_NEVER("parseConfigValue"); }
 
         /**
-         * @brief save the value to some other data
+         * @brief parse a value from our save type
          *
          * @param pData
+         * @param size
          */
-        virtual void saveValue(SM_UNUSED void *pData, size_t size) const = 0;
+        virtual void parseValue(SM_UNUSED const void *pData, SM_UNUSED size_t size) { SM_NEVER("parseValue"); }
 
-        virtual const ConfigFlagMap& getEnumFlags() const { SM_NEVER("getFlags"); }
-        virtual const ConfigNameMap& getEnumNames() const { SM_NEVER("getNames"); }
+        /**
+         * @brief unparse a value into a node
+         *
+         * @param pSource the node source
+         * @return const INode* the unparsed node
+         */
+        virtual void unparseCurrentValue(SM_UNUSED void *pData, SM_UNUSED size_t size) const { SM_NEVER("uparseCurrentValue"); }
+
+        /**
+         * @brief unparse the default value into a format suitable for saving and displaying to the user
+         *
+         * @param pData the buffer to save to
+         * @param size the size of the buffer
+         */
+        virtual void unparseDefaultValue(SM_UNUSED void *pData, SM_UNUSED size_t size) const { SM_NEVER("uparseDefaultValue"); }
+
+
+
+        ///
+        /// deals with raw internal data
+        ///
+
+        /**
+         * @brief save the current value to a buffer
+         *
+         * @param pData the buffer to save to
+         * @param size the size of the buffer
+         */
+        virtual void saveCurrentValue(SM_UNUSED void *pData, SM_UNUSED size_t size) const { SM_NEVER("saveCurrentValue"); }
+
+        /**
+         * @brief save the default value to a buffer
+         *
+         * @param pData the buffer to save to
+         * @param size the size of the buffer
+         */
+        virtual void saveDefaultValue(SM_UNUSED void *pData, SM_UNUSED size_t size) const { SM_NEVER("saveDefaultValue"); }
+
+        /**
+         * @brief load the current value from a buffer
+         *
+         * @param pData data to load from
+         * @param size the size of the data
+         */
+        virtual void loadCurrentValue(SM_UNUSED const void *pData, SM_UNUSED size_t size) { SM_NEVER("loadCurrentValue"); }
+
+
+
+        ///
+        /// extra config data
+        ///
+
+        virtual const ConfigFlagMap& getEnumFlags() const { SM_NEVER("getEnumFlags"); }
+        virtual const ConfigNameMap& getEnumNames() const { SM_NEVER("getEnumNames"); }
         virtual const ConfigMap& getChildren() const { SM_NEVER("getChildren"); }
 
     private:
         ConfigEntryInfo info;
     };
 
-    namespace detail {
-        template<typename T>
-        struct ConfigValueTraits;
-
-        template<>
-        struct ConfigValueTraits<bool> {
-            static constexpr ValueType kType = eConfigBool;
-            using Type = bool;
-        };
-
-        template<>
-        struct ConfigValueTraits<std::string> {
-            static constexpr ValueType kType = eConfigString;
-            using Type = std::string;
-        };
-
-        template<std::integral T>
-        struct ConfigValueTraits<T> {
-            static constexpr ValueType kType = eConfigInt;
-            using Type = int64_t;
-        };
-
-        template<typename T> requires std::is_enum_v<T>
-        struct ConfigValueTraits<T> {
-            static constexpr ValueType kType = eConfigEnum;
-            using Type = int64_t;
-        };
-
-        template<>
-        struct ConfigValueTraits<float> {
-            static constexpr ValueType kType = eConfigFloat;
-            using Type = float;
-        };
-    }
-
     template<typename T>
-    struct ConfigValue : ConfigEntry {
-        using Traits = detail::ConfigValueTraits<T>;
-        using SaveType = typename Traits::Type;
-        using InnerType = T;
+    struct ConfigValueBase : public IConfigEntry {
+        using Super = IConfigEntry;
+        using Super::Super;
 
-        ConfigValue(std::string_view path, std::string name, std::string_view description, InnerType defaultValue, ValueFlag flags = eConfigDefault)
-            : ConfigValue(path, defaultValue, {
+        using Traits = detail::ConfigValueTraits<T>;
+        using SaveType = typename Traits::SaveType;
+        using StorageType = typename Traits::StorageType;
+
+        ConfigValueBase(std::string_view path, std::string name, std::string_view description, StorageType defaultValue, ValueFlag flags = eConfigDefault)
+            : ConfigValueBase(path, defaultValue, {
                 .name = name,
                 .description = description,
                 .type = Traits::kType,
@@ -125,26 +204,55 @@ namespace simcoe::config {
             })
         { }
 
-        InnerType getValue() const { return currentValue; }
-        void setValue(InnerType update) { currentValue = update; }
+        // public api
 
-        template<typename O>
-        O getValueAs() const { return core::intCast<O>(currentValue); }
+        StorageType getCurrentValue() const { return currentValue; }
+        StorageType getDefaultValue() const { return defaultValue; }
 
-        const void *getCurrentValue() const override { return &currentValue; }
-        const void *getDefaultValue() const override { return &defaultValue; }
+        void setCurrentValue(StorageType update) { currentValue = update; }
 
         bool isModified() const override { return currentValue != defaultValue; }
 
-        void setCurrentValue(const void *pData) override {
-            SaveType temp = *static_cast<const SaveType*>(pData);
-            currentValue = T(temp);
-            // TODO: notify listeners
+        /// saving to buffers
+        void saveCurrentValue(void *pData, size_t size) const override {
+            SM_ASSERTF(size == sizeof(StorageType), "invalid size for config value {} (expected {}, got {})", Super::getName(), sizeof(StorageType), size);
+            *static_cast<StorageType*>(pData) = currentValue;
         }
 
-        bool parseValue(const INode *pNode) override {
+        void saveDefaultValue(void *pData, size_t size) const override {
+            SM_ASSERTF(size == sizeof(StorageType), "invalid size for config value {} (expected {}, got {})", Super::getName(), sizeof(StorageType), size);
+            *static_cast<StorageType*>(pData) = defaultValue;
+        }
+
+        /// loading from buffers
+        void loadCurrentValue(const void *pData, size_t size) override {
+            SM_ASSERTF(size == sizeof(StorageType), "invalid size for config value {} (expected {}, got {})", Super::getName(), sizeof(StorageType), size);
+            currentValue = StorageType(*static_cast<const StorageType*>(pData));
+        }
+
+    protected:
+        ConfigValueBase(std::string_view path, StorageType defaultValue, const ConfigEntryInfo& info)
+            : IConfigEntry(path, info)
+            , defaultValue(defaultValue)
+            , currentValue(defaultValue)
+        { }
+
+    private:
+        const StorageType defaultValue;
+        StorageType currentValue;
+    };
+
+    template<typename T>
+    struct ConfigValue final : public ConfigValueBase<T> {
+        using Super = ConfigValueBase<T>;
+        using Super::Super;
+
+        using StorageType = typename Super::StorageType;
+        using SaveType = typename Super::SaveType;
+
+        virtual bool parseConfigValue(const INode *pNode) override {
             if (SaveType value; pNode->get(value)) {
-                currentValue = T(value);
+                Super::setCurrentValue(StorageType(value));
                 return true;
             }
 
@@ -152,29 +260,26 @@ namespace simcoe::config {
             // TODO: notify listeners
         }
 
-        void saveValue(void *pData, size_t size) const override {
-            SM_ASSERTF(size == sizeof(SaveType), "invalid size for config value (expected {}, got {})", sizeof(SaveType), size);
-            *static_cast<SaveType*>(pData) = currentValue;
+        void unparseCurrentValue(void *pData, size_t size) const override {
+            SM_ASSERTF(size == sizeof(SaveType), "invalid size for config value {} (expected {}, got {})", Super::getName(), sizeof(SaveType), size);
+            *static_cast<SaveType*>(pData) = Super::getCurrentValue();
         }
 
-    protected:
-        ConfigValue(std::string_view path, InnerType defaultValue, const ConfigEntryInfo& info)
-            : ConfigEntry(path, info)
-            , defaultValue(defaultValue)
-            , currentValue(defaultValue)
-        { }
-
-    private:
-        const InnerType defaultValue;
-        InnerType currentValue;
+        void unparseDefaultValue(void *pData, size_t size) const override {
+            SM_ASSERTF(size == sizeof(SaveType), "invalid size for config value {} (expected {}, got {})", Super::getName(), sizeof(SaveType), size);
+            *static_cast<SaveType*>(pData) = Super::getDefaultValue();
+        }
     };
 
-    template<typename T>
-    struct ConfigEnumValue final : public ConfigValue<T> {
-        using Super = ConfigValue<T>;
+    template<typename T> requires std::is_enum_v<T>
+    struct ConfigValue<T> final : public ConfigValueBase<T> {
+        using Super = ConfigValueBase<T>;
         using Super::Super;
 
-        ConfigEnumValue(std::string_view path, std::string name, std::string_view description, T defaultValue, ConfigFlagMap opts, ValueFlag flags = eConfigDefault)
+        using StorageType = typename Super::StorageType;
+        using SaveType = typename Super::SaveType;
+
+        ConfigValue(std::string_view path, std::string name, std::string_view description, StorageType defaultValue, ConfigFlagMap opts, ValueFlag flags = eConfigDefault)
             : Super(path, defaultValue, {
                 .name = name,
                 .description = description,
@@ -188,11 +293,11 @@ namespace simcoe::config {
             }
         }
 
-        // pData is a std::string here
-        bool parseValue(const INode *pData) override {
-            if (std::string opt; pData->get(opt)) {
+        // our config rep is a std::string
+        bool parseConfigValue(const INode *pData) override {
+            if (SaveType opt; pData->get(opt)) {
                 if (auto it = opts.find(opt); it != opts.end()) {
-                    Super::setCurrentValue(&it->second);
+                    Super::setCurrentValue(T(it->second));
                     return true;
                 }
             }
@@ -200,20 +305,38 @@ namespace simcoe::config {
             return false;
         }
 
-        void saveValue(void *pData, size_t size) const override {
-            SM_ASSERTF(size == sizeof(std::string), "invalid size for config value (expected {}, got {})", sizeof(std::string), size);
+        void unparseCurrentValue(void *pData, size_t size) const override {
+            SM_ASSERTF(size == sizeof(SaveType), "invalid size for config enum value {} (expected {}, got {})", Super::getName(), sizeof(SaveType), size);
+            *static_cast<SaveType*>(pData) = getStringValue(Super::getCurrentValue());
+        }
 
-            if (auto it = saveOpts.find(Super::getValue()); it != saveOpts.end()) {
-                *static_cast<std::string*>(pData) = it->second;
-            }
+        void unparseDefaultValue(void *pData, size_t size) const override {
+            SM_ASSERTF(size == sizeof(SaveType), "invalid size for config enum value {} (expected {}, got {})", Super::getName(), sizeof(SaveType), size);
+            *static_cast<SaveType*>(pData) = getStringValue(Super::getDefaultValue());
+        }
+
+        // we save the string name of the enum
+        void saveCurrentValue(void *pData, size_t size) const override {
+            SM_ASSERTF(size == sizeof(StorageType), "invalid size for config enum value {} (expected {}, got {})", Super::getName(), sizeof(StorageType), size);
+            *static_cast<StorageType*>(pData) = Super::getCurrentValue();
+        }
+
+        void saveDefaultValue(void *pData, size_t size) const override {
+            SM_ASSERTF(size == sizeof(StorageType), "invalid size for config enum value {} (expected {}, got {})", Super::getName(), sizeof(StorageType), size);
+            *static_cast<StorageType*>(pData) = Super::getDefaultValue();
         }
 
         const ConfigFlagMap& getEnumFlags() const override { return opts; }
         const ConfigNameMap& getEnumNames() const override { return saveOpts; }
+
     private:
+        std::string_view getStringValue(T value) const {
+            return saveOpts.at(value);
+        }
+
         ConfigFlagMap opts;
         ConfigNameMap saveOpts;
     };
 
-    ConfigEntry *getConfig();
+    IConfigEntry *getConfig();
 }

@@ -11,7 +11,7 @@ waitInterval = 100
 
     [depot.vfs]
     mode = 'read'
-    root = '$exe/editor.exe.p'
+    root = '$exe'
 
 [game]
 entityLimit = 4096
@@ -27,7 +27,7 @@ poll-interval = 16
     gamepad0 = true
 
 [logging]
-level = 'debug'
+level = 'info'
 
     [logging.console]
     colour = true
@@ -36,16 +36,16 @@ level = 'debug'
     path = 'log.txt'
 
 [platform.window]
-height = 1080
-title = 'editor'
-width = 1920
+height = 720
+title = 'simcoe'
+width = 1280
 
 [render]
-faultLimit = 3
+faultLimit = 0
 
     [render.display]
-    height = 2160
-    width = 3840
+    height = 1080
+    width = 1920
 
 [threads]
 mainQueueSize = 64
@@ -53,5 +53,5 @@ workQueueSize = 256
 
     [threads.workers]
     delay = 50
-    initial = 4
-    max = 16
+    initial = 0
+    max = 0

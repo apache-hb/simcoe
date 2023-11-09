@@ -23,67 +23,73 @@ namespace {
         }
     }
 
-    void writeValue(const config::ConfigEntry *pEntry) {
-        const void *pData = pEntry->getCurrentValue();
+    void drawValue(const config::IConfigEntry *pEntry) {
         config::ValueType type = pEntry->getType();
 
         switch (type) {
         case config::eConfigBool: {
             bool b;
-            pEntry->saveValue(&b, sizeof(bool));
+            pEntry->unparseCurrentValue(&b, sizeof(bool));
             ImGui::Text("%s", b ? "true" : "false");
-            break;
-        }
-        case config::eConfigString: {
-            const std::string& str = *static_cast<const std::string *>(pData);
-            ImGui::TextUnformatted(str.c_str());
             break;
         }
         case config::eConfigInt: {
             int64_t i;
-            pEntry->saveValue(&i, sizeof(int64_t));
+            pEntry->unparseCurrentValue(&i, sizeof(int64_t));
             ImGui::Text("%lld", i);
             break;
         }
         case config::eConfigFloat: {
-            float f = *static_cast<const float *>(pData);
+            float f;
+            pEntry->unparseCurrentValue(&f, sizeof(float));
             ImGui::Text("%f", f);
             break;
         }
-        case config::eConfigEnum: {
-            std::string name;
-            pEntry->saveValue(&name, sizeof(std::string));
-            ImGui::TextUnformatted(name.c_str());
+        case config::eConfigEnum:
+        case config::eConfigFlags: {
+            std::string str;
+            pEntry->unparseCurrentValue(&str, sizeof(std::string));
+            ImGui::TextUnformatted(str.data());
+            break;
+        }
+
+        case config::eConfigString: {
+            std::string str;
+            pEntry->unparseCurrentValue(&str, sizeof(std::string));
+            ImGui::TextUnformatted(str.data());
             break;
         }
 
         default:
-            ImGui::Text("unknown");
+            ImGui::TextDisabled("---");
             break;
         }
     }
 
-    void updateValue(config::ConfigEntry *pEntry) {
+    void updateValue(config::IConfigEntry *pEntry) {
         switch (pEntry->getType()) {
         case config::eConfigBool: {
-            bool b = *static_cast<const bool *>(pEntry->getCurrentValue());
+            bool b;
+            pEntry->unparseCurrentValue(&b, sizeof(bool));
             if (ImGui::Checkbox(pEntry->getName().data(), &b)) {
-                pEntry->setCurrentValue(&b);
+                pEntry->parseValue(&b, sizeof(bool));
             }
             break;
         }
         case config::eConfigInt: {
-            int i = *static_cast<const int *>(pEntry->getCurrentValue());
+            int i;
+            pEntry->unparseCurrentValue(&i, sizeof(int64_t));
             if (ImGui::InputInt(pEntry->getName().data(), &i)) {
                 int64_t i64 = i;
-                pEntry->setCurrentValue(&i64);
+                pEntry->parseValue(&i64, sizeof(int64_t));
             }
             break;
         }
         case config::eConfigFloat: {
-            float f = *static_cast<const float *>(pEntry->getCurrentValue());
+            float f;
+            pEntry->unparseCurrentValue(&f, sizeof(float));
             if (ImGui::InputFloat(pEntry->getName().data(), &f)) {
-                pEntry->setCurrentValue(&f);
+                pEntry->parseValue(&f, sizeof(float));
             }
             break;
         }
@@ -110,13 +116,15 @@ namespace {
     enum SaveMode {
         eSaveUser, // save only user modified values
         eSaveAll, // save all values, including defaults
+        eSaveDefaults, // write all default values to file
 
         eSaveTotal
     };
 
     const auto kModeNames = std::array{
-        "Save modified only",
-        "Save all values"
+        "Save modified only", // useful for creating user configs
+        "Save all values", // for creating global configs
+        "Save default values only" // for listing all default values
     };
 }
 
@@ -125,7 +133,7 @@ ConfigUi::ConfigUi()
 { }
 
 void ConfigUi::draw() {
-    config::ConfigEntry *pRoot = config::getConfig();
+    config::IConfigEntry *pRoot = config::getConfig();
 
     if (ImGui::Button("Save config")) {
         saveConfigFile.SetTitle("Save Config File");
@@ -164,11 +172,25 @@ void ConfigUi::draw() {
         ImGui::Combo("Mode", &saveConfigType, kModeNames.data(), int(kModeNames.size()));
         if (ImGui::Button("Confirm")) {
             ImGui::CloseCurrentPopup();
-            LOG_INFO("saving config to {}", saveConfigName.string());
             saveConfigFile.Close();
 
             ThreadService::enqueueWork("save-config", [=] {
-                if (!ConfigService::saveConfig(saveConfigName, saveConfigType == eSaveUser)) {
+                bool bResult = false;
+                switch (saveConfigType) {
+                case eSaveUser:
+                    bResult = ConfigService::saveConfig(saveConfigName, true);
+                    break;
+                case eSaveAll:
+                    bResult = ConfigService::saveConfig(saveConfigName, false);
+                    break;
+                case eSaveDefaults:
+                    bResult = ConfigService::saveDefaultConfig(saveConfigName);
+                    break;
+                default:
+                    SM_NEVER("invalid save config type {}", saveConfigType);
+                }
+
+                if (!bResult) {
                     LOG_WARN("failed to save config to {}", saveConfigName.string());
                 } else {
                     LOG_INFO("saved config to {}", saveConfigName.string());
@@ -184,7 +206,7 @@ void ConfigUi::draw() {
     }
 }
 
-void ConfigUi::drawConfigEntry(const std::string& id, config::ConfigEntry *pEntry) {
+void ConfigUi::drawConfigEntry(const std::string& id, config::IConfigEntry *pEntry) {
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
 
@@ -210,10 +232,10 @@ void ConfigUi::drawConfigEntry(const std::string& id, config::ConfigEntry *pEntr
         ImGui::Text("%s", getConfigTypeName(pEntry->getType()));
 
         ImGui::TableNextColumn();
-        writeValue(pEntry);
+        drawValue(pEntry);
 
         ImGui::TableNextColumn();
-        writeValue(pEntry);
+        drawValue(pEntry);
 
         ImGui::TableNextColumn();
         ImGui::Text("%s", pEntry->getDescription().data());
