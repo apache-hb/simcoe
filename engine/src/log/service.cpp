@@ -61,7 +61,7 @@ void LoggingService::sendMessageAlways(log::Level msgLevel, std::string_view msg
     auto threadId = ThreadService::getCurrentThreadId();
     auto currentUtcTime = chrono::utc_clock::to_sys(chrono::utc_clock::now());
 
-    mt::read_lock guard(lock);
+    mt::write_lock guard(lock);
     for (log::ISink *pSink : sinks) {
         pSink->addLogMessage(msgLevel, threadId, currentUtcTime, msg);
     }

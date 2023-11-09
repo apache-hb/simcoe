@@ -18,7 +18,6 @@ namespace {
         case config::eConfigInt: return "int";
         case config::eConfigFloat: return "float";
         case config::eConfigEnum: return "enum";
-        case config::eConfigFlags: return "flags";
         default: return "unknown";
         }
     }
@@ -45,15 +44,8 @@ namespace {
             ImGui::Text("%f", f);
             break;
         }
-        case config::eConfigEnum:
-        case config::eConfigFlags: {
-            std::string str;
-            pEntry->unparseCurrentValue(&str, sizeof(std::string));
-            ImGui::TextUnformatted(str.data());
-            break;
-        }
-
-        case config::eConfigString: {
+        case config::eConfigString:
+        case config::eConfigEnum: {
             std::string str;
             pEntry->unparseCurrentValue(&str, sizeof(std::string));
             ImGui::TextUnformatted(str.data());
@@ -67,11 +59,12 @@ namespace {
     }
 
     void updateValue(config::IConfigEntry *pEntry) {
+        const char *id = pEntry->getName().data();
         switch (pEntry->getType()) {
         case config::eConfigBool: {
             bool b;
             pEntry->unparseCurrentValue(&b, sizeof(bool));
-            if (ImGui::Checkbox(pEntry->getName().data(), &b)) {
+            if (ImGui::Checkbox(id, &b)) {
                 pEntry->parseValue(&b, sizeof(bool));
             }
             break;
@@ -79,7 +72,7 @@ namespace {
         case config::eConfigInt: {
             int i;
             pEntry->unparseCurrentValue(&i, sizeof(int64_t));
-            if (ImGui::InputInt(pEntry->getName().data(), &i)) {
+            if (ImGui::InputInt(id, &i)) {
                 int64_t i64 = i;
                 pEntry->parseValue(&i64, sizeof(int64_t));
             }
@@ -88,8 +81,30 @@ namespace {
         case config::eConfigFloat: {
             float f;
             pEntry->unparseCurrentValue(&f, sizeof(float));
-            if (ImGui::InputFloat(pEntry->getName().data(), &f)) {
+            if (ImGui::InputFloat(id, &f)) {
                 pEntry->parseValue(&f, sizeof(float));
+            }
+            break;
+        }
+        case config::eConfigEnum: {
+            std::string str;
+            pEntry->unparseCurrentValue(&str, sizeof(std::string));
+
+            if (ImGui::BeginCombo(id, str.c_str())) {
+                for (const auto& [name, value] : pEntry->getEnumFlags()) {
+
+                    bool bSelected = name == str;
+                    if (ImGui::Selectable(name.data(), bSelected)) {
+                        std::string temp = std::string(name); // it expects a string, not a string_view
+                        pEntry->parseValue(&temp, sizeof(std::string));
+                    }
+
+                    if (bSelected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+
+                ImGui::EndCombo();
             }
             break;
         }
@@ -240,14 +255,17 @@ void ConfigUi::drawConfigEntry(const std::string& id, config::IConfigEntry *pEnt
         ImGui::TableNextColumn();
         ImGui::Text("%s", pEntry->getDescription().data());
 
-        if (ImGui::BeginPopup(id.c_str())) {
-            updateValue(pEntry);
-            ImGui::EndPopup();
-        }
+        // TODO: would be nice to have visual feedback that a variable is readonly
+        if (pEntry->hasFlag(config::eDynamic)) {
+            if (ImGui::BeginPopup(id.c_str())) {
+                updateValue(pEntry);
+                ImGui::EndPopup();
+            }
 
-        // if the row is clicked, open the popup
-        if (ImGui::TableGetHoveredRow() == ImGui::TableGetRowIndex() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-            ImGui::OpenPopup(id.c_str());
+            // if the row is clicked, open the popup
+            if (ImGui::TableGetHoveredRow() == ImGui::TableGetRowIndex() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                ImGui::OpenPopup(id.c_str());
+            }
         }
     }
 }

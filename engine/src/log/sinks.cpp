@@ -9,7 +9,7 @@ using namespace simcoe;
 using namespace simcoe::log;
 
 config::ConfigValue<bool> cfgLogColour("logging/console", "colour", "enable coloured console output", true, config::eDynamic);
-config::ConfigValue<std::string> cfgLogPath("logging/file", "path", "path to log file", "log.txt", config::eReadOnly);
+config::ConfigValue<std::string> cfgLogPath("logging/file", "path", "path to log file", "log.txt");
 
 bool hasColourSupport() {
     DWORD dwMode = 0;
@@ -22,12 +22,13 @@ bool hasColourSupport() {
 
 ConsoleSink::ConsoleSink()
     : ISink(true)
-    , bColour(hasColourSupport() && cfgLogColour.getCurrentValue())
+    , bColourSupport(hasColourSupport())
 { }
 
 void ConsoleSink::accept(const Message& msg) {
-    std::lock_guard guard(mutex);
-    auto it = bColour ? log::formatMessageColour(msg) : log::formatMessage(msg);
+    bool bUseColour = bColourSupport && cfgLogColour.getCurrentValue();
+    auto it = bUseColour ? log::formatMessageColour(msg) : log::formatMessage(msg);
+
     std::cout << it << "\n";
 }
 
@@ -41,10 +42,7 @@ FileSink::FileSink()
 }
 
 void FileSink::accept(const Message& msg) {
-    std::lock_guard guard(mutex);
-    if (!os.is_open()) {
-        return;
-    }
+    if (!os.is_open()) return;
 
     auto it = log::formatMessage(msg);
     os << it << "\n";

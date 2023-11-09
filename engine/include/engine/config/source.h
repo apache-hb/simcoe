@@ -21,7 +21,6 @@ namespace simcoe::config {
         eConfigFloat,
 
         eConfigEnum,
-        eConfigFlags,
 
         eConfigGroup,
 

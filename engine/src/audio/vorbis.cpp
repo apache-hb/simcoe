@@ -57,13 +57,16 @@ std::shared_ptr<SoundBuffer> audio::loadVorbisOgg(std::shared_ptr<depot::IFile> 
     vorbis_info *pInfo = ov_info(&vf, -1);
     long bitrate = ov_bitrate(&vf, -1);
 
-    log::PendingMessage msg{"vorbis ogg"};
-    msg.addLine("channels: {} rate: {}", pInfo->channels, pInfo->rate);
+    const fs::path path = file->getName();
+    auto name = path.filename().string();
+
+    log::PendingMessage msg { std::format("=== vorbis ogg {} ===", name) };
     msg.addLine("vendor: {}", pComment->vendor);
+    msg.addLine("channels: {} rate: {}", pInfo->channels, pInfo->rate);
     msg.addLine("bitrate: {}", bitrate);
 
     for (int i = 0; i < pComment->comments; i++) {
-        msg.addLine("comment: {}", pComment->user_comments[i]);
+        msg.addLine(" - comment: {}", pComment->user_comments[i]);
     }
 
     msg.send(log::eDebug);
@@ -99,8 +102,6 @@ std::shared_ptr<SoundBuffer> audio::loadVorbisOgg(std::shared_ptr<depot::IFile> 
     }
 
     ov_clear(&vf);
-
-    auto name = std::string(file->getName());
 
     return std::make_unique<audio::SoundBuffer>(name, buffer, format);
 }

@@ -213,15 +213,8 @@ namespace simcoe::config {
         virtual VisibleType getCurrentValue() const { return currentValue; }
         const VisibleType& getDefaultValue() const { return valueInfo.defaultValue; }
 
-        // first time init
-        void initCurrentValue(VisibleType value) {
-            updateCurrentValue(value);
-        }
-
-        // runtime updates
+        // update value
         virtual void setCurrentValue(VisibleType update) {
-            SM_ASSERTF(hasFlag(eDynamic), "attempted to set non-dynamic config value {}", Super::getName());
-
             notifyUpdate(currentValue, update);
             updateCurrentValue(update);
         }

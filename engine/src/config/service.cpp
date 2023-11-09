@@ -54,7 +54,6 @@ static const INode *collapseConfig(ISource *pSource, IConfigEntry *pEntry, bool 
         return pSource->create(value);
     }
     case eConfigEnum:
-    case eConfigFlags:
     case eConfigString: {
         std::string value;
         pEntry->unparseCurrentValue(&value, sizeof(std::string));
@@ -100,7 +99,6 @@ static const INode *collapseDefaultConfig(ISource *pSource, IConfigEntry *pEntry
         return pSource->create(value);
     }
     case eConfigEnum:
-    case eConfigFlags:
     case eConfigString: {
         std::string value;
         pEntry->unparseDefaultValue(&value, sizeof(std::string));

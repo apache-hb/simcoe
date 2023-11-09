@@ -71,7 +71,7 @@ void LoggingUi::draw() {
     bool bClear = ImGui::Button("Clear");
 
     ImGui::SameLine();
-    textFilter.Draw("Filter", -100.0f);
+    textFilter.Draw("Filter", -1.f);
 
     ImGui::Separator();
 
@@ -92,8 +92,7 @@ void LoggingUi::drawTable() {
         // freeze the first row so it's always visible when scrolling
 
         mt::read_lock lock(mutex);
-        for (size_t row = 0; row < messages.size(); ++row) {
-            const auto& msg = messages[row];
+        for (const auto& msg : messages) {
             if (!msg.filter(textFilter)) continue;
 
             msg.draw();

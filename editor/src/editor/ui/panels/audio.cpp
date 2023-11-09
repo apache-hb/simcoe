@@ -41,19 +41,15 @@ void AudioUi::draw() {
 
     openVorbisFile.Display();
 
-    if (ImGui::Button("Open Audio file")) {
-        openVorbisFile.SetTitle("Open Audio file");
-        openVorbisFile.SetTypeFilters({ ".ogg" });
-        openVorbisFile.Open();
-    }
-
     if (openVorbisFile.HasSelected()) {
-        auto path = openVorbisFile.GetSelected();
+        auto vec = openVorbisFile.GetMultiSelected();
 
-        ThreadService::enqueueWork("load-ogg", [path] {
-            auto pFileHandle = DepotService::openExternalFile(path);
-            AudioService::loadVorbisOgg(pFileHandle);
-        });
+        for (auto path : vec) {
+            ThreadService::enqueueWork(std::format("ogg({})", path.string()), [path] {
+                auto pFileHandle = DepotService::openExternalFile(path);
+                AudioService::loadVorbisOgg(pFileHandle);
+            });
+        }
 
         openVorbisFile.ClearSelected();
     }
@@ -63,6 +59,16 @@ void AudioUi::draw() {
 }
 
 void AudioUi::drawBuffers() {
+    if (ImGui::Button("Open Audio file")) {
+        openVorbisFile.SetTitle("Open Audio file");
+        openVorbisFile.SetTypeFilters({ ".ogg" });
+        openVorbisFile.Open();
+    }
+
+    ImGui::SameLine();
+
+    bufferSearchFilter.Draw("Filter", -1.f);
+
     if (ImGui::BeginTable("Buffers", 3, kFlags)) {
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableSetupColumn("Format", ImGuiTableColumnFlags_WidthStretch);
@@ -73,6 +79,9 @@ void AudioUi::drawBuffers() {
         auto& soundBuffers = AudioService::getBuffers();
 
         for (auto pSoundBuffer : mt::roIter(bufferMutex, soundBuffers)) {
+            if (!bufferSearchFilter.PassFilter(pSoundBuffer->getName()))
+                continue;
+
             ImGui::TableNextRow();
 
             // name
@@ -135,17 +144,15 @@ void AudioUi::drawBuffers() {
         if (ImGui::Button("Create")) {
             selectedIndex = INT_MAX;
 
-            ThreadService::enqueueWork("new-voice", [=] {
-                AudioService::createVoice("voice", selectedFormat);
+            static int idx = 0;
+            ThreadService::enqueueWork("new-voice", [=, idx = idx++] {
+                AudioService::createVoice(std::format("voice.{}", idx), selectedFormat);
             });
             ImGui::CloseCurrentPopup();
         }
 
         ImGui::EndPopup();
     }
-
-    if (ImGui::Button(pCreateVoiceId))
-        ImGui::OpenPopup(pCreateVoiceId);
 }
 
 void AudioUi::drawVoices() {
@@ -182,6 +189,9 @@ void AudioUi::drawVoices() {
         ImGui::EndPopup();
     }
     ImGui::PopID();
+
+    if (ImGui::Button(pCreateVoiceId))
+        ImGui::OpenPopup(pCreateVoiceId);
 
     if (ImGui::BeginTable("Voices", 4, kFlags)) {
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);

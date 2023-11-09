@@ -2,20 +2,17 @@
 
 #include "engine/log/log.h"
 
-#include "engine/threads/mutex.h"
-
 #include <fstream>
 
 namespace simcoe::log {
+    // sinks are externally synchronized
     struct ConsoleSink final : ISink {
         ConsoleSink();
 
         void accept(const Message& msg) override;
 
     private:
-        bool bColour;
-
-        mt::Mutex mutex{"log::ConsoleSink"};
+        bool bColourSupport;
     };
 
     struct FileSink final : ISink {
@@ -26,7 +23,6 @@ namespace simcoe::log {
     private:
         void openFile(std::string_view path);
 
-        mt::Mutex mutex{"log::FileSink"};
         std::ofstream os;
     };
 }
