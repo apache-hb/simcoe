@@ -19,9 +19,6 @@ namespace simcoe::core {
 
 // debug macros
 
-// TODO: have multiple asserts, one for debug, one for release
-// TODO: in release mode asserts should be turned into ensures for better performance
-
 #define SM_DEBUG_ASSERTF(EXPR, ...) \
     do { \
         if (EXPR) { break; } \

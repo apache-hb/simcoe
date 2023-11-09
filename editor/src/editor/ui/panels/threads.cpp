@@ -53,13 +53,14 @@ void ThreadServiceUi::draw() {
     }
 
     ImGui::SeparatorText("scheduler");
-    mt::ReadLock lock(ThreadService::getPoolLock());
-    auto& pool = ThreadService::getPool();
-    ImGui::Text("total threads: %zu", pool.size());
 
     if (ImGui::InputInt("Worker Threads", &workers)) {
         ThreadService::setWorkerCount(workers);
     }
+
+    mt::ReadLock lock(ThreadService::getPoolLock());
+    auto& pool = ThreadService::getPool();
+    ImGui::Text("total threads: %zu", pool.size());
 
     if (ImGui::BeginTable("Threads", 4, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_RowBg)) {
         ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthStretch, 100.f);

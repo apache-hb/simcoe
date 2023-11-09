@@ -21,6 +21,7 @@ namespace simcoe::mt {
 
 #if SM_DEBUG_THREADS
         std::string_view getName() const { return name; }
+        threads::ThreadId getOwner() const { return owner; }
 #endif
 
     private:

@@ -255,6 +255,46 @@ engine = declare_dependency(
 )
 
 ###
+### dear imgui
+###
+
+src = [
+    # dear imgui
+    'editor/src/imgui/imgui.cpp',
+    'editor/src/imgui/imgui_draw.cpp',
+    'editor/src/imgui/imgui_widgets.cpp',
+    'editor/src/imgui/imgui_demo.cpp',
+    'editor/src/imgui/imgui_tables.cpp',
+
+    # dear imgui freetype
+    'editor/src/imgui/misc/imgui_freetype.cpp',
+
+    # dear imgui backends
+    'editor/src/imgui/backends/imgui_impl_win32.cpp',
+    'editor/src/imgui/backends/imgui_impl_dx12.cpp',
+
+    # dear imgui extensions
+    'editor/src/implot/implot.cpp',
+    'editor/src/implot/implot_items.cpp',
+    'editor/src/implot/implot_demo.cpp'
+]
+
+libimgui = library('imgui', src,
+    include_directories : [ 'editor/include' ],
+    dependencies : [ engine ],
+    cpp_args : [
+        '/wd4702', # disable warning C4702: unreachable code
+        '/wd4127'  # disable warning C4127: conditional expression is constant
+    ]
+)
+
+imgui = declare_dependency(
+    link_with : libimgui,
+    include_directories : [ 'editor/include' ],
+    dependencies : [ engine ]
+)
+
+###
 ### editor
 ###
 
@@ -289,25 +329,6 @@ fs.copyfile('data/config/MicrosoftGame.Config')
 
 src = [
     'editor/src/main.cpp',
-
-    # dear imgui
-    'editor/src/imgui/imgui.cpp',
-    'editor/src/imgui/imgui_draw.cpp',
-    'editor/src/imgui/imgui_widgets.cpp',
-    'editor/src/imgui/imgui_demo.cpp',
-    'editor/src/imgui/imgui_tables.cpp',
-
-    # dear imgui freetype
-    'editor/src/imgui/misc/imgui_freetype.cpp',
-
-    # dear imgui backends
-    'editor/src/imgui/backends/imgui_impl_win32.cpp',
-    'editor/src/imgui/backends/imgui_impl_dx12.cpp',
-
-    # dear imgui extensions
-    'editor/src/implot/implot.cpp',
-    'editor/src/implot/implot_items.cpp',
-    'editor/src/implot/implot_demo.cpp',
 
     # render graph objects
     'editor/src/editor/graph/assets.cpp',
@@ -411,6 +432,9 @@ deps = [
     # general
     engine,
 
+    # imgui
+    imgui,
+
     # render
     tinyobj
 ]
@@ -418,7 +442,7 @@ deps = [
 editor = executable('editor', src,
     dependencies : deps,
     include_directories : [ 'editor/include' ],
-    cpp_args : [ '-DEDITOR=1', '/wd4127' ], # disable warning C4127: conditional expression is constant
+    cpp_args : [ '-DEDITOR=1' ],
     gui_app : gui_app.enabled()
 )
 

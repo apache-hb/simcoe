@@ -68,7 +68,7 @@ namespace simcoe::core {
         using Super = UniquePtr<T, TDelete>;
         using Super::Super;
 
-        UniquePtr(T *pData, size_t size)
+        UniquePtr(T *pData, SM_UNUSED size_t size)
             : Super(pData)
 #if SM_DEBUG
             , size(size)

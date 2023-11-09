@@ -299,34 +299,17 @@ namespace {
     Geometry gCpuGeometry = {};
 
     // all currently scheduled threads
-    mt::SharedMutex gThreadHandleLock{"pool"};
+    mt::SharedMutex gThreadLock{"pool"};
     std::vector<threads::ThreadHandle*> gThreadHandles;
+
+    // worker thread data
+    size_t gWorkerId = 0;
+    std::vector<threads::ThreadHandle*> gWorkers;
 
 
     // thread communication
     WorkQueue *gMainQueue = nullptr;
     BlockingWorkQueue *gWorkQueue = nullptr;
-
-    // worker thread data
-    mt::SharedMutex gWorkerLock{"worker"};
-    size_t gWorkerId = 0;
-    std::vector<threads::ThreadHandle*> gWorkers;
-
-    threads::ThreadHandle *newWorkerThread() {
-        const auto kWorkerBody = [](std::stop_token token) {
-            WorkMessage msg;
-            auto interval = std::chrono::milliseconds(cfgWorkerDelay.getCurrentValue());
-
-            while (!token.stop_requested()) {
-                if (gWorkQueue->tryGetMessage(msg, interval)) {
-                    msg.item();
-                }
-            }
-        };
-
-        auto id = std::format("work.{}", gWorkerId++);
-        return ThreadService::newThread(threads::eWorker, id, kWorkerBody);
-    }
 }
 
 bool ThreadService::createService() {
@@ -428,22 +411,29 @@ void ThreadService::pollMainQueue() {
 void ThreadService::setWorkerCount(size_t count) {
     count = count == 0 ? std::thread::hardware_concurrency() / 2 : count;
     LOG_INFO("starting {} workers", count);
-    mt::WriteLock lock(gWorkerLock);
+    mt::WriteLock lock(getPoolLock());
 
-    // TODO: this leaks memory
-    for (auto *pWorker : gWorkers) {
-        pWorker->requestStop();
+    if (count > cfgMaxWorkerCount.getCurrentValue()) {
+        LOG_WARN("worker count {} exceeds max worker count {}", count, cfgMaxWorkerCount.getCurrentValue());
+        count = cfgMaxWorkerCount.getCurrentValue();
     }
 
-    gWorkers.clear();
-
-    for (size_t i = 0; i < count; ++i) {
+    while (gWorkers.size() < count) {
         gWorkers.push_back(newWorkerThread());
+    }
+
+    while (gWorkers.size() > count) {
+        auto *pWorker = gWorkers.back();
+        std::erase(gThreadHandles, pWorker); // TODO: should we use a set instead?
+
+        gWorkers.pop_back();
+        pWorker->requestStop();
+        delete pWorker;
     }
 }
 
 size_t ThreadService::getWorkerCount() {
-    mt::ReadLock lock(gWorkerLock);
+    mt::ReadLock lock(getPoolLock());
     return gWorkers.size();
 }
 
@@ -453,6 +443,32 @@ void ThreadService::enqueueWork(std::string name, threads::WorkItem&& func) {
 }
 
 threads::ThreadHandle *ThreadService::newThread(threads::ThreadType type, std::string name, threads::ThreadStart&& start) {
+    auto *pHandle = newThreadInner(type, name, std::move(start));
+
+    mt::WriteLock lock(getPoolLock());
+    getPool().push_back(pHandle);
+    return pHandle;
+}
+
+threads::ThreadHandle *ThreadService::newWorkerThread() {
+    const auto kWorkerBody = [](std::stop_token token) {
+        WorkMessage msg;
+        auto interval = std::chrono::milliseconds(cfgWorkerDelay.getCurrentValue());
+
+        while (!token.stop_requested()) {
+            if (gWorkQueue->tryGetMessage(msg, interval)) {
+                msg.item();
+            }
+        }
+    };
+
+    auto id = std::format("work.{}", gWorkerId++);
+    auto *pHandle = ThreadService::newThreadInner(threads::eWorker, id, kWorkerBody);
+    gThreadHandles.push_back(pHandle);
+    return pHandle;
+}
+
+threads::ThreadHandle *ThreadService::newThreadInner(threads::ThreadType type, std::string name, threads::ThreadStart&& start) {
     auto *pHandle = new threads::ThreadHandle({
         .type = type,
         .mask = ScheduleMask(),
@@ -460,8 +476,6 @@ threads::ThreadHandle *ThreadService::newThread(threads::ThreadType type, std::s
         .start = std::move(start)
     });
 
-    mt::WriteLock lock(getPoolLock());
-    getPool().push_back(pHandle);
     return pHandle;
 }
 
@@ -479,5 +493,5 @@ void ThreadService::shutdown() {
     handles.clear();
 }
 
-mt::SharedMutex &ThreadService::getPoolLock() { return gThreadHandleLock; }
+mt::SharedMutex &ThreadService::getPoolLock() { return gThreadLock; }
 std::vector<threads::ThreadHandle*> &ThreadService::getPool() { return gThreadHandles; }

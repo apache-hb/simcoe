@@ -76,6 +76,10 @@ namespace simcoe {
         // getters
         static mt::SharedMutex &getPoolLock();
         static std::vector<threads::ThreadHandle*> &getPool();
+
+    private:
+        static threads::ThreadHandle *newWorkerThread();
+        static threads::ThreadHandle *newThreadInner(threads::ThreadType type, std::string name, threads::ThreadStart&& start);
     };
 
     namespace threads {

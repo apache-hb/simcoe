@@ -85,6 +85,12 @@ void SharedMutex::unlock() {
 }
 
 void SharedMutex::lock_shared() {
+#if SM_DEBUG_THREADS
+    auto tid = threads::getCurrentThreadId();
+    if (getOwner() == tid) {
+        core::throwFatal("Mutex '{}' was already locked on this thread", getName());
+    }
+#endif
     mutex.lock_shared();
 }
 

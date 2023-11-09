@@ -25,7 +25,12 @@ void IService::create() try {
     }
 } catch (const core::Error& err) {
     LOG_ERROR("failed to load {} service: {}", getName(), err.what());
+    for (const auto& frame : err.getStacktrace()) {
+        LOG_ERROR("  {}", frame.symbol);
+    }
     state = eServiceFaulted;
+
+    if (!err.recoverable()) { throw; }
 }
 
 void IService::destroy() {
