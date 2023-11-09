@@ -1,5 +1,6 @@
 #include "engine/audio/service.h"
 
+#include "engine/log/message.h"
 #include "engine/threads/service.h"
 
 #include "engine/log/service.h"
@@ -16,21 +17,11 @@ namespace {
     IXAudio2 *pAudioRuntime = nullptr;
     IXAudio2MasteringVoice *pAudioMasterVoice = nullptr;
 
-    std::mutex gBufferMutex;
+    mt::shared_mutex gBufferMutex;
     std::vector<audio::SoundBufferPtr> gBuffers;
 
-    std::mutex gVoiceMutex;
+    mt::shared_mutex gVoiceMutex;
     std::vector<audio::VoiceHandlePtr> gVoices;
-
-    std::string xaErrorString(HRESULT hr) {
-        switch (hr) {
-        case XAUDIO2_E_INVALID_CALL: return "xaudio2:invalid-call";
-        case XAUDIO2_E_XMA_DECODER_ERROR: return "xaudio2:xma-decoder-error";
-        case XAUDIO2_E_XAPO_CREATION_FAILED: return "xaudio2:xapo-creation-failed";
-        case XAUDIO2_E_DEVICE_INVALIDATED: return "xaudio2:device-invalidated";
-        default: return debug::getResultName(hr);
-        }
-    }
 
     struct AudioCallbacks final : IXAudio2EngineCallback {
         void OnProcessingPassStart() noexcept override { }
@@ -38,19 +29,12 @@ namespace {
         void OnProcessingPassEnd() noexcept override { }
 
         void OnCriticalError(HRESULT hr) noexcept override {
-            LOG_ERROR("xaudio2 critical error: {}", xaErrorString(hr));
+            LOG_ERROR("xaudio2 critical error: {}", audio::xaErrorString(hr));
         }
     };
 
     AudioCallbacks gAudioCallbacks;
 }
-
-#define XA_CHECK(EXPR) \
-    do { \
-        if (HRESULT hr = (EXPR); FAILED(hr)) { \
-            core::throwNonFatal("xaudio2 error: {}", xaErrorString(hr)); \
-        } \
-    } while (false)
 
 bool AudioService::createService() {
     HR_CHECK(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
@@ -85,6 +69,12 @@ bool AudioService::createService() {
 }
 
 void AudioService::destroyService() {
+    mt::write_lock voiceLock(gVoiceMutex);
+    mt::write_lock bufferLock(gBufferMutex);
+
+    gVoices.clear();
+    gBuffers.clear();
+
     pAudioRuntime->StopEngine();
 
     if (pAudioMasterVoice) {
@@ -102,13 +92,36 @@ void AudioService::destroyService() {
     CoUninitialize();
 }
 
+mt::shared_mutex& AudioService::getBufferMutex() { return gBufferMutex; }
+std::vector<audio::SoundBufferPtr>& AudioService::getBuffers() { return gBuffers; }
+
+mt::shared_mutex& AudioService::getVoiceMutex() { return gVoiceMutex; }
+std::vector<audio::VoiceHandlePtr>& AudioService::getVoices() { return gVoices; }
+
 audio::SoundBufferPtr AudioService::loadVorbisOgg(std::shared_ptr<depot::IFile> buffer) {
-    return audio::loadVorbisOgg(buffer); // TODO: keep data in service memory
+    auto sound = audio::loadVorbisOgg(buffer); // TODO: keep data in service memory
+
+    mt::write_lock lock(gBufferMutex);
+    gBuffers.push_back(sound);
+    return sound;
 }
 
-audio::VoiceHandlePtr AudioService::createVoice(const audio::SoundFormat& format) {
-    IXAudio2SourceVoice *pVoice = nullptr;
-    XA_CHECK(pAudioRuntime->CreateSourceVoice(&pVoice, (WAVEFORMATEX*)&format.format));
+audio::VoiceHandlePtr AudioService::createVoice(std::string name, const audio::SoundFormat& format) {
+    log::PendingMessage msg{"AudioService::createVoice"};
+    msg.addLine("name: {}", name);
+    msg.addLine("tag: {}", WORD(format.getFormatTag()));
+    msg.addLine("channels: {}", format.getChannels());
+    msg.addLine("samples/sec: {}", format.getSamplesPerSecond());
+    msg.addLine("bits/sample: {}", format.getBitsPerSample());
+    msg.addLine("block align: {}", WORD(format.getFormat()->nBlockAlign));
+    msg.addLine("avg bytes/sec: {}", DWORD(format.getFormat()->nAvgBytesPerSec));
+    msg.send(log::eDebug);
 
-    return std::make_shared<audio::VoiceHandle>(pVoice);
+    IXAudio2SourceVoice *pVoice = nullptr;
+    XA_CHECK(pAudioRuntime->CreateSourceVoice(&pVoice, format.getFormat()));
+
+    auto voice = std::make_shared<audio::VoiceHandle>(name, format, pVoice);
+    mt::write_lock lock(gVoiceMutex);
+    gVoices.push_back(voice);
+    return voice;
 }

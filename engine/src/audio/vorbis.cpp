@@ -70,16 +70,17 @@ std::shared_ptr<SoundBuffer> audio::loadVorbisOgg(std::shared_ptr<depot::IFile> 
 
     WORD wChannels = core::intCast<WORD>(pInfo->channels);
     DWORD nSamplesPerSec = core::intCast<DWORD>(pInfo->rate);
-    WORD nBlockAlign = core::intCast<WORD>(pInfo->channels * 2);
+    const WORD wBitsPerSample = 16; // vorbis is always 16-bit (i hope)
+    WORD wBlockAlign = core::intCast<WORD>(wChannels * wBitsPerSample) / 8;
 
     // xaudio stuff
     WAVEFORMATEX format = {
         .wFormatTag = WAVE_FORMAT_PCM,
         .nChannels = wChannels,
         .nSamplesPerSec = nSamplesPerSec,
-        .nAvgBytesPerSec = nSamplesPerSec * nBlockAlign,
-        .nBlockAlign = nBlockAlign,
-        .wBitsPerSample = core::intCast<WORD>(2 * wChannels)
+        .nAvgBytesPerSec = nSamplesPerSec * wBlockAlign,
+        .nBlockAlign = wBlockAlign,
+        .wBitsPerSample = wBitsPerSample
     };
 
     std::vector<uint8_t> buffer;
@@ -97,23 +98,9 @@ std::shared_ptr<SoundBuffer> audio::loadVorbisOgg(std::shared_ptr<depot::IFile> 
         buffer.insert(buffer.end(), data, data + ret);
     }
 
-    XAUDIO2_BUFFER xbuffer = {
-        .Flags = XAUDIO2_END_OF_STREAM, // this is the only buffer
-        .AudioBytes = core::intCast<UINT32>(buffer.size()),
-        .pAudioData = static_cast<const BYTE*>(buffer.data())
-    };
-
     ov_clear(&vf);
 
-    auto *pSound = new audio::SoundBuffer {
-        .name = std::string(file->getName()),
+    auto name = std::string(file->getName());
 
-        .channels = core::intCast<size_t>(pInfo->channels),
-        .data = buffer,
-
-        .format = format,
-        .buffer = xbuffer
-    };
-
-    return audio::SoundBufferPtr(pSound);
+    return std::make_unique<audio::SoundBuffer>(name, buffer, format);
 }

@@ -11,7 +11,7 @@ namespace simcoe::mt {
 
     template<typename M, typename T>
     struct Iterator {
-        Iterator(M& mutex, T& container)
+        Iterator(M& mutex, const T& container)
             : mutex(mutex)
             , container(container)
         {
@@ -30,18 +30,18 @@ namespace simcoe::mt {
 
     private:
         M& mutex;
-        T& container;
+        const T& container;
     };
 
     // readonly iterator
     template<typename M, typename T>
     Iterator<M, T> roIter(M& mutex, const T& container) {
-        return Iterator<M, T>(mutex, container.begin());
+        return Iterator<M, T>(mutex, container);
     }
 
     // readwrite iterator
     template<typename M, typename T>
     Iterator<M, T> rwIter(M& mutex, T& container) {
-        return Iterator<M, T>(mutex, container.begin());
+        return Iterator<M, T>(mutex, container);
     }
 }

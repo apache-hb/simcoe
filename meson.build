@@ -184,6 +184,7 @@ src = [
     # audio
     'engine/src/audio/service.cpp',
     'engine/src/audio/vorbis.cpp',
+    'engine/src/audio/audio.cpp',
 
     # rhi
     'engine/src/rhi/render.cpp',

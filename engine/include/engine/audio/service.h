@@ -16,7 +16,7 @@ namespace simcoe {
 
         // audio api
         static audio::SoundBufferPtr loadVorbisOgg(std::shared_ptr<depot::IFile> file);
-        static audio::VoiceHandlePtr createVoice(const audio::SoundFormat& format);
+        static audio::VoiceHandlePtr createVoice(std::string name, const audio::SoundFormat& format);
 
         static mt::shared_mutex& getBufferMutex();
         static std::vector<audio::SoundBufferPtr>& getBuffers();

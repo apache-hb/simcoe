@@ -13,21 +13,21 @@ waitInterval = 100
     mode = 'read'
     root = '$exe/editor.exe.p'
 
-[engine.input]
+[game]
+entityLimit = 4096
+seed = 0
+
+[input]
 keyboardenable = true
 mousecapture = false
 mouseenable = true
 poll-interval = 16
 
-    [engine.input.xinput]
+    [input.xinput]
     gamepad0 = true
 
-[game]
-entityLimit = 4096
-seed = 0
-
 [logging]
-level = ''
+level = 'debug'
 
     [logging.console]
     colour = true
@@ -36,16 +36,16 @@ level = ''
     path = 'log.txt'
 
 [platform.window]
-height = 720
+height = 1080
 title = 'editor'
-width = 1280
+width = 1920
 
 [render]
-faultLimit = 0
+faultLimit = 3
 
     [render.display]
-    height = 1080
-    width = 1920
+    height = 2160
+    width = 3840
 
 [threads]
 mainQueueSize = 64
