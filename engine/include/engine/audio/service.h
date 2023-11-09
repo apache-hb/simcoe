@@ -2,6 +2,8 @@
 
 #include "engine/depot/service.h"
 
+#include "engine/threads/mutex.h"
+
 #include "engine/audio/audio.h"
 
 namespace simcoe {
@@ -18,10 +20,10 @@ namespace simcoe {
         static audio::SoundBufferPtr loadVorbisOgg(std::shared_ptr<depot::IFile> file);
         static audio::VoiceHandlePtr createVoice(std::string name, const audio::SoundFormat& format);
 
-        static mt::shared_mutex& getBufferMutex();
+        static mt::SharedMutex& getBufferMutex();
         static std::vector<audio::SoundBufferPtr>& getBuffers();
 
-        static mt::shared_mutex& getVoiceMutex();
+        static mt::SharedMutex& getVoiceMutex();
         static std::vector<audio::VoiceHandlePtr>& getVoices();
     };
 }

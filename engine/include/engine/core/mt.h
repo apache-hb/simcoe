@@ -1,14 +1,7 @@
 #pragma once
 
-#include <mutex>
-#include <shared_mutex>
-
 // thread safe range based for loops
 namespace simcoe::mt {
-    using shared_mutex = std::shared_mutex;
-    using write_lock = std::unique_lock<shared_mutex>;
-    using read_lock = std::shared_lock<shared_mutex>;
-
     template<typename M, typename T>
     struct Iterator {
         Iterator(M& mutex, const T& container)

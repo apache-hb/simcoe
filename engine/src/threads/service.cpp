@@ -298,12 +298,17 @@ namespace {
     // geometry data
     Geometry gCpuGeometry = {};
 
+    // all currently scheduled threads
+    mt::SharedMutex gThreadHandleLock{"pool"};
+    std::vector<threads::ThreadHandle*> gThreadHandles;
+
+
     // thread communication
     WorkQueue *gMainQueue = nullptr;
     BlockingWorkQueue *gWorkQueue = nullptr;
 
     // worker thread data
-    mt::shared_mutex gWorkerLock;
+    mt::SharedMutex gWorkerLock{"worker"};
     size_t gWorkerId = 0;
     std::vector<threads::ThreadHandle*> gWorkers;
 
@@ -322,10 +327,6 @@ namespace {
         auto id = std::format("work.{}", gWorkerId++);
         return ThreadService::newThread(threads::eWorker, id, kWorkerBody);
     }
-}
-
-ThreadService::ThreadService() {
-
 }
 
 bool ThreadService::createService() {
@@ -427,7 +428,7 @@ void ThreadService::pollMainQueue() {
 void ThreadService::setWorkerCount(size_t count) {
     count = count == 0 ? std::thread::hardware_concurrency() / 2 : count;
     LOG_INFO("starting {} workers", count);
-    mt::write_lock lock(gWorkerLock);
+    mt::WriteLock lock(gWorkerLock);
 
     // TODO: this leaks memory
     for (auto *pWorker : gWorkers) {
@@ -442,7 +443,7 @@ void ThreadService::setWorkerCount(size_t count) {
 }
 
 size_t ThreadService::getWorkerCount() {
-    mt::read_lock lock(gWorkerLock);
+    mt::ReadLock lock(gWorkerLock);
     return gWorkers.size();
 }
 
@@ -459,13 +460,13 @@ threads::ThreadHandle *ThreadService::newThread(threads::ThreadType type, std::s
         .start = std::move(start)
     });
 
-    mt::write_lock lock(getPoolLock());
+    mt::WriteLock lock(getPoolLock());
     getPool().push_back(pHandle);
     return pHandle;
 }
 
 void ThreadService::shutdown() {
-    mt::write_lock lock(getPoolLock());
+    mt::WriteLock lock(getPoolLock());
     auto& handles = getPool();
 
     for (auto *pHandle : handles) {
@@ -477,3 +478,6 @@ void ThreadService::shutdown() {
     }
     handles.clear();
 }
+
+mt::SharedMutex &ThreadService::getPoolLock() { return gThreadHandleLock; }
+std::vector<threads::ThreadHandle*> &ThreadService::getPool() { return gThreadHandles; }

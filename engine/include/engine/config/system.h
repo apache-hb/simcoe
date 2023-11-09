@@ -6,6 +6,8 @@
 #include "engine/core/units.h"
 #include "engine/core/mt.h"
 
+#include "engine/threads/mutex.h"
+
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -296,9 +298,20 @@ namespace simcoe::config {
         using Super = ConfigValueBase<std::string>;
         using Super::Super;
 
+        using Self = ConfigValue<std::string>;
+
         using VisibleType = typename Super::VisibleType;
         using StorageType = typename Super::StorageType;
         using SaveType = typename Super::SaveType;
+
+        ConfigValue(std::string_view path, std::string_view name, std::string_view description, VisibleType defaultValue, ValueFlag flags = eDefault)
+            : Self(path, { .name = name, .description = description, .defaultValue = defaultValue, .flags = flags })
+        { }
+
+        ConfigValue(std::string_view path, const ConfigValueInfo<std::string>& info)
+            : ConfigValueBase(path, Traits::kType, info)
+            , mutex(info.name)
+        { }
 
         // TODO: this is all duplicated from ConfigValue<T>
         virtual bool readConfigValue(const INode *pNode) override {
@@ -328,19 +341,19 @@ namespace simcoe::config {
 
         // specialized because strings arent atomic
         VisibleType getCurrentValue() const override {
-            mt::read_lock lock(mutex);
+            mt::ReadLock lock(mutex);
             return Super::getCurrentValue();
         }
 
         void setCurrentValue(VisibleType update) override {
             Super::notifyUpdate(Super::getCurrentValue(), update);
 
-            mt::write_lock lock(mutex);
+            mt::WriteLock lock(mutex);
             Super::updateCurrentValue(update);
         }
 
     private:
-        mutable mt::shared_mutex mutex;
+        mutable mt::SharedMutex mutex;
     };
 
     template<typename T> requires std::is_enum_v<T>

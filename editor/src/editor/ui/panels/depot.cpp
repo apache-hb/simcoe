@@ -22,7 +22,7 @@ DepotUi::DepotUi()
 { }
 
 void DepotUi::draw() {
-    mt::read_lock lock(DepotService::getMutex());
+    mt::ReadLock lock(DepotService::getMutex());
 
     if (ImGui::Button("Open File")) {
         openFile.Open();

@@ -109,8 +109,8 @@ namespace {
     threads::ThreadHandle *pChangeNotify = nullptr;
 
     // local handles (files inside the vfs dir)
-    mt::shared_mutex mutex;
-    HandleMap handles;
+    mt::SharedMutex gMutex{"vfs"};
+    HandleMap gHandles;
 
     std::string formatPath(std::string_view plainPath) {
         // replace $cwd with current working directory
@@ -142,8 +142,8 @@ namespace {
 
 // service getters
 
-mt::shared_mutex& DepotService::getMutex() { return mutex; }
-HandleMap& DepotService::getHandles() { return handles; }
+mt::SharedMutex& DepotService::getMutex() { return gMutex; }
+HandleMap& DepotService::getHandles() { return gHandles; }
 
 // service api
 
@@ -198,8 +198,8 @@ void DepotService::destroyService() {
 std::shared_ptr<depot::IFile> DepotService::openFile(const fs::path& path) {
     auto asset = getAssetPath(path);
     {
-        mt::read_lock lock(mutex);
-        if (auto it = handles.find(asset); it != handles.end()) {
+        mt::ReadLock lock(gMutex);
+        if (auto it = gHandles.find(asset); it != gHandles.end()) {
             return it->second;
         }
     }
@@ -224,8 +224,8 @@ std::shared_ptr<depot::IFile> DepotService::openFile(const fs::path& path) {
 
     auto handle = std::make_shared<FileHandle>(str, hFile);
 
-    mt::write_lock lock(mutex);
-    handles.emplace(path, handle);
+    mt::WriteLock lock(gMutex);
+    gHandles.emplace(path, handle);
 
     return handle;
 }
@@ -236,8 +236,8 @@ fs::path DepotService::getAssetPath(const fs::path& path) {
 
 std::shared_ptr<depot::IFile> DepotService::openExternalFile(const fs::path& path) {
     {
-        mt::read_lock lock(mutex);
-        if (auto it = handles.find(path); it != handles.end()) {
+        mt::ReadLock lock(gMutex);
+        if (auto it = gHandles.find(path); it != gHandles.end()) {
             return it->second;
         }
     }
@@ -261,8 +261,8 @@ std::shared_ptr<depot::IFile> DepotService::openExternalFile(const fs::path& pat
 
     auto handle = std::make_shared<FileHandle>(str, hFile);
 
-    mt::write_lock lock(mutex);
-    handles.emplace(path, handle);
+    mt::WriteLock lock(gMutex);
+    gHandles.emplace(path, handle);
 
     return handle;
 }

@@ -48,7 +48,7 @@ namespace editor::ui {
         ImGuiTextFilter textFilter;
         bool bAutoScroll = true;  // Keep scrolling if already at the bottom.
 
-        mt::shared_mutex mutex;
+        mt::SharedMutex mutex{"LoggingUi"};
         std::vector<Message> messages;
     };
 }

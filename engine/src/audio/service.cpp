@@ -2,6 +2,7 @@
 
 #include "engine/log/message.h"
 #include "engine/threads/service.h"
+#include "engine/threads/mutex.h"
 
 #include "engine/log/service.h"
 
@@ -17,10 +18,10 @@ namespace {
     IXAudio2 *pAudioRuntime = nullptr;
     IXAudio2MasteringVoice *pAudioMasterVoice = nullptr;
 
-    mt::shared_mutex gBufferMutex;
+    mt::SharedMutex gBufferMutex{"buffers"};
     std::vector<audio::SoundBufferPtr> gBuffers;
 
-    mt::shared_mutex gVoiceMutex;
+    mt::SharedMutex gVoiceMutex{"voices"};
     std::vector<audio::VoiceHandlePtr> gVoices;
 
     struct AudioCallbacks final : IXAudio2EngineCallback {
@@ -69,8 +70,8 @@ bool AudioService::createService() {
 }
 
 void AudioService::destroyService() {
-    mt::write_lock voiceLock(gVoiceMutex);
-    mt::write_lock bufferLock(gBufferMutex);
+    mt::WriteLock voiceLock(gVoiceMutex);
+    mt::WriteLock bufferLock(gBufferMutex);
 
     gVoices.clear();
     gBuffers.clear();
@@ -92,16 +93,16 @@ void AudioService::destroyService() {
     CoUninitialize();
 }
 
-mt::shared_mutex& AudioService::getBufferMutex() { return gBufferMutex; }
+mt::SharedMutex& AudioService::getBufferMutex() { return gBufferMutex; }
 std::vector<audio::SoundBufferPtr>& AudioService::getBuffers() { return gBuffers; }
 
-mt::shared_mutex& AudioService::getVoiceMutex() { return gVoiceMutex; }
+mt::SharedMutex& AudioService::getVoiceMutex() { return gVoiceMutex; }
 std::vector<audio::VoiceHandlePtr>& AudioService::getVoices() { return gVoices; }
 
 audio::SoundBufferPtr AudioService::loadVorbisOgg(std::shared_ptr<depot::IFile> buffer) {
     auto sound = audio::loadVorbisOgg(buffer); // TODO: keep data in service memory
 
-    mt::write_lock lock(gBufferMutex);
+    mt::WriteLock lock(gBufferMutex);
     gBuffers.push_back(sound);
     return sound;
 }
@@ -121,7 +122,7 @@ audio::VoiceHandlePtr AudioService::createVoice(std::string name, const audio::S
     XA_CHECK(pAudioRuntime->CreateSourceVoice(&pVoice, format.getFormat()));
 
     auto voice = std::make_shared<audio::VoiceHandle>(name, format, pVoice);
-    mt::write_lock lock(gVoiceMutex);
+    mt::WriteLock lock(gVoiceMutex);
     gVoices.push_back(voice);
     return voice;
 }

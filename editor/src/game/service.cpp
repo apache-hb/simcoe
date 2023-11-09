@@ -120,10 +120,12 @@ struct GameGui final : eg::IGuiPass {
         PassAttachment<eg::TextureHandle> *pAttachment = nullptr;
     };
 
+    mt::SharedMutex imageLock{"GameGui::imageLock"};
     std::vector<ImageData> images;
     int currentImage = 0;
 
     void addImage(std::string imageName) try {
+        mt::WriteLock lock(imageLock);
         auto *pHandle = pGraph->addResource<eg::TextureHandle>(imageName);
         auto *pAttachment = addAttachment(pHandle, rhi::ResourceState::eTextureRead);
 
@@ -134,6 +136,8 @@ struct GameGui final : eg::IGuiPass {
     }
 
     ui::GlobalHandle imageHandle = ui::addGlobalHandle("Images", [this] {
+        mt::ReadLock lock(imageLock);
+
         // draw a grid of images
         float windowWidth = ImGui::GetWindowWidth();
         float cellWidth = 250.f;
@@ -393,7 +397,9 @@ struct GameGui final : eg::IGuiPass {
             LOG_INFO("selected: {}", path);
             imgLoadBrowser.ClearSelected();
 
-            addImage(path);
+            ThreadService::enqueueWork("add-image", [this, path] {
+                addImage(path);
+            });
         }
     }
 

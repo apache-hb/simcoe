@@ -31,7 +31,7 @@ namespace simcoe {
         static std::shared_ptr<depot::IFile> openExternalFile(const fs::path& path);
 
         // internal data
-        static mt::shared_mutex& getMutex();
+        static mt::SharedMutex& getMutex();
         static HandleMap& getHandles();
     };
 }

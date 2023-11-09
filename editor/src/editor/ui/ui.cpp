@@ -14,7 +14,7 @@ using namespace editor::ui;
 // global debug handles
 
 namespace {
-    mt::shared_mutex gLock;
+    mt::SharedMutex gLock{"DebugUi"};
     std::unordered_set<ui::DebugHandle*> gHandles;
 }
 
@@ -25,19 +25,19 @@ ui::GlobalHandle ui::addGlobalHandle(const std::string &name, std::function<void
         delete pHandle;
     });
 
-    mt::write_lock lock(gLock);
+    mt::WriteLock lock(gLock);
     gHandles.insert(pHandle);
 
     return userHandle;
 }
 
 void ui::removeGlobalHandle(DebugHandle *pHandle) {
-    mt::write_lock lock(gLock);
+    mt::WriteLock lock(gLock);
     gHandles.erase(pHandle);
 }
 
 void ui::enumGlobalHandles(std::function<void(DebugHandle*)> callback) {
-    mt::read_lock lock(gLock);
+    mt::ReadLock lock(gLock);
     for (auto *pHandle : gHandles) {
         callback(pHandle);
     }

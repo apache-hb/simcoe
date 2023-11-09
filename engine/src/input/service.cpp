@@ -10,7 +10,7 @@ using namespace simcoe;
 
 // internal data
 
-config::ConfigValue<int64_t> cfgPollInterval("input", "poll-interval", "How often to poll input devices (in ms)", 16);
+config::ConfigValue<int64_t> cfgPollInterval("input", "poll-interval", "How often to poll input devices (in us)", 500);
 
 config::ConfigValue<bool> cfgEnableKeyboard("input", "keyboardenable", "Enable keyboard input", true);
 config::ConfigValue<bool> cfgEnableMouse("input", "mouseenable", "Enable mouse input", true);
@@ -18,27 +18,36 @@ config::ConfigValue<bool> cfgLockMouse("input", "mousecapture", "Lock mouse to w
 
 config::ConfigValue<bool> cfgEnableGamepad0("input/xinput", "gamepad0", "Enable xinput gamepad0", true);
 
-// service api
+namespace {
+    mt::SharedMutex gMutex{"input"};
+    input::Manager gManager;
+    threads::ThreadHandle *pThread = nullptr;
 
-InputService::InputService() {
-
+    input::Win32Keyboard *pKeyboard = nullptr;
+    input::Win32Mouse *pMouse = nullptr;
+    input::XInputGamepad *pGamepad0 = nullptr;
 }
+
+// service api
 
 bool InputService::createService() {
     if (cfgEnableKeyboard.getCurrentValue()) {
-        addSource(new input::Win32Keyboard());
+        pKeyboard = new input::Win32Keyboard();
+        addSource(pKeyboard);
     }
 
     if (cfgEnableMouse.getCurrentValue()) {
-        addSource(new input::Win32Mouse(PlatformService::getWindow(), cfgLockMouse.getCurrentValue()));
+        pMouse = new input::Win32Mouse(PlatformService::getWindow(), cfgLockMouse.getCurrentValue());
+        addSource(pMouse);
     }
 
     if (cfgEnableGamepad0.getCurrentValue()) {
-        addSource(new input::XInputGamepad(0));
+        pGamepad0 = new input::XInputGamepad(0);
+        addSource(pGamepad0);
     }
 
     pThread = ThreadService::newThread(threads::eResponsive, "input", [](std::stop_token stop) {
-        auto interval = std::chrono::milliseconds(cfgPollInterval.getCurrentValue());
+        auto interval = std::chrono::microseconds(cfgPollInterval.getCurrentValue());
 
         while (!stop.stop_requested()) {
             pollInput();
@@ -54,11 +63,27 @@ void InputService::destroyService() {
 }
 
 void InputService::addSource(input::ISource *pSource) {
-    mt::write_lock lock(getMutex());
+    mt::WriteLock lock(getMutex());
     getManager().addSource(pSource);
 }
 
 void InputService::addClient(input::IClient *pClient) {
-    mt::write_lock lock(getMutex());
+    mt::WriteLock lock(getMutex());
     getManager().addClient(pClient);
 }
+
+void InputService::pollInput() {
+    mt::ReadLock lock(getMutex());
+    getManager().poll();
+}
+
+void InputService::handleMsg(UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    mt::ReadLock lock(getMutex());
+
+    if (pKeyboard) {
+        pKeyboard->handleMsg(uMsg, wParam, lParam);
+    }
+}
+
+mt::SharedMutex &InputService::getMutex() { return gMutex; }
+input::Manager &InputService::getManager() { return gManager; }

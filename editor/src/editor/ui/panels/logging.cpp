@@ -91,7 +91,7 @@ void LoggingUi::drawTable() {
         ImGui::TableHeadersRow();
         // freeze the first row so it's always visible when scrolling
 
-        mt::read_lock lock(mutex);
+        mt::ReadLock lock(mutex);
         for (const auto& msg : messages) {
             if (!msg.filter(textFilter)) continue;
 
@@ -109,7 +109,7 @@ void LoggingUi::drawTable() {
 }
 
 void LoggingUi::accept(const log::Message& msg) {
-    mt::write_lock lock(mutex);
+    mt::WriteLock lock(mutex);
 
     if (!messages.empty() && messages.back().repeat(msg.msg)) return;
 
@@ -117,6 +117,6 @@ void LoggingUi::accept(const log::Message& msg) {
 }
 
 void LoggingUi::clear() {
-    mt::write_lock lock(mutex);
+    mt::WriteLock lock(mutex);
     messages.clear();
 }

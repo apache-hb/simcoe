@@ -7,14 +7,13 @@
 
 #include "engine/threads/queue.h"
 #include "engine/threads/thread.h"
+#include "engine/threads/mutex.h"
 
 #include <unordered_set>
 
 namespace simcoe {
     // collects thread geometry at startup
     struct ThreadService : IStaticService<ThreadService> {
-        ThreadService();
-
         // IStaticService
         static constexpr std::string_view kServiceName = "threads";
         static constexpr std::array kServiceDeps = { PlatformService::kServiceName };
@@ -74,14 +73,9 @@ namespace simcoe {
          */
         static void shutdown();
 
-    private:
-        // all currently scheduled threads
-        mt::shared_mutex threadHandleLock;
-        std::vector<threads::ThreadHandle*> threadHandles;
-
-    public:
-        static std::shared_mutex &getPoolLock() { return get()->threadHandleLock; }
-        static std::vector<threads::ThreadHandle*> &getPool() { return get()->threadHandles; }
+        // getters
+        static mt::SharedMutex &getPoolLock();
+        static std::vector<threads::ThreadHandle*> &getPool();
     };
 
     namespace threads {

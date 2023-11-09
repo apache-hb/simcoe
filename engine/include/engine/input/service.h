@@ -10,8 +10,6 @@
 
 namespace simcoe {
     struct InputService final : IStaticService<InputService> {
-        InputService();
-
         // IStaticService
         static constexpr std::string_view kServiceName = "input";
         static constexpr std::array kServiceDeps = {
@@ -27,30 +25,10 @@ namespace simcoe {
         static void addSource(input::ISource *pSource);
         static void addClient(input::IClient *pClient);
 
-        static void pollInput() {
-            mt::read_lock lock(getMutex());
-            getManager().poll();
-        }
+        static void pollInput();
+        static void handleMsg(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-        static void handleMsg(UINT uMsg, WPARAM wParam, LPARAM lParam) {
-            mt::read_lock lock(getMutex());
-
-            if (get()->pKeyboard) {
-                get()->pKeyboard->handleMsg(uMsg, wParam, lParam);
-            }
-        }
-
-    private:
-        mt::shared_mutex mutex;
-        input::Manager manager;
-        threads::ThreadHandle *pThread = nullptr;
-
-        input::Win32Keyboard *pKeyboard = nullptr;
-        input::Win32Mouse *pMouse = nullptr;
-        input::XInputGamepad *pGamepad0 = nullptr;
-
-    public:
-        static mt::shared_mutex &getMutex() { return get()->mutex; }
-        static input::Manager &getManager() { return get()->manager; }
+        static mt::SharedMutex &getMutex();
+        static input::Manager &getManager();
     };
 }

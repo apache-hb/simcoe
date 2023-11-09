@@ -323,7 +323,7 @@ void RyzenMonitorUi::drawCpuInfo() {
         unsigned parked = pCpuInfo->getCorePark();
         ImGui::Text("Cores: %u (parked: %u)", cores, parked);
 
-        if (bInfoDirty && lock.tryLock()) {
+        if (bInfoDirty && lock.try_lock()) {
             packageData = pCpuInfo->getPackageData();
             socData = pCpuInfo->getSocData();
             const auto& coreInfo = pCpuInfo->getCoreData();

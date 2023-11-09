@@ -162,7 +162,7 @@ void AudioUi::drawVoices() {
         if (ImGui::BeginCombo("Sound", selectedBuffer ? selectedBuffer->getName() : "")) {
             auto& bufferMutex = AudioService::getBufferMutex();
             auto& soundBuffers = AudioService::getBuffers();
-            mt::read_lock lock(bufferMutex);
+            mt::ReadLock lock(bufferMutex);
 
             for (size_t i = 0; i < soundBuffers.size(); i++) {
                 auto pSoundBuffer = soundBuffers[i];

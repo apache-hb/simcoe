@@ -53,7 +53,7 @@ void ThreadServiceUi::draw() {
     }
 
     ImGui::SeparatorText("scheduler");
-    mt::read_lock lock(ThreadService::getPoolLock());
+    mt::ReadLock lock(ThreadService::getPoolLock());
     auto& pool = ThreadService::getPool();
     ImGui::Text("total threads: %zu", pool.size());
 

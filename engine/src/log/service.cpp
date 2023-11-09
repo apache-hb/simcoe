@@ -24,7 +24,7 @@ config::ConfigValue<log::Level> cfgLogLevel("logging", "level", "default logging
 
 namespace {
     // log sinks
-    mt::shared_mutex lock;
+    mt::SharedMutex lock{"log"};
     std::vector<log::ISink*> sinks;
     std::unordered_map<std::string_view, log::ISink*> lookup;
 }
@@ -50,7 +50,7 @@ bool LoggingService::shouldSend(log::Level level) {
 }
 
 void LoggingService::addSink(std::string_view name, log::ISink *pSink) {
-    mt::write_lock guard(lock);
+    mt::WriteLock guard(lock);
     sinks.push_back(pSink);
     lookup.emplace(name, pSink);
 }
@@ -61,7 +61,7 @@ void LoggingService::sendMessageAlways(log::Level msgLevel, std::string_view msg
     auto threadId = ThreadService::getCurrentThreadId();
     auto currentUtcTime = chrono::utc_clock::to_sys(chrono::utc_clock::now());
 
-    mt::write_lock guard(lock);
+    mt::WriteLock guard(lock);
     for (log::ISink *pSink : sinks) {
         pSink->addLogMessage(msgLevel, threadId, currentUtcTime, msg);
     }
