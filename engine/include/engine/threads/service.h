@@ -16,7 +16,7 @@ namespace simcoe {
     struct ThreadService : IStaticService<ThreadService> {
         // IStaticService
         static constexpr std::string_view kServiceName = "threads";
-        static constexpr std::array kServiceDeps = { PlatformService::kServiceName };
+        static inline auto kServiceDeps = depends(ConfigService::service(), PlatformService::service());
 
         // IService
         bool createService() override;

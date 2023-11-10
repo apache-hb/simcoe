@@ -13,7 +13,7 @@ namespace simcoe {
 
         // IStaticService
         static constexpr std::string_view kServiceName = "freetype";
-        static constexpr std::array<std::string_view, 0> kServiceDeps = { };
+        static inline auto kServiceDeps = depends();
 
         // IService
         bool createService() override;

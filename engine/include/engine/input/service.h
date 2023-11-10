@@ -12,10 +12,7 @@ namespace simcoe {
     struct InputService final : IStaticService<InputService> {
         // IStaticService
         static constexpr std::string_view kServiceName = "input";
-        static constexpr std::array kServiceDeps = {
-            PlatformService::kServiceName,
-            ThreadService::kServiceName
-        };
+        static inline auto kServiceDeps = depends(PlatformService::service(), ThreadService::service());
 
         // IService
         bool createService() override;

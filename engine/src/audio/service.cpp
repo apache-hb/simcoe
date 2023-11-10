@@ -41,12 +41,12 @@ bool AudioService::createService() {
     HR_CHECK(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
 
 #if SM_DEBUG_AUDIO
-    UINT32 flags = XAUDIO2_DEBUG_ENGINE;
+    UINT32 xaFlags = XAUDIO2_DEBUG_ENGINE;
 #else
-    UINT32 flags = 0;
+    UINT32 xaFlags = 0;
 #endif
 
-    XA_CHECK(XAudio2Create(&pAudioRuntime, flags, XAUDIO2_USE_DEFAULT_PROCESSOR));
+    XA_CHECK(XAudio2Create(&pAudioRuntime, xaFlags, XAUDIO2_USE_DEFAULT_PROCESSOR));
     XA_CHECK(pAudioRuntime->CreateMasteringVoice(&pAudioMasterVoice));
 
 #if SM_DEBUG_AUDIO

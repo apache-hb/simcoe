@@ -10,7 +10,7 @@ namespace simcoe {
     struct ConfigService final : IStaticService<ConfigService> {
         // IStaticService
         static constexpr std::string_view kServiceName = "config";
-        static constexpr std::array<std::string_view, 0> kServiceDeps = { };
+        static inline auto kServiceDeps = depends();
 
         // IService
         bool createService() override;

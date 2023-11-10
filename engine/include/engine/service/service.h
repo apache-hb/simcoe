@@ -3,12 +3,25 @@
 #include "engine/core/macros.h"
 #include "engine/core/panic.h"
 
+#include "engine/threads/mutex.h"
+
+#include <array>
 #include <span>
 #include <string_view>
-#include <atomic>
 
 namespace simcoe {
-    using NameSpan = std::span<const std::string_view>;
+    struct IService;
+
+    using ServiceSpan = std::span<IService*>;
+
+    constexpr auto depends(auto&&... args) {
+        return std::array<IService*, sizeof...(args)>{ args... };
+    }
+
+    enum ServiceLoadFlags {
+        eServiceLoadDefault = 0, // load the service with default settings
+        eServiceLoadMainThread = (1 << 0), // load the service on the main thread
+    };
 
     enum ServiceState {
         eServiceInitial = (1 << 0), // service has not been setup yet
@@ -20,37 +33,63 @@ namespace simcoe {
     struct IService {
         SM_NOCOPY(IService)
 
-        IService(std::string_view name)
+        IService() = delete;
+
+        IService(std::string_view name, ServiceSpan deps, ServiceLoadFlags flags)
             : name(name)
+            , deps(deps)
+            , flags(flags)
+            , mutex(name)
         { }
 
-        IService() = default;
         virtual ~IService() = default;
 
         void create();
         void destroy();
-        std::string_view getName() const { return name; }
 
-        virtual NameSpan getDeps() const = 0;
+        std::string_view getName() const { return name; }
+        ServiceSpan getServiceDeps() const { return deps; }
+        ServiceLoadFlags getFlags() const { return flags; }
 
     protected:
         virtual bool createService() = 0;
         virtual void destroyService() = 0;
 
         ServiceState getState() const { return state; }
+
     private:
         ServiceState state = eServiceInitial;
+
         std::string_view name;
+        ServiceSpan deps;
+        ServiceLoadFlags flags;
+
+        void waitForDeps();
+        void waitUntilReady();
+        void signalReady();
+
+        std::condition_variable cv;
+        mt::Mutex mutex;
     };
 
     template<typename T>
-    struct IStaticService : IService {
+    constexpr ServiceLoadFlags getLoadFlags() {
+        if constexpr (requires { T::kServiceFlags; }) {
+            return T::kServiceFlags;
+        } else {
+            return eServiceLoadDefault;
+        }
+    }
+
+    template<typename T>
+    struct IStaticService : public IService {
         using IService::IService;
+
         SM_NOMOVE(IStaticService)
 
-        IStaticService() : IService(T::kServiceName) { }
-
-        NameSpan getDeps() const override { return T::kServiceDeps; }
+        IStaticService()
+            : IService(T::kServiceName, T::kServiceDeps, getLoadFlags<T>())
+        { }
 
         static T *get() {
             static T instance;

@@ -150,7 +150,7 @@ namespace amd {
     struct RyzenMonitorSerivce : simcoe::IStaticService<RyzenMonitorSerivce> {
         // IStaticService
         static constexpr std::string_view kServiceName = "ryzenmonitor";
-        static constexpr std::array<std::string_view, 0> kServiceDeps = { };
+        static inline auto kServiceDeps = simcoe::depends();
 
         // IService
         bool createService() override;

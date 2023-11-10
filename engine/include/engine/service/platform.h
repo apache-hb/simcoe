@@ -3,6 +3,7 @@
 #include "engine/core/filesystem.h"
 
 #include "engine/debug/service.h"
+#include "engine/config/service.h"
 
 #include "engine/math/math.h"
 
@@ -93,11 +94,10 @@ namespace simcoe {
     }
 
     struct PlatformService final : IStaticService<PlatformService> {
-        PlatformService();
-
         // IStaticService
         static constexpr std::string_view kServiceName = "platform";
-        static constexpr std::array kServiceDeps = { DebugService::kServiceName };
+        static constexpr ServiceLoadFlags kServiceFlags = eServiceLoadMainThread;
+        static inline auto kServiceDeps = depends(ConfigService::service(), DebugService::service());
 
         // IService
         bool createService() override;

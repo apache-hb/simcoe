@@ -4,6 +4,8 @@
 
 #include "engine/service/service.h"
 
+#include "engine/config/service.h"
+
 #include "engine/core/win32.h"
 
 #include "engine/threads/thread.h"
@@ -28,11 +30,10 @@ namespace simcoe {
     }
 
     struct DebugService final : IStaticService<DebugService> {
-        DebugService();
-
         // IStaticService
         static constexpr std::string_view kServiceName = "debug";
-        static constexpr std::array<std::string_view, 0> kServiceDeps = { };
+        static constexpr ServiceLoadFlags kServiceFlags = eServiceLoadMainThread;
+        static inline auto kServiceDeps = depends(ConfigService::service());
 
         // IService
         bool createService() override;

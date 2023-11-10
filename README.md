@@ -8,8 +8,6 @@
 
 * implement optional deps
 
-* create DepotService to handle io
-
 * find a way to run a subprocess as administrator for RyzenMonitor
     * process shared memory
 

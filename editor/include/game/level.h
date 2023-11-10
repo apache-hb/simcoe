@@ -1,5 +1,7 @@
 #pragma once
 
+#include "game/game.h"
+
 #include "game/entity.h"
 
 #include "engine/core/array.h"

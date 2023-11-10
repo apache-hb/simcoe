@@ -16,7 +16,7 @@ namespace microsoft {
     struct GdkService final : simcoe::IStaticService<GdkService> {
         // IStaticService
         static constexpr std::string_view kServiceName = "gdk";
-        static constexpr std::array kServiceDeps = { simcoe::DebugService::kServiceName };
+        static inline auto kServiceDeps = simcoe::depends();
 
         // IService
         bool createService() override;

@@ -2,6 +2,8 @@
 
 #include "engine/core/macros.h"
 
+#include "engine/profile/profile.h"
+
 #include "engine/threads/thread.h"
 
 #include <string>
@@ -41,6 +43,8 @@ namespace simcoe::mt {
         bool try_lock();
         void unlock();
 
+        std::mutex& getInner() { return mutex; }
+
     private:
         std::mutex mutex;
     };
@@ -57,10 +61,17 @@ namespace simcoe::mt {
         void lock_shared();
         void unlock_shared();
 
+        std::shared_mutex& getInner() { return mutex; }
+
     private:
         std::shared_mutex mutex;
     };
 
     using WriteLock = std::unique_lock<SharedMutex>;
     using ReadLock = std::shared_lock<SharedMutex>;
+
+    // TODO: implement this rather than having `getInner` functions
+    // struct ConditionVariable {
+
+    // };
 }

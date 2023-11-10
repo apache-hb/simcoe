@@ -11,6 +11,10 @@ project('simcoe', 'cpp',
         'tomlplusplus:build_lib=true',
         'tomlplusplus:default_library=static',
 
+        'tracy:tracy_enable=if-debug',
+
+        'flecs:warning_level=0',
+
         'vorbis:warning_level=0',
         'ogg:warning_level=0',
 
@@ -36,16 +40,40 @@ is_release = buildtype.contains('release')
 is_debug = buildtype.contains('debug')
 
 # if we're building in release mode, we dont want intrusive debugging
-debug_threads = get_option('debug-threads').disable_auto_if(is_release)
-debug_render = get_option('debug-render').disable_auto_if(is_release)
-debug_audio = get_option('debug-audio').disable_auto_if(is_release)
+debug_threads = get_option('debug_threads').disable_auto_if(is_release)
+debug_render = get_option('debug_d3d12').disable_auto_if(is_release)
+debug_audio = get_option('debug_audio').disable_auto_if(is_release)
+
+###
+### services
+###
+
+tracy = dependency('tracy', required : true)
+
+gameruntime = dependency('gameruntime',
+    fallback : [ 'gameruntime', 'gameruntime_dep' ],
+    required : false
+)
+
+ryzenmonitor = dependency('ryzenmonitor',
+    fallback : [ 'ryzenmonitor', 'ryzenmonitor_dep' ],
+    required : false
+)
+
+# TODO: some of these should be disabled in release
+opt_tracy = get_option('tracy').enable_auto_if(tracy.found())
+opt_gameruntime = get_option('gameruntime').enable_auto_if(gameruntime.found())
+opt_ryzenmonitor = get_option('ryzenmonitor').enable_auto_if(ryzenmonitor.found())
+
+# profiling
+profile_startup = get_option('profile_startup').enable_auto_if(opt_tracy.allowed())
 
 # if we're building in release mode, we want a gui app
-gui_app = get_option('gui-app').enable_auto_if(is_release)
+gui_app = get_option('gui_app').enable_auto_if(is_release)
 
 # if we're building for release, we want a windows store bundle
-msstore_package = get_option('package-msstore')
-steam_package = get_option('package-steam')
+msstore_package = get_option('package_msstore')
+steam_package = get_option('package_steam')
 
 data_dir = meson.current_source_dir()/'data'
 script_dir = data_dir/'scripts'
@@ -81,33 +109,24 @@ freetype2 = dependency('freetype2')
 threads = dependency('threads')
 moodycamel = dependency('concurrentqueue')
 
-###
-### args
-###
-
-gameruntime = dependency('gameruntime',
-    fallback : [ 'gameruntime', 'gameruntime_dep' ],
-    required : false
-)
-
-ryzenmonitor = dependency('ryzenmonitor',
-    fallback : [ 'ryzenmonitor', 'ryzenmonitor_dep' ],
-    required : false
-)
-
-opt_ryzenmonitor = get_option('ryzenmonitor').enable_auto_if(ryzenmonitor.found())
-opt_gameruntime = get_option('gameruntime').enable_auto_if(gameruntime.found())
-
 cdata = configuration_data()
+
+# debug config
 cdata.set10('SM_DEBUG', is_debug)
 cdata.set10('SM_DEBUG_THREADS', debug_threads.allowed())
 cdata.set10('SM_DEBUG_RENDER', debug_render.allowed())
 cdata.set10('SM_DEBUG_AUDIO', debug_audio.allowed())
 
+# profiling config
+cdata.set10('SM_PROFILE_STARTUP', profile_startup.allowed())
+
+# service config
 cdata.set10('SM_SERVICE_DEBUG', is_debug)
 cdata.set10('SM_SERVICE_LOGGING', true)
-cdata.set10('SM_SERVICE_RYZENMONITOR', opt_ryzenmonitor.enabled())
-cdata.set10('SM_SERVICE_GAMERUNTIME', opt_gameruntime.enabled())
+
+cdata.set10('SM_SERVICE_TRACY', opt_tracy.allowed())
+cdata.set10('SM_SERVICE_RYZENMONITOR', opt_ryzenmonitor.allowed())
+cdata.set10('SM_SERVICE_GAMERUNTIME', opt_gameruntime.allowed())
 
 cfg_header = configure_file(output : 'sm-config.h', configuration : cdata)
 
@@ -205,6 +224,9 @@ deps = [
     # debug
     dbghelp,
 
+    # profiling
+    tracy,
+
     # input
     xinput,
 
@@ -220,6 +242,8 @@ deps = [
     # render
     directx
 ]
+
+# TODO: these should be plugins of some form
 
 ### ryzenmonitor service
 
@@ -298,6 +322,7 @@ imgui = declare_dependency(
 ### editor
 ###
 
+flecs = dependency('flecs')
 tinyobj = subproject('tinyobj').get_variable('tinyobj')
 # fastgltf = subproject('fastgltf').get_variable('fastgltf')
 
@@ -435,14 +460,21 @@ deps = [
     # imgui
     imgui,
 
+    # game
+    flecs,
+
     # render
     tinyobj
+]
+
+args = [
+    '-DEDITOR=1', # we are the editor
 ]
 
 editor = executable('editor', src,
     dependencies : deps,
     include_directories : [ 'editor/include' ],
-    cpp_args : [ '-DEDITOR=1' ],
+    cpp_args : args,
     gui_app : gui_app.enabled()
 )
 
@@ -473,14 +505,19 @@ endif
 build_summary = {
     'Services': {
         'Microsoft XGameRuntime': opt_gameruntime.enabled(),
-        'Ryzen Monitoring SDK': opt_ryzenmonitor.enabled()
+        'Ryzen Monitoring SDK': opt_ryzenmonitor.enabled(),
+        'Tracy profiler': opt_tracy.enabled()
     },
     'Config': {
+        'Build type': buildtype,
         'Engine debug': is_debug,
         'Threads debug': debug_threads.allowed(),
         'Render debug': debug_render.allowed(),
         'Audio debug': debug_audio.allowed(),
         'Windows console app': not gui_app.enabled()
+    },
+    'Profiling': {
+        'Startup': profile_startup.allowed()
     },
     'Deploy': {
         'Microsoft store': msstore_package.enabled(),

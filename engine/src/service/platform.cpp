@@ -21,16 +21,9 @@ using namespace simcoe;
 namespace {
     constexpr auto kClassName = "simcoe";
 
-
     HINSTANCE gInstance = nullptr;
     int gCmdShow = -1;
     IWindowCallbacks *gCallbacks = nullptr;
-
-    fs::path exeDirectory;
-    size_t gFrequency = 0;
-
-    Window *gWindow = nullptr;
-    MSG gMsg = {};
 
     size_t getClockFrequency() {
         LARGE_INTEGER frequency;
@@ -43,22 +36,22 @@ namespace {
         QueryPerformanceCounter(&counter);
         return counter.QuadPart;
     }
+
+    fs::path exeDirectory;
+    size_t gFrequency = getClockFrequency();
+
+    Window *gWindow = nullptr;
+    MSG gMsg = {};
 }
 
 config::ConfigValue<std::string> cfgWindowTitle("platform/window", "title", "window title", "simcoe");
 config::ConfigValue<int> cfgWindowWidth("platform/window", "width", "window width", 1280);
 config::ConfigValue<int> cfgWindowHeight("platform/window", "height", "window height", 720);
 
-PlatformService::PlatformService() {
-
-}
-
 bool PlatformService::createService() {
     SM_ASSERTF(gInstance, "hInstance is not set, please call PlatformService::setup()");
     SM_ASSERTF(gCmdShow != -1, "nCmdShow is not set, please call PlatformService::setup()");
     SM_ASSERTF(gCallbacks != nullptr, "window callbacks are not set, please call PlatformService::setup()");
-
-    gFrequency = getClockFrequency();
 
     LOG_INFO("frequency: {} Hz", gFrequency);
 
@@ -175,9 +168,7 @@ void PlatformService::message(std::string_view title, std::string_view body) {
 
 // clock
 
-Clock::Clock()
-    : start(PlatformService::queryCounter())
-{ }
+Clock::Clock() : start(PlatformService::queryCounter()) { }
 
 float Clock::now() const {
     size_t counter = PlatformService::queryCounter();

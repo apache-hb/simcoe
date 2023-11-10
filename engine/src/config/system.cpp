@@ -12,8 +12,8 @@ using namespace simcoe::config;
 
 
 // TODO: make threadsafe
-// auto getMutex = []() -> std::mutex& {
-//     static std::mutex m;
+// auto getMutex = []() -> mt::Mutex& {
+//     static mt::Mutex m{"config"};
 //     return m;
 // };
 

@@ -41,7 +41,7 @@ namespace simcoe::threads {
         SubcoreIndex getLeastLoadedSubcore(CoreIndex coreIdx) const;
         SubcoreIndex getBestSubcore(ThreadType type, std::string_view name) const;
 
-        std::mutex lock;
+        mt::Mutex lock{"scheduler"};
 
         // the number of system threads running on each logical thread
         std::unordered_map<SubcoreIndex, uint16_t> subcoreUsage = {};

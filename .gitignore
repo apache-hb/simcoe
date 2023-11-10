@@ -70,4 +70,5 @@ subprojects/gameruntime*/
 subprojects/ryzenmonitor*/
 subprojects/libvorbis*/
 subprojects/libogg*/
+subprojects/flecs*/
 subprojects/packagecache

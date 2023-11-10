@@ -1,0 +1,3 @@
+[submodule "subprojects/tracy"]
+	path = subprojects/tracy
+	url = https://github.com/apache-hb/tracy

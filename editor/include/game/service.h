@@ -28,10 +28,10 @@ namespace game {
 
         // IStaticService
         static constexpr std::string_view kServiceName = "game";
-        static constexpr std::array kServiceDeps = {
-            simcoe::DepotService::kServiceName,
-            simcoe::ThreadService::kServiceName
-        };
+        static inline auto kServiceDeps = depends(
+            DepotService::service(),
+            ThreadService::service()
+        );
 
         // IService
         bool createService() override;

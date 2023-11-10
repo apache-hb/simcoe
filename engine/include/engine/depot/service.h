@@ -17,7 +17,7 @@ namespace simcoe {
 
         // IStaticService
         static constexpr std::string_view kServiceName = "depot";
-        static constexpr std::array kServiceDeps = { ThreadService::kServiceName };
+        static inline auto kServiceDeps = depends(ThreadService::service());
 
         // IService
         bool createService() override;

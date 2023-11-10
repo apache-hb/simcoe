@@ -1,35 +1,54 @@
-option('debug-render',
+# debug options
+option('debug_d3d12',
     description : 'enable d3d12 render debug layer',
     type : 'feature',
     value : 'auto'
 )
 
-option('debug-threads',
+option('debug_threads',
     description : 'enable intrusive thread debugging',
     type : 'feature',
     value : 'auto'
 )
 
-option('debug-audio',
+option('debug_audio',
     description : 'enable xaudio2 debugging',
     type : 'feature',
     value : 'auto'
 )
 
-option('gui-app',
-    description : 'link as a gui app on windows',
+# profiling options
+
+option('profile_startup',
+    description : 'profile service startup times',
     type : 'feature',
     value : 'auto'
 )
 
-option('package-msstore',
+# packaging options
+
+option('package_msstore',
     description : 'package for windows store',
     type : 'feature',
     value : 'auto'
 )
 
-option('package-steam',
+option('package_steam',
     description : 'package for steam',
+    type : 'feature',
+    value : 'auto'
+)
+
+option('gui_app',
+    description : 'link as a gui app on windows',
+    type : 'feature',
+    value : 'auto'
+)
+
+# service options
+
+option('tracy',
+    description : 'enable tracy integration',
     type : 'feature',
     value : 'auto'
 )

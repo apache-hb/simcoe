@@ -15,7 +15,7 @@ namespace simcoe {
 
         // IStaticService
         static constexpr std::string_view kServiceName = "logging";
-        static constexpr std::array kServiceDeps = { PlatformService::kServiceName };
+        static inline auto kServiceDeps = depends(ConfigService::service(), PlatformService::service());
 
         // IService
         bool createService() override;
