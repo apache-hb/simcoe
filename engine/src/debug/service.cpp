@@ -183,7 +183,7 @@ std::string debug::getErrorName(DWORD dwErrorCode) {
 // utils
 
 void debug::throwLastError(std::string_view msg, DWORD err) {
-    core::throwFatal("{}: {}", msg, getErrorName(err));
+    core::throwFatal("{} ({})", msg, getErrorName(err));
 }
 
 bool debug::isAttached() {

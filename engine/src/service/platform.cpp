@@ -7,6 +7,8 @@
 
 #include "engine/config/system.h"
 
+#include "engine/threads/exclude.h"
+
 #include "engine/log/service.h"
 
 #include <intsafe.h> // DWORD_MAX
@@ -40,6 +42,8 @@ namespace {
     fs::path exeDirectory;
     size_t gFrequency = getClockFrequency();
 
+    threads::ThreadExclusiveRegion gPlatformThread = { 0, "" };
+
     Window *gWindow = nullptr;
     MSG gMsg = {};
 }
@@ -52,6 +56,8 @@ bool PlatformService::createService() {
     SM_ASSERTF(gInstance, "hInstance is not set, please call PlatformService::setup()");
     SM_ASSERTF(gCmdShow != -1, "nCmdShow is not set, please call PlatformService::setup()");
     SM_ASSERTF(gCallbacks != nullptr, "window callbacks are not set, please call PlatformService::setup()");
+
+    gPlatformThread.migrate();
 
     LOG_INFO("frequency: {} Hz", gFrequency);
 
@@ -91,6 +97,8 @@ bool PlatformService::createService() {
 }
 
 void PlatformService::destroyService() {
+    gPlatformThread.verify("PlatformService::destroyService()");
+
     UnregisterClassA(kClassName, gInstance);
 }
 
@@ -124,19 +132,27 @@ CommandLine system::getCommandLine() {
 }
 
 bool PlatformService::getEvent() {
+    gPlatformThread.verify("PlatformService::getEvent()");
+
     return PeekMessage(&gMsg, NULL, 0, 0, PM_REMOVE) != 0;
 }
 
 bool PlatformService::waitForEvent() {
+    gPlatformThread.verify("PlatformService::waitForEvent()");
+
     return GetMessage(&gMsg, NULL, 0, 0) != 0;
 }
 
 void PlatformService::dispatchEvent() {
+    gPlatformThread.verify("PlatformService::dispatchEvent()");
+
     TranslateMessage(&gMsg);
     DispatchMessage(&gMsg);
 }
 
 void PlatformService::quit(int code) {
+    gPlatformThread.verify("PlatformService::quit()");
+
     PostQuitMessage(code);
 }
 
@@ -149,10 +165,13 @@ size_t PlatformService::queryCounter() {
 }
 
 Window& PlatformService::getWindow() {
+    //gWindow->showWindow();
     return *gWindow;
 }
 
 void PlatformService::showWindow() {
+    gPlatformThread.verify("PlatformService::showWindow()");
+
     getWindow().showWindow();
 }
 
@@ -186,6 +205,8 @@ uint32_t Clock::ms() const {
 using UserCommandFn = void(*)(Window *pWindow);
 
 LRESULT CALLBACK Window::callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    gPlatformThread.verify("Window::callback()");
+
     Window *pWindow = reinterpret_cast<Window *>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 
     switch (uMsg) {
@@ -254,6 +275,8 @@ namespace {
 Window::Window(const WindowCreateInfo& createInfo)
     : pCallbacks(createInfo.pCallbacks)
 {
+    gPlatformThread.verify("Window::Window()");
+
     SM_ASSERT(pCallbacks != nullptr);
     auto [width, height] = createInfo.size;
 
@@ -284,12 +307,16 @@ Window::Window(const WindowCreateInfo& createInfo)
 }
 
 Window::~Window() {
+    gPlatformThread.verify("Window::~Window()");
+
     if (hWindow != nullptr) {
         DestroyWindow(hWindow);
     }
 }
 
 void Window::showWindow() {
+    gPlatformThread.verify("Window::showWindow()");
+
     ShowWindow(hWindow, gCmdShow);
     UpdateWindow(hWindow);
 }

@@ -24,11 +24,10 @@ namespace game {
     };
 
     struct GameService final : simcoe::IStaticService<GameService> {
-        GameService();
-
         // IStaticService
         static constexpr std::string_view kServiceName = "game";
         static inline auto kServiceDeps = depends(
+            PlatformService::service(),
             DepotService::service(),
             ThreadService::service()
         );
@@ -42,7 +41,6 @@ namespace game {
         // GameService
         static void shutdown();
         static bool shouldQuit();
-
 
         static void resizeDisplay(const WindowSize& event);
 

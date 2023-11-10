@@ -85,6 +85,13 @@ ServiceRuntime::ServiceRuntime(ServiceSpan services)
     Clock clock;
     LOG_INFO("loading {} services", services.size());
 
+    // TODO: rework this to be a bit more structured
+    // 1. load config service
+    // 2. load debug service
+    // 3. load thread service
+    // 4. load platform service
+    // 5. load all other requested services
+
     std::vector<std::future<void>> workThreadServices;
     std::vector<IService*> mainThreadServices;
 

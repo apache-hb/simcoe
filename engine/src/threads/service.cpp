@@ -306,7 +306,6 @@ namespace {
     size_t gWorkerId = 0;
     std::vector<threads::ThreadHandle*> gWorkers;
 
-
     // thread communication
     WorkQueue *gMainQueue = nullptr;
     BlockingWorkQueue *gWorkQueue = nullptr;

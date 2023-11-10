@@ -536,10 +536,6 @@ struct GameGui final : eg::IGuiPass {
     }
 };
 
-GameService::GameService() {
-
-}
-
 bool GameService::createService() {
     auto& window = simcoe::PlatformService::getWindow();
     auto size = window.getSize().as<uint32_t>();
