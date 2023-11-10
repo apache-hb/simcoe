@@ -408,14 +408,19 @@ void ThreadService::pollMainQueue() {
 // scheduler
 
 void ThreadService::setWorkerCount(size_t count) {
-    count = count == 0 ? std::thread::hardware_concurrency() / 2 : count;
-    LOG_INFO("starting {} workers", count);
-    mt::WriteLock lock(getPoolLock());
+    if (count == 0) {
+        count = gCpuGeometry.cores.size();
+        LOG_INFO("setting worker count to default {}", count);
+    }
 
     if (count > cfgMaxWorkerCount.getCurrentValue()) {
-        LOG_WARN("worker count {} exceeds max worker count {}", count, cfgMaxWorkerCount.getCurrentValue());
+        LOG_WARN("worker count {} exceeds max worker count {}, clamping to max", count, cfgMaxWorkerCount.getCurrentValue());
         count = cfgMaxWorkerCount.getCurrentValue();
     }
+
+    LOG_INFO("starting {} workers", count);
+
+    mt::WriteLock lock(getPoolLock());
 
     while (gWorkers.size() < count) {
         gWorkers.push_back(newWorkerThread());

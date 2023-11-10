@@ -47,6 +47,8 @@ namespace simcoe {
         void create();
         void destroy();
 
+        void waitUntilReady();
+
         std::string_view getName() const { return name; }
         ServiceSpan getServiceDeps() const { return deps; }
         ServiceLoadFlags getFlags() const { return flags; }
@@ -65,7 +67,6 @@ namespace simcoe {
         ServiceLoadFlags flags;
 
         void waitForDeps();
-        void waitUntilReady();
         void signalReady();
 
         std::condition_variable cv;

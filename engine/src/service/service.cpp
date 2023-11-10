@@ -4,6 +4,7 @@
 #include "engine/core/panic.h"
 
 #include "engine/log/service.h"
+#include "engine/threads/service.h"
 
 #include "engine/profile/profile.h"
 
@@ -41,12 +42,8 @@ void IService::create() try {
     waitForDeps();
     LOG_INFO("loading {} service", serviceName);
 
-    ZoneNamed(perfServiceCreateZone, true);
-    perfServiceCreateZone.Name(serviceName.data(), serviceName.size());
-    Clock clock;
-
     if (createService()) {
-        LOG_INFO("loaded {} service in {}ms", serviceName, clock.ms());
+        LOG_INFO("loaded {} service", serviceName);
         state = eServiceCreated;
     } else {
         LOG_ERROR("failed to load {} service", serviceName);
@@ -77,12 +74,21 @@ void IService::destroy() {
     state = eServiceInitial;
 }
 
+// service startup helpers
+
+static void startService(IService *pService) {
+    for (IService *pDep : pService->getServiceDeps()) {
+        startService(pDep);
+    }
+
+    pService->create();
+}
+
 // service runtime
 
 ServiceRuntime::ServiceRuntime(ServiceSpan services)
     : services(services)
 {
-    Clock clock;
     LOG_INFO("loading {} services", services.size());
 
     // TODO: rework this to be a bit more structured
@@ -92,28 +98,22 @@ ServiceRuntime::ServiceRuntime(ServiceSpan services)
     // 4. load platform service
     // 5. load all other requested services
 
-    std::vector<std::future<void>> workThreadServices;
-    std::vector<IService*> mainThreadServices;
+    startService(DebugService::service());
+    startService(ConfigService::service());
+    startService(ThreadService::service());
+    startService(PlatformService::service());
 
     for (IService *pService : services) {
-        if (pService->getFlags() & eServiceLoadMainThread) {
-            mainThreadServices.push_back(pService);
-        } else {
-            workThreadServices.push_back(std::async(std::launch::async, [pService] {
-                pService->create();
-            }));
-        }
+        ThreadService::enqueueWork(std::string(pService->getName()), [pService] {
+            pService->create();
+        });
     }
 
-    for (IService *pService : mainThreadServices) {
-        pService->create();
+    for (IService *pService : services) {
+        pService->waitUntilReady();
     }
 
-    for (auto& future : workThreadServices) {
-        future.wait();
-    }
-
-    LOG_INFO("loaded {} services (took {}ms)", services.size(), clock.ms());
+    LOG_INFO("loaded {} services", services.size());
 }
 
 ServiceRuntime::~ServiceRuntime() {

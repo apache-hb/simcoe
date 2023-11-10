@@ -109,12 +109,7 @@ static int serviceWrapper() try {
     LoggingService::addSink("imgui", GameService::addDebugService<ui::LoggingUi>());
 
     auto engineServices = std::to_array({
-        ConfigService::service(),
-        DebugService::service(),
-
-        PlatformService::service(),
         LoggingService::service(),
-        ThreadService::service(),
         InputService::service(),
         DepotService::service(),
         AudioService::service(),

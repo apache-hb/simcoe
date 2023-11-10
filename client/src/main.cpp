@@ -33,10 +33,7 @@ static void commonMain() {
 
 static int innerMain() try {
     auto engineServices = std::to_array({
-        ConfigService::service(),
-        DebugService::service(),
-        LoggingService::service(),
-        PlatformService::service()
+        LoggingService::service()
     });
     ServiceRuntime runtime{engineServices};
 

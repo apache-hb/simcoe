@@ -88,7 +88,7 @@ private:
 };
 
 config::ConfigValue<size_t> cfgWaitInterval("depot", "waitInterval", "Interval between depot change notifications (in ms)", 100);
-config::ConfigValue<size_t> cfgMaxFileHandles("depot", "maxFileHandles", "Maximum number of file handles to keep open (0 = unlimited)", 0);
+config::ConfigValue<size_t> cfgMaxFileHandles("depot", "maxFileHandles", "Maximum number of file handles to keep open (0 = unlimited)", 128);
 
 config::ConfigValue<std::string> cfgVfsRoot("depot/vfs", "root", "Root directory for the virtual file system", "$exe");
 

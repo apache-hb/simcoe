@@ -33,7 +33,7 @@ namespace simcoe {
         // IStaticService
         static constexpr std::string_view kServiceName = "debug";
         static constexpr ServiceLoadFlags kServiceFlags = eServiceLoadMainThread;
-        static inline auto kServiceDeps = depends(ConfigService::service());
+        static inline auto kServiceDeps = depends();
 
         // IService
         bool createService() override;

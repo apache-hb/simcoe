@@ -11,8 +11,6 @@ project('simcoe', 'cpp',
         'tomlplusplus:build_lib=true',
         'tomlplusplus:default_library=static',
 
-        'tracy:tracy_enable=if-debug',
-
         'flecs:warning_level=0',
 
         'vorbis:warning_level=0',
@@ -48,7 +46,10 @@ debug_audio = get_option('debug_audio').disable_auto_if(is_release)
 ### services
 ###
 
-tracy = dependency('tracy', required : true)
+tracy = dependency('tracy',
+    fallback : [ 'tracy', 'tracy_dep' ],
+    required : false
+)
 
 gameruntime = dependency('gameruntime',
     fallback : [ 'gameruntime', 'gameruntime_dep' ],
@@ -61,12 +62,12 @@ ryzenmonitor = dependency('ryzenmonitor',
 )
 
 # TODO: some of these should be disabled in release
-opt_tracy = get_option('tracy').enable_auto_if(tracy.found())
+opt_tracy = get_option('tracy_enable') and tracy.found()
 opt_gameruntime = get_option('gameruntime').enable_auto_if(gameruntime.found())
 opt_ryzenmonitor = get_option('ryzenmonitor').enable_auto_if(ryzenmonitor.found())
 
 # profiling
-profile_startup = get_option('profile_startup').enable_auto_if(opt_tracy.allowed())
+profile_startup = get_option('profile_startup').enable_auto_if(opt_tracy)
 
 # if we're building in release mode, we want a gui app
 gui_app = get_option('gui_app').enable_auto_if(is_release)
@@ -124,7 +125,7 @@ cdata.set10('SM_PROFILE_STARTUP', profile_startup.allowed())
 cdata.set10('SM_SERVICE_DEBUG', is_debug)
 cdata.set10('SM_SERVICE_LOGGING', true)
 
-cdata.set10('SM_SERVICE_TRACY', opt_tracy.allowed())
+cdata.set10('SM_SERVICE_TRACY', opt_tracy)
 cdata.set10('SM_SERVICE_RYZENMONITOR', opt_ryzenmonitor.allowed())
 cdata.set10('SM_SERVICE_GAMERUNTIME', opt_gameruntime.allowed())
 
@@ -506,7 +507,7 @@ build_summary = {
     'Services': {
         'Microsoft XGameRuntime': opt_gameruntime.enabled(),
         'Ryzen Monitoring SDK': opt_ryzenmonitor.enabled(),
-        'Tracy profiler': opt_tracy.enabled()
+        'Tracy profiler': opt_tracy
     },
     'Config': {
         'Build type': buildtype,

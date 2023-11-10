@@ -16,10 +16,6 @@ using namespace simcoe;
 namespace {
     constexpr size_t kNameLength = 0x1000;
 
-    namespace cfg {
-        std::string sourceRoot = ".";
-    }
-
     BOOL getFrame(STACKFRAME *pFrame, CONTEXT *pContext, HANDLE hProcess, HANDLE hThread) {
         return StackWalk(
             /* MachineType = */ IMAGE_FILE_MACHINE_AMD64,
@@ -39,8 +35,6 @@ bool DebugService::createService() {
     if (!SymInitialize(GetCurrentProcess(), nullptr, TRUE)) {
         debug::throwLastError("failed to initialize symbol engine");
     }
-
-    LOG_INFO("source root: {}", cfg::sourceRoot);
 
     return true;
 }

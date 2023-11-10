@@ -47,10 +47,10 @@ option('gui_app',
 
 # service options
 
-option('tracy',
+option('tracy_enable',
     description : 'enable tracy integration',
-    type : 'feature',
-    value : 'auto'
+    type : 'boolean',
+    value : 'true'
 )
 
 option('gameruntime',
