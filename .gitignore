@@ -74,4 +74,5 @@ subprojects/ryzenmonitor*/
 subprojects/libvorbis*/
 subprojects/libogg*/
 subprojects/flecs*/
+subprojects/fmt*/
 subprojects/packagecache
