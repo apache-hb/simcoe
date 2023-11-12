@@ -73,8 +73,6 @@ struct GameWindow final : IWindowCallbacks {
     void onClose() override {
         GameService::shutdown();
         ThreadService::shutdown();
-
-        LOG_INFO("onClose()");
     }
 
     void onResize(const WindowSize& event) override {

@@ -488,7 +488,7 @@ void ThreadService::shutdown() {
     auto& handles = getPool();
 
     for (auto *pHandle : handles) {
-        pHandle->requestStop();
+        pHandle->join();
     }
 
     for (auto *pHandle : handles) {

@@ -35,6 +35,9 @@
 !meson_options.txt
 !subprojects/*.wrap
 
+# dont ignore patches for vendor libs
+!subprojects/packagefiles/**/*.patch
+
 # dont ignore config files
 !.clangd
 !.clang-tidy

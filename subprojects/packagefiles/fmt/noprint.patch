@@ -1,0 +1,16 @@
+diff --git a/include/fmt/std.h b/include/fmt/std.h
+index 4d1f97d2..39133aec 100644
+--- a/include/fmt/std.h
++++ b/include/fmt/std.h
+@@ -20,7 +20,10 @@
+ #include <vector>
+ 
+ #include "format.h"
+-#include "ostream.h"
++
++#ifndef FMT_DISABLE_PRINT
++#  include "ostream.h"
++#endif
+ 
+ #if FMT_HAS_INCLUDE(<version>)
+ #  include <version>

@@ -621,6 +621,8 @@ void GameService::start() {
 
 // GameService
 void GameService::shutdown() {
+    pGameThread->join();
+    pPhysicsThread->join();
     pRenderThread->join();
     pWorld->shutdown();
 }

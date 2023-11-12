@@ -30,6 +30,7 @@
 ## random bits
 
 * get std::formatter support into toml++
+* nag mesonbuild to support pulling a specific git commit 
 * have a look at how the ryzenmonitor sdk+driver works internally
 * upstream libpng meson changes
 * figure out why meson+windows+shared libraries are broken by default

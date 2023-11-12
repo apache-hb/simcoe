@@ -94,6 +94,7 @@ directx = subproject('directx').get_variable('directx')
 
 # config
 tomlpp = dependency('tomlplusplus')
+fmt = dependency('fmt')
 
 # asset loading
 stb = subproject('stb').get_variable('stb')
