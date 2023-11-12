@@ -84,6 +84,10 @@ static void startService(IService *pService) {
     pService->create();
 }
 
+static void stopService(IService *pService) {
+    pService->destroy();
+}
+
 // service runtime
 
 ServiceRuntime::ServiceRuntime(ServiceSpan services)
@@ -118,6 +122,12 @@ ServiceRuntime::ServiceRuntime(ServiceSpan services)
 
 ServiceRuntime::~ServiceRuntime() {
     for (size_t i = services.size(); i-- > 0;) {
-        services[i]->destroy();
+        IService *pService = services[i];
+        pService->destroy();
     }
+
+    stopService(PlatformService::service());
+    stopService(ThreadService::service());
+    stopService(ConfigService::service());
+    stopService(DebugService::service());
 }

@@ -36,7 +36,7 @@ namespace {
 bool GdkService::createService() {
     if (HRESULT hr = XGameRuntimeInitialize(); FAILED(hr)) {
         auto err = gdkErrorString(hr);
-        LOG_ERROR("XGameRuntimeInitialize() = {}", err);
+        setFailureReason(err);
         return false;
     }
 
@@ -44,7 +44,9 @@ bool GdkService::createService() {
 
     size_t size = consoleId.size();
     if (HRESULT hr = XSystemGetConsoleId(consoleId.size(), consoleId.data(), &size); FAILED(hr)) {
-        core::throwNonFatal("gameruntime init error: {}", gdkErrorString(hr));
+        auto err = gdkErrorString(hr);
+        setFailureReason(err);
+        return false;
     }
     consoleId[size] = '\0';
 

@@ -104,12 +104,16 @@ ThreadHandle::ThreadHandle(ThreadInfo&& info)
 
 ThreadHandle::~ThreadHandle() {
     if (hThread == nullptr) return;
-    stopper.request_stop();
 
     // TODO: make sure the thread closes
+    join();
+
+    CloseHandle(hThread);
+}
+
+void ThreadHandle::join() {
+    stopper.request_stop();
     if (WaitForSingleObject(hThread, INFINITE) != WAIT_OBJECT_0) {
         debug::throwLastError(std::format("WaitForSingleObject failed for thread (name={}, id={:#06x})", name, id));
     }
-
-    CloseHandle(hThread);
 }

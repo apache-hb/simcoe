@@ -113,6 +113,7 @@ namespace simcoe::threads {
         ScheduleMask getAffinity() const { return mask; }
 
         void requestStop() { stopper.request_stop(); }
+        void join();
 
         ~ThreadHandle();
 

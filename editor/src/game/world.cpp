@@ -74,7 +74,7 @@ void World::tickPhysics() {
 // game
 
 void World::destroyGame() {
-    delete pGameThread;
+    delete pGameThread; // todo: broken logic
 }
 
 void World::tickGame() {

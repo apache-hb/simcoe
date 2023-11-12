@@ -42,7 +42,6 @@ static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless
 
 namespace {
     // render
-    std::atomic_bool bWindowOpen = true;
     WindowMode windowMode = eModeWindowed;
     simcoe::render::Context *pContext = nullptr;
     simcoe::render::Graph *pGraph = nullptr;
@@ -602,7 +601,7 @@ void GameService::start() {
     addDebugService<ui::RyzenMonitorUi>();
 
     pRenderThread = ThreadService::newThread(threads::eRealtime, "render", [&](auto token) {
-        while (!token.stop_requested() && bWindowOpen) {
+        while (!token.stop_requested()) {
             pWorld->tickRender();
         }
     });
@@ -622,7 +621,7 @@ void GameService::start() {
 
 // GameService
 void GameService::shutdown() {
-    bWindowOpen = false;
+    pRenderThread->join();
     pWorld->shutdown();
 }
 
@@ -631,7 +630,6 @@ bool GameService::shouldQuit() {
 }
 
 void GameService::resizeDisplay(const WindowSize& event) {
-    if (!bWindowOpen) return;
     if (!pWorld) return;
 
     pWorld->pRenderQueue->add("resize", [event]() {

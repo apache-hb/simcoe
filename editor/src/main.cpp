@@ -71,8 +71,10 @@ using game::GameService;
 
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
-        ThreadService::shutdown();
         GameService::shutdown();
+        ThreadService::shutdown();
+
+        LOG_INFO("onClose()");
     }
 
     void onResize(const WindowSize& event) override {

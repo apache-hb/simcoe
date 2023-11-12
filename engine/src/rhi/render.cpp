@@ -1291,6 +1291,8 @@ Context::~Context() {
     reportLiveObjects();
 
     if (pDebug) { pDebug->Release(); }
+
+    LOG_INFO("here");
 }
 
 // descriptor heap
