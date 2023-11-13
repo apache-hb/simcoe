@@ -454,7 +454,6 @@ void DisplayQueue::present(bool allowTearing, UINT syncInterval) {
     }
 
     if (failedFrames > 3) {
-        LOG_ERROR("too many failed frames, exiting");
         core::throwFatal("too many failed frames, last error {}", debug::getResultName(hr));
     }
 }
@@ -1198,13 +1197,21 @@ Device::~Device() {
 // adapter
 
 Device *Adapter::createDevice(CreateFlags flags) {
-    return Device::create(pAdapter, flags);
+    return Device::create(get(), flags);
 }
 
 AdapterInfo Adapter::getInfo() {
     AdapterInfo info = {
         .name = util::narrow(desc.Description),
         .type = (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) ? AdapterType::eSoftware : AdapterType::eDiscrete,
+        .videoMemory = desc.DedicatedVideoMemory,
+        .systemMemory = desc.DedicatedSystemMemory,
+        .sharedMemory = desc.SharedSystemMemory,
+
+        .vendorId = desc.VendorId,
+        .deviceId = desc.DeviceId,
+        .subsystemId = desc.SubSysId,
+        .revision = desc.Revision,
     };
 
     return info;
@@ -1220,10 +1227,6 @@ Adapter *Adapter::create(IDXGIAdapter1 *pAdapter) {
     pAdapter->Release();
 
     return new Adapter(pAdapter4, desc);
-}
-
-Adapter::~Adapter() {
-    pAdapter->Release();
 }
 
 // context
@@ -1251,6 +1254,20 @@ std::vector<Adapter*> Context::getAdapters() {
 Adapter *Context::getWarpAdapter() {
     IDXGIAdapter1 *pAdapter = nullptr;
     HR_CHECK(pFactory->EnumWarpAdapter(IID_PPV_ARGS(&pAdapter)));
+
+    return Adapter::create(pAdapter);
+}
+
+Adapter *Context::getLowPowerAdapter() {
+    IDXGIAdapter1 *pAdapter = nullptr;
+    HR_CHECK(pFactory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_MINIMUM_POWER, IID_PPV_ARGS(&pAdapter)));
+
+    return Adapter::create(pAdapter);
+}
+
+Adapter *Context::getFastestAdapter() {
+    IDXGIAdapter1 *pAdapter = nullptr;
+    HR_CHECK(pFactory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&pAdapter)));
 
     return Adapter::create(pAdapter);
 }

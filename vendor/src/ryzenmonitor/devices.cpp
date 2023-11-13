@@ -11,7 +11,7 @@ using namespace amd;
 using namespace simcoe;
 
 namespace {
-    core::Date parseDate(const std::string& text) {
+    units::Date parseDate(const std::string& text) {
         // date is in format "yyyymmdd"
         if (text.length() < 8) {
             return {};
@@ -20,7 +20,7 @@ namespace {
         int year = std::stoi(text.substr(0, 4));
         int month = std::stoi(text.substr(4, 2));
         int day = std::stoi(text.substr(6, 2));
-        return core::Date(core::Day(day), core::Month(month), core::Year(year));
+        return units::Date(units::Day(day), units::Month(month), units::Year(year));
     }
 
     std::string cvtField(const wchar_t *pText) {

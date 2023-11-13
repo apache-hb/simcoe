@@ -2,6 +2,8 @@
 
 #include "editor/ui/panels/audio.h"
 #include "engine/render/graph.h"
+#include "engine/config/system.h"
+#include "engine/rhi/service.h"
 
 // editor ui
 #include "editor/ui/panels/config.h"
@@ -57,13 +59,12 @@ namespace {
     std::vector<editor::ui::ServiceUi*> debugServices;
 }
 
-config::ConfigValue<size_t> cfgRenderWidth("render/display", "width", "Render width", 1920);
-config::ConfigValue<size_t> cfgRenderHeight("render/display", "height", "Render height", 1080);
+config::ConfigValue<size_t> cfgRenderWidth("game/render", "draw_width", "Render width", 1920);
+config::ConfigValue<size_t> cfgRenderHeight("game/render", "draw_height", "Render height", 1080);
 
-config::ConfigValue<size_t> cfgAdapterIndex("d3d12", "adapter", "Which adapter to use", 0);
-config::ConfigValue<size_t> cfgBackBufferCount("d3d12", "backBufferCount", "How many backbuffers to use", 2);
+config::ConfigValue<size_t> cfgBackBufferCount("game/render", "backBufferCount", "How many backbuffers to use", 2);
 
-config::ConfigValue<size_t> cfgEntityLimit("game", "entityLimit", "Entity limit", 0x1000);
+config::ConfigValue<size_t> cfgEntityLimit("game", "entity_limit", "upper entity limit", 0x1000);
 config::ConfigValue<size_t> cfgSeed("game", "seed", "World seed", 0);
 
 void setWindowMode(WindowMode oldMode, WindowMode newMode) {
@@ -124,10 +125,13 @@ struct GameGui final : eg::IGuiPass {
     int currentImage = 0;
 
     void addImage(std::string imageName) try {
-        mt::WriteLock lock(imageLock);
         auto *pHandle = pGraph->addResource<eg::TextureHandle>(imageName);
         auto *pAttachment = addAttachment(pHandle, rhi::ResourceState::eTextureRead);
 
+        // lock the image list AFTER we've created the image
+        // to prevent a deadlock between the render thread and the worker thread
+        // loading the image
+        mt::WriteLock lock(imageLock);
         images.push_back({ imageName, pHandle, pAttachment });
         currentImage = core::intCast<int>(images.size()) - 1;
     } catch (const core::Error& err) {
@@ -135,13 +139,12 @@ struct GameGui final : eg::IGuiPass {
     }
 
     ui::GlobalHandle imageHandle = ui::addGlobalHandle("Images", [this] {
-        mt::ReadLock lock(imageLock);
-
         // draw a grid of images
         float windowWidth = ImGui::GetWindowWidth();
         float cellWidth = 250.f;
         size_t cols = std::clamp<size_t>(size_t(windowWidth / cellWidth), 1, 8);
 
+        mt::ReadLock lock(imageLock);
         if (ImGui::BeginCombo("Image", images[currentImage].name.c_str())) {
             for (size_t i = 0; i < images.size(); i++) {
                 bool bSelected = int(i) == currentImage;
@@ -158,11 +161,10 @@ struct GameGui final : eg::IGuiPass {
             if (i % cols != 0) ImGui::SameLine();
             ImGui::PushID(int(i));
 
-            auto& image = images[i];
+            const auto& [imageName, pImageHandle, pAttach] = images[i];
             ImGuiSelectableFlags flags = ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_AllowOverlap;
             ImVec2 size = { cellWidth, cellWidth };
-            auto *pHandle = image.pHandle;
-            auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getInner()->getSrvIndex());
+            auto offset = ctx->getSrvHeap()->deviceOffset(pImageHandle->getInner()->getSrvIndex());
 
             ImVec2 before = ImGui::GetCursorPos();
             ImGui::Image((ImTextureID)offset, { cellWidth, cellWidth });
@@ -171,7 +173,7 @@ struct GameGui final : eg::IGuiPass {
             bool bSelectedImage = int(i) == currentImage;
             if (bSelectedImage) ImGui::PushStyleColor(ImGuiCol_Header, color);
 
-            if (ImGui::Selectable(image.name.c_str(), bSelectedImage, flags, size)) {
+            if (ImGui::Selectable(imageName.c_str(), bSelectedImage, flags, size)) {
                 currentImage = core::intCast<int>(i);
             }
 
@@ -231,12 +233,26 @@ struct GameGui final : eg::IGuiPass {
         renderSize[1] = core::intCast<int>(createInfo.renderHeight);
 
         backBufferCount = core::intCast<int>(createInfo.backBufferCount);
-        currentAdapter = core::intCast<int>(createInfo.adapterIndex);
+        currentAdapter = INT_MAX;
 
-        for (auto *pAdapter : ctx->getAdapters()) {
+        auto *pCurrentAdapter = GpuService::getSelectedAdapter();
+        auto currentInfo = pCurrentAdapter->getInfo();
+
+        auto adapterSpan = GpuService::getAdapters();
+
+        for (size_t i = 0; i < adapterSpan.size(); i++) {
+            auto *pAdapter = adapterSpan[i];
             auto info = pAdapter->getInfo();
+
+            // TODO: this is almost definetly close enough, im just paranoid
+            if (currentInfo.vendorId == info.vendorId && currentInfo.deviceId == info.deviceId) {
+                currentAdapter = core::intCast<int>(i);
+            }
+
             adapterNames.push_back(_strdup(info.name.c_str()));
         }
+
+        SM_ASSERTF(currentAdapter != INT_MAX, "could not find current adapter {} in adapter list", pCurrentAdapter->getInfo().name);
     }
 
     void destroy() override {
@@ -541,7 +557,6 @@ bool GameService::createService() {
     const sr::RenderCreateInfo createInfo = {
         .hWindow = window.getHandle(),
 
-        .adapterIndex = cfgAdapterIndex.getCurrentValue(),
         .backBufferCount = core::intCast<UINT>(cfgBackBufferCount.getCurrentValue()),
 
         .displayWidth = size.width,

@@ -14,7 +14,7 @@ namespace simcoe::core {
         Error(bool bFatal, std::string msg) noexcept;
 
         /// can this error be reasonably recovered from?
-        bool recoverable() const noexcept { return bFatal; }
+        bool recoverable() const noexcept { return !bFatal; }
 
         // get the error message
         std::string_view what() const noexcept { return message; }

@@ -8,7 +8,7 @@
 
 #include <limits>
 
-namespace simcoe::core {
+namespace simcoe::units {
     struct Memory {
         enum Unit {
             eBytes,
@@ -71,7 +71,9 @@ namespace simcoe::core {
         uint8_t month;
         uint16_t year;
     };
+}
 
+namespace simcoe::core {
     enum struct CastError { eNone, eOverflow, eUnderflow };
 
     template<typename T, typename O>

@@ -2,24 +2,16 @@
 
 #include "engine/core/units.h"
 
+#include "engine/rhi/service.h"
+
 #include "engine/config/system.h"
 
 using namespace simcoe;
 using namespace simcoe::render;
 
-namespace {
-#if SM_DEBUG_RENDER
-    constexpr auto kFactoryFlags = rhi::eCreateDebug;
-    constexpr auto kDeviceFlags = rhi::CreateFlags(rhi::eCreateDebug | rhi::eCreateInfoQueue | rhi::eCreateExtendedInfo);
-#else
-    constexpr auto kFactoryFlags = rhi::eCreateNone;
-    constexpr auto kDeviceFlags = rhi::eCreateInfoQueue;
-#endif
-}
-
-config::ConfigValue<UINT> cfgRtvHeapSize("d3d12", "rtvHeapSize", "RTV heap size", 16);
-config::ConfigValue<UINT> cfgDsvHeapSize("d3d12", "dsvHeapSize", "DSV heap size", 16);
-config::ConfigValue<UINT> cfgSrvHeapSize("d3d12", "srvHeapSize", "SRV heap size", 1024);
+config::ConfigValue<UINT> cfgRtvHeapSize("d3d12/heaps", "rtv_count", "RTV heap size", 16);
+config::ConfigValue<UINT> cfgDsvHeapSize("d3d12/heaps", "dsv_count", "DSV heap size", 16);
+config::ConfigValue<UINT> cfgSrvHeapSize("d3d12/heaps", "srv_count", "SRV/CBV/UAV heap size", 1024);
 
 Context *Context::create(const RenderCreateInfo& createInfo) {
     return new Context(createInfo);
@@ -30,39 +22,19 @@ Context::~Context() {
     destroyDisplayData();
     destroyHeaps();
     destroyDeviceData();
-    destroyContextData();
-
-    delete pContext;
 }
 
 Context::Context(const RenderCreateInfo& createInfo) : createInfo(createInfo) {
-    pContext = rhi::Context::create(kFactoryFlags);
-
-    createContextData();
     createDeviceData();
     createHeaps();
     createDisplayData();
     createFrameData();
 }
 
-// create data that depends on the context
-void Context::createContextData() {
-    adapters = pContext->getAdapters();
-    LOG_INFO("found {} adapters, selecting adapter #{}", adapters.size(), createInfo.adapterIndex + 1);
-}
-
-void Context::destroyContextData() {
-    for (auto pAdapter : adapters) {
-        delete pAdapter;
-    }
-}
-
 // create data that depends on the device
 void Context::createDeviceData() {
     // create device
-    rhi::Adapter* pAdapter = selectAdapter();
-
-    pDevice = pAdapter->createDevice(kDeviceFlags);
+    pDevice = GpuService::getDevice();
     pDevice->setName("simcoe.device");
 
     // create direct queue and fence
@@ -116,7 +88,7 @@ void Context::destroyDeviceData() {
     delete pCopyQueue;
     delete pDirectQueue;
 
-    delete pDevice;
+    GpuService::destroyDevice();
 }
 
 // create data that depends on resolution
@@ -130,7 +102,7 @@ void Context::createDisplayData() {
         .format = getSwapChainFormat()
     };
 
-    pDisplayQueue = pDirectQueue->createDisplayQueue(pContext, displayCreateInfo);
+    pDisplayQueue = pDirectQueue->createDisplayQueue(GpuService::getContext(), displayCreateInfo);
 }
 
 void Context::destroyDisplayData() {
@@ -220,7 +192,7 @@ void Context::changeAdapter(size_t index) {
     destroyDisplayData();
     destroyDeviceData();
 
-    createInfo.adapterIndex = index;
+    GpuService::createDeviceAt(UINT(index));
 
     createDeviceData();
     createDisplayData();
@@ -233,12 +205,11 @@ void Context::resumeFromFault() {
     destroyHeaps();
     destroyDisplayData();
     destroyDeviceData();
-    destroyContextData();
 
     // device may have been removed, get a new list of devices
-    pContext->reportLiveObjects();
+    GpuService::reportLiveObjects();
+    GpuService::refreshAdapterList();
 
-    createContextData();
     createDeviceData();
     createDisplayData();
     createHeaps();

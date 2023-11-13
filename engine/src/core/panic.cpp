@@ -13,9 +13,13 @@ using namespace simcoe;
 void core::panic(const PanicInfo &info, std::string_view msg) {
     LOG_ERROR("PANIC {}:{} @ {} :: {}", info.file, info.line, info.fn, msg);
 
-    auto backtrace = DebugService::backtrace();
-    for (auto& it : backtrace) {
-        LOG_ERROR("{} @ {}", it.symbol, it.pc);
+    if (DebugService::getState() & eServiceCreated) {
+        auto backtrace = DebugService::backtrace();
+        for (auto& it : backtrace) {
+            LOG_ERROR("{} @ {}", it.symbol, it.pc);
+        }
+    } else {
+        LOG_ERROR("backtrace unavailable (pre service init error)");
     }
 
     if (PlatformService::getState() & ~eServiceFaulted) {

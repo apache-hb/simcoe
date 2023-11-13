@@ -17,6 +17,7 @@ class ICPUEx;
 
 namespace amd {
     namespace core = simcoe::core;
+    namespace units = simcoe::units;
 
     enum struct OcMode {
         eModeManual,
@@ -92,14 +93,14 @@ namespace amd {
 
         std::string_view getVersion() const noexcept { return version; }
         std::string_view getVendor() const noexcept { return vendor; }
-        core::Date getDate() const noexcept { return date; }
+        units::Date getDate() const noexcept { return date; }
 
         MemoryData getMemoryData() const noexcept { return memoryInfo; }
 
     private:
         std::string version;
         std::string vendor;
-        core::Date date;
+        units::Date date;
 
         MemoryData memoryInfo;
     };

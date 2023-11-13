@@ -1,30 +1,45 @@
-[d3d12]
-adapter = 0
-backBufferCount = 2
-dsvHeapSize = 16
-rtvHeapSize = 16
-srvHeapSize = 1024
+[d3d12.adapter]
+default_index = 0
+lookup_method = 'default'
+
+[d3d12.debug]
+debug_layer = false
+dred = false
+info_queue = false
+
+[d3d12.heaps]
+dsv_count = 16
+rtv_count = 16
+srv_count = 1024
 
 [depot]
-maxFileHandles = 0
-waitInterval = 100
+max_file_handles = 128
+wait_interval = 100
 
     [depot.vfs]
     mode = 'read'
     root = '$exe'
 
 [game]
-entityLimit = 4096
+entity_limit = 4096
 seed = 0
 
+    [game.render]
+    adapter = 0
+    backBufferCount = 2
+    draw_height = 1080
+    draw_width = 1920
+
 [input]
-keyboardenable = true
-mousecapture = false
-mouseenable = true
-poll-interval = 16
+keyboard_enable = true
+poll_interval = 500
+
+    [input.mouse]
+    capture_input = false
+    enable = true
 
     [input.xinput]
-    gamepad0 = true
+    gamepad0_enable = true
 
 [logging]
 level = 'info'
@@ -41,11 +56,7 @@ title = 'simcoe'
 width = 1280
 
 [render]
-faultLimit = 0
-
-    [render.display]
-    height = 1080
-    width = 1920
+fault_limit = 1
 
 [threads]
 mainQueueSize = 64

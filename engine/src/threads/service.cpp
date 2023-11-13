@@ -410,12 +410,13 @@ void ThreadService::pollMainQueue() {
 void ThreadService::setWorkerCount(size_t count) {
     if (count == 0) {
         count = gCpuGeometry.cores.size();
-        LOG_INFO("setting worker count to default {}", count);
+        LOG_INFO("worker count not specified, defaulting to {}", count);
     }
 
-    if (count > cfgMaxWorkerCount.getCurrentValue()) {
-        LOG_WARN("worker count {} exceeds max worker count {}, clamping to max", count, cfgMaxWorkerCount.getCurrentValue());
-        count = cfgMaxWorkerCount.getCurrentValue();
+    auto maxCount = cfgMaxWorkerCount.getCurrentValue();
+    if (maxCount > 0 && count > maxCount) {
+        LOG_WARN("worker count {0} exceeds max worker count {1}, clamping to {1}", count, maxCount);
+        count = maxCount;
     }
 
     LOG_INFO("starting {} workers", count);

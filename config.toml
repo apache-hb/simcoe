@@ -1,33 +1,48 @@
-[d3d12]
-adapter = 0
-backBufferCount = 2
-dsvHeapSize = 16
-rtvHeapSize = 16
-srvHeapSize = 1024
+[d3d12.adapter]
+default_index = 0
+lookup_method = 'software'
+
+[d3d12.debug]
+debug_layer = false
+dred = false
+info_queue = false
+
+[d3d12.heaps]
+dsv_count = 16
+rtv_count = 16
+srv_count = 1024
 
 [depot]
-maxFileHandles = 0
-waitInterval = 100
+max_file_handles = 128
+wait_interval = 100
 
     [depot.vfs]
     mode = 'read'
     root = '$exe/editor.exe.p'
 
-[engine.input]
-keyboardenable = true
-mousecapture = false
-mouseenable = true
-poll-interval = 16
-
-    [engine.input.xinput]
-    gamepad0 = true
-
 [game]
-entityLimit = 4096
+entity_limit = 4096
 seed = 0
 
+    [game.render]
+    adapter = 0
+    backBufferCount = 2
+    draw_height = 1080
+    draw_width = 1920
+
+[input]
+keyboard_enable = true
+poll_interval = 500
+
+    [input.mouse]
+    capture_input = false
+    enable = true
+
+    [input.xinput]
+    gamepad0_enable = true
+
 [logging]
-level = 'debug'
+level = 'info'
 
     [logging.console]
     colour = true
@@ -36,16 +51,12 @@ level = 'debug'
     path = 'engine.log'
 
 [platform.window]
-width = 1920
 height = 1080
 title = 'editor'
+width = 1920
 
 [render]
-faultLimit = 3
-
-    [render.display]
-    width = 3840
-    height = 2160
+fault_limit = 3
 
 [threads]
 mainQueueSize = 64
@@ -53,5 +64,5 @@ workQueueSize = 256
 
     [threads.workers]
     delay = 50
-    initial = 4
-    max = 16
+    initial = 0
+    max = 4

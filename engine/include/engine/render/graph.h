@@ -232,6 +232,8 @@ namespace simcoe::render {
         }
 
         T *getInner() const { return static_cast<T*>(pHandle); }
+
+        T *operator->() const { return getInner(); }
     private:
         T *pHandle = nullptr;
     };

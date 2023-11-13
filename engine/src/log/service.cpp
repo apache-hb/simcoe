@@ -12,7 +12,7 @@ using namespace simcoe;
 
 namespace chrono = std::chrono;
 
-const config::ConfigFlagMap kLevelNames = {
+const config::ConfigEnumMap kLevelNames = {
     { "assert", log::eAssert },
     { "error", log::eError },
     { "warn", log::eWarn },

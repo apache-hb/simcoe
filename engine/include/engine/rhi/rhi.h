@@ -3,6 +3,8 @@
 #include "engine/math/math.h"
 #include "engine/core/strings.h"
 
+#include "engine/core/units.h"
+
 #include <string>
 #include <vector>
 #include <span>
@@ -17,6 +19,8 @@
 #define UNIFORM_BUFFER alignas(UNIFORM_ALIGN)
 
 namespace simcoe::rhi {
+    namespace units = simcoe::units;
+    
     // forwards
 
     struct Context;
@@ -70,6 +74,8 @@ namespace simcoe::rhi {
             pObject->SetPrivateData(WKPDID_D3DDebugObjectNameW, UINT(wname.size() * sizeof(wchar_t)), wname.data());
         }
 
+        void addRef() { pObject->AddRef(); }
+
     protected:
         Object(T *pObject)
             : pObject(pObject)
@@ -85,12 +91,14 @@ namespace simcoe::rhi {
         T *pObject;
     };
 
-    enum CreateFlags {
+    enum CreateFlags : int {
         eCreateNone = 0,
         eCreateDebug = (1 << 0),
         eCreateInfoQueue = (1 << 1),
         eCreateExtendedInfo = (1 << 2)
     };
+
+    SM_ENUM_FLAGS(CreateFlags, CreateFlagsInner)
 
     struct Context {
         // public interface
@@ -100,6 +108,8 @@ namespace simcoe::rhi {
         std::vector<Adapter*> getAdapters();
 
         Adapter *getWarpAdapter();
+        Adapter *getLowPowerAdapter();
+        Adapter *getFastestAdapter();
 
         // module interface
 
@@ -128,24 +138,31 @@ namespace simcoe::rhi {
     struct AdapterInfo {
         std::string name;
         AdapterType type;
+
+        units::Memory videoMemory;
+        units::Memory systemMemory;
+        units::Memory sharedMemory;
+
+        uint32_t vendorId;
+        uint32_t deviceId;
+        uint32_t subsystemId;
+        uint32_t revision;
     };
 
-    struct Adapter {
+    struct Adapter : Object<IDXGIAdapter4> {
         Device *createDevice(CreateFlags flags);
         AdapterInfo getInfo();
 
         static Adapter *create(IDXGIAdapter1 *pAdapter);
-        ~Adapter();
 
-        IDXGIAdapter4 *getAdapter() { return pAdapter; }
+        IDXGIAdapter4 *getAdapter() { return get(); }
 
     private:
         Adapter(IDXGIAdapter4 *pAdapter, DXGI_ADAPTER_DESC1 desc)
-            : pAdapter(pAdapter)
+            : Object(pAdapter)
             , desc(desc)
         { }
 
-        IDXGIAdapter4 *pAdapter;
         DXGI_ADAPTER_DESC1 desc;
     };
 
@@ -536,6 +553,7 @@ namespace simcoe::rhi {
             , pState(pState)
             , textureInputs(textureInputs)
             , uniformInputs(uniformInputs)
+            , uavInputs(uavInputs)
         { }
 
         ID3D12RootSignature *pRootSignature;

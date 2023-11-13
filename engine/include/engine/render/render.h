@@ -19,7 +19,6 @@ namespace simcoe::render {
     struct RenderCreateInfo {
         HWND hWindow;
 
-        size_t adapterIndex = 0;
         UINT backBufferCount = 2;
 
         UINT displayWidth;
@@ -127,8 +126,6 @@ namespace simcoe::render {
         // getters
         const RenderCreateInfo& getCreateInfo() const { return createInfo; }
         size_t getFrameIndex() const { return frameIndex; }
-
-        std::vector<rhi::Adapter*> &getAdapters() { return adapters; }
 
         rhi::Device *getDevice() const { return pDevice; }
         rhi::Commands *getDirectCommands() const { return pDirectCommands; }
@@ -330,23 +327,6 @@ namespace simcoe::render {
     private:
         Context(const RenderCreateInfo& createInfo);
 
-        // state selection
-
-        rhi::Adapter* selectAdapter() {
-            if (createInfo.adapterIndex >= adapters.size()) {
-                createInfo.adapterIndex = 0;
-            }
-
-            auto *pAdapter = adapters[createInfo.adapterIndex];
-            auto info = pAdapter->getInfo();
-            LOG_INFO("selected adapter: {}", info.name);
-            return pAdapter;
-        }
-
-        // create data that depends on the context
-        void createContextData();
-        void destroyContextData();
-
         // create data that depends on the device
         void createDeviceData();
         void destroyDeviceData();
@@ -367,8 +347,6 @@ namespace simcoe::render {
 
         // device data
 
-        rhi::Context *pContext;
-        std::vector<rhi::Adapter*> adapters;
         rhi::Device *pDevice;
 
         rhi::DeviceQueue *pDirectQueue;

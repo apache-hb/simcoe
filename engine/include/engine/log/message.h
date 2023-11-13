@@ -6,6 +6,7 @@
 #include <format>
 
 namespace simcoe::log {
+    // TODO: bulk message support
     struct PendingMessage {
         PendingMessage(std::string initial)
             : msg(std::move(initial))

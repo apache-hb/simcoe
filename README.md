@@ -27,7 +27,13 @@
 * logging categories
 * better logging ui to help sort between threads and services, etc
 
+* WER or watson support would be pretty funny to implement
+* create the d3d12 device before the window opens
+* fix borderless windowed mode
+
 ## random bits
+
+* join the windows desktop application program and get a cert
 
 * get std::formatter support into toml++
 * nag mesonbuild to support pulling a specific git commit 

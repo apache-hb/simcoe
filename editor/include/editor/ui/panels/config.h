@@ -2,7 +2,7 @@
 
 #include "editor/ui/service.h"
 
-#include "engine/config/system.h"
+#include "engine/config/config.h"
 
 #include "imgui/imgui.h"
 #include "imfiles/imfilebrowser.h"

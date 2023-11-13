@@ -53,7 +53,7 @@ struct ConfigGroup final : IConfigEntry {
 
             return true;
         } else {
-            LOG_WARN("failed to parse config group {}", getName());
+            LOG_WARN("failed to parse config group `{}`", getName());
             return false;
         }
     }
@@ -65,7 +65,7 @@ private:
 };
 
 static auto getRootGroup = []() -> ConfigGroup* {
-    static ConfigGroup root("", "");
+    static ConfigGroup root("", "root");
     return &root;
 };
 

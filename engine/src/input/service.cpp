@@ -10,13 +10,13 @@ using namespace simcoe;
 
 // internal data
 
-config::ConfigValue<int64_t> cfgPollInterval("input", "poll-interval", "How often to poll input devices (in us)", 500);
+config::ConfigValue<int64_t> cfgPollInterval("input", "poll_interval", "How often to poll input devices (in us)", 500);
 
-config::ConfigValue<bool> cfgEnableKeyboard("input", "keyboardenable", "Enable keyboard input", true);
-config::ConfigValue<bool> cfgEnableMouse("input", "mouseenable", "Enable mouse input", true);
-config::ConfigValue<bool> cfgLockMouse("input", "mousecapture", "Lock mouse to window", false);
+config::ConfigValue<bool> cfgEnableKeyboard("input", "keyboard_enable", "Enable keyboard input", true);
+config::ConfigValue<bool> cfgEnableMouse("input/mouse", "enable", "Enable mouse input", true);
+config::ConfigValue<bool> cfgLockMouse("input/mouse", "capture_input", "Lock mouse to window", false);
 
-config::ConfigValue<bool> cfgEnableGamepad0("input/xinput", "gamepad0", "Enable xinput gamepad0", true);
+config::ConfigValue<bool> cfgEnableGamepad0("input/xinput", "gamepad0_enable", "Enable xinput gamepad0", true);
 
 namespace {
     mt::SharedMutex gMutex{"input"};

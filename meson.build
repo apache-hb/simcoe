@@ -208,6 +208,7 @@ src = [
     'engine/src/audio/audio.cpp',
 
     # rhi
+    'engine/src/rhi/service.cpp',
     'engine/src/rhi/render.cpp',
     'engine/src/rhi/vendor.cpp',
 

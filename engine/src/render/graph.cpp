@@ -143,10 +143,6 @@ void Graph::changeBackBufferCount(UINT count) {
 }
 
 void Graph::changeAdapter(UINT index) {
-    const auto& createInfo = ctx->getCreateInfo();
-    if (index == createInfo.adapterIndex)
-        return;
-
     changeData(StateDep::eDepDevice, [=] {
         ctx->changeAdapter(index);
     });

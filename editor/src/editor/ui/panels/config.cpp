@@ -91,7 +91,7 @@ namespace {
             pEntry->unparseCurrentValue(&str, sizeof(std::string));
 
             if (ImGui::BeginCombo(id, str.c_str())) {
-                for (const auto& [name, value] : pEntry->getEnumFlags()) {
+                for (const auto& [name, value] : pEntry->getEnumOptions().getKeyToValue()) {
 
                     bool bSelected = name == str;
                     if (ImGui::Selectable(name.data(), bSelected)) {
@@ -217,6 +217,7 @@ void ConfigUi::draw() {
 
     if (saveConfigFile.HasSelected()) {
         saveConfigName = saveConfigFile.GetSelected();
+        saveConfigName.replace_extension("toml");
         ImGui::OpenPopup("Save config");
     }
 }

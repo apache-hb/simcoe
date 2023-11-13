@@ -4,6 +4,7 @@
 
 #include "engine/depot/service.h"
 #include "engine/threads/service.h"
+#include "engine/rhi/service.h"
 
 #include "engine/render/render.h"
 #include "engine/render/graph.h"
@@ -29,7 +30,8 @@ namespace game {
         static inline auto kServiceDeps = depends(
             PlatformService::service(),
             DepotService::service(),
-            ThreadService::service()
+            ThreadService::service(),
+            GpuService::service()
         );
 
         // IService

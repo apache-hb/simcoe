@@ -15,6 +15,7 @@
 #include "engine/input/service.h"
 #include "engine/config/service.h"
 #include "engine/audio/service.h"
+#include "engine/rhi/service.h"
 
 // threads
 #include "engine/threads/schedule.h"
@@ -114,6 +115,7 @@ static int serviceWrapper() try {
         DepotService::service(),
         AudioService::service(),
         FreeTypeService::service(),
+        GpuService::service(),
         GameService::service(),
 
         GdkService::service(),

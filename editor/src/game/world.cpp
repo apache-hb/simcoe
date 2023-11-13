@@ -12,7 +12,7 @@ using namespace game;
 
 using namespace std::chrono_literals;
 
-config::ConfigValue<size_t> cfgRenderFaultLimit("render", "faultLimit", "Render fault limit", 1, config::eDynamic);
+config::ConfigValue<size_t> cfgRenderFaultLimit("render", "fault_limit", "Render fault limit", 1, config::eDynamic);
 
 World::World(const WorldInfo& info)
     : rng(info.seed)

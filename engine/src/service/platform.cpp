@@ -49,8 +49,8 @@ namespace {
 }
 
 config::ConfigValue<std::string> cfgWindowTitle("platform/window", "title", "window title", "simcoe");
-config::ConfigValue<int> cfgWindowWidth("platform/window", "width", "window width", 1280);
-config::ConfigValue<int> cfgWindowHeight("platform/window", "height", "window height", 720);
+config::ConfigValue<int> cfgWindowWidth("platform/window", "width", "window width (including decorations when created with borders)", 1280);
+config::ConfigValue<int> cfgWindowHeight("platform/window", "height", "window height (including decorations when created with borders)", 720);
 
 bool PlatformService::createService() {
     SM_ASSERTF(gInstance, "hInstance is not set, please call PlatformService::setup()");

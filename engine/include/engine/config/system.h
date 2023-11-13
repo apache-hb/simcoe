@@ -1,37 +1,8 @@
 #pragma once
 
-#include "engine/config/source.h"
-
-#include "engine/core/panic.h"
-#include "engine/core/units.h"
-#include "engine/core/mt.h"
-
-#include "engine/threads/mutex.h"
-
-#include <functional>
-#include <string>
-#include <unordered_map>
+#include "engine/config/config.h"
 
 namespace simcoe::config {
-    struct IConfigEntry;
-
-    using ConfigMap = std::unordered_map<std::string, IConfigEntry*>;
-    using ConfigFlagMap = std::unordered_map<std::string_view, int64_t>;
-    using ConfigNameMap = std::unordered_map<int64_t, std::string_view>;
-
-    enum ValueFlag {
-        eDefault = 0, ///< default
-
-        eDynamic = 1 << 0, ///< this entry can be modified at runtime
-    };
-
-    struct ConfigEntryInfo {
-        std::string_view name; // name
-        std::string_view description; // description
-        ValueType type;
-        ValueFlag flags;
-    };
-
     namespace detail {
         template<typename T>
         struct ConfigValueTraits;
@@ -82,101 +53,6 @@ namespace simcoe::config {
         };
     }
 
-    struct IConfigEntry {
-        // constructor for groups
-        IConfigEntry(const ConfigEntryInfo& info);
-
-        // constructor for a child of the config
-        IConfigEntry(std::string_view path, const ConfigEntryInfo& info);
-
-        std::string_view getName() const { return entryInfo.name; }
-        std::string_view getDescription() const { return entryInfo.description; }
-
-        bool hasFlag(ValueFlag flag) const { return (entryInfo.flags & flag) != 0; }
-        ValueType getType() const { return entryInfo.type; }
-
-        virtual bool isModified() const = 0;
-
-        ///
-        /// config parsing and unparsing
-        ///
-
-        /**
-         * @brief parse a value from some other data
-         *
-         * @param pData the node to parse from
-         * @return true if the value was loaded properly
-         */
-        virtual bool readConfigValue(SM_UNUSED const INode *pNode) { SM_NEVER("readConfigValue {}", getName()); }
-
-        /**
-         * @brief parse a value from our save type
-         *
-         * @param pData
-         * @param size
-         */
-        virtual void parseValue(SM_UNUSED const void *pData, SM_UNUSED size_t size) { SM_NEVER("parseValue {}", getName()); }
-
-        /**
-         * @brief unparse a value into a node
-         *
-         * @param pSource the node source
-         * @return const INode* the unparsed node
-         */
-        virtual void unparseCurrentValue(SM_UNUSED void *pData, SM_UNUSED size_t size) const { SM_NEVER("uparseCurrentValue {}", getName()); }
-
-        /**
-         * @brief unparse the default value into a format suitable for saving and displaying to the user
-         *
-         * @param pData the buffer to save to
-         * @param size the size of the buffer
-         */
-        virtual void unparseDefaultValue(SM_UNUSED void *pData, SM_UNUSED size_t size) const { SM_NEVER("uparseDefaultValue {}", getName()); }
-
-
-
-        ///
-        /// deals with raw internal data
-        ///
-
-        /**
-         * @brief save the current value to a buffer
-         *
-         * @param pData the buffer to save to
-         * @param size the size of the buffer
-         */
-        virtual void saveCurrentValue(SM_UNUSED void *pData, SM_UNUSED size_t size) const { SM_NEVER("saveCurrentValue {}", getName()); }
-
-        /**
-         * @brief save the default value to a buffer
-         *
-         * @param pData the buffer to save to
-         * @param size the size of the buffer
-         */
-        virtual void saveDefaultValue(SM_UNUSED void *pData, SM_UNUSED size_t size) const { SM_NEVER("saveDefaultValue {}", getName()); }
-
-        /**
-         * @brief load the current value from a buffer
-         *
-         * @param pData data to load from
-         * @param size the size of the data
-         */
-        virtual void loadCurrentValue(SM_UNUSED const void *pData, SM_UNUSED size_t size) { SM_NEVER("loadCurrentValue {}", getName()); }
-
-
-
-        ///
-        /// extra config data
-        ///
-
-        virtual const ConfigFlagMap& getEnumFlags() const { SM_NEVER("getEnumFlags {}", getName()); }
-        virtual const ConfigNameMap& getEnumNames() const { SM_NEVER("getEnumNames {}", getName()); }
-        virtual const ConfigMap& getChildren() const { SM_NEVER("getChildren {}", getName()); }
-
-    private:
-        ConfigEntryInfo entryInfo;
-    };
-
     template<typename T>
     struct ConfigValueInfo {
         using Traits = detail::ConfigValueTraits<T>;
@@ -190,6 +66,8 @@ namespace simcoe::config {
         NotifyConfigUpdate notify;
         ValueFlag flags = eDefault;
     };
+
+    // TODO: this is a catastrophe
 
     template<typename T>
     struct ConfigValueBase : public IConfigEntry {
@@ -365,7 +243,7 @@ namespace simcoe::config {
         using StorageType = typename Super::StorageType;
         using SaveType = typename Super::SaveType;
 
-        ConfigValue(std::string_view path, std::string_view name, std::string_view description, VisibleType defaultValue, ConfigFlagMap opts, ValueFlag flags = eDefault)
+        ConfigValue(std::string_view path, std::string_view name, std::string_view description, VisibleType defaultValue, ConfigEnumMap opts, ValueFlag flags = eDefault)
             : Super(path, eConfigEnum, {
                 .name = name,
                 .description = description,
@@ -373,17 +251,13 @@ namespace simcoe::config {
                 .flags = flags
             })
             , opts(opts)
-        {
-            for (auto& [key, value] : opts) {
-                saveOpts[value] = key;
-            }
-        }
+        { }
 
         // our config rep is a std::string
         bool readConfigValue(const INode *pData) override {
             if (SaveType opt; pData->get(opt)) {
-                if (auto it = opts.find(opt); it != opts.end()) {
-                    Super::setCurrentValue(T(it->second));
+                if (opts.hasKey(opt)) {
+                    Super::setCurrentValue(T(opts.getValue(opt)));
                     return true;
                 }
             }
@@ -398,12 +272,12 @@ namespace simcoe::config {
 
         void unparseCurrentValue(void *pData, size_t size) const override {
             SM_ASSERTF(size == sizeof(SaveType), "invalid size for config enum value {} (expected {}, got {})", Super::getName(), sizeof(SaveType), size);
-            *static_cast<SaveType*>(pData) = getStringValue(Super::getCurrentValue());
+            *static_cast<SaveType*>(pData) = getNameByValue(Super::getCurrentValue());
         }
 
         void unparseDefaultValue(void *pData, size_t size) const override {
             SM_ASSERTF(size == sizeof(SaveType), "invalid size for config enum value {} (expected {}, got {})", Super::getName(), sizeof(SaveType), size);
-            *static_cast<SaveType*>(pData) = getStringValue(Super::getDefaultValue());
+            *static_cast<SaveType*>(pData) = getNameByValue(Super::getDefaultValue());
         }
 
         // we save the string name of the enum
@@ -417,20 +291,18 @@ namespace simcoe::config {
             *static_cast<VisibleType*>(pData) = Super::getDefaultValue();
         }
 
-        const ConfigFlagMap& getEnumFlags() const override { return opts; }
-        const ConfigNameMap& getEnumNames() const override { return saveOpts; }
+        const ConfigEnumMap& getEnumOptions() const override { return opts; }
 
     private:
-        std::string_view getStringValue(T value) const {
-            return saveOpts.at(value);
+        const std::string_view& getNameByValue(T value) const {
+            return opts.getKey(core::enumCast<StorageType>(value));
         }
 
         VisibleType getValueByName(std::string_view name) const {
-            return core::enumCast<VisibleType>(opts.at(name));
+            return core::enumCast<VisibleType>(opts.getValue(name));
         }
 
-        ConfigFlagMap opts;
-        ConfigNameMap saveOpts;
+        ConfigEnumMap opts;
     };
 
     IConfigEntry *getConfig();

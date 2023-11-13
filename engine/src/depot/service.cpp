@@ -87,12 +87,12 @@ private:
     HANDLE hFile = INVALID_HANDLE_VALUE;
 };
 
-config::ConfigValue<size_t> cfgWaitInterval("depot", "waitInterval", "Interval between depot change notifications (in ms)", 100);
-config::ConfigValue<size_t> cfgMaxFileHandles("depot", "maxFileHandles", "Maximum number of file handles to keep open (0 = unlimited)", 128);
+config::ConfigValue<size_t> cfgWaitInterval("depot", "wait_interval", "Interval between depot change notifications (in ms)", 100);
+config::ConfigValue<size_t> cfgMaxFileHandles("depot", "max_file_handles", "Maximum number of file handles to keep open (0 = unlimited)", 128);
 
 config::ConfigValue<std::string> cfgVfsRoot("depot/vfs", "root", "Root directory for the virtual file system", "$exe");
 
-const config::ConfigFlagMap kModeFlags = {
+const config::ConfigEnumMap kModeFlags = {
     { "read", eRead },
     { "readwrite", eReadWrite }
 };

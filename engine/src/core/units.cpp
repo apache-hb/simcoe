@@ -6,7 +6,7 @@
 
 using namespace simcoe;
 
-std::string core::Memory::string() const {
+std::string units::Memory::string() const {
     if (bytes == 0) { return "0b"; }
 
     std::vector<std::string> parts;
