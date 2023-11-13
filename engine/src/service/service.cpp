@@ -17,7 +17,7 @@ using namespace simcoe;
 // service base
 
 void IService::waitUntilReady() {
-    std::unique_lock lock(mutex.getInner());
+    std::unique_lock lock(cvMutex.getInner());
     cv.wait(lock, [this] { return state != eServiceInitial; });
 }
 
@@ -28,7 +28,7 @@ void IService::waitForDeps() {
 }
 
 void IService::signalReady() {
-    std::unique_lock lock(mutex);
+    std::unique_lock lock(cvMutex);
     cv.notify_all();
 }
 

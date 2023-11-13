@@ -7,7 +7,7 @@
 
 #include "engine/threads/thread.h"
 
-#include "blockingconcurrentqueue.h"
+#include "vendor/moodycamel/blocking.h"
 
 namespace simcoe::threads {
     using WorkItem = std::function<void()>;

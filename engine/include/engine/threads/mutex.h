@@ -15,9 +15,17 @@ namespace simcoe::mt {
     struct BaseMutex {
         SM_NOCOPY(BaseMutex)
 
-    protected:
-        BaseMutex(std::string_view name);
+        BaseMutex(std::string name);
+        
+        BaseMutex(std::string_view name)
+            : BaseMutex(std::string(name))
+        { }
 
+        BaseMutex(const char *pzName)
+            : BaseMutex(std::string(pzName))
+        { }
+        
+    protected:
         void verifyOwner();
         void resetOwner();
 
@@ -28,15 +36,13 @@ namespace simcoe::mt {
 
     private:
 #if SM_DEBUG_THREADS
-        std::string_view name; /// the name of the mutex
+        std::string name; /// the name of the mutex
         threads::ThreadId owner; /// the thread that currently owns the mutex
 #endif
     };
 
-    struct Mutex : BaseMutex {
-        Mutex(std::string_view name)
-            : BaseMutex(name)
-        { }
+    struct Mutex : public BaseMutex {
+        using BaseMutex::BaseMutex;
 
         // std::mutex interface
         void lock();
@@ -50,9 +56,7 @@ namespace simcoe::mt {
     };
 
     struct SharedMutex : public BaseMutex {
-        SharedMutex(std::string_view name)
-            : BaseMutex(name)
-        { }
+        using BaseMutex::BaseMutex;
 
         // std::shared_mutex interface
         void lock();

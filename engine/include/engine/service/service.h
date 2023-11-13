@@ -39,7 +39,7 @@ namespace simcoe {
             : name(name)
             , deps(deps)
             , flags(flags)
-            , mutex(name)
+            , cvMutex(std::format("{}.cv", name))
         { }
 
         virtual ~IService() = default;
@@ -60,7 +60,7 @@ namespace simcoe {
         ServiceState getState() const { return state; }
 
     private:
-        ServiceState state = eServiceInitial;
+        std::atomic<ServiceState> state = eServiceInitial;
 
         std::string_view name;
         ServiceSpan deps;
@@ -70,7 +70,7 @@ namespace simcoe {
         void signalReady();
 
         std::condition_variable cv;
-        mt::Mutex mutex;
+        mt::Mutex cvMutex;
     };
 
     template<typename T>

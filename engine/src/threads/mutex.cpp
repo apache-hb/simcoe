@@ -6,7 +6,7 @@
 using namespace simcoe;
 using namespace simcoe::mt;
 
-BaseMutex::BaseMutex(SM_UNUSED std::string_view name)
+BaseMutex::BaseMutex(SM_UNUSED std::string name)
 #if SM_DEBUG_THREADS
     : name(name)
     , owner(0)

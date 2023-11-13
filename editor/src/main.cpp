@@ -107,7 +107,7 @@ static void commonMain() {
 }
 
 static int serviceWrapper() try {
-    LoggingService::addSink("imgui", GameService::addDebugService<ui::LoggingUi>());
+    LoggingService::addSink(GameService::addDebugService<ui::LoggingUi>());
 
     auto engineServices = std::to_array({
         LoggingService::service(),

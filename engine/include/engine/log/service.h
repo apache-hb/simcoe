@@ -7,6 +7,9 @@
 
 #include "engine/log/log.h"
 
+#include "engine/threads/messages.h"
+#include "engine/threads/service.h"
+
 #include <array>
 
 namespace simcoe {
@@ -15,7 +18,7 @@ namespace simcoe {
 
         // IStaticService
         static constexpr std::string_view kServiceName = "logging";
-        static inline auto kServiceDeps = depends(ConfigService::service(), PlatformService::service());
+        static inline auto kServiceDeps = depends(ConfigService::service(), PlatformService::service(), ThreadService::service());
 
         // IService
         bool createService() override;
@@ -56,7 +59,7 @@ namespace simcoe {
             throwAssert(std::vformat(msg, std::make_format_args(args...)));
         }
 
-        static bool sendMessage(log::Level msgLevel, std::string_view msg) {
+        static bool sendMessage(log::Level msgLevel, std::string msg) {
             if (!shouldSend(msgLevel)) { return false; }
 
             sendMessageAlways(msgLevel, msg);
@@ -64,10 +67,10 @@ namespace simcoe {
         }
 
         static bool shouldSend(log::Level level);
-        static void addSink(std::string_view name, log::ISink *pSink);
+        static void addSink(log::ISink *pSink);
 
     private:
-        static void sendMessageAlways(log::Level msgLevel, std::string_view msg);
+        static void sendMessageAlways(log::Level msgLevel, std::string msg);
         static void throwAssert(std::string msg);
     };
 }

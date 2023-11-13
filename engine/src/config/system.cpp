@@ -20,9 +20,7 @@ using namespace simcoe::config;
 struct ConfigGroup final : IConfigEntry {
     ConfigGroup(std::string_view name, std::string_view description)
         : IConfigEntry({ .name = name, .description = description, .type = eConfigGroup, .flags = eDefault })
-    {
-        LOG_INFO("creating config group {}", name);
-    }
+    { }
 
     void addEntry(IConfigEntry *pEntry) {
         SM_ASSERT(pEntry);
@@ -85,8 +83,6 @@ static void addToConfig(std::string_view path, IConfigEntry *pEntry) {
     // util::SplitView split(path, "/");
     for (auto word : util::SplitView(path, "/")) {
         auto segment = std::string(word);
-
-        LOG_INFO("adding {} of {}", segment, path);
 
         // check if the group already exists
         if (auto *pExisting = pConfig->getEntry(segment); pExisting) {

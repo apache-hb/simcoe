@@ -139,7 +139,6 @@ cfg_header = configure_file(output : 'sm-config.h', configuration : cdata)
 args = [
     '/wd4324', # disable warning C4324: structure was padded due to alignment specifier
                # we want this because of UNIFORM_BUFFER
-    '/wd4554',  # concurrentqueue tries to disable this internally but fails for some reason
     '-D_HAS_EXCEPTIONS=0' # we want the stl to not use exceptions, easier to debug that way
 ]
 
