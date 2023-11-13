@@ -65,4 +65,4 @@ workQueueSize = 256
     [threads.workers]
     delay = 50
     initial = 0
-    max = 4
+    max = 8
