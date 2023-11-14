@@ -37,7 +37,6 @@ using namespace editor;
 
 namespace eg = editor::graph;
 namespace sr = simcoe::render;
-namespace gr = game::graph;
 
 // window mode
 static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless", "Fullscreen" });
@@ -45,22 +44,9 @@ static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless
 namespace {
     // render
     WindowMode windowMode = eModeWindowed;
-    simcoe::render::Context *pContext = nullptr;
-    simcoe::render::Graph *pGraph = nullptr;
-
-    // game
-    World *pWorld = nullptr;
-
-    // threads
-    threads::ThreadHandle *pRenderThread = nullptr;
 
     std::vector<editor::ui::ServiceUi*> debugServices;
 }
-
-config::ConfigValue<size_t> cfgRenderWidth("game/render", "draw_width", "Render width", 1920);
-config::ConfigValue<size_t> cfgRenderHeight("game/render", "draw_height", "Render height", 1080);
-
-config::ConfigValue<size_t> cfgBackBufferCount("game/render", "backBufferCount", "How many backbuffers to use", 2);
 
 config::ConfigValue<size_t> cfgEntityLimit("game", "entity_limit", "upper entity limit", 0x1000);
 config::ConfigValue<size_t> cfgSeed("game", "seed", "World seed", 0);
@@ -72,7 +58,7 @@ void setWindowMode(WindowMode oldMode, WindowMode newMode) {
     auto& window = PlatformService::getWindow();
 
     if (oldMode == eModeFullscreen) {
-        pGraph->setFullscreen(false);
+        RenderService::setFullscreen(false);
         window.exitFullscreen();
         return;
     }
@@ -85,7 +71,7 @@ void setWindowMode(WindowMode oldMode, WindowMode newMode) {
         window.setStyle(WindowStyle::eBorderlessFixed);
         break;
     case eModeFullscreen:
-        pGraph->setFullscreen(true);
+        RenderService::setFullscreen(true);
         window.enterFullscreen();
         break;
 
@@ -550,52 +536,24 @@ struct EditorUi final : eg::IGuiPass {
 };
 
 bool EditorService::createService() {
-    auto& window = simcoe::PlatformService::getWindow();
-    auto size = window.getSize().as<uint32_t>();
-    const sr::RenderCreateInfo createInfo = {
-        .hWindow = window.getHandle(),
-
-        .backBufferCount = core::intCast<UINT>(cfgBackBufferCount.getCurrentValue()),
-
-        .displayWidth = size.width,
-        .displayHeight = size.height,
-
-        .renderWidth = core::intCast<UINT>(cfgRenderWidth.getCurrentValue()),
-        .renderHeight = core::intCast<UINT>(cfgRenderHeight.getCurrentValue())
-    };
-
-    pContext = sr::Context::create(createInfo);
-    pGraph = new sr::Graph(pContext);
-
+    auto *pGraph = RenderService::getGraph();
+    
     auto *pBackBuffers = pGraph->addResource<eg::SwapChainHandle>();
     auto *pSceneTarget = pGraph->addResource<eg::SceneTargetHandle>();
-    auto *pDepthTarget = pGraph->addResource<eg::DepthTargetHandle>();
+    // auto *pDepthTarget = pGraph->addResource<eg::DepthTargetHandle>();
 
     //pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
 
     // pGraph->addPass<graph::GameLevelPass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
 
-    gr::ScenePass *pScenePass = pGraph->addPass<gr::ScenePass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
-    gr::HudPass *pHudPass = pGraph->addPass<gr::HudPass>(pSceneTarget->as<IRTVHandle>());
+    // gr::ScenePass *pScenePass = pGraph->addPass<gr::ScenePass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
+    // gr::HudPass *pHudPass = pGraph->addPass<gr::HudPass>(pSceneTarget->as<IRTVHandle>());
 
     // pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
 
     pGraph->addPass<EditorUi>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
 
     pGraph->addPass<eg::PresentPass>(pBackBuffers);
-
-    const game::WorldInfo info = {
-        .entityLimit = cfgEntityLimit.getCurrentValue(),
-        .seed = cfgSeed.getCurrentValue(),
-
-        .pRenderContext = pContext,
-        .pRenderGraph = pGraph,
-
-        .pHudPass = pHudPass,
-        .pScenePass = pScenePass
-    };
-
-    pWorld = new game::World(info);
 
     return true;
 }
@@ -607,36 +565,15 @@ void EditorService::destroyService() {
 void EditorService::start() {
     addDebugService<ui::ConfigUi>();
     addDebugService<ui::DepotUi>();
-    addDebugService<ui::WorldUi>(pWorld);
+    // addDebugService<ui::WorldUi>(pWorld);
     addDebugService<ui::AudioUi>();
     addDebugService<ui::GameRuntimeUi>();
     addDebugService<ui::ThreadServiceUi>();
     addDebugService<ui::RyzenMonitorUi>();
-
-    pRenderThread = ThreadService::newThread(threads::eRealtime, "render", [&](auto token) {
-        while (!token.stop_requested()) {
-            pWorld->tickRender();
-        }
-    });
-}
-
-// EditorService
-void EditorService::shutdown() {
-    pRenderThread->join();
-    pWorld->shutdown();
-}
-
-bool EditorService::shouldQuit() {
-    return pWorld->shouldQuit();
 }
 
 void EditorService::resizeDisplay(const WindowSize& event) {
-    if (!pWorld) return;
-
-    pWorld->pRenderQueue->add("resize", [event]() {
-        pGraph->resizeDisplay(event.width, event.height);
-        LOG_INFO("resized display to: {}x{}", event.width, event.height);
-    });
+    RenderService::resizeDisplay(event);
 }
 
 // editable stuff
@@ -645,30 +582,21 @@ WindowMode EditorService::getWindowMode() {
 }
 
 void EditorService::changeWindowMode(WindowMode newMode) {
-    pWorld->pRenderQueue->add("modechange", [newMode]() {
+    RenderService::enqueueWork("modechange", [newMode]() {
         setWindowMode(getWindowMode(), newMode);
     });
 }
 
 void EditorService::changeInternalRes(const simcoe::math::uint2& newRes) {
-    pWorld->pRenderQueue->add("reschange", [newRes]() {
-        pGraph->resizeRender(newRes.width, newRes.height);
-        LOG_INFO("changed internal resolution to: {}x{}", newRes.width, newRes.height);
-    });
+    RenderService::resizeRender(newRes);
 }
 
 void EditorService::changeBackBufferCount(UINT newCount) {
-    pWorld->pRenderQueue->add("backbufferchange", [newCount]() {
-        pGraph->changeBackBufferCount(newCount);
-        LOG_INFO("changed backbuffer count to: {}", newCount);
-    });
+    RenderService::changeBackBufferCount(newCount);
 }
 
 void EditorService::changeCurrentAdapter(UINT newAdapter) {
-    pWorld->pRenderQueue->add("adapterchange", [newAdapter]() {
-        pGraph->changeAdapter(newAdapter);
-        LOG_INFO("changed adapter to: {}", newAdapter);
-    });
+    RenderService::changeAdapter(newAdapter);
 }
 
 void EditorService::addDebugService(editor::ui::ServiceUi *pService) {

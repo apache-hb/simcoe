@@ -29,7 +29,7 @@
 #include "engine/input/xinput-device.h"
 
 // render graph
-#include "engine/render/graph.h"
+#include "engine/render/service.h"
 
 // render passes
 #include "editor/graph/assets.h"
@@ -65,13 +65,23 @@ using microsoft::GdkService;
 using amd::RyzenMonitorSerivce;
 using editor::EditorService;
 
+static std::atomic_bool bRunning = true;
+
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
-        EditorService::shutdown();
+        bRunning = false;
+
+        RenderService::shutdown();
         ThreadService::shutdown();
     }
 
     void onResize(const WindowSize& event) override {
+        static bool bFirstEvent = true;
+        if (bFirstEvent) {
+            bFirstEvent = false;
+            return;
+        }
+
         EditorService::resizeDisplay(event);
     }
 
@@ -101,6 +111,7 @@ static log::Level getEcsLevel(int32_t level) {
 static void commonMain() {
     debug::setThreadName("main");
     EditorService::start();
+    RenderService::start();
 
     // setup game
 
@@ -117,7 +128,7 @@ static void commonMain() {
 
     flecs::world ecs;
 
-    while (PlatformService::waitForEvent() && !EditorService::shouldQuit()) {
+    while (PlatformService::waitForEvent() && bRunning) {
         PlatformService::dispatchEvent();
         ThreadService::pollMainQueue();
     }
@@ -135,6 +146,7 @@ static int serviceWrapper() try {
         AudioService::service(),
         FreeTypeService::service(),
         GpuService::service(),
+        RenderService::service(),
         EditorService::service(),
 
         GdkService::service(),

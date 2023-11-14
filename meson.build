@@ -212,6 +212,7 @@ src = [
     'engine/src/rhi/vendor.cpp',
 
     # render graph
+    'engine/src/render/service.cpp',
     'engine/src/render/render.cpp',
     'engine/src/render/graph.cpp',
     'engine/src/render/assets.cpp',

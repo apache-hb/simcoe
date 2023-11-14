@@ -12,8 +12,6 @@ using namespace game;
 
 using namespace std::chrono_literals;
 
-config::ConfigValue<size_t> cfgRenderFaultLimit("render", "fault_limit", "Render fault limit", 1, config::eDynamic);
-
 World::World(const WorldInfo& info)
     : rng(info.seed)
     , info(info)
@@ -29,32 +27,32 @@ void World::destroyRender() {
 }
 
 void World::tickRender() {
-    if (pRenderQueue->tryGetMessage()) {
-        return;
-    }
+    // if (pRenderQueue->tryGetMessage()) {
+    //     return;
+    // }
 
-    render::Graph *pGraph = info.pRenderGraph;
+    // render::Graph *pGraph = info.pRenderGraph;
 
-    try {
-        pGraph->execute();
-    } catch (const core::Error& e) {
-        if (!e.recoverable()) {
-            throw;
-        }
+    // try {
+    //     pGraph->execute();
+    // } catch (const core::Error& e) {
+    //     if (!e.recoverable()) {
+    //         throw;
+    //     }
 
-        renderFaults += 1;
-        LOG_ERROR("fault: {}", e.what());
-        LOG_ERROR("render fault. {} total fault{}", renderFaults, renderFaults > 1 ? "s" : "");
+    //     renderFaults += 1;
+    //     LOG_ERROR("fault: {}", e.what());
+    //     LOG_ERROR("render fault. {} total fault{}", renderFaults, renderFaults > 1 ? "s" : "");
 
-        auto faultLimit = cfgRenderFaultLimit.getCurrentValue();
-        if (renderFaults >= faultLimit) {
-            LOG_ERROR("render fault exceeded limit of {}. exiting...", faultLimit);
-            throw;
-        }
+    //     auto faultLimit = cfgRenderFaultLimit.getCurrentValue();
+    //     if (renderFaults >= faultLimit) {
+    //         LOG_ERROR("render fault exceeded limit of {}. exiting...", faultLimit);
+    //         throw;
+    //     }
 
-        LOG_ERROR("attempting to recover...");
-        pGraph->resumeFromFault();
-    }
+    //     LOG_ERROR("attempting to recover...");
+    //     pGraph->resumeFromFault();
+    // }
 }
 
 

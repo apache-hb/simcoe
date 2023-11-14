@@ -165,7 +165,6 @@ size_t PlatformService::queryCounter() {
 }
 
 Window& PlatformService::getWindow() {
-    //gWindow->showWindow();
     return *gWindow;
 }
 

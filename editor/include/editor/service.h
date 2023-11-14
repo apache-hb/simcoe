@@ -6,8 +6,7 @@
 #include "engine/threads/service.h"
 #include "engine/rhi/service.h"
 
-#include "engine/render/render.h"
-#include "engine/render/graph.h"
+#include "engine/render/service.h"
 
 #include "engine/math/math.h"
 
@@ -19,7 +18,7 @@
 
 namespace editor {
     using namespace simcoe;
-    
+
     enum WindowMode : int {
         eModeWindowed,
         eModeBorderless,
@@ -30,12 +29,12 @@ namespace editor {
 
     struct EditorService final : simcoe::IStaticService<EditorService> {
         // IStaticService
-        static constexpr std::string_view kServiceName = "game";
+        static constexpr std::string_view kServiceName = "editor";
         static inline auto kServiceDeps = depends(
             PlatformService::service(),
             DepotService::service(),
             ThreadService::service(),
-            GpuService::service()
+            RenderService::service()
         );
 
         // IService
@@ -45,9 +44,6 @@ namespace editor {
         static void start();
 
         // GameService
-        static void shutdown();
-        static bool shouldQuit();
-
         static void resizeDisplay(const WindowSize& event);
 
         // editable stuff
