@@ -46,6 +46,7 @@
 #include "implot/implot.h"
 
 // editor ui
+#include "editor/service.h"
 #include "editor/ui/ui.h"
 #include "editor/ui/panels/threads.h"
 #include "editor/ui/panels/depot.h"
@@ -55,12 +56,6 @@
 #include "vendor/gameruntime/service.h"
 #include "vendor/ryzenmonitor/service.h"
 
-// game
-#include "game/service.h"
-#include "game/world.h"
-#include "game/render/hud.h"
-#include "game/render/scene.h"
-
 using namespace simcoe;
 using namespace simcoe::math;
 
@@ -68,16 +63,16 @@ using namespace editor;
 
 using microsoft::GdkService;
 using amd::RyzenMonitorSerivce;
-using game::GameService;
+using editor::EditorService;
 
 struct GameWindow final : IWindowCallbacks {
     void onClose() override {
-        GameService::shutdown();
+        EditorService::shutdown();
         ThreadService::shutdown();
     }
 
     void onResize(const WindowSize& event) override {
-        GameService::resizeDisplay(event);
+        EditorService::resizeDisplay(event);
     }
 
     bool onEvent(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) override {
@@ -105,7 +100,7 @@ static log::Level getEcsLevel(int32_t level) {
 
 static void commonMain() {
     debug::setThreadName("main");
-    GameService::start();
+    EditorService::start();
 
     // setup game
 
@@ -122,7 +117,7 @@ static void commonMain() {
 
     flecs::world ecs;
 
-    while (PlatformService::waitForEvent() && !GameService::shouldQuit()) {
+    while (PlatformService::waitForEvent() && !EditorService::shouldQuit()) {
         PlatformService::dispatchEvent();
         ThreadService::pollMainQueue();
     }
@@ -131,7 +126,7 @@ static void commonMain() {
 }
 
 static int serviceWrapper() try {
-    LoggingService::addSink(GameService::addDebugService<ui::LoggingUi>());
+    LoggingService::addSink(EditorService::addDebugService<ui::LoggingUi>());
 
     auto engineServices = std::to_array({
         LoggingService::service(),
@@ -140,7 +135,7 @@ static int serviceWrapper() try {
         AudioService::service(),
         FreeTypeService::service(),
         GpuService::service(),
-        GameService::service(),
+        EditorService::service(),
 
         GdkService::service(),
         RyzenMonitorSerivce::service()

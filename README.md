@@ -30,6 +30,7 @@
 * WER or watson support would be pretty funny to implement
 * create the d3d12 device before the window opens
 * fix borderless windowed mode
+* move GameService into EditorService
 
 ## random bits
 

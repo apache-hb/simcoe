@@ -1,4 +1,4 @@
-#include "game/service.h"
+#include "editor/service.h"
 
 #include "editor/ui/panels/audio.h"
 #include "engine/render/graph.h"
@@ -94,7 +94,7 @@ void setWindowMode(WindowMode oldMode, WindowMode newMode) {
     }
 }
 
-struct GameGui final : eg::IGuiPass {
+struct EditorUi final : eg::IGuiPass {
     using eg::IGuiPass::IGuiPass;
 
     int renderSize[2];
@@ -182,7 +182,7 @@ struct GameGui final : eg::IGuiPass {
         ImGui::PopStyleColor();
     });
 
-    GameGui(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
+    EditorUi(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<ISRVHandle> *pSceneSource)
         : IGuiPass(pGraph, pRenderTarget)
         , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTextureRead))
     {
@@ -194,7 +194,7 @@ struct GameGui final : eg::IGuiPass {
         ImPlot::CreateContext();
     }
 
-    ~GameGui() {
+    ~EditorUi() {
         ImPlot::DestroyContext();
     }
 
@@ -287,7 +287,7 @@ struct GameGui final : eg::IGuiPass {
         drawRenderSettings();
         drawFilePicker();
 
-        for (auto *pService : GameService::getDebugServices()) {
+        for (auto *pService : EditorService::getDebugServices()) {
             pService->drawWindow();
         }
     }
@@ -370,7 +370,7 @@ struct GameGui final : eg::IGuiPass {
                 });
 
                 ImGui::SeparatorText("Services");
-                for (auto *pService : GameService::getDebugServices()) {
+                for (auto *pService : EditorService::getDebugServices()) {
                     pService->drawMenuItem();
                 }
 
@@ -479,9 +479,9 @@ struct GameGui final : eg::IGuiPass {
             ImGui::Text("Display resolution: %dx%d", createInfo.displayWidth, createInfo.displayHeight);
             ImGui::Text("Internal resolution: %dx%d", createInfo.renderWidth, createInfo.renderHeight);
 
-            int currentWindowMode = GameService::getWindowMode();
+            int currentWindowMode = EditorService::getWindowMode();
             if (ImGui::Combo("Window mode", &currentWindowMode, kWindowModeNames.data(), core::intCast<int>(kWindowModeNames.size()))) {
-                GameService::changeWindowMode(WindowMode(currentWindowMode));
+                EditorService::changeWindowMode(WindowMode(currentWindowMode));
             }
 
             bool bTearing = ctx->bAllowTearing;
@@ -491,15 +491,15 @@ struct GameGui final : eg::IGuiPass {
             ImGui::Text("DXGI reported fullscreen: %s", ctx->bReportedFullscreen ? "true" : "false");
 
             if (ImGui::SliderInt2("Internal resolution", renderSize, 64, 4096)) {
-                GameService::changeInternalRes({ uint32_t(renderSize[0]), uint32_t(renderSize[1]) });
+                EditorService::changeInternalRes({ uint32_t(renderSize[0]), uint32_t(renderSize[1]) });
             }
 
             if (ImGui::SliderInt("backbuffer count", &backBufferCount, 2, 8)) {
-                GameService::changeBackBufferCount(uint32_t(backBufferCount));
+                EditorService::changeBackBufferCount(uint32_t(backBufferCount));
             }
 
             if (ImGui::Combo("Adapter", &currentAdapter, adapterNames.data(), core::intCast<int>(adapterNames.size()))) {
-                GameService::changeCurrentAdapter(uint32_t(currentAdapter));
+                EditorService::changeCurrentAdapter(uint32_t(currentAdapter));
             }
 
             if (ImGui::Button("Remove device")) {
@@ -549,7 +549,7 @@ struct GameGui final : eg::IGuiPass {
     }
 };
 
-bool GameService::createService() {
+bool EditorService::createService() {
     auto& window = simcoe::PlatformService::getWindow();
     auto size = window.getSize().as<uint32_t>();
     const sr::RenderCreateInfo createInfo = {
@@ -580,7 +580,7 @@ bool GameService::createService() {
 
     // pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
 
-    pGraph->addPass<GameGui>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
+    pGraph->addPass<EditorUi>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
 
     pGraph->addPass<eg::PresentPass>(pBackBuffers);
 
@@ -600,11 +600,11 @@ bool GameService::createService() {
     return true;
 }
 
-void GameService::destroyService() {
+void EditorService::destroyService() {
 
 }
 
-void GameService::start() {
+void EditorService::start() {
     addDebugService<ui::ConfigUi>();
     addDebugService<ui::DepotUi>();
     addDebugService<ui::WorldUi>(pWorld);
@@ -620,17 +620,17 @@ void GameService::start() {
     });
 }
 
-// GameService
-void GameService::shutdown() {
+// EditorService
+void EditorService::shutdown() {
     pRenderThread->join();
     pWorld->shutdown();
 }
 
-bool GameService::shouldQuit() {
+bool EditorService::shouldQuit() {
     return pWorld->shouldQuit();
 }
 
-void GameService::resizeDisplay(const WindowSize& event) {
+void EditorService::resizeDisplay(const WindowSize& event) {
     if (!pWorld) return;
 
     pWorld->pRenderQueue->add("resize", [event]() {
@@ -640,41 +640,41 @@ void GameService::resizeDisplay(const WindowSize& event) {
 }
 
 // editable stuff
-WindowMode GameService::getWindowMode() {
+WindowMode EditorService::getWindowMode() {
     return windowMode;
 }
 
-void GameService::changeWindowMode(WindowMode newMode) {
+void EditorService::changeWindowMode(WindowMode newMode) {
     pWorld->pRenderQueue->add("modechange", [newMode]() {
         setWindowMode(getWindowMode(), newMode);
     });
 }
 
-void GameService::changeInternalRes(const simcoe::math::uint2& newRes) {
+void EditorService::changeInternalRes(const simcoe::math::uint2& newRes) {
     pWorld->pRenderQueue->add("reschange", [newRes]() {
         pGraph->resizeRender(newRes.width, newRes.height);
         LOG_INFO("changed internal resolution to: {}x{}", newRes.width, newRes.height);
     });
 }
 
-void GameService::changeBackBufferCount(UINT newCount) {
+void EditorService::changeBackBufferCount(UINT newCount) {
     pWorld->pRenderQueue->add("backbufferchange", [newCount]() {
         pGraph->changeBackBufferCount(newCount);
         LOG_INFO("changed backbuffer count to: {}", newCount);
     });
 }
 
-void GameService::changeCurrentAdapter(UINT newAdapter) {
+void EditorService::changeCurrentAdapter(UINT newAdapter) {
     pWorld->pRenderQueue->add("adapterchange", [newAdapter]() {
         pGraph->changeAdapter(newAdapter);
         LOG_INFO("changed adapter to: {}", newAdapter);
     });
 }
 
-void GameService::addDebugService(editor::ui::ServiceUi *pService) {
+void EditorService::addDebugService(editor::ui::ServiceUi *pService) {
     debugServices.push_back(pService);
 }
 
-std::span<editor::ui::ServiceUi*> GameService::getDebugServices() {
+std::span<editor::ui::ServiceUi*> EditorService::getDebugServices() {
     return debugServices;
 }

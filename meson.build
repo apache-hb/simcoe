@@ -369,6 +369,7 @@ src = [
     # 'editor/src/editor/graph/mipmap.cpp',
 
     # editor ui
+    'editor/src/editor/service.cpp',
     'editor/src/editor/ui/ui.cpp',
 
     # ui components
@@ -385,7 +386,7 @@ src = [
     'editor/src/editor/ui/panels/audio.cpp',
 
     # game framework
-    'editor/src/game/service.cpp',
+    # 'editor/src/game/service.cpp',
     'editor/src/game/info.cpp',
     'editor/src/game/entity.cpp',
     'editor/src/game/level.cpp',

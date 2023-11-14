@@ -17,7 +17,9 @@
 
 #include "vendor/flecs/flecs.h"
 
-namespace game {
+namespace editor {
+    using namespace simcoe;
+    
     enum WindowMode : int {
         eModeWindowed,
         eModeBorderless,
@@ -26,7 +28,7 @@ namespace game {
         eNone
     };
 
-    struct GameService final : simcoe::IStaticService<GameService> {
+    struct EditorService final : simcoe::IStaticService<EditorService> {
         // IStaticService
         static constexpr std::string_view kServiceName = "game";
         static inline auto kServiceDeps = depends(
