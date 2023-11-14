@@ -51,8 +51,6 @@ namespace {
     // game
     World *pWorld = nullptr;
 
-    flecs::world *pEcsWorld = nullptr;
-
     // threads
     threads::ThreadHandle *pRenderThread = nullptr;
     threads::ThreadHandle *pPhysicsThread = nullptr;
@@ -600,13 +598,12 @@ bool GameService::createService() {
     };
 
     pWorld = new game::World(info);
-    pEcsWorld = new flecs::world();
 
     return true;
 }
 
 void GameService::destroyService() {
-    delete pEcsWorld;
+
 }
 
 void GameService::start() {
@@ -696,8 +693,4 @@ void GameService::addDebugService(editor::ui::ServiceUi *pService) {
 
 std::span<editor::ui::ServiceUi*> GameService::getDebugServices() {
     return debugServices;
-}
-
-flecs::world& GameService::getWorld() {
-    return *pEcsWorld;
 }

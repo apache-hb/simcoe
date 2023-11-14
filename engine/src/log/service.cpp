@@ -59,14 +59,18 @@ namespace {
         return pQueue;
     }
 
-    void addMessageToQueue(LogMessage&& msg) {
-        auto *pQueue = getLogQueue();
-        pQueue->enqueue(std::move(msg));
-    }
-
     void sendMessageToSinks(const LogMessage& msg) {
         for (log::ISink *sink : sinks) {
             sink->addLogMessage(msg.level, msg.id, msg.time, msg.msg);
+        }
+    }
+    
+    void addMessageToQueue(LogMessage&& msg) {
+        if (gEnableLogQueue) {
+            auto *pQueue = getLogQueue();
+            pQueue->enqueue(std::move(msg));
+        } else {
+            sendMessageToSinks(msg);
         }
     }
 }
