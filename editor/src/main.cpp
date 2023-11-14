@@ -36,7 +36,6 @@
 #include "editor/graph/post.h"
 #include "editor/graph/scene.h"
 #include "editor/graph/gui.h"
-#include "editor/graph/game.h"
 
 // imgui
 #include "imgui/imgui.h"

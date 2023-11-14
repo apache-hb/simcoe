@@ -387,10 +387,6 @@ src = [
     'editor/src/editor/ui/panels/audio.cpp',
 
     # game framework
-    # 'editor/src/game/service.cpp',
-    'editor/src/game/info.cpp',
-    'editor/src/game/entity.cpp',
-    'editor/src/game/level.cpp',
     'editor/src/game/world.cpp',
 
     # game rendering
