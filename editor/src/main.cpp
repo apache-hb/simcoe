@@ -16,6 +16,8 @@
 #include "engine/config/service.h"
 #include "engine/audio/service.h"
 #include "engine/rhi/service.h"
+#include "engine/render/service.h"
+#include "game/service.h"
 
 // threads
 #include "engine/threads/schedule.h"
@@ -27,9 +29,6 @@
 // input
 #include "engine/input/win32-device.h"
 #include "engine/input/xinput-device.h"
-
-// render graph
-#include "engine/render/service.h"
 
 // render passes
 #include "editor/graph/assets.h"
@@ -59,10 +58,10 @@ using namespace simcoe;
 using namespace simcoe::math;
 
 using namespace editor;
-
 using microsoft::GdkService;
 using amd::RyzenMonitorSerivce;
 using editor::EditorService;
+using game::GameService;
 
 static std::atomic_bool bRunning = true;
 
@@ -71,7 +70,7 @@ struct GameWindow final : IWindowCallbacks {
         bRunning = false;
 
         RenderService::shutdown();
-        ThreadService::shutdown();
+        PlatformService::quit();
     }
 
     void onResize(const WindowSize& event) override {
@@ -92,15 +91,123 @@ struct GameWindow final : IWindowCallbacks {
 
 static GameWindow gWindowCallbacks;
 
-static log::Level getEcsLevel(int32_t level) {
-    switch (level) {
-    case -4: return log::eAssert;
-    case -3: return log::eError;
-    case -2: return log::eWarn;
-    case -1: return log::eInfo;
-    case 0: return log::eDebug;
-    default: return log::eDebug;
-    }
+// game logic
+
+// scene relationships & tags
+struct ActiveScene { };
+struct SceneRoot { };
+
+// scenes
+struct MenuScene { flecs::entity root; };
+struct GameScene { flecs::entity root; };
+struct ScoreScene { flecs::entity root; };
+
+// game relationships & tags
+struct Player { };
+struct Bullet { };
+struct Enemy { };
+struct Egg { };
+
+// game components
+struct Transform {
+    float3 position;
+    float3 rotation;
+    float3 scale;
+};
+
+struct Health {
+    size_t currentHealth;
+    size_t maxHealth;
+};
+
+void resetScene(flecs::world& ecs) {
+    ecs.delete_with(flecs::ChildOf, ecs.entity<SceneRoot>());
+}
+
+void doMenuScene(flecs::iter& it, size_t, ActiveScene) {
+    auto ecs = it.world();
+
+    auto scene = ecs.entity<SceneRoot>();
+    resetScene(ecs);
+
+    ecs.set_pipeline(ecs.get<MenuScene>()->root);
+}
+
+void doGameScene(flecs::iter& it, size_t, ActiveScene) {
+    auto ecs = it.world();
+
+    auto scene = ecs.entity<SceneRoot>();
+    resetScene(ecs);
+
+    ecs.component<Player>();
+
+    ecs.entity("Player")
+        .add<Player>()
+        .set(Health { 3, 5 })
+        .child_of(scene);
+    
+    ecs.set_pipeline(ecs.get<GameScene>()->root);
+}
+
+void doScoreScene(flecs::iter& it, size_t, ActiveScene) {
+    auto ecs = it.world();
+
+    auto scene = ecs.entity<SceneRoot>();
+    resetScene(ecs);
+
+    ecs.set_pipeline(ecs.get<ScoreScene>()->root);
+}
+
+static void initScenes(flecs::world& ecs) {
+    ecs.component<ActiveScene>()
+        .add(flecs::Exclusive);
+
+    auto menu = ecs.pipeline()
+        .with(flecs::System)
+        .without<GameScene>().without<ScoreScene>()
+        .build();
+
+    auto game = ecs.pipeline()
+        .with(flecs::System)
+        .without<MenuScene>().without<ScoreScene>()
+        .build();
+
+    auto scoreboard = ecs.pipeline()
+        .with(flecs::System)
+        .without<GameScene>().without<MenuScene>()
+        .build();
+
+    ecs.set<MenuScene>({ menu });
+    ecs.set<GameScene>({ game });
+    ecs.set<ScoreScene>({ scoreboard });
+
+    ecs.observer<ActiveScene>("Scene change to menu")
+        .event(flecs::OnAdd)
+        .second<MenuScene>()
+        .each(doMenuScene);
+
+    ecs.observer<ActiveScene>("Scene change to game")
+        .event(flecs::OnAdd)
+        .second<GameScene>()
+        .each(doGameScene);
+
+    ecs.observer<ActiveScene>("Scene change to scoreboard")
+        .event(flecs::OnAdd)
+        .second<ScoreScene>()
+        .each(doScoreScene);
+}
+
+static void initSystems(flecs::world& ecs) {
+    ecs.system<Health>("Display player health")
+        .kind<GameScene>()
+        .each([](flecs::entity entity, Health& health) {
+            auto world = entity.world();
+            if (health.currentHealth == 0) {
+                entity.destruct();
+            }
+
+            LOG_INFO("health: {}/{}", health.currentHealth, health.maxHealth);
+        });
 }
 
 ///
@@ -112,27 +219,17 @@ static void commonMain() {
     EditorService::start();
     RenderService::start();
 
+    auto& world = GameService::getWorld();
+    initScenes(world);
+    initSystems(world);
+
+    world.add<ActiveScene, GameScene>();
+
     // setup game
-
-    // hook our backtrace support into flecs
-    ecs_os_init();
-
-    ecs_os_api_t api = ecs_os_get_api();
-    api.abort_ = [](void) { SM_NEVER("flecs error"); };
-    api.log_ = [](int32_t level, const char *file, int32_t line, const char *msg) {
-        LoggingService::sendMessage(getEcsLevel(level), std::format("{}:{}: {}", file, line, msg));
-    };
-
-    ecs_os_set_api(&api);
-
-    flecs::world ecs;
-
-    while (PlatformService::waitForEvent() && bRunning) {
-        PlatformService::dispatchEvent();
+    while (bRunning) {
         ThreadService::pollMainQueue();
+        GameService::progress();
     }
-
-    PlatformService::quit();
 }
 
 static int serviceWrapper() try {
@@ -146,6 +243,7 @@ static int serviceWrapper() try {
         FreeTypeService::service(),
         GpuService::service(),
         RenderService::service(),
+        GameService::service(),
         EditorService::service(),
 
         GdkService::service(),

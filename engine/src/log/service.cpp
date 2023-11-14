@@ -26,7 +26,7 @@ const config::ConfigEnumMap kLevelNames = {
 config::ConfigValue<log::Level> cfgLogLevel("logging", "level", "default logging level", log::eInfo, kLevelNames, config::eDynamic);
 
 config::ConfigValue<size_t> cfgLogQueueSize("logging/worker", "queue_size", "amount of messages to queue before blocking", 1024);
-config::ConfigValue<size_t> cfgLogQueueInterval("logging/worker", "wait_interval", "amount of time to wait before checking for more messages (in ms)", 50);
+config::ConfigValue<size_t> cfgLogQueueInterval("logging/worker", "wait_interval", "amount of time to wait before checking for more messages (in ms)", 5);
 
 struct LogMessage {
     log::Level level;
@@ -52,7 +52,6 @@ namespace {
     /// this is set to false during shutdown as the the log thread will be closed before
     /// all messages we need to send are sent
     std::atomic_bool gEnableLogQueue = true;
-    threads::ThreadHandle *gLogThread = nullptr;
 
     LogQueue *getLogQueue() {
         static LogQueue *pQueue = new LogQueue(cfgLogQueueSize.getCurrentValue());
@@ -81,7 +80,7 @@ LoggingService::LoggingService() {
 }
 
 bool LoggingService::createService() {
-    gLogThread = ThreadService::newThread(threads::eBackground, "logger", [pQueue = getLogQueue()](std::stop_token token) {
+    ThreadService::newThread(threads::eBackground, "logger", [pQueue = getLogQueue()](std::stop_token token) {
         auto interval = std::chrono::milliseconds(cfgLogQueueInterval.getCurrentValue());
 
         std::priority_queue<LogMessage> pendingMessages;
@@ -112,7 +111,7 @@ void LoggingService::destroyService() {
     
     // pump the rest of the messages
     std::array<LogMessage, 32> messages;
-    size_t got = getLogQueue()->tryGetBulk(messages.data(), messages.size(), std::chrono::milliseconds(1));
+    size_t got = getLogQueue()->tryGetBulk(messages.data(), messages.size());
     for (size_t i = 0; i < got; ++i) {
         sendMessageToSinks(messages[i]);
     }

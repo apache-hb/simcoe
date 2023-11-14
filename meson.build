@@ -387,7 +387,7 @@ src = [
     'editor/src/editor/ui/panels/audio.cpp',
 
     # game framework
-    'editor/src/game/world.cpp',
+    'editor/src/game/service.cpp',
 
     # game rendering
     'editor/src/game/render/hud.cpp',

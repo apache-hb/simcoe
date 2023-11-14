@@ -564,7 +564,7 @@ void EditorService::destroyService() {
 void EditorService::start() {
     addDebugService<ui::ConfigUi>();
     addDebugService<ui::DepotUi>();
-    // addDebugService<ui::WorldUi>(pWorld);
+    addDebugService<ui::WorldUi>();
     addDebugService<ui::AudioUi>();
     addDebugService<ui::GameRuntimeUi>();
     addDebugService<ui::ThreadServiceUi>();

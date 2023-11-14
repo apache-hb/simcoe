@@ -15,21 +15,11 @@ using namespace simcoe::threads;
 
 using namespace std::chrono_literals;
 
-static constexpr uint8_t first_bit(uint64_t bits) {
-    for (uint8_t i = 0; i < 64; ++i) {
-        if (bits & (1ull << i)) {
-            return i;
-        }
-    }
-
-    return 0;
-}
-
 template<typename T>
 struct std::formatter<GROUP_AFFINITY, T> : std::formatter<std::string_view, T> {
     template<typename FormatContext>
     auto format(const GROUP_AFFINITY& affinity, FormatContext& ctx) {
-        auto it = std::format("(group = {}, mask = {})", affinity.Group, first_bit(affinity.Mask));
+        auto it = std::format("(group = {}, mask = {:#b})", affinity.Group, affinity.Mask);
         return std::formatter<std::string_view, T>::format(it, ctx);
     }
 };

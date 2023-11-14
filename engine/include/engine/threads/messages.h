@@ -53,6 +53,10 @@ namespace simcoe::mt {
             return Super::queue.try_dequeue(dst);
         }
 
+        size_t tryGetBulk(T *dst, size_t count) {
+            return Super::queue.try_dequeue_bulk(dst, count);
+        }
+
         template<typename Rep, typename Period>
         bool tryGetMessage(T& dst, std::chrono::duration<Rep, Period> timeout) {
             return Super::queue.wait_dequeue_timed(dst, timeout);

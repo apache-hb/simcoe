@@ -8,6 +8,7 @@
 #include "engine/math/math.h"
 
 #include "engine/core/win32.h"
+#include "engine/threads/queue.h"
 
 #include <array>
 #include <filesystem>
@@ -96,7 +97,6 @@ namespace simcoe {
     struct PlatformService final : IStaticService<PlatformService> {
         // IStaticService
         static constexpr std::string_view kServiceName = "platform";
-        static constexpr ServiceLoadFlags kServiceFlags = eServiceLoadMainThread;
         static inline auto kServiceDeps = depends(ConfigService::service(), DebugService::service());
 
         // IService
@@ -106,10 +106,9 @@ namespace simcoe {
         // PlatformService
         static void setup(HINSTANCE hInstance, int nCmdShow, IWindowCallbacks *pCallbacks);
 
+        static void enqueue(std::string name, threads::WorkItem&& task);
+
         // win32 event loop
-        static bool getEvent();
-        static bool waitForEvent();
-        static void dispatchEvent();
         static void quit(int code = 0);
 
         // win32 timer info

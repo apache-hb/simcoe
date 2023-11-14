@@ -44,6 +44,8 @@ namespace {
 
     threads::ThreadExclusiveRegion gPlatformThread = { 0, "" };
 
+    threads::WorkQueue *pWorkQueue = new threads::WorkQueue(64);
+
     Window *gWindow = nullptr;
     MSG gMsg = {};
 }
@@ -56,8 +58,6 @@ bool PlatformService::createService() {
     SM_ASSERTF(gInstance, "hInstance is not set, please call PlatformService::setup()");
     SM_ASSERTF(gCmdShow != -1, "nCmdShow is not set, please call PlatformService::setup()");
     SM_ASSERTF(gCallbacks != nullptr, "window callbacks are not set, please call PlatformService::setup()");
-
-    gPlatformThread.migrate();
 
     LOG_INFO("frequency: {} Hz", gFrequency);
 
@@ -83,23 +83,41 @@ bool PlatformService::createService() {
 
     exeDirectory = fs::path(currentPath).parent_path();
 
-    auto title = cfgWindowTitle.getCurrentValue();
+    ThreadService::newThread(threads::eResponsive, "platform", [](std::stop_token token) {
+        gPlatformThread.migrate();
 
-    WindowCreateInfo info = {
-        .title = title.c_str(),
-        .style = WindowStyle::eWindowed,
-        .size = { cfgWindowWidth.getCurrentValue(), cfgWindowHeight.getCurrentValue() },
-        .pCallbacks = gCallbacks
-    };
-    gWindow = new Window(info);
+        auto title = cfgWindowTitle.getCurrentValue();
+
+        WindowCreateInfo info = {
+            .title = title.c_str(),
+            .style = WindowStyle::eWindowed,
+            .size = { cfgWindowWidth.getCurrentValue(), cfgWindowHeight.getCurrentValue() },
+            .pCallbacks = gCallbacks
+        };
+        gWindow = new Window(info);
+
+        MSG msg = {};
+        while (!token.stop_requested()) {
+            pWorkQueue->tryGetMessage();
+
+            if (PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
+                GetMessage(&gMsg, NULL, 0, 0);
+
+                TranslateMessage(&gMsg);
+                DispatchMessage(&gMsg);
+            }
+        }
+    });
 
     return true;
 }
 
 void PlatformService::destroyService() {
-    gPlatformThread.verify("PlatformService::destroyService()");
-
     UnregisterClassA(kClassName, gInstance);
+}
+
+void PlatformService::enqueue(std::string name, threads::WorkItem &&task) {
+    pWorkQueue->add(std::move(name), std::move(task));
 }
 
 void PlatformService::setup(HINSTANCE hInstance, int nCmdShow, IWindowCallbacks *pCallbacks) {
@@ -129,25 +147,6 @@ CommandLine system::getCommandLine() {
 
     LocalFree(argv);
     return args;
-}
-
-bool PlatformService::getEvent() {
-    gPlatformThread.verify("PlatformService::getEvent()");
-
-    return PeekMessage(&gMsg, NULL, 0, 0, PM_REMOVE) != 0;
-}
-
-bool PlatformService::waitForEvent() {
-    gPlatformThread.verify("PlatformService::waitForEvent()");
-
-    return GetMessage(&gMsg, NULL, 0, 0) != 0;
-}
-
-void PlatformService::dispatchEvent() {
-    gPlatformThread.verify("PlatformService::dispatchEvent()");
-
-    TranslateMessage(&gMsg);
-    DispatchMessage(&gMsg);
 }
 
 void PlatformService::quit(int code) {

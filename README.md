@@ -31,6 +31,7 @@
 * create the d3d12 device before the window opens
 * fix borderless windowed mode
 * move GameService into EditorService
+* fix flickering when changing backbuffer count
 
 ## random bits
 
@@ -41,3 +42,4 @@
 * have a look at how the ryzenmonitor sdk+driver works internally
 * upstream libpng meson changes
 * figure out why meson+windows+shared libraries are broken by default
+* use https://github.com/microsoft/detours to stop the windows thread pool from spinning up

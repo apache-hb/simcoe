@@ -25,10 +25,6 @@ static void commonMain() {
     LOG_INFO("main");
 
     PlatformService::showWindow();
-
-    while (PlatformService::getEvent()) {
-        PlatformService::dispatchEvent();
-    }
 }
 
 static int innerMain() try {

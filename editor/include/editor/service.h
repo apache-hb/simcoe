@@ -12,10 +12,6 @@
 
 #include "editor/ui/service.h"
 
-#include "game/world.h"
-
-#include "vendor/flecs/flecs.h"
-
 namespace editor {
     using namespace simcoe;
 
