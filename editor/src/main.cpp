@@ -58,6 +58,7 @@ using namespace simcoe;
 using namespace simcoe::math;
 
 using namespace editor;
+
 using microsoft::GdkService;
 using amd::RyzenMonitorSerivce;
 using editor::EditorService;
@@ -109,16 +110,29 @@ struct Enemy { };
 struct Egg { };
 
 // game components
-struct Transform {
-    float3 position;
-    float3 rotation;
-    float3 scale;
-};
+struct Position : public float3 { };
+struct Rotation : public float3 { };
+struct Scale : public float3 { };
 
 struct Health {
     size_t currentHealth;
     size_t maxHealth;
 };
+
+// ui relationships & tags
+
+struct Widget { };
+
+// ui components
+struct WidgetBox {
+    float2 min;
+    float2 max;
+};
+
+struct WidgetText { std::string text; };
+struct WidgetButton { };
+
+static flecs::entity AnyWidget;
 
 void resetScene(flecs::world& ecs) {
     ecs.delete_with(flecs::ChildOf, ecs.entity<SceneRoot>());
@@ -129,6 +143,11 @@ void doMenuScene(flecs::iter& it, size_t, ActiveScene) {
 
     auto scene = ecs.entity<SceneRoot>();
     resetScene(ecs);
+
+    ecs.entity("PlayButton").is_a(AnyWidget)
+        .set(WidgetBox { 0.0f, 0.5f })
+        .set(WidgetText { "Play" })
+        .child_of(scene);
 
     ecs.set_pipeline(ecs.get<MenuScene>()->root);
 }
@@ -159,6 +178,10 @@ void doScoreScene(flecs::iter& it, size_t, ActiveScene) {
 }
 
 static void initScenes(flecs::world& ecs) {
+    AnyWidget = ecs.prefab("Widget")
+        .add<Widget>()
+        .set(WidgetBox { 0.0f, 1.0f });
+
     ecs.component<ActiveScene>()
         .add(flecs::Exclusive);
 
@@ -198,15 +221,33 @@ static void initScenes(flecs::world& ecs) {
 }
 
 static void initSystems(flecs::world& ecs) {
-    ecs.system<Health>("Display player health")
-        .kind<GameScene>()
+    ecs.system<Health>("Destroy entity on death")
         .each([](flecs::entity entity, Health& health) {
             auto world = entity.world();
             if (health.currentHealth == 0) {
-                entity.destruct();
+                world.defer([entity] {
+                    auto world = entity.world();
+                    world.delete_with(flecs::ChildOf, entity);
+                });
             }
+        });
 
-            LOG_INFO("health: {}/{}", health.currentHealth, health.maxHealth);
+    ecs.system<Health>("Change scene on player death")
+        .kind<GameScene>()
+        .kind<Player>()
+        .each([](flecs::entity entity, Health& health) {
+            auto world = entity.world();
+            if (health.currentHealth == 0) {
+                world.add<ActiveScene, ScoreScene>();
+            }
+        });
+
+    ecs.system<Health>("Validate health")
+        .with(flecs::OnValidate)
+        .each([](flecs::entity, Health& health) {
+            if (health.currentHealth > health.maxHealth) {
+                health.currentHealth = health.maxHealth;
+            }
         });
 }
 
@@ -223,7 +264,7 @@ static void commonMain() {
     initScenes(world);
     initSystems(world);
 
-    world.add<ActiveScene, GameScene>();
+    world.add<ActiveScene, MenuScene>();
 
     // setup game
     while (bRunning) {

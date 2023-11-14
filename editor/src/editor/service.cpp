@@ -22,6 +22,7 @@
 // game
 #include "game/render/hud.h"
 #include "game/render/scene.h"
+#include "game/service.h"
 
 // imgui
 #include "imgui/imgui.h"
@@ -30,12 +31,12 @@
 #include "imfiles/imfilebrowser.h"
 #include "implot/implot.h"
 
-
 using namespace game;
 using namespace editor;
 
 namespace eg = editor::graph;
 namespace sr = simcoe::render;
+namespace gr = game::graph;
 
 // window mode
 static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless", "Fullscreen" });
@@ -539,16 +540,12 @@ bool EditorService::createService() {
     
     auto *pBackBuffers = pGraph->addResource<eg::SwapChainHandle>();
     auto *pSceneTarget = pGraph->addResource<eg::SceneTargetHandle>();
-    // auto *pDepthTarget = pGraph->addResource<eg::DepthTargetHandle>();
+    auto *pDepthTarget = pGraph->addResource<eg::DepthTargetHandle>();
 
-    //pGraph->addPass<graph::ScenePass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
-
-    // pGraph->addPass<graph::GameLevelPass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
-
-    // gr::ScenePass *pScenePass = pGraph->addPass<gr::ScenePass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
-    // gr::HudPass *pHudPass = pGraph->addPass<gr::HudPass>(pSceneTarget->as<IRTVHandle>());
-
-    // pGraph->addPass<graph::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
+    // TODO: this is a really stupid way to do this
+    auto *pScenePass = pGraph->addPass<gr::ScenePass>(pSceneTarget->as<IRTVHandle>(), pDepthTarget->as<IDSVHandle>());
+    auto *pHudPass = pGraph->addPass<gr::HudPass>(pSceneTarget->as<IRTVHandle>());
+    GameService::setup(pHudPass, pScenePass);
 
     pGraph->addPass<EditorUi>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
 

@@ -4,6 +4,9 @@
 
 #include "vendor/flecs/flecs.h"
 
+#include "game/render/hud.h"
+#include "game/render/scene.h"
+
 namespace game {
     struct GameService final : simcoe::IStaticService<GameService> {
         // IStaticService
@@ -15,6 +18,7 @@ namespace game {
         void destroyService() override;
 
         // GameService
+        static void setup(graph::HudPass *pHudPass, graph::ScenePass *pScenePass);
         static flecs::world &getWorld();
 
         static void progress();

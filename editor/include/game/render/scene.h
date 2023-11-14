@@ -9,12 +9,6 @@
 namespace game::graph {
     using namespace simcoe::render;
 
-    struct ISceneObject {
-        virtual ~ISceneObject() = default;
-
-        virtual void execute(Graph *pGraph);
-    };
-
     struct ScenePass final : IRenderPass {
         ScenePass(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget, ResourceWrapper<IDSVHandle> *pDepthTarget);
 
@@ -23,15 +17,5 @@ namespace game::graph {
         void destroy() override;
 
         void execute() override;
-
-        // public api
-
-        void addSceneObject(ISceneObject *pObject);
-        void removeSceneObject(ISceneObject *pObject);
-
-    private:
-        simcoe::mt::Mutex mutex{"ScenePass"};
-
-        std::unordered_set<ISceneObject*> objects;
     };
 }

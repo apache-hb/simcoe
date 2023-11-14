@@ -190,6 +190,8 @@ bool DepotService::createService() {
 }
 
 void DepotService::destroyService() {
+    pChangeNotify->join();
+    
     if (hChange != INVALID_HANDLE_VALUE) {
         FindCloseChangeNotification(hChange);
     }
