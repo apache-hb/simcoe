@@ -52,7 +52,6 @@ namespace {
     /// this is set to false during shutdown as the the log thread will be closed before
     /// all messages we need to send are sent
     std::atomic_bool gEnableLogQueue = true;
-    std::atomic<log::MessageTime> gLastMessageTime;
     threads::ThreadHandle *gLogThread = nullptr;
 
     LogQueue *getLogQueue() {
@@ -62,7 +61,6 @@ namespace {
 
     void addMessageToQueue(LogMessage&& msg) {
         auto *pQueue = getLogQueue();
-        gLastMessageTime = msg.time;
         pQueue->enqueue(std::move(msg));
     }
 
