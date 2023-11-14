@@ -28,7 +28,7 @@ namespace simcoe {
 
         /** talking to the main thread */
         static void enqueueMain(std::string name, threads::WorkItem&& task);
-        static void pollMainQueue();
+        static void pollMain();
 
         /** worker api */
 

@@ -400,7 +400,7 @@ void ThreadService::enqueueMain(std::string name, WorkItem&& task) {
     gMainQueue->add(std::move(name), std::move(task));
 }
 
-void ThreadService::pollMainQueue() {
+void ThreadService::pollMain() {
     SM_ASSERT(gMainQueue != nullptr);
     gMainQueue->tryGetMessage();
 }

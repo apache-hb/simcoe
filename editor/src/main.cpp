@@ -227,7 +227,7 @@ static void commonMain() {
 
     // setup game
     while (bRunning) {
-        ThreadService::pollMainQueue();
+        ThreadService::pollMain();
         GameService::progress();
     }
 }
