@@ -15,6 +15,8 @@
 
 #include "game/world.h"
 
+#include "vendor/flecs/flecs.h"
+
 namespace game {
     enum WindowMode : int {
         eModeWindowed,
@@ -62,6 +64,8 @@ namespace game {
         }
 
         static std::span<editor::ui::ServiceUi*> getDebugServices();
+
+        static flecs::world& getWorld();
 
     private:
         static void addDebugService(editor::ui::ServiceUi *pService);
