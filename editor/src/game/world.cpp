@@ -57,44 +57,15 @@ void World::tickRender() {
     }
 }
 
-// physics
-
-void World::destroyPhysics() {
-    delete pPhysicsThread;
-}
-
-void World::tickPhysics() {
-    if (pPhysicsThread->tryGetMessage()) {
-        return;
-    }
-
-    std::this_thread::sleep_for(16ms);
-}
 
 // game
 
-void World::destroyGame() {
-    delete pGameThread; // todo: broken logic
-}
-
-void World::tickGame() {
-    if (pGameThread->tryGetMessage()) {
-        return;
-    }
-
-    std::this_thread::sleep_for(16ms);
-}
-
 // correct shutdown order is:
-// - shutdown game thread
-// - shutdown physics thread
 // - shutdown render thread
 void World::shutdown() {
     std::lock_guard guard(lock);
     // TODO: wait for everything to shut down
 
-    destroyGame();
-    destroyPhysics();
     destroyRender();
 
     bShutdown = true;

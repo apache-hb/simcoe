@@ -53,8 +53,6 @@ namespace {
 
     // threads
     threads::ThreadHandle *pRenderThread = nullptr;
-    threads::ThreadHandle *pPhysicsThread = nullptr;
-    threads::ThreadHandle *pGameThread = nullptr;
 
     std::vector<editor::ui::ServiceUi*> debugServices;
 }
@@ -620,24 +618,10 @@ void GameService::start() {
             pWorld->tickRender();
         }
     });
-
-    pPhysicsThread = ThreadService::newThread(threads::eResponsive, "physics", [&](auto token) {
-        while (!token.stop_requested()) {
-            pWorld->tickPhysics();
-        }
-    });
-
-    pGameThread = ThreadService::newThread(threads::eRealtime, "game", [&](auto token) {
-        while (!token.stop_requested()) {
-            pWorld->tickGame();
-        }
-    });
 }
 
 // GameService
 void GameService::shutdown() {
-    pGameThread->join();
-    pPhysicsThread->join();
     pRenderThread->join();
     pWorld->shutdown();
 }
