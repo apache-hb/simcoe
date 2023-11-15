@@ -42,6 +42,9 @@ namespace game::graph {
 
         void update(CommandBatch&& updateBatch);
 
+        Graph *getGraph() const { return pGraph; }
+        Context *getContext() const { return ctx; }
+
         RenderTargetAlloc::Index getRenderTargetIndex() const { 
             return getRenderTarget()->getRtvIndex();
         }

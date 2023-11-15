@@ -1,4 +1,5 @@
 // core
+#include "editor/graph/mesh.h"
 #include "engine/core/mt.h"
 
 // logging
@@ -117,6 +118,8 @@ struct ScoreScene { flecs::entity pipeline; };
 struct Position : public float2 { using float2::float2; };
 
 struct StaticMesh { 
+    std::string name;
+
     ResourceWrapper<IMeshBufferHandle> *pMeshBuffer;
     PassAttachment<IMeshBufferHandle> *pMeshAttachment;
 };
@@ -134,7 +137,7 @@ struct SceneRender {
     void reset() {
         batch = {};
     }
-private:
+
     ScenePass *pScene = GameService::getScene();
     CommandBatch batch;
 };
@@ -230,6 +233,16 @@ static void initSystems(flecs::world& ecs) {
             LOG_INFO("scene change: {}", e.name());
         });
 
+    ecs.system<StaticMesh>("New mesh added")
+        .kind(flecs::OnAdd)
+        .each([](flecs::entity e, StaticMesh& mesh) {
+            LOG_INFO("new mesh added: {}", mesh.name);
+
+            flecs::world ecs = e.world();
+            auto *pScene = ecs.component<SceneRender>().get<SceneRender>();
+            SM_UNUSED auto *pGraph = pScene->pScene->getGraph();
+        });
+
     ecs.system("Begin renderpass")
         .kind(flecs::PreStore)
         .iter([](flecs::iter& it) {
@@ -247,6 +260,8 @@ static void initSystems(flecs::world& ecs) {
     ecs.system<StaticMesh>("Draw meshes")
         .kind(flecs::OnStore)
         .each([](flecs::entity e, const StaticMesh& mesh) {
+            LOG_INFO("draw mesh");
+
             flecs::world ecs = e.world();
             auto *pScene = ecs.component<SceneRender>().get_mut<SceneRender>();
 
