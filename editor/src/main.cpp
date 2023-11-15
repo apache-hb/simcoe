@@ -33,7 +33,6 @@
 // render passes
 #include "editor/graph/assets.h"
 #include "editor/graph/post.h"
-#include "editor/graph/scene.h"
 #include "editor/graph/gui.h"
 
 // imgui
@@ -58,6 +57,8 @@ using namespace simcoe;
 using namespace simcoe::math;
 
 using namespace editor;
+
+using namespace game::graph;
 
 using microsoft::GdkService;
 using amd::RyzenMonitorSerivce;
@@ -92,165 +93,6 @@ struct GameWindow final : IWindowCallbacks {
 
 static GameWindow gWindowCallbacks;
 
-// game logic
-
-// scene relationships & tags
-struct ActiveScene { };
-struct SceneRoot { };
-
-// scenes
-struct MenuScene { flecs::entity root; };
-struct GameScene { flecs::entity root; };
-struct ScoreScene { flecs::entity root; };
-
-// game relationships & tags
-struct Player { };
-struct Bullet { };
-struct Enemy { };
-struct Egg { };
-
-// game components
-struct Position : public float3 { };
-struct Rotation : public float3 { };
-struct Scale : public float3 { };
-
-struct Health {
-    size_t currentHealth;
-    size_t maxHealth;
-};
-
-// ui relationships & tags
-
-struct Widget { };
-
-// ui components
-struct WidgetBox {
-    float2 min;
-    float2 max;
-};
-
-struct WidgetText { std::string text; };
-struct WidgetButton { };
-
-static flecs::entity AnyWidget;
-
-void resetScene(flecs::world& ecs) {
-    ecs.delete_with(flecs::ChildOf, ecs.entity<SceneRoot>());
-}
-
-void doMenuScene(flecs::iter& it, size_t, ActiveScene) {
-    auto ecs = it.world();
-
-    auto scene = ecs.entity<SceneRoot>();
-    resetScene(ecs);
-
-    ecs.entity("PlayButton").is_a(AnyWidget)
-        .set(WidgetBox { 0.0f, 0.5f })
-        .set(WidgetText { "Play" })
-        .child_of(scene);
-
-    ecs.set_pipeline(ecs.get<MenuScene>()->root);
-}
-
-void doGameScene(flecs::iter& it, size_t, ActiveScene) {
-    auto ecs = it.world();
-
-    auto scene = ecs.entity<SceneRoot>();
-    resetScene(ecs);
-
-    ecs.component<Player>();
-
-    ecs.entity("Player")
-        .add<Player>()
-        .set(Health { 3, 5 })
-        .child_of(scene);
-    
-    ecs.set_pipeline(ecs.get<GameScene>()->root);
-}
-
-void doScoreScene(flecs::iter& it, size_t, ActiveScene) {
-    auto ecs = it.world();
-
-    auto scene = ecs.entity<SceneRoot>();
-    resetScene(ecs);
-
-    ecs.set_pipeline(ecs.get<ScoreScene>()->root);
-}
-
-static void initScenes(flecs::world& ecs) {
-    AnyWidget = ecs.prefab("Widget")
-        .add<Widget>()
-        .set(WidgetBox { 0.0f, 1.0f });
-
-    ecs.component<ActiveScene>()
-        .add(flecs::Exclusive);
-
-    auto menu = ecs.pipeline()
-        .with(flecs::System)
-        .without<GameScene>().without<ScoreScene>()
-        .build();
-
-    auto game = ecs.pipeline()
-        .with(flecs::System)
-        .without<MenuScene>().without<ScoreScene>()
-        .build();
-
-    auto scoreboard = ecs.pipeline()
-        .with(flecs::System)
-        .without<GameScene>().without<MenuScene>()
-        .build();
-
-    ecs.set<MenuScene>({ menu });
-    ecs.set<GameScene>({ game });
-    ecs.set<ScoreScene>({ scoreboard });
-
-    ecs.observer<ActiveScene>("Scene change to menu")
-        .event(flecs::OnAdd)
-        .second<MenuScene>()
-        .each(doMenuScene);
-
-    ecs.observer<ActiveScene>("Scene change to game")
-        .event(flecs::OnAdd)
-        .second<GameScene>()
-        .each(doGameScene);
-
-    ecs.observer<ActiveScene>("Scene change to scoreboard")
-        .event(flecs::OnAdd)
-        .second<ScoreScene>()
-        .each(doScoreScene);
-}
-
-static void initSystems(flecs::world& ecs) {
-    ecs.system<Health>("Destroy entity on death")
-        .each([](flecs::entity entity, Health& health) {
-            auto world = entity.world();
-            if (health.currentHealth == 0) {
-                world.defer([entity] {
-                    auto world = entity.world();
-                    world.delete_with(flecs::ChildOf, entity);
-                });
-            }
-        });
-
-    ecs.system<Health>("Change scene on player death")
-        .kind<GameScene>()
-        .kind<Player>()
-        .each([](flecs::entity entity, Health& health) {
-            auto world = entity.world();
-            if (health.currentHealth == 0) {
-                world.add<ActiveScene, ScoreScene>();
-            }
-        });
-
-    ecs.system<Health>("Validate health")
-        .with(flecs::OnValidate)
-        .each([](flecs::entity, Health& health) {
-            if (health.currentHealth > health.maxHealth) {
-                health.currentHealth = health.maxHealth;
-            }
-        });
-}
-
 ///
 /// entry point
 ///
@@ -260,16 +102,9 @@ static void commonMain() {
     EditorService::start();
     RenderService::start();
 
-    auto& world = GameService::getWorld();
-    initScenes(world);
-    initSystems(world);
-
-    world.add<ActiveScene, MenuScene>();
-
     // setup game
     while (bRunning) {
         ThreadService::pollMain();
-        GameService::progress();
     }
 }
 

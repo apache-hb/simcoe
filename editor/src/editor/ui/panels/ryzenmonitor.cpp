@@ -212,22 +212,6 @@ void RyzenMonitorUi::drawCoreHistory(size_t i, float width, float heightRatio, b
     ImPlot::PopStyleVar();
 }
 
-ImVec4 RyzenMonitorUi::getUsageColour(float usage) {
-    ImVec4 blue = ImVec4(0.f, 0.f, 1.f, 1.f);
-    ImVec4 red = ImVec4(1.f, 0.f, 0.f, 1.f);
-
-    // lerp between blue and red
-
-    ImVec4 result{
-        std::lerp(blue.x, red.x, usage),
-        std::lerp(blue.y, red.y, usage),
-        std::lerp(blue.z, red.z, usage),
-        0.3f
-    };
-
-    return result;
-}
-
 namespace {
     bool isCurrentCellHovered() {
         return ImGui::TableGetHoveredColumn() == ImGui::TableGetColumnIndex()

@@ -16,7 +16,6 @@
 // render passes
 #include "editor/graph/assets.h"
 #include "editor/graph/post.h"
-#include "editor/graph/scene.h"
 #include "editor/graph/gui.h"
 
 // game
@@ -185,8 +184,7 @@ struct EditorUi final : eg::IGuiPass {
     }
 
     void sceneDebug() {
-        auto *pImageHandle = images[currentImage].pHandle;
-        ISRVHandle *pHandle = pImageHandle->getInner(); //pSceneSource->getInner();
+        ISRVHandle *pHandle = pSceneSource->getInner();
         auto offset = ctx->getSrvHeap()->deviceOffset(pHandle->getSrvIndex());
         const auto &createInfo = ctx->getCreateInfo();
         float aspect = float(createInfo.renderWidth) / createInfo.renderHeight;

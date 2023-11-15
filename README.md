@@ -20,7 +20,6 @@
 
 * move imgui onto its own thread
 * get imgui viewports working (will require talking between the imgui thread and main thread)
-* get flecs working for game logic
 * a few bits of physics
 
 * simplify the input service

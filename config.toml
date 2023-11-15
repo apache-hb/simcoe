@@ -42,7 +42,7 @@ poll_interval = 500
     gamepad0_enable = true
 
 [logging]
-level = 'info'
+level = 'debug'
 
     [logging.console]
     colour = true
@@ -66,3 +66,6 @@ workQueueSize = 256
     delay = 50
     initial = 0
     max = 8
+
+[game.world]
+target_tps = 1.0

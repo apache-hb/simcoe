@@ -2,8 +2,6 @@
 
 #include "engine/service/service.h"
 
-#include "vendor/flecs/flecs.h"
-
 #include "game/render/hud.h"
 #include "game/render/scene.h"
 
@@ -19,8 +17,8 @@ namespace game {
 
         // GameService
         static void setup(graph::HudPass *pHudPass, graph::ScenePass *pScenePass);
-        static flecs::world &getWorld();
 
-        static void progress();
+        static graph::HudPass *getHud();
+        static graph::ScenePass *getScene();
     };
 }

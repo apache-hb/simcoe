@@ -11,8 +11,6 @@ project('simcoe', 'cpp',
         'tomlplusplus:build_lib=true',
         'tomlplusplus:default_library=static',
 
-        'flecs:warning_level=0',
-
         'vorbis:warning_level=0',
         'ogg:warning_level=0',
 
@@ -325,7 +323,6 @@ imgui = declare_dependency(
 ### editor
 ###
 
-flecs = dependency('flecs')
 tinyobj = subproject('tinyobj').get_variable('tinyobj')
 # fastgltf = subproject('fastgltf').get_variable('fastgltf')
 
@@ -364,7 +361,7 @@ src = [
 
     # render graph passes
     'editor/src/editor/graph/post.cpp',
-    'editor/src/editor/graph/scene.cpp',
+    #'editor/src/editor/graph/scene.cpp',
     'editor/src/editor/graph/gui.cpp',
     # 'editor/src/editor/graph/game.cpp',
     # 'editor/src/editor/graph/mipmap.cpp',
@@ -399,6 +396,9 @@ src = [
 
     hlsl_vs.process('data/shaders/object.hlsl'),
     hlsl_ps.process('data/shaders/object.hlsl'),
+
+    hlsl_vs.process('data/shaders/hud.hlsl'),
+    hlsl_ps.process('data/shaders/hud.hlsl'),
 
     #hlsl_cs.process('data/shaders/mipmap.hlsl'),
 
@@ -459,9 +459,6 @@ deps = [
 
     # imgui
     imgui,
-
-    # game
-    flecs,
 
     # render
     tinyobj

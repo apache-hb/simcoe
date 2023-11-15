@@ -161,6 +161,8 @@ namespace simcoe::math {
         constexpr Vec3() : Vec3(T(0)) { }
         constexpr Vec3(T x, T y, T z) : x(x), y(y), z(z) { }
         constexpr Vec3(T it) : Vec3(it, it, it){ }
+        constexpr Vec3(const Vec2<T>& xy, T z) : Vec3(xy.x, xy.y, z) { }
+        constexpr Vec3(T x, const Vec2<T>& yz) : Vec3(x, yz.x, yz.y) { }
 
         static constexpr Vec3 from(T x, T y, T z) { return { x, y, z }; }
         static constexpr Vec3 from(T it) { return from(it, it, it); }
@@ -529,6 +531,8 @@ namespace simcoe::math {
             at(2, 3) = translation.z;
         }
 
+        // rotation related functions
+
         static constexpr Mat4x4 rotation(const Row3& rotation) {
             auto& [pitch, yaw, roll] = rotation;
             const T cp = std::cos(pitch);
@@ -566,6 +570,11 @@ namespace simcoe::math {
             return from(r0, r1, r2, r3);
         }
 
+        // full transform
+        static constexpr Mat4x4 transform(const Row3& translation, const Row3& rotation, const Row3& scale) {
+            return Mat4x4::translation(translation) * Mat4x4::rotation(rotation) * Mat4x4::scale(scale);
+        }
+
         constexpr Mat4x4 transpose() const {
             auto r0 = Row::from(rows[0].x, rows[1].x, rows[2].x, rows[3].x);
             auto r1 = Row::from(rows[0].y, rows[1].y, rows[2].y, rows[3].y);
@@ -581,6 +590,8 @@ namespace simcoe::math {
             auto row3 = Row::from(0, 0, 0, 1);
             return Mat4x4::from(row0, row1, row2, row3);
         }
+
+        // camera related functions
 
         static constexpr Mat4x4 lookToLH(const Row3& eye, const Row3& dir, const Row3& up) {
             SM_ASSERT(eye != Row3::zero());

@@ -56,8 +56,6 @@ namespace editor::ui {
         void drawSocInfo();
         void drawCoreInfo();
 
-        static ImVec4 getUsageColour(float f);
-
         amd::PackageData packageData = {};
         amd::SocData socData = {};
         std::vector<CoreInfoHistory> coreData;
