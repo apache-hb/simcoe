@@ -8,9 +8,8 @@
 
 #include "engine/profile/profile.h"
 
-#include <future>
 #include <unordered_set>
-#include <execution>
+#include <semaphore>
 
 using namespace simcoe;
 
@@ -99,13 +98,11 @@ ServiceRuntime::ServiceRuntime(ServiceSpan services)
     // 1. load config service
     // 2. load debug service
     // 3. load thread service
-    // 4. load platform service
-    // 5. load all other requested services
+    // 4. load all other requested services
 
     startService(DebugService::service());
     startService(ConfigService::service());
     startService(ThreadService::service());
-    startService(PlatformService::service());
 
     for (IService *pService : services) {
         ThreadService::enqueueWork(std::string(pService->getName()), [pService] {
@@ -121,12 +118,13 @@ ServiceRuntime::ServiceRuntime(ServiceSpan services)
 }
 
 ServiceRuntime::~ServiceRuntime() {
+    // TODO: need a taskgraph for service teardown
+    // also reverse dependency order
     for (size_t i = services.size(); i-- > 0;) {
         IService *pService = services[i];
         pService->destroy();
     }
 
-    stopService(PlatformService::service());
     stopService(ThreadService::service());
     stopService(ConfigService::service());
     stopService(DebugService::service());

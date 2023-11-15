@@ -486,16 +486,19 @@ threads::ThreadHandle *ThreadService::newThreadInner(threads::ThreadType type, s
 
 void ThreadService::shutdown() {
     mt::WriteLock lock(getPoolLock());
-    auto& handles = getPool();
 
-    for (auto *pHandle : handles) {
+    // TODO: make sure all other threads are stopped
+
+    // services are expected to join their own threads
+    // we only need to join the worker threads here
+    for (auto *pHandle : gWorkers) {
         pHandle->join();
     }
 
-    for (auto *pHandle : handles) {
+    for (auto *pHandle : gWorkers) {
         delete pHandle;
     }
-    handles.clear();
+    gWorkers.clear();
 }
 
 mt::SharedMutex &ThreadService::getPoolLock() { return gThreadLock; }

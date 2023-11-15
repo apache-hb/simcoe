@@ -163,6 +163,7 @@ bool DepotService::createService() {
     );
 
     if (hChange == INVALID_HANDLE_VALUE) {
+        LOG_ERROR("failed to create change notification handle at `{}`", vfsPath);
         setFailureReason("failed to create change notification handle");
         debug::throwLastError("FindFirstChangeNotificationA");
     }

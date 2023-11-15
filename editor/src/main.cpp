@@ -323,6 +323,7 @@ static int serviceWrapper() try {
     LoggingService::addSink(EditorService::addDebugService<ui::LoggingUi>());
 
     auto engineServices = std::to_array({
+        PlatformService::service(),
         LoggingService::service(),
         InputService::service(),
         DepotService::service(),
