@@ -1,3 +1,6 @@
 [submodule "subprojects/tracy"]
 	path = subprojects/tracy
 	url = https://github.com/apache-hb/tracy
+[submodule "subprojects/flecs/flecs"]
+	path = subprojects/flecs/flecs
+	url = https://github.com/SanderMertens/flecs

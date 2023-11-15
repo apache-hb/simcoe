@@ -14,7 +14,9 @@ namespace game::graph {
     using namespace simcoe::math;
     using namespace simcoe::render;
 
-    using SceneAction = std::function<void(Graph*, Context*)>;
+    struct ScenePass;
+
+    using SceneAction = std::function<void(ScenePass *, Context *)>;
 
     struct UNIFORM_BUFFER Model {
         float4x4 model;
@@ -40,8 +42,17 @@ namespace game::graph {
 
         void update(CommandBatch&& updateBatch);
 
+        RenderTargetAlloc::Index getRenderTargetIndex() const { 
+            return getRenderTarget()->getRtvIndex();
+        }
+
+        rhi::PipelineState *getPipeline() const {
+            return pPipeline;
+        }
+
     private:
         rhi::Display display;
+        rhi::PipelineState *pPipeline = nullptr;
 
         CommandBatch batch;
 

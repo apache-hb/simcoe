@@ -3,9 +3,9 @@ default_index = 0
 lookup_method = 'software'
 
 [d3d12.debug]
-debug_layer = false
-dred = false
-info_queue = false
+debug_layer = true
+dred = true
+info_queue = true
 
 [d3d12.heaps]
 dsv_count = 16

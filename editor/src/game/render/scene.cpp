@@ -1,5 +1,7 @@
 #include "game/render/scene.h"
 
+#include "engine/depot/service.h"
+
 using namespace game::graph;
 
 constexpr rhi::Display createDisplay(UINT width, UINT height) {
@@ -29,10 +31,52 @@ void ScenePass::create() {
     const auto& createInfo = ctx->getCreateInfo();
 
     display = createDisplay(createInfo.renderWidth, createInfo.renderHeight);
+
+    const rhi::GraphicsPipelineInfo psoCreateInfo = {
+        .vertexShader = DepotService::openFile("object.vs.cso")->blob(),
+        .pixelShader = DepotService::openFile("object.ps.cso")->blob(),
+
+        .attributes = {
+            { "POSITION", offsetof(Vertex, position), rhi::TypeFormat::eFloat3 },
+            { "TEXCOORD", offsetof(Vertex, uv), rhi::TypeFormat::eFloat2 }
+        },
+
+        .textureInputs = {
+            { "tex", rhi::InputVisibility::ePixel, 0, true }
+        },
+
+        .uniformInputs = {
+            { "camera", rhi::InputVisibility::eVertex, 0, false },
+            { "object", rhi::InputVisibility::eVertex, 1, false }
+        },
+
+        .samplers = {
+            { rhi::InputVisibility::ePixel, 0 }
+        },
+
+        .rtvFormat = ctx->getSwapChainFormat(),
+        .depthEnable = true,
+        .dsvFormat = ctx->getDepthFormat()
+    };
+
+    pPipeline = ctx->createGraphicsPipeline(psoCreateInfo);
+    pPipeline->setName("pso.game");
+
+    std::lock_guard guard(lock);
+    
+    batch = {};
+    newBatch = {};
+    bDirtyBatch = false;
 }
 
 void ScenePass::destroy() {
+    delete pPipeline;
+    
+    std::lock_guard guard(lock);
 
+    batch = {};
+    newBatch = {};
+    bDirtyBatch = false;
 }
 
 void ScenePass::execute() {
@@ -45,13 +89,11 @@ void ScenePass::execute() {
     }
 
     for (auto& action : batch.actions) {
-        action(pGraph, ctx);
+        action(this, ctx);
     }
 }
 
 void ScenePass::update(CommandBatch&& updateBatch) {
-    LOG_INFO("update");
-
     std::lock_guard guard(lock);
     newBatch = std::move(updateBatch);
     bDirtyBatch = true;

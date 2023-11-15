@@ -147,10 +147,6 @@ HandleMap& DepotService::getHandles() { return gHandles; }
 
 // service api
 
-DepotService::DepotService() {
-
-}
-
 bool DepotService::createService() {
     vfsPath = formatPath(cfgVfsRoot.getCurrentValue());
     LOG_INFO("depot vfs path: {}", vfsPath);

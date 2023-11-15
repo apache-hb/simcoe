@@ -323,6 +323,7 @@ imgui = declare_dependency(
 ### editor
 ###
 
+flecs = dependency('flecs')
 tinyobj = subproject('tinyobj').get_variable('tinyobj')
 # fastgltf = subproject('fastgltf').get_variable('fastgltf')
 
@@ -456,6 +457,9 @@ src = [
 deps = [
     # general
     engine,
+
+    # game
+    flecs,
 
     # imgui
     imgui,

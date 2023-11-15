@@ -52,6 +52,7 @@ bool RenderService::createService() {
 }
 
 void RenderService::destroyService() {
+    pRenderThread->join();
     delete pRenderQueue;
 
     delete pGraph;

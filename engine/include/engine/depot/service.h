@@ -13,8 +13,6 @@ namespace simcoe {
     using HandleMap = std::unordered_map<fs::path, std::shared_ptr<depot::IFile>>;
 
     struct DepotService final : IStaticService<DepotService> {
-        DepotService();
-
         // IStaticService
         static constexpr std::string_view kServiceName = "depot";
         static inline auto kServiceDeps = depends(ThreadService::service());
