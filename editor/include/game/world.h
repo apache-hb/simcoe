@@ -13,17 +13,17 @@ namespace game {
     struct World;
 
     struct TypeInfo { 
-        World *pWorld;
-        size_t id;
+        TypeInfo(World *pWorld, size_t id);
 
         bool operator==(const TypeInfo& other) const {
             SM_ASSERTF(pWorld == other.pWorld, "comparing ids {}, {} from different worlds {} and {}", id, other.id, (void*)pWorld, (void*)other.pWorld);
 
             return id == other.id;
         }
+    
+        World *pWorld;
+        size_t id;
     };
-
-    using TypeTag = const TypeInfo&;
 }
 
 template<>
@@ -42,28 +42,29 @@ namespace game {
     struct IScene;
     struct World;
 
-    using TypeTag = const TypeInfo&;
-
     size_t getUniqueId();
-    TypeTag makeNameInfo(World *pWorld, const std::string& name);
+    TypeInfo makeNameInfo(World *pWorld, const std::string& name);
 
     template<typename T>
-    TypeTag makeTypeInfo(World *pWorld) {
+    TypeInfo makeTypeInfo(World *pWorld) {
         static TypeInfo info = { pWorld, getUniqueId() };
         return info;
     }
 
     struct ObjectData {
-        TypeTag tag;
+        TypeInfo tag;
         std::string name;
     };
+
+    using EntityMap = std::unordered_map<TypeInfo, IEntity*>;
+    using ComponentMap = std::unordered_map<TypeInfo, IComponent*>;
 
     struct IObject {
         virtual ~IObject() = default;
 
         IObject(ObjectData data) : data(data) { }
 
-        TypeTag getTypeInfo() const { return data.tag; }
+        TypeInfo getTypeInfo() const { return data.tag; }
 
         const std::string& getName() const { return data.name; }
         World *getWorld() const { return data.tag.pWorld; }
@@ -94,8 +95,14 @@ namespace game {
             return nullptr;
         }
 
+        template<typename O>
+        O *is() {
+            auto expectedType = makeTypeInfo<O>(getWorld());
+            return expectedType == getTypeInfo() ? static_cast<O*>(this) : nullptr;
+        }
+
     private:
-        std::unordered_map<TypeInfo, IComponent*> components;
+        ComponentMap components;
     };
 
     // components
@@ -154,8 +161,17 @@ namespace game {
             }
         }
 
+        template<typename F>
+        void all(F&& func) {
+            for (auto& [name, pEntity] : entities) {
+                func(pEntity);
+            }
+        }
+
+        const EntityMap& getEntities() const { return entities; }
+
     private:
-        std::unordered_map<TypeInfo, IEntity*> entities;
+        EntityMap entities;
     };
 
     template<typename T>
@@ -168,7 +184,7 @@ namespace game {
             requires std::derived_from<C, IComponent>
                   && std::constructible_from<C, ObjectData, A...>
         EntityBuilder<T>& add(A&&... args) {
-            auto info = makeTypeInfo<T>(pEntity->getWorld());
+            auto info = makeTypeInfo<C>(pEntity->getWorld());
 
             C *pComponent = new C({ info }, std::forward<A>(args)...);
             pEntity->addComponent(pComponent);

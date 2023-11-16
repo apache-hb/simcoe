@@ -2,12 +2,17 @@
 
 using namespace game;
 
+TypeInfo::TypeInfo(World *pWorld, size_t id) 
+    : pWorld(pWorld)
+    , id(id) 
+{ }
+
 static size_t gUniqueId = 0;
 size_t game::getUniqueId() {
     return gUniqueId++;
 }
 
-TypeTag game::makeNameInfo(World *pWorld, const std::string &name) {
+TypeInfo game::makeNameInfo(World *pWorld, const std::string &name) {
     static std::unordered_map<std::string, TypeInfo> infos;
     
     if (auto it = infos.find(name); it != infos.end()) {
@@ -20,5 +25,6 @@ TypeTag game::makeNameInfo(World *pWorld, const std::string &name) {
 }
 
 void IEntity::addComponent(IComponent *pComponent) {
-    components.emplace(pComponent->getTypeInfo(), pComponent);
+    auto info = pComponent->getTypeInfo();
+    components.emplace(info, pComponent);
 }

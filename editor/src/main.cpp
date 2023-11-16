@@ -2,6 +2,9 @@
 #include "editor/graph/mesh.h"
 #include "engine/core/mt.h"
 
+// math
+#include "engine/math/format.h"
+
 // logging
 #include "engine/log/sinks.h"
 
@@ -109,7 +112,7 @@ struct IAssetComp : public IComponent {
     fs::path path;
 };
 
-struct ModelComp : public IAssetComp { 
+struct MeshComp : public IAssetComp { 
     using IAssetComp::IAssetComp;
 };
 
@@ -132,12 +135,12 @@ struct TransformComp : public IComponent {
 
 static void initEntities(game::World *pWorld) {
     pWorld->create<PlayerEntity>("player")
-        .add<ModelComp>("player.model")
+        .add<MeshComp>("player.model")
         .add<TextureComp>("player.png")
         .add<TransformComp>(0.f, 0.f, 1.f);
 
     pWorld->create<AlienEntity>("alien")
-        .add<ModelComp>("alien.model")
+        .add<MeshComp>("alien.model")
         .add<TextureComp>("alien.png")
         .add<TransformComp>(0.f, 0.f, 1.f);
 }
@@ -149,12 +152,22 @@ static void runSystems(game::World *pWorld, float delta) {
         LOG_INFO("player: {} (delta {})", pPlayer->getName(), delta);
     }
 
+    pWorld->all([](IEntity *pEntity) {
+        if (TransformComp *pTransform = pEntity->get<TransformComp>()) {
+            LOG_INFO("entity: {} (pos {})", pEntity->getName(), pTransform->position);
+        } else {
+            LOG_INFO("entity: {}", pEntity->getName());
+        }
+    });
+
     LOG_INFO("=== end game tick ===");
 }
 
 ///
 /// entry point
 ///
+
+using namespace std::chrono_literals;
 
 static void commonMain() {
     debug::setThreadName("main");
@@ -174,6 +187,7 @@ static void commonMain() {
         float delta = clock.now() - last;
         last = clock.now();
         runSystems(pWorld, delta);
+        std::this_thread::sleep_for(500ms);
     }
 }
 
