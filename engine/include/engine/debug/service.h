@@ -23,7 +23,7 @@ namespace simcoe {
 
         template<typename... A>
         void throwSystemError(DWORD err, std::string_view fmt, A&&... args) {
-            throwLastError(std::vformat(fmt, std::make_format_args(args...)), err);
+            throwLastError(fmt::vformat(fmt, fmt::make_format_args(args...)), err);
         }
 
         bool isAttached();

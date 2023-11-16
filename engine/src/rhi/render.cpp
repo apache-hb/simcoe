@@ -11,7 +11,8 @@
 #include <wrl.h>
 
 #include <stdexcept>
-#include <format>
+
+#include "vendor/fmtlib/fmt.h"
 
 using Microsoft::WRL::ComPtr;
 
@@ -1327,8 +1328,8 @@ DescriptorHeap *DescriptorHeap::create(ID3D12DescriptorHeap *pHeap, UINT descrip
 // pipeline state
 
 void PipelineState::setName(std::string_view name) {
-    ::setName(pRootSignature, std::format("{}.root", name));
-    ::setName(pState, std::format("{}.state", name));
+    ::setName(pRootSignature, fmt::format("{}.root", name));
+    ::setName(pState, fmt::format("{}.state", name));
 }
 
 PipelineState *PipelineState::create(ID3D12RootSignature *pRootSignature, ID3D12PipelineState *pState, IndexMap textureInputs, IndexMap uniformInputs, IndexMap uavInputs) {

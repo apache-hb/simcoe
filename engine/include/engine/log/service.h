@@ -29,34 +29,34 @@ namespace simcoe {
         static void logDebug(std::string_view msg, A&&... args) {
             if (!shouldSend(log::eDebug)) { return; }
 
-            sendMessageAlways(log::eDebug, std::vformat(msg, std::make_format_args(args...)));
+            sendMessageAlways(log::eDebug, fmt::vformat(msg, fmt::make_format_args(args...)));
         }
 
         template<typename... A>
         static void logInfo(std::string_view msg, A&&... args) {
             if (!shouldSend(log::eInfo)) { return; }
 
-            sendMessageAlways(log::eInfo, std::vformat(msg, std::make_format_args(args...)));
+            sendMessageAlways(log::eInfo, fmt::vformat(msg, fmt::make_format_args(args...)));
         }
 
         template<typename... A>
         static void logWarn(std::string_view msg, A&&... args) {
             if (!shouldSend(log::eWarn)) { return; }
 
-            sendMessageAlways(log::eWarn, std::vformat(msg, std::make_format_args(args...)));
+            sendMessageAlways(log::eWarn, fmt::vformat(msg, fmt::make_format_args(args...)));
         }
 
         template<typename... A>
         static void logError(std::string_view msg, A&&... args) {
             if (!shouldSend(log::eError)) { return; }
 
-            sendMessageAlways(log::eError, std::vformat(msg, std::make_format_args(args...)));
+            sendMessageAlways(log::eError, fmt::vformat(msg, fmt::make_format_args(args...)));
         }
 
         template<typename... A>
         static void logAssert(std::string_view msg, A&&... args) {
             // we always send asserts
-            throwAssert(std::vformat(msg, std::make_format_args(args...)));
+            throwAssert(fmt::vformat(msg, fmt::make_format_args(args...)));
         }
 
         static bool sendMessage(log::Level msgLevel, std::string msg) {

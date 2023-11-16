@@ -128,11 +128,11 @@ void ObjMesh::create() {
     std::unique_ptr<rhi::UploadBuffer> pVertexStaging{ctx->createUploadBuffer(vertexData.data(), vertexData.size() * sizeof(ObjVertex))};
     std::unique_ptr<rhi::UploadBuffer> pIndexStaging{ctx->createUploadBuffer(indexData.data(), indexData.size() * sizeof(uint16_t))};
 
-    pFinalIBO->setName(std::format("ibo({})", path.string()));
-    pFinalVBO->setName(std::format("vbo({})", path.string()));
+    pFinalIBO->setName(fmt::format("ibo({})", path.string()));
+    pFinalVBO->setName(fmt::format("vbo({})", path.string()));
 
-    pIndexStaging->setName(std::format("ibo-staging({})", path.string()));
-    pVertexStaging->setName(std::format("vbo-staging({})", path.string()));
+    pIndexStaging->setName(fmt::format("ibo-staging({})", path.string()));
+    pVertexStaging->setName(fmt::format("vbo-staging({})", path.string()));
 
     ctx->beginCopy();
     ctx->copyBuffer(pFinalVBO, pVertexStaging.get());

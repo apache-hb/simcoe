@@ -45,7 +45,7 @@ void AudioUi::draw() {
         auto vec = openVorbisFile.GetMultiSelected();
 
         for (auto path : vec) {
-            ThreadService::enqueueWork(std::format("ogg({})", path.string()), [path] {
+            ThreadService::enqueueWork(fmt::format("ogg({})", path.string()), [path] {
                 auto pFileHandle = DepotService::openExternalFile(path);
                 AudioService::loadVorbisOgg(pFileHandle);
             });
@@ -146,7 +146,7 @@ void AudioUi::drawBuffers() {
 
             static int idx = 0;
             ThreadService::enqueueWork("new-voice", [=, idx = idx++] {
-                AudioService::createVoice(std::format("voice.{}", idx), selectedFormat);
+                AudioService::createVoice(fmt::format("voice.{}", idx), selectedFormat);
             });
             ImGui::CloseCurrentPopup();
         }

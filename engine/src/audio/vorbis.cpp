@@ -60,7 +60,7 @@ std::shared_ptr<SoundBuffer> audio::loadVorbisOgg(std::shared_ptr<depot::IFile> 
     const fs::path path = file->getName();
     auto name = path.filename().string();
 
-    log::PendingMessage msg { std::format("=== vorbis ogg {} ===", name) };
+    log::PendingMessage msg { fmt::format("=== vorbis ogg {} ===", name) };
     msg.addLine("vendor: {}", pComment->vendor);
     msg.addLine("channels: {} rate: {}", pInfo->channels, pInfo->rate);
     msg.addLine("bitrate: {}", bitrate);

@@ -161,7 +161,7 @@ std::string debug::getErrorName(DWORD dwErrorCode) {
     );
 
     if (err == 0) {
-        return std::format("0x{:x}", dwErrorCode);
+        return fmt::format("0x{:x}", dwErrorCode);
     }
 
     std::string result = pMessage;

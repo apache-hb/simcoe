@@ -1,5 +1,11 @@
 # simcoe
 
+## building
+
+```sh
+meson setup build --native-file data/config/meson/xxx-platform.ini
+```
+
 ## todos
 
 * migrate thread scheduler into ThreadService
@@ -14,8 +20,6 @@
 * prevent xinput from polling and failing every frame
 * windows isnt alerting to missing dlls for some reason
 
-* delay window creation until render context is ready
-
 * display splashscreen while loading
 
 * move imgui onto its own thread
@@ -27,10 +31,18 @@
 * better logging ui to help sort between threads and services, etc
 
 * WER or watson support would be pretty funny to implement
-* create the d3d12 device before the window opens
+
 * fix borderless windowed mode
 * move GameService into EditorService
 * fix flickering when changing backbuffer count
+* split windowing out of platform service
+
+* task graph of some sort for init and deinit
+* possibly extend to runtime as well
+
+* reorg folders to be less cumbersome
+* C++ modules might be nice to try out
+* using a pch at least would be good
 
 ## random bits
 

@@ -116,7 +116,7 @@ namespace {
 
         unsigned id = cpuInfo[0];
         PackageType type = PackageType(cpuInfo[1] >> 28);
-        sink["cpuid"] = std::format("{:#08x}", id);
+        sink["cpuid"] = fmt::format("{:#08x}", id);
         sink["package"] = std::to_string(int(type));
 
         switch (type) {
@@ -166,7 +166,7 @@ namespace {
             NetApiBufferFree(pInfoBuffer);
         }
 
-        sink["windows"] = std::format("{}.{}", major, minor);
+        sink["windows"] = fmt::format("{}.{}", major, minor);
 
         if (major >= 10) {
             return true;
@@ -197,7 +197,7 @@ namespace {
     std::string joinFields(const InfoSink& sink) {
         std::vector<std::string> fields;
         for (const auto& [key, field] : sink) {
-            fields.emplace_back(std::format("{} = {}", key, field));
+            fields.emplace_back(fmt::format("{} = {}", key, field));
         }
 
         return util::join(fields, "\n");
@@ -208,7 +208,7 @@ bool RyzenMonitorSerivce::createService() {
     InfoSink fields;
 
     auto fail = [&]<typename... A>(std::string_view fmt, A&&... args) {
-        auto reason = std::vformat(fmt, std::make_format_args(args...));
+        auto reason = fmt::vformat(fmt, fmt::make_format_args(args...));
         LOG_ERROR("RyzenMonitorSerivce setup failed: {}\n{}", reason, joinFields(fields));
         setFailureReason(reason);
         return false;

@@ -1,7 +1,6 @@
 #include "engine/core/units.h"
 #include "engine/core/strings.h"
 
-#include <format>
 #include <vector>
 
 using namespace simcoe;
@@ -15,7 +14,7 @@ std::string units::Memory::string() const {
     for (int fmt = eLimit - 1; fmt >= 0; fmt--) {
         size_t size = total / kSizes[fmt];
         if (size > 0) {
-            parts.push_back(std::format("{}{}", size, kNames[fmt]));
+            parts.push_back(std::to_string(size) + kNames[fmt].data()); // TODO: we need our own string and string_view, this is ridiculous
             total %= kSizes[fmt];
         }
     }

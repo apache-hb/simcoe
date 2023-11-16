@@ -16,11 +16,10 @@ using namespace simcoe::threads;
 using namespace std::chrono_literals;
 
 template<typename T>
-struct std::formatter<GROUP_AFFINITY, T> : std::formatter<std::string_view, T> {
-    template<typename FormatContext>
-    auto format(const GROUP_AFFINITY& affinity, FormatContext& ctx) {
-        auto it = std::format("(group = {}, mask = {:#b})", affinity.Group, affinity.Mask);
-        return std::formatter<std::string_view, T>::format(it, ctx);
+struct fmt::formatter<GROUP_AFFINITY, T> : fmt::formatter<std::string_view, T> {
+    auto format(const GROUP_AFFINITY& affinity, auto& ctx) {
+        auto it = fmt::format("(group = {}, mask = {:#b})", affinity.Group, affinity.Mask);
+        return fmt::formatter<std::string_view, T>::format(it, ctx);
     }
 };
 
@@ -81,7 +80,7 @@ ThreadHandle::ThreadHandle(ThreadInfo&& info)
 
     const GROUP_AFFINITY affinity = mask;
     if (SetThreadGroupAffinity(hThread, &affinity, nullptr) == 0) {
-        auto msg = std::format("SetThreadGroupAffinity failed. thread affinity mask: {}", affinity);
+        auto msg = fmt::format("SetThreadGroupAffinity failed. thread affinity mask: {}", affinity);
         debug::throwLastError(msg);
     }
 
@@ -104,6 +103,6 @@ ThreadHandle::~ThreadHandle() {
 void ThreadHandle::join() {
     stopper.request_stop();
     if (WaitForSingleObject(hThread, INFINITE) != WAIT_OBJECT_0) {
-        debug::throwLastError(std::format("WaitForSingleObject failed for thread (name={}, id={:#06x})", name, id));
+        debug::throwLastError(fmt::format("WaitForSingleObject failed for thread (name={}, id={:#06x})", name, id));
     }
 }

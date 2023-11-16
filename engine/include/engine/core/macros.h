@@ -81,9 +81,9 @@
 
 #define SM_ENUM_FORMATTER(TYPE, INNER) \
     template<typename T> \
-    struct std::formatter<TYPE, T> : std::formatter<INNER, T> { \
+    struct fmt::formatter<TYPE, T> : fmt::formatter<INNER, T> { \
         template<typename FormatContext> \
         auto format(TYPE value, FormatContext& ctx) { \
-            return std::formatter<INNER, T>::format(static_cast<INNER>(value), ctx); \
+            return fmt::formatter<INNER, T>::format(static_cast<INNER>(value), ctx); \
         } \
     };

@@ -2,8 +2,9 @@
 
 #include "engine/log/log.h"
 
+#include "vendor/fmtlib/fmt.h"
+
 #include <string>
-#include <format>
 
 namespace simcoe::log {
     // TODO: bulk message support
@@ -15,8 +16,8 @@ namespace simcoe::log {
         void addLine(std::string_view str);
 
         template<typename... A>
-        void addLine(std::string_view fmt, A&&... args) {
-            addLine(std::vformat(fmt, std::make_format_args(args...)));
+        void addLine(std::string_view msg, A&&... args) {
+            addLine(fmt::vformat(msg, fmt::make_format_args(args...)));
         }
 
         void send(log::Level level) const;

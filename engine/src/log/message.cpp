@@ -53,12 +53,11 @@ namespace {
     template<bool Colour>
     std::string formatMessageInner(MessageTime time, Level level, auto name, std::string_view msg) {
         constexpr const char *kFormat = std::is_same_v<decltype(name), std::string_view>
-            ? "[{:%X}.{:<3}:{}{:5}{}:{:^8}] {}"
-            : "[{:%X}.{:<3}:{}{:5}{}:{:^#8x}] {}";
+            ? "[{:>6%X}:{}{:5}{}:{:^8}] {}"
+            : "[{:>6%X}:{}{:5}{}:{:^#8x}] {}";
 
-        auto ms = chrono::duration_cast<chrono::milliseconds>(time.time_since_epoch()).count() % 1000;
-        return std::format(kFormat,
-            time, ms,
+        return fmt::format(kFormat,
+            chrono::floor<chrono::milliseconds>(time),
             Colour ? kLevelColours.at(level) : "", toString(level), Colour ? COLOUR_RESET : "",
             name, msg
         );

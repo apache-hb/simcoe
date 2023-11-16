@@ -499,21 +499,21 @@ struct EditorUi final : eg::IGuiPass {
             auto& dsvAlloc = pDsvHeap->allocator;
             auto& srvAlloc = pSrvHeap->allocator;
 
-            drawHeapSlots(bRtvOpen, std::format("RTV heap {}", rtvAlloc.getSize()).c_str(), rtvAlloc);
-            drawHeapSlots(bDsvOpen, std::format("DSV heap {}", dsvAlloc.getSize()).c_str(), dsvAlloc);
-            drawHeapSlots(bSrvOpen, std::format("SRV heap {}", srvAlloc.getSize()).c_str(), srvAlloc);
+            drawHeapSlots(bRtvOpen, fmt::format("RTV heap {}", rtvAlloc.getSize()).c_str(), rtvAlloc);
+            drawHeapSlots(bDsvOpen, fmt::format("DSV heap {}", dsvAlloc.getSize()).c_str(), dsvAlloc);
+            drawHeapSlots(bSrvOpen, fmt::format("SRV heap {}", srvAlloc.getSize()).c_str(), srvAlloc);
 
             ImGui::SeparatorText("RenderGraph state");
             const auto& resources = pGraph->resources;
             const auto& passes = pGraph->passes;
             const auto& objects = pGraph->objects;
 
-            drawGraphObjects(bResourcesOpen, std::format("resources: {}", resources.size()).c_str(), resources, [](sr::IResourceHandle *pResource) {
+            drawGraphObjects(bResourcesOpen, fmt::format("resources: {}", resources.size()).c_str(), resources, [](sr::IResourceHandle *pResource) {
                 auto name = pResource->getName();
                 ImGui::Text("%s (state: %s)", name.data(), rhi::toString(pResource->getCurrentState()).data());
             });
 
-            drawGraphObjects(bPassesOpen, std::format("passes: {}", passes.size()).c_str(), passes, [](sr::ICommandPass *pPass) {
+            drawGraphObjects(bPassesOpen, fmt::format("passes: {}", passes.size()).c_str(), passes, [](sr::ICommandPass *pPass) {
                 auto name = pPass->getName();
                 ImGui::Text("pass: %s", name.data());
                 for (auto& resource : pPass->inputs) {
@@ -523,7 +523,7 @@ struct EditorUi final : eg::IGuiPass {
                 }
             });
 
-            drawGraphObjects(bObjectsOpen, std::format("objects: {}", objects.size()).c_str(), objects, [](sr::IGraphObject *pObject) {
+            drawGraphObjects(bObjectsOpen, fmt::format("objects: {}", objects.size()).c_str(), objects, [](sr::IGraphObject *pObject) {
                 auto name = pObject->getName();
                 ImGui::Text("%s", name.data());
             });

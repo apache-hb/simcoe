@@ -3,7 +3,8 @@
 #include <functional>
 #include <string_view>
 #include <stop_token>
-#include <format>
+
+#include "vendor/fmtlib/fmt.h"
 
 #include "engine/core/macros.h"
 #include "engine/core/win32.h"

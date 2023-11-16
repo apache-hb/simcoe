@@ -1,6 +1,6 @@
 #pragma once
 
-#include <format>
+#include "vendor/fmtlib/fmt.h"
 
 #include "engine/debug/backtrace.h"
 
@@ -8,7 +8,7 @@ namespace simcoe::core {
     struct Error {
         template<typename... A>
         Error(bool bFatal, std::string_view msg, A&&... args) noexcept
-            : Error(bFatal, std::vformat(msg, std::make_format_args(args...)))
+            : Error(bFatal, fmt::vformat(msg, fmt::make_format_args(args...)))
         { }
 
         Error(bool bFatal, std::string msg) noexcept;

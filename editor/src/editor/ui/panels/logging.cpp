@@ -16,7 +16,7 @@ Message::Message(const log::Message& msg)
     , text(msg.msg)
 {
     auto ms = chrono::duration_cast<chrono::milliseconds>(msg.time.time_since_epoch()).count() % 1000;
-    timestamp = std::format("{:%X}.{:<3}", msg.time, ms);
+    timestamp = fmt::format("{:%X}.{:<3}", msg.time, ms);
 
     bIsMultiline = text.find_first_of("\r\n") != std::string::npos;
 }

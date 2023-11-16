@@ -6,24 +6,7 @@ project('simcoe', 'cpp',
         'cpp_rtti=false',
         'b_vscrt=static_from_buildtype',
 
-        'warning_level=3',
-
-        'tomlplusplus:build_lib=true',
-        'tomlplusplus:default_library=static',
-
-        'vorbis:warning_level=0',
-        'ogg:warning_level=0',
-
-        'libpng:tests=disabled',
-        'zlib:tests=disabled',
-
-        'harfbuzz:cpp_std=c++20',
-        'harfbuzz:warning_level=1',
-        'harfbuzz:tests=disabled',
-        'harfbuzz:freetype=disabled',
-
-        'freetype2:harfbuzz=enabled',
-        'freetype2:warning_level=0'
+        'warning_level=3'
     ]
 )
 
@@ -225,6 +208,9 @@ deps = [
     # debug
     dbghelp,
 
+    # core
+    fmt,
+
     # profiling
     tracy,
 
@@ -323,7 +309,6 @@ imgui = declare_dependency(
 ### editor
 ###
 
-flecs = dependency('flecs')
 tinyobj = subproject('tinyobj').get_variable('tinyobj')
 # fastgltf = subproject('fastgltf').get_variable('fastgltf')
 
@@ -457,9 +442,6 @@ src = [
 deps = [
     # general
     engine,
-
-    # game
-    flecs,
 
     # imgui
     imgui,

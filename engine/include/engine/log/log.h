@@ -2,6 +2,8 @@
 
 #include "engine/threads/thread.h"
 
+#include <chrono>
+
 namespace simcoe::log {
     using MessageTime = std::chrono::system_clock::time_point;
 

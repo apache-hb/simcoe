@@ -39,7 +39,7 @@ namespace simcoe {
             : name(name)
             , deps(deps)
             , flags(flags)
-            , cvMutex(std::format("{}.cv", name))
+            , cvMutex(fmt::format("{}.cv", name))
         { }
 
         virtual ~IService() = default;

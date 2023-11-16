@@ -467,7 +467,7 @@ threads::ThreadHandle *ThreadService::newWorkerThread() {
         }
     };
 
-    auto id = std::format("work.{}", gWorkerId++);
+    auto id = fmt::format("work.{}", gWorkerId++);
     auto *pHandle = ThreadService::newThreadInner(threads::eWorker, id, kWorkerBody);
     gThreadHandles.push_back(pHandle);
     return pHandle;

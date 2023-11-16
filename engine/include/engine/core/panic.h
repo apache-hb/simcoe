@@ -4,7 +4,7 @@
 #include "engine/core/compiler.h"
 
 #include <string_view>
-#include <format>
+#include "vendor/fmtlib/fmt.h"
 
 namespace simcoe::core {
     struct PanicInfo {
@@ -23,7 +23,7 @@ namespace simcoe::core {
     do { \
         if (EXPR) { break; } \
         constexpr simcoe::core::PanicInfo kPanicInfo = { __FILE__, __FUNCTION__, __LINE__ }; \
-        simcoe::core::panic(kPanicInfo, std::format(__VA_ARGS__)); \
+        simcoe::core::panic(kPanicInfo, fmt::format(__VA_ARGS__)); \
     } while (false)
 
 #if SM_DEBUG

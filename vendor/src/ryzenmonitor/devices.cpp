@@ -39,7 +39,7 @@ namespace {
         case 3: return "method not implemented by the BIOS";
         case 4: return "cores are already parked";
         case 5: return "unsupported function";
-        default: return std::format("unknown error {}", err);
+        default: return fmt::format("unknown error {}", err);
         }
     }
 }

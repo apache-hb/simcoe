@@ -115,7 +115,7 @@ bool OBullet::canCollide(IEntity *pOther) const {
 // lives
 
 OLife::OLife(Level *pLevel, size_t life)
-    : OSwarmObject(pLevel, std::format("life-{}", life), eLife)
+    : OSwarmObject(pLevel, fmt::format("life-{}", life), eLife)
 {
     setMesh("ship.model");
     setTexture("player.png");

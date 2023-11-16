@@ -4,9 +4,10 @@
 #include "engine/core/units.h"
 #include "engine/core/panic.h"
 
+#include "vendor/fmtlib/fmt.h"
+
 #include <string>
 #include <unordered_map>
-#include <format>
 
 namespace simcoe::config {
     struct INode;
@@ -75,17 +76,19 @@ namespace simcoe::config {
     ISource *newTomlSource();
 }
 
-template<typename T>
-struct std::formatter<simcoe::config::ValueType, T> : std::formatter<std::string_view, T> {
-    auto format(simcoe::config::ValueType type, auto& ctx) {
-        using f = std::formatter<std::string_view, T>;
+template<>
+struct fmt::formatter<simcoe::config::ValueType> : fmt::formatter<std::string_view> {
+    auto format(simcoe::config::ValueType type, fmt::format_context& ctx) {
+        using self = fmt::formatter<std::string_view>;
         switch (type) {
-        case simcoe::config::eConfigBool: return f::format("bool", ctx);
-        case simcoe::config::eConfigInt: return f::format("int", ctx);
-        case simcoe::config::eConfigFloat: return f::format("float", ctx);
-        case simcoe::config::eConfigString: return f::format("string", ctx);
-        case simcoe::config::eConfigGroup: return f::format("table", ctx);
-        default: return f::format("unknown", ctx);
+        case simcoe::config::eConfigBool: return self::format("bool", ctx);
+        case simcoe::config::eConfigString: return self::format("string", ctx);
+        case simcoe::config::eConfigInt: return self::format("int", ctx);
+        case simcoe::config::eConfigFloat: return self::format("float", ctx);
+        case simcoe::config::eConfigEnum: return self::format("enum", ctx);
+        case simcoe::config::eConfigGroup: return self::format("group", ctx);
+        case simcoe::config::eConfigError: return self::format("error", ctx);
+        default: return self::format("unknown", ctx);
         }
     }
 };

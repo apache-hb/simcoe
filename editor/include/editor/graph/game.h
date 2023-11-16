@@ -24,7 +24,7 @@ namespace editor::graph {
 
     struct ObjectUniformHandle final : IUniformHandle<ObjectUniform> {
         ObjectUniformHandle(Graph *pGraph, std::string_view name)
-            : IUniformHandle(pGraph, std::format("uniform.object.{}", name))
+            : IUniformHandle(pGraph, fmt::format("uniform.object.{}", name))
         { }
 
         void update(game::IEntity *pObject);

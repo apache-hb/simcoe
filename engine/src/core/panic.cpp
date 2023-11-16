@@ -23,7 +23,7 @@ void core::panic(const PanicInfo &info, std::string_view msg) {
     }
 
     if (PlatformService::getState() & ~eServiceFaulted) {
-        auto title = std::format("PANIC {}:{} @ {}", info.file, info.line, info.fn);
+        auto title = fmt::format("PANIC {}:{} @ {}", info.file, info.line, info.fn);
         PlatformService::message(title, msg);
         core::throwFatal(msg);
     }
