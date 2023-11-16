@@ -16,9 +16,9 @@ namespace game {
         void destroyService() override;
 
         // GameService
-        static void setup(graph::HudPass *pHudPass, graph::ScenePass *pScenePass);
+        static void setup(render::HudPass *pHudPass, render::ScenePass *pScenePass);
 
-        static graph::HudPass *getHud();
-        static graph::ScenePass *getScene();
+        static render::HudPass *getHud();
+        static render::ScenePass *getScene();
     };
 }

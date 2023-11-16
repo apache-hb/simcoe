@@ -54,12 +54,15 @@
 #include "vendor/gameruntime/service.h"
 #include "vendor/ryzenmonitor/service.h"
 
+// game
+#include "game/world.h"
+
 using namespace simcoe;
 using namespace simcoe::math;
 
-using namespace editor;
+using namespace game;
 
-using namespace game::graph;
+using namespace editor;
 
 using microsoft::GdkService;
 using amd::RyzenMonitorSerivce;
@@ -94,6 +97,60 @@ struct GameWindow final : IWindowCallbacks {
 
 static GameWindow gWindowCallbacks;
 
+struct PlayerEntity : public IEntity { using IEntity::IEntity; };
+struct AlienEntity : public IEntity { using IEntity::IEntity; };
+
+struct IAssetComp : public IComponent {
+    IAssetComp(ObjectData data, fs::path path)
+        : IComponent(data)
+        , path(path)
+    { }
+
+    fs::path path;
+};
+
+struct ModelComp : public IAssetComp { 
+    using IAssetComp::IAssetComp;
+};
+
+struct TextureComp : public IAssetComp {
+    using IAssetComp::IAssetComp;
+};
+
+struct TransformComp : public IComponent { 
+    TransformComp(ObjectData data, float3 position = 0.f, float3 rotation = 0.f, float3 scale = 1.f)
+        : IComponent(data)
+        , position(position)
+        , rotation(rotation)
+        , scale(scale)
+    { }
+
+    float3 position;
+    float3 rotation;
+    float3 scale;
+};
+
+static void initEntities(game::World *pWorld) {
+    pWorld->create<PlayerEntity>("player")
+        .add<ModelComp>("player.model")
+        .add<TextureComp>("player.png")
+        .add<TransformComp>(0.f, 0.f, 1.f);
+
+    pWorld->create<AlienEntity>("alien")
+        .add<ModelComp>("alien.model")
+        .add<TextureComp>("alien.png")
+        .add<TransformComp>(0.f, 0.f, 1.f);
+}
+
+static void runSystems(game::World *pWorld, float delta) {
+    LOG_INFO("=== begin game tick ===");
+
+    if (PlayerEntity *pPlayer = pWorld->get<PlayerEntity>()) {
+        LOG_INFO("player: {} (delta {})", pPlayer->getName(), delta);
+    }
+
+    LOG_INFO("=== end game tick ===");
+}
 
 ///
 /// entry point
@@ -104,8 +161,19 @@ static void commonMain() {
     EditorService::start();
     RenderService::start();
 
+    game::World *pWorld = new game::World();
+
+    initEntities(pWorld);
+
+    Clock clock;
+    float last = clock.now();
+
     while (bRunning) {
         ThreadService::pollMain();
+
+        float delta = clock.now() - last;
+        last = clock.now();
+        runSystems(pWorld, delta);
     }
 }
 

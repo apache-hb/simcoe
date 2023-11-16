@@ -9,13 +9,15 @@
 #include "engine/config/system.h"
 
 using namespace game;
-using namespace simcoe;
+
+namespace game_render = game::render;
+namespace config = simcoe::config;
 
 config::ConfigValue<float> cfgTargetWorldTickRate("game/world", "target_tps", "target world ticks per second (0 = unlimited)", 30.f);
 
 namespace {
-    graph::HudPass *pHudPass = nullptr;
-    graph::ScenePass *pScenePass = nullptr;
+    game_render::HudPass *pHudPass = nullptr;
+    game_render::ScenePass *pScenePass = nullptr;
 }
 
 bool GameService::createService() {
@@ -26,15 +28,15 @@ void GameService::destroyService() {
 
 }
 
-void GameService::setup(graph::HudPass *pNewHudPass, graph::ScenePass *pNewScenePass) {
+void GameService::setup(game_render::HudPass *pNewHudPass, game_render::ScenePass *pNewScenePass) {
     pHudPass = pNewHudPass;
     pScenePass = pNewScenePass;
 }
 
-graph::HudPass *GameService::getHud() {
+game_render::HudPass *GameService::getHud() {
     return pHudPass;
 }
 
-graph::ScenePass *GameService::getScene() {
+game_render::ScenePass *GameService::getScene() {
     return pScenePass;
 }

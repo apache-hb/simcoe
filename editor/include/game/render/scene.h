@@ -9,7 +9,7 @@
 
 #include <unordered_set>
 
-namespace game::graph {
+namespace game::render {
     using namespace editor::graph;
     using namespace simcoe::math;
     using namespace simcoe::render;
@@ -28,6 +28,10 @@ namespace game::graph {
     };
 
     struct CommandBatch {
+        void add(SceneAction&& action) {
+            actions.emplace_back(std::move(action));
+        }
+        
         std::vector<SceneAction> actions;
     };
 

@@ -2,7 +2,7 @@
 
 #include "engine/depot/service.h"
 
-using namespace game::graph;
+using namespace game::render;
 
 constexpr rhi::Display createDisplay(UINT width, UINT height) {
     rhi::Viewport viewport = {

@@ -35,7 +35,7 @@ using namespace editor;
 
 namespace eg = editor::graph;
 namespace sr = simcoe::render;
-namespace gr = game::graph;
+namespace gr = game::render;
 
 // window mode
 static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless", "Fullscreen" });

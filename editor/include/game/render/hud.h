@@ -4,7 +4,7 @@
 
 #include "editor/graph/assets.h"
 
-namespace game::graph {
+namespace game::render {
     using namespace editor::graph;
     using namespace simcoe::render;
     

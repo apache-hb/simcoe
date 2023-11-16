@@ -347,10 +347,7 @@ src = [
 
     # render graph passes
     'editor/src/editor/graph/post.cpp',
-    #'editor/src/editor/graph/scene.cpp',
     'editor/src/editor/graph/gui.cpp',
-    # 'editor/src/editor/graph/game.cpp',
-    # 'editor/src/editor/graph/mipmap.cpp',
 
     # editor ui
     'editor/src/editor/service.cpp',
@@ -371,6 +368,7 @@ src = [
 
     # game framework
     'editor/src/game/service.cpp',
+    'editor/src/game/world.cpp',
 
     # game rendering
     'editor/src/game/render/hud.cpp',
