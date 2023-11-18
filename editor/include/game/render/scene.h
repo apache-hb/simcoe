@@ -31,7 +31,7 @@ namespace game::render {
         void add(SceneAction&& action) {
             actions.emplace_back(std::move(action));
         }
-        
+
         std::vector<SceneAction> actions;
     };
 

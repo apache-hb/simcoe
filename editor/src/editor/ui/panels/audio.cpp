@@ -7,6 +7,8 @@
 using namespace editor;
 using namespace editor::ui;
 
+using namespace simcoe;
+
 namespace {
     const char *getFormatTagName(audio::SoundFormatTag tag) {
         switch (tag) {

@@ -7,8 +7,6 @@
 #include <functional>
 
 namespace editor::ui {
-    using namespace simcoe;
-
     // debug handles
     struct DebugHandle {
         virtual ~DebugHandle() = default;

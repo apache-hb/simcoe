@@ -8,7 +8,7 @@
 using namespace editor;
 using namespace editor::ui;
 
-using simcoe::ThreadService;
+using namespace simcoe;
 
 namespace {
     constexpr const char *getConfigTypeName(config::ValueType type) {

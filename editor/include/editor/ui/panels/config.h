@@ -8,6 +8,9 @@
 #include "imfiles/imfilebrowser.h"
 
 namespace editor::ui {
+    namespace fs = std::filesystem;
+    namespace config = simcoe::config;
+    
     struct ConfigUi final : ServiceUi {
         ConfigUi();
 

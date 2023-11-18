@@ -4,8 +4,12 @@
 #include "editor/ui/components/buffer.h"
 
 namespace editor::ui {
+    namespace engine_log = simcoe::log;
+    namespace engine_mt = simcoe::mt;
+    namespace engine_threads = simcoe::threads;
+
     struct Message {
-        Message(const log::Message& msg);
+        Message(const engine_log::Message& msg);
 
         bool filter(ImGuiTextFilter& filter) const;
         void draw() const;
@@ -24,8 +28,8 @@ namespace editor::ui {
 
         // store the threadid rather than the name
         // if the name changes, we get the new one
-        threads::ThreadId threadId;
-        log::Level level;
+        engine_threads::ThreadId threadId;
+        engine_log::Level level;
 
         // if the message contains newlines, we put borders above and below it
         bool bIsMultiline;
@@ -34,12 +38,12 @@ namespace editor::ui {
         int repititions = 1;
     };
 
-    struct LoggingUi final : ServiceUi, log::ISink {
+    struct LoggingUi final : ServiceUi, engine_log::ISink {
         LoggingUi();
 
         void draw() override;
 
-        void accept(const log::Message& msg) override;
+        void accept(const engine_log::Message& msg) override;
 
     private:
         void clear();
@@ -48,7 +52,7 @@ namespace editor::ui {
         ImGuiTextFilter textFilter;
         bool bAutoScroll = true;  // Keep scrolling if already at the bottom.
 
-        mt::SharedMutex mutex{"LoggingUi"};
+        engine_mt::SharedMutex mutex{"LoggingUi"};
         std::vector<Message> messages;
     };
 }

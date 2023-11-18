@@ -25,6 +25,8 @@ struct std::less<simcoe::audio::SoundFormat> {
 };
 
 namespace editor::ui {
+    namespace audio = simcoe::audio;
+    
     struct AudioUi final : ServiceUi {
         AudioUi();
 

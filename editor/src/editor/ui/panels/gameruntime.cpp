@@ -10,7 +10,7 @@ using microsoft::GdkService;
 GameRuntimeUi::GameRuntimeUi()
     : ServiceUi("GDK")
 {
-    if (GdkService::getState() & ~eServiceCreated) {
+    if (GdkService::getState() & ~simcoe::eServiceCreated) {
         setServiceError(GdkService::getFailureReason());
     }
 }

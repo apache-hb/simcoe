@@ -7,6 +7,8 @@
 #include "vendor/ryzenmonitor/service.h"
 
 namespace editor::ui {
+    namespace mt = simcoe::mt;
+
     struct CoreInfoHistory {
         CoreInfoHistory();
 
@@ -64,7 +66,7 @@ namespace editor::ui {
         bool bInfoDirty = true;
         size_t updates = 0;
 
-        Clock clock;
+        simcoe::Clock clock;
         float lastUpdate = 0.f;
     };
 }

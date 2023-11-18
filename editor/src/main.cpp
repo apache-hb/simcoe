@@ -67,10 +67,10 @@ using namespace game;
 
 using namespace editor;
 
+namespace game_render = game::render;
+
 using microsoft::GdkService;
 using amd::RyzenMonitorSerivce;
-using editor::EditorService;
-using game::GameService;
 
 static std::atomic_bool bRunning = true;
 
@@ -133,6 +133,11 @@ struct TransformComp : public IComponent {
     float3 scale;
 };
 
+struct ModelTransformBuffer : public IComponent {
+    TransformComp *pTransform = nullptr;
+    graph::IUniformHandle<game_render::Model> *pModel = nullptr;
+};
+
 static void initEntities(game::World *pWorld) {
     pWorld->create<PlayerEntity>("player")
         .add<MeshComp>("player.model")
@@ -146,12 +151,14 @@ static void initEntities(game::World *pWorld) {
 }
 
 static void runSystems(game::World *pWorld, float delta) {
-    LOG_INFO("=== begin game tick ===");
+    LOG_INFO("=== update ===");
 
     if (PlayerEntity *pPlayer = pWorld->get<PlayerEntity>()) {
         LOG_INFO("player: {} (delta {})", pPlayer->getName(), delta);
     }
 
+    LOG_INFO("=== render ===");
+    
     pWorld->all([](IEntity *pEntity) {
         if (TransformComp *pTransform = pEntity->get<TransformComp>()) {
             LOG_INFO("entity: {} (pos {})", pEntity->getName(), pTransform->position);
@@ -159,8 +166,6 @@ static void runSystems(game::World *pWorld, float delta) {
             LOG_INFO("entity: {}", pEntity->getName());
         }
     });
-
-    LOG_INFO("=== end game tick ===");
 }
 
 ///

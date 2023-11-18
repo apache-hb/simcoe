@@ -13,8 +13,6 @@
 #include "editor/ui/service.h"
 
 namespace editor {
-    using namespace simcoe;
-
     enum WindowMode : int {
         eModeWindowed,
         eModeBorderless,
@@ -26,11 +24,11 @@ namespace editor {
     struct EditorService final : simcoe::IStaticService<EditorService> {
         // IStaticService
         static constexpr std::string_view kServiceName = "editor";
-        static inline auto kServiceDeps = depends(
-            PlatformService::service(),
-            DepotService::service(),
-            ThreadService::service(),
-            RenderService::service()
+        static inline auto kServiceDeps = simcoe::depends(
+            simcoe::PlatformService::service(),
+            simcoe::DepotService::service(),
+            simcoe::ThreadService::service(),
+            simcoe::RenderService::service()
         );
 
         // IService
@@ -40,7 +38,7 @@ namespace editor {
         static void start();
 
         // GameService
-        static void resizeDisplay(const WindowSize& event);
+        static void resizeDisplay(const simcoe::WindowSize& event);
 
         // editable stuff
         static WindowMode getWindowMode();

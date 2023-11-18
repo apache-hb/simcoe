@@ -56,8 +56,11 @@ namespace game {
         std::string name;
     };
 
-    using EntityMap = std::unordered_map<TypeInfo, IEntity*>;
-    using ComponentMap = std::unordered_map<TypeInfo, IComponent*>;
+    template<typename T>
+    using TypeInfoMap = std::unordered_map<TypeInfo, T>;
+
+    using EntityMap = TypeInfoMap<IEntity*>;
+    using ComponentMap = TypeInfoMap<IComponent*>;
 
     struct IObject {
         virtual ~IObject() = default;
@@ -68,6 +71,9 @@ namespace game {
 
         const std::string& getName() const { return data.name; }
         World *getWorld() const { return data.tag.pWorld; }
+
+        virtual void onCreate() { }
+        virtual void onDestroy() { }
 
     private:
         ObjectData data;
@@ -124,7 +130,7 @@ namespace game {
         template<typename T, typename... A> 
             requires std::derived_from<T, IEntity> 
                   && std::constructible_from<T, ObjectData, A...>
-        EntityBuilder<T> create(std::string name, A&&... args) {
+        EntityBuilder<T> entity(std::string name, A&&... args) {
             auto info = makeTypeInfo<T>(this);
 
             SM_ASSERTF(entities.find(info) == entities.end(), "entity {} already exists", name);
@@ -191,7 +197,9 @@ namespace game {
             return *this;
         }
 
-        operator T*() { return pEntity; }
+        operator T*() { 
+            return pEntity; 
+        }
 
         T *pEntity = nullptr;
     };
