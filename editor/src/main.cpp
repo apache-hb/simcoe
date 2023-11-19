@@ -58,7 +58,7 @@
 #include "vendor/ryzenmonitor/service.h"
 
 // game
-#include "game/world.h"
+#include "game/ecs/world.h"
 
 using namespace simcoe;
 using namespace simcoe::math;
@@ -71,6 +71,12 @@ namespace game_render = game::render;
 
 using microsoft::GdkService;
 using amd::RyzenMonitorSerivce;
+
+// we use a z up right handed coordinate system
+
+constexpr float3 kWorldUp = float3(0.f, 0.f, 1.f); // z up
+constexpr float3 kWorldForward = float3(0.f, 1.f, 0.f); // y forward
+constexpr float3 kWorldRight = float3(1.f, 0.f, 0.f); // x right
 
 static std::atomic_bool bRunning = true;
 
@@ -98,13 +104,61 @@ struct GameWindow final : IWindowCallbacks {
     }
 };
 
+using namespace input;
+
+struct GameInputClient final : public input::IClient {
+    using IClient::IClient;
+
+    void onInput(const State& event) override {
+        state = event;    
+    }
+
+    State state;
+
+    float getButtonAxis(Button neg, Button pos) const {
+        size_t negIdx = state.buttons[neg];
+        size_t posIdx = state.buttons[pos];
+
+        if (negIdx > posIdx) {
+            return -1.f;
+        } else if (posIdx > negIdx) {
+            return 1.f;
+        } else {
+            return 0.f;
+        }
+    }
+
+    float getMoveStrafe() const {
+        return getButtonAxis(Button::eKeyA, Button::eKeyD);
+    }
+
+    float getMoveForward() const {
+        return getButtonAxis(Button::eKeyS, Button::eKeyW);
+    }
+
+    float getMoveVertical() const {
+        return getButtonAxis(Button::eKeyQ, Button::eKeyE);
+    }
+
+    float getLookHorizontal() const {
+        return getButtonAxis(Button::eKeyLeft, Button::eKeyRight);
+    }
+
+    float getLookVertical() const {
+        return getButtonAxis(Button::eKeyDown, Button::eKeyUp);
+    }
+};
+
+
+static GameInputClient gInputClient;
 static GameWindow gWindowCallbacks;
 
 struct PlayerEntity : public IEntity { using IEntity::IEntity; };
 struct AlienEntity : public IEntity { using IEntity::IEntity; };
+struct CameraEntity : public IEntity { using IEntity::IEntity; };
 
 struct IAssetComp : public IComponent {
-    IAssetComp(ObjectData data, fs::path path)
+    IAssetComp(ComponentData data, fs::path path)
         : IComponent(data)
         , path(path)
     { }
@@ -114,58 +168,310 @@ struct IAssetComp : public IComponent {
 
 struct MeshComp : public IAssetComp { 
     using IAssetComp::IAssetComp;
+    static constexpr const char *kTypeName = "obj_mesh";
+
+    void onCreate() override {
+        auto *pGraph = RenderService::getGraph();
+        pMesh = pGraph->newGraphObject<graph::ObjMesh>(path);
+
+        LOG_INFO("loaded mesh {}", path.string());
+    }
+
+    void onDebugDraw() override {
+        ImGui::Text("mesh: %s", path.string().c_str());
+        ImGui::Text("index count: %zu", pMesh->getIndexCount());
+    }
+
+    graph::ObjMesh *pMesh = nullptr;
 };
 
 struct TextureComp : public IAssetComp {
     using IAssetComp::IAssetComp;
+    static constexpr const char *kTypeName = "texture";
+
+    void onCreate() override {
+        auto *pGraph = RenderService::getGraph();
+        pTexture = pGraph->addResource<graph::TextureHandle>(path.string());
+    }
+
+    void onDebugDraw() override {
+        auto *pData = this->pTexture->getInner();
+        auto size = pData->getSize();
+        ImGui::Text("texture: %s", path.string().c_str());
+        ImGui::Text("size: %ux%u", size.x, size.y);
+    }
+
+    ResourceWrapper<graph::TextureHandle> *pTexture = nullptr;
 };
 
+// model transform
+
 struct TransformComp : public IComponent { 
-    TransformComp(ObjectData data, float3 position = 0.f, float3 rotation = 0.f, float3 scale = 1.f)
+    using IComponent::IComponent;
+    static constexpr const char *kTypeName = "transform";
+
+    TransformComp(ComponentData data, float3 position = 0.f, float3 rotation = 0.f, float3 scale = 1.f)
         : IComponent(data)
         , position(position)
         , rotation(rotation)
         , scale(scale)
     { }
 
+    void onDebugDraw() override {
+        float3 tp = position;
+        float3 tr = rotation;
+        float3 ts = scale;
+
+        auto& queue = GameService::getWorkQueue();
+
+        if (ImGui::DragFloat3("position", tp.data(), 0.1f)) {
+            queue.add("update transform", [this, tp] {
+                mt::WriteLock lock(GameService::getWorldMutex());
+                position = tp;
+            });
+        }
+
+        if (ImGui::DragFloat3("rotation", tr.data(), 0.1f)) {
+            queue.add("update transform", [this, tr] {
+                mt::WriteLock lock(GameService::getWorldMutex());
+                rotation = tr;
+            });
+        }
+
+        if (ImGui::DragFloat3("scale", ts.data(), 0.1f)) {
+            queue.add("update transform", [this, ts] {
+                mt::WriteLock lock(GameService::getWorldMutex());
+                scale = ts;
+            });
+        }
+    }
+
     float3 position;
     float3 rotation;
     float3 scale;
 };
 
-struct ModelTransformBuffer : public IComponent {
+struct GpuTransformComp : public IComponent {
+    using IComponent::IComponent;
+    static constexpr const char *kTypeName = "gpu_transform";
+
+    GpuTransformComp(ComponentData data, TransformComp *pTransform)
+        : IComponent(data)
+        , pTransform(pTransform)
+    { }
+
+    void onCreate() override {
+        auto *pGraph = RenderService::getGraph();
+        pModel = pGraph->addResource<game_render::ModelUniform>("uniform.model");
+    }
+
     TransformComp *pTransform = nullptr;
-    graph::IUniformHandle<game_render::Model> *pModel = nullptr;
+    ResourceWrapper<game_render::ModelUniform> *pModel = nullptr;
 };
 
-static void initEntities(game::World *pWorld) {
-    pWorld->create<PlayerEntity>("player")
-        .add<MeshComp>("player.model")
+// camera transform
+
+struct OrthoCameraComp : public IComponent {
+    using IComponent::IComponent;
+    static constexpr const char *kTypeName = "ortho_camera";
+
+    OrthoCameraComp(ComponentData data, float3 position = 0.f, float3 direction = kWorldForward)
+        : IComponent(data)
+        , position(position)
+        , direction(direction)
+    { }
+
+    void onDebugDraw() override {
+        float3 tp = position;
+        float3 tr = direction;
+
+        auto& queue = GameService::getWorkQueue();
+
+        ImGui::Text("near: %f", 0.1f);
+        ImGui::Text("far: %f", 100.f);
+
+        if (ImGui::DragFloat3("position", tp.data(), 0.1f)) {
+            queue.add("update camera", [this, tp] {
+                mt::WriteLock lock(GameService::getWorldMutex());
+                position = tp;
+            });
+        }
+
+        if (ImGui::DragFloat3("direction", tr.data(), 0.1f)) {
+            queue.add("update camera", [this, tr] {
+                mt::WriteLock lock(GameService::getWorldMutex());
+                direction = tr;
+            });
+        }
+    }
+
+    float3 position;
+    float3 direction;
+
+    float yaw = -90.f;
+    float pitch = 0.f;
+
+    float sensitivity = 1.f;
+};
+
+struct GpuOrthoCameraComp : public IComponent {
+    using IComponent::IComponent;
+    static constexpr const char *kTypeName = "gpu_ortho_camera";
+
+    GpuOrthoCameraComp(ComponentData data, OrthoCameraComp *pCamera)
+        : IComponent(data)
+        , pCamera(pCamera)
+    { }
+
+    void onCreate() override {
+        auto *pGraph = RenderService::getGraph();
+        pCameraUniform = pGraph->addResource<game_render::CameraUniform>("uniform.camera");
+    }
+
+    OrthoCameraComp *pCamera = nullptr;
+    ResourceWrapper<game_render::CameraUniform> *pCameraUniform = nullptr;
+};
+
+static PlayerEntity *gPlayer = nullptr;
+static AlienEntity *gAlien = nullptr;
+static CameraEntity *gCamera = nullptr;
+
+static void initEntities(game::World& world) {
+    world.onCreate<TransformComp>([](TransformComp *pTransform) {
+        IEntity *pEntity = pTransform->getEntity();
+        World *pWorld = pEntity->getWorld();
+
+        pWorld->component<GpuTransformComp>(pEntity, pTransform);
+    });
+
+    world.onCreate<OrthoCameraComp>([](OrthoCameraComp *pCamera) {
+        IEntity *pEntity = pCamera->getEntity();
+        World *pWorld = pEntity->getWorld();
+
+        pWorld->component<GpuOrthoCameraComp>(pEntity, pCamera);
+    });
+
+    gPlayer = world.entity<PlayerEntity>("player")
+        .add<MeshComp>("ship.model")
         .add<TextureComp>("player.png")
         .add<TransformComp>(0.f, 0.f, 1.f);
 
-    pWorld->create<AlienEntity>("alien")
+    gAlien = world.entity<AlienEntity>("alien")
         .add<MeshComp>("alien.model")
         .add<TextureComp>("alien.png")
         .add<TransformComp>(0.f, 0.f, 1.f);
+
+    gCamera = world.entity<CameraEntity>("camera")
+        .add<OrthoCameraComp>(float3(0.f, 1.f, 0.f));
 }
 
-static void runSystems(game::World *pWorld, float delta) {
-    LOG_INFO("=== update ===");
+static void runSystems(game::World& world, SM_UNUSED float delta) {
+    auto& workQueue = GameService::getWorkQueue();
+    for (size_t i = 0; i < 16 && workQueue.tryGetMessage(); i++) { }
 
-    if (PlayerEntity *pPlayer = pWorld->get<PlayerEntity>()) {
-        LOG_INFO("player: {} (delta {})", pPlayer->getName(), delta);
+    mt::ReadLock lock(GameService::getWorldMutex());
+    // LOG_INFO("=== update ===");
+
+    // if (PlayerEntity *pPlayer = world.get<PlayerEntity>(gPlayer->getInstanceId())) {
+    //     LOG_INFO("player: {} (delta {})", pPlayer->getName(), delta);
+    // }
+
+    // if (AlienEntity *pAlien = world.get<AlienEntity>(gAlien->getInstanceId())) {
+    //     LOG_INFO("alien: {} (delta {})", pAlien->getName(), delta);
+    // }
+
+    // LOG_INFO("=== render ===");
+    
+    float strafe = gInputClient.getMoveStrafe();
+    float forward = gInputClient.getMoveForward();
+    float moveUD = gInputClient.getMoveVertical();
+
+    float lookLR = gInputClient.getLookHorizontal();
+    float lookUD = gInputClient.getLookVertical();
+
+    float cameraSpeed = 10.f;
+    float deltaCamera = delta * cameraSpeed;
+
+    game_render::CommandBatch batch;
+
+    if (CameraEntity *pCamera = world.get<CameraEntity>(gCamera->getInstanceId())) {
+        OrthoCameraComp *pCameraComp = pCamera->get<OrthoCameraComp>();
+        GpuOrthoCameraComp *pGpuCameraComp = pCamera->get<GpuOrthoCameraComp>();
+
+        pCameraComp->position += pCameraComp->direction * deltaCamera * strafe;
+        pCameraComp->position += float3::cross(pCameraComp->direction, kWorldUp).normal() * deltaCamera * forward;
+        pCameraComp->position += kWorldUp * deltaCamera * moveUD;
+
+        pCameraComp->yaw += lookLR * pCameraComp->sensitivity;
+        pCameraComp->pitch += lookUD * pCameraComp->sensitivity;
+
+        if (pCameraComp->pitch > 89.f) {
+            pCameraComp->pitch = 89.f;
+        } else if (pCameraComp->pitch < -89.f) {
+            pCameraComp->pitch = -89.f;
+        }
+
+        float3 direction;
+        direction.x = cosf(pCameraComp->yaw * math::kDegToRad<float>) * cosf(pCameraComp->pitch * math::kDegToRad<float>);
+        direction.y = sinf(pCameraComp->yaw * math::kDegToRad<float>) * cosf(pCameraComp->pitch * math::kDegToRad<float>);
+        direction.z = sinf(pCameraComp->pitch * math::kDegToRad<float>);
+        pCameraComp->direction = direction.normal();
+
+        batch.add([pGpuCameraComp, pCameraComp](game_render::ScenePass *pScene, Context *pContext) {
+            auto *pCommands = pContext->getDirectCommands();
+
+            auto display = pContext->getCreateInfo();
+            auto width = display.renderWidth;
+            auto height = display.renderHeight;
+
+            float aspect = float(width) / float(height);
+
+            float4x4 view = float4x4::lookAtRH(pCameraComp->position, 0.f, kWorldUp);
+            float4x4 proj = float4x4::ortho(0.f, 20.f * aspect, 0.f, 20.f, 0.1f, 100.f);
+
+            auto *pBuffer = pGpuCameraComp->pCameraUniform->getInner();
+            auto *pHeap = pContext->getSrvHeap();
+
+            game_render::Camera camera = {
+                .view = view,
+                .proj = proj
+            };
+            pBuffer->update(&camera);
+
+            pCommands->setGraphicsShaderInput(pScene->cameraReg(), pHeap->deviceOffset(pBuffer->getSrvIndex()));
+        });
     }
 
-    LOG_INFO("=== render ===");
-    
-    pWorld->all([](IEntity *pEntity) {
-        if (TransformComp *pTransform = pEntity->get<TransformComp>()) {
-            LOG_INFO("entity: {} (pos {})", pEntity->getName(), pTransform->position);
-        } else {
-            LOG_INFO("entity: {}", pEntity->getName());
-        }
-    });
+    for (IEntity *pEntity : world.allWith<GpuTransformComp, MeshComp>()) {
+        GpuTransformComp *pTransformComp = pEntity->get<GpuTransformComp>();
+        MeshComp *pMeshComp = pEntity->get<MeshComp>();
+        TextureComp *pTextureComp = pEntity->get<TextureComp>();
+
+        batch.add([pMeshComp, pTransformComp, pTextureComp](game_render::ScenePass *pScene, Context *pContext) {
+            TransformComp *pTransform = pTransformComp->pTransform;
+            auto *pCommands = pContext->getDirectCommands();
+            auto *pMesh = pMeshComp->pMesh;
+            pCommands->setVertexBuffer(pMesh->getVertexBuffer());
+            pCommands->setIndexBuffer(pMesh->getIndexBuffer());
+
+            auto *pBuffer = pTransformComp->pModel->getInner();
+            auto *pTexture = pTextureComp->pTexture->getInner();
+            auto *pHeap = pContext->getSrvHeap();
+
+            game_render::Model model = {
+                .model = float4x4::transform(pTransform->position, pTransform->rotation, pTransform->scale)
+            };
+            pBuffer->update(&model);
+
+            pCommands->setGraphicsShaderInput(pScene->textureReg(), pHeap->deviceOffset(pTexture->getSrvIndex()));
+            pCommands->setGraphicsShaderInput(pScene->modelReg(), pHeap->deviceOffset(pBuffer->getSrvIndex()));
+
+            pCommands->drawIndexBuffer(pMesh->getIndexCount());
+        });
+    }
+
+    GameService::getScene()
+        ->update(std::move(batch));
 }
 
 ///
@@ -178,21 +484,22 @@ static void commonMain() {
     debug::setThreadName("main");
     EditorService::start();
     RenderService::start();
+    InputService::addClient(&gInputClient);
 
-    game::World *pWorld = new game::World();
+    game::World& world = GameService::getWorld();
 
-    initEntities(pWorld);
+    initEntities(world);
 
     Clock clock;
-    float last = clock.now();
+    float last = 0.f;
 
     while (bRunning) {
         ThreadService::pollMain();
 
         float delta = clock.now() - last;
         last = clock.now();
-        runSystems(pWorld, delta);
-        std::this_thread::sleep_for(500ms);
+        runSystems(world, delta);
+        std::this_thread::sleep_for(15ms);
     }
 }
 

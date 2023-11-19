@@ -408,7 +408,7 @@ struct EditorUi final : eg::IGuiPass {
         if (ImGui::CollapsingHeader(name)) {
             open = true;
             // show a grid of slots
-            size_t size = alloc.getSize();
+            size_t size = alloc.getTotalBits();
             size_t rows = size / 8;
             size_t cols = size / rows;
 
@@ -499,9 +499,9 @@ struct EditorUi final : eg::IGuiPass {
             auto& dsvAlloc = pDsvHeap->allocator;
             auto& srvAlloc = pSrvHeap->allocator;
 
-            drawHeapSlots(bRtvOpen, fmt::format("RTV heap {}", rtvAlloc.getSize()).c_str(), rtvAlloc);
-            drawHeapSlots(bDsvOpen, fmt::format("DSV heap {}", dsvAlloc.getSize()).c_str(), dsvAlloc);
-            drawHeapSlots(bSrvOpen, fmt::format("SRV heap {}", srvAlloc.getSize()).c_str(), srvAlloc);
+            drawHeapSlots(bRtvOpen, fmt::format("RTV heap {}", rtvAlloc.getTotalBits()).c_str(), rtvAlloc);
+            drawHeapSlots(bDsvOpen, fmt::format("DSV heap {}", dsvAlloc.getTotalBits()).c_str(), dsvAlloc);
+            drawHeapSlots(bSrvOpen, fmt::format("SRV heap {}", srvAlloc.getTotalBits()).c_str(), srvAlloc);
 
             ImGui::SeparatorText("RenderGraph state");
             const auto& resources = pGraph->resources;

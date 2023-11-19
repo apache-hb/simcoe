@@ -710,7 +710,7 @@ PipelineState *Device::createGraphicsPipeline(const GraphicsPipelineInfo& create
         ? CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT)
         : D3D12_DEPTH_STENCIL_DESC{ .DepthEnable = false, .StencilEnable = false };
 
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineDesc = {
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {
         .pRootSignature = pSignature,
         .VS = CD3DX12_SHADER_BYTECODE(vs.data(), vs.size()),
         .PS = CD3DX12_SHADER_BYTECODE(ps.data(), ps.size()),
@@ -728,8 +728,10 @@ PipelineState *Device::createGraphicsPipeline(const GraphicsPipelineInfo& create
         .SampleDesc = { .Count = 1 },
     };
 
+    psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+
     ID3D12PipelineState *pPipeline = nullptr;
-    HR_CHECK(get()->CreateGraphicsPipelineState(&pipelineDesc, IID_PPV_ARGS(&pPipeline)));
+    HR_CHECK(get()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pPipeline)));
 
     return PipelineState::create(pSignature, pPipeline, textureIndices, uniformIndices, {});
 }

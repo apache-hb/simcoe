@@ -1,11 +1,6 @@
-#include "game/world.h"
+#include "game/ecs/world.h"
 
 using namespace game;
-
-TypeInfo::TypeInfo(World *pWorld, size_t id) 
-    : pWorld(pWorld)
-    , id(id) 
-{ }
 
 static size_t gUniqueId = 0;
 size_t game::getUniqueId() {

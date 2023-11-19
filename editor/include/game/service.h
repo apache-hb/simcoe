@@ -2,6 +2,8 @@
 
 #include "engine/service/service.h"
 
+#include "game/ecs/world.h"
+
 #include "game/render/hud.h"
 #include "game/render/scene.h"
 
@@ -20,5 +22,9 @@ namespace game {
 
         static render::HudPass *getHud();
         static render::ScenePass *getScene();
+
+        static game::World& getWorld();
+        static threads::WorkQueue& getWorkQueue();
+        static mt::SharedMutex& getWorldMutex();
     };
 }

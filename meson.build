@@ -368,7 +368,11 @@ src = [
 
     # game framework
     'editor/src/game/service.cpp',
-    'editor/src/game/world.cpp',
+
+    # ecs
+    'editor/src/game/ecs/world.cpp',
+    'editor/src/game/ecs/storage.cpp',
+    'editor/src/game/ecs/typeinfo.cpp',
 
     # game rendering
     'editor/src/game/render/hud.cpp',

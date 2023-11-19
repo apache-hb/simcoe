@@ -24,7 +24,7 @@ ScenePass::ScenePass(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget, 
     : IRenderPass(pGraph, "game.scene", eDepRenderSize)
 {
     setRenderTargetHandle(pRenderTarget);
-    setDepthStencilHandle(pDepthTarget);
+    //setDepthStencilHandle(pDepthTarget);
 }
 
 void ScenePass::create() {
@@ -55,8 +55,8 @@ void ScenePass::create() {
         },
 
         .rtvFormat = ctx->getSwapChainFormat(),
-        .depthEnable = true,
-        .dsvFormat = ctx->getDepthFormat()
+        //.depthEnable = true,
+        //.dsvFormat = ctx->getDepthFormat()
     };
 
     pPipeline = ctx->createGraphicsPipeline(psoCreateInfo);
@@ -81,6 +81,7 @@ void ScenePass::destroy() {
 
 void ScenePass::execute() {
     ctx->setDisplay(display);
+    ctx->setGraphicsPipeline(pPipeline);
 
     if (bDirtyBatch && lock.try_lock()) {
         batch = std::move(newBatch);

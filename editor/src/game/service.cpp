@@ -18,9 +18,17 @@ config::ConfigValue<float> cfgTargetWorldTickRate("game/world", "target_tps", "t
 namespace {
     game_render::HudPass *pHudPass = nullptr;
     game_render::ScenePass *pScenePass = nullptr;
+
+    game::World *pWorld = nullptr;
+
+    threads::WorkQueue *pWorkQueue = nullptr;
+    mt::SharedMutex *pWorldMutex = nullptr;
 }
 
 bool GameService::createService() {
+    pWorld = new game::World();
+    pWorkQueue = new threads::WorkQueue(64);
+    pWorldMutex = new mt::SharedMutex("game");
     return true;
 }
 
@@ -39,4 +47,16 @@ game_render::HudPass *GameService::getHud() {
 
 game_render::ScenePass *GameService::getScene() {
     return pScenePass;
+}
+
+game::World& GameService::getWorld() {
+    return *pWorld;
+}
+
+threads::WorkQueue& GameService::getWorkQueue() {
+    return *pWorkQueue;
+}
+
+mt::SharedMutex& GameService::getWorldMutex() {
+    return *pWorldMutex;
 }

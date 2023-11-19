@@ -641,13 +641,17 @@ namespace simcoe::math {
             return from(r0, r1, r2, r3);
         }
 
-        static constexpr Mat4x4 orthographicRH(T width, T height, T nearLimit, T farLimit) {
-            auto range = 1 / (nearLimit - farLimit);
+        static constexpr Mat4x4 ortho(T left, T right, T top, T bottom, T nearLimit, T farLimit) {
+            auto r0 = Row::from(2 / (right - left), 0, 0, 0);
+            auto r1 = Row::from(0, 2 / (top - bottom), 0, 0);
+            auto r2 = Row::from(0, 0, -2 / (farLimit - nearLimit), 0);
+            auto r3 = Row::from(
+                -(right + left) / (right - left),
+                -(top + bottom) / (top - bottom),
+                -(farLimit + nearLimit) / (farLimit - nearLimit),
+                1
+            );
 
-            auto r0 = Row::from(2 / width, 0, 0, 0);
-            auto r1 = Row::from(0, 2 / height, 0, 0);
-            auto r2 = Row::from(0, 0, range, 0);
-            auto r3 = Row::from(0, 0, range * nearLimit, 1);
             return from(r0, r1, r2, r3);
         }
     };

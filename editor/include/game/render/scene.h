@@ -27,6 +27,16 @@ namespace game::render {
         float4x4 proj;
     };
 
+    struct ModelUniform final : public IUniformHandle<Model> {
+        using Super = IUniformHandle<Model>;
+        using Super::Super;
+    };
+
+    struct CameraUniform final : public IUniformHandle<Camera> {
+        using Super = IUniformHandle<Camera>;
+        using Super::Super;
+    };
+
     struct CommandBatch {
         void add(SceneAction&& action) {
             actions.emplace_back(std::move(action));
@@ -56,6 +66,10 @@ namespace game::render {
         rhi::PipelineState *getPipeline() const {
             return pPipeline;
         }
+
+        UINT textureReg() const { return pPipeline->getTextureInput("tex");}
+        UINT modelReg() const { return pPipeline->getUniformInput("object"); }
+        UINT cameraReg() const { return pPipeline->getUniformInput("camera"); }
 
     private:
         rhi::Display display;
