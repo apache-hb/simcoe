@@ -101,8 +101,8 @@ namespace simcoe::input {
         void set(bool bState);
 
     private:
-        size_t lastValue = 0;
-        bool bEnabled;
+        std::atomic_size_t lastValue = 0;
+        std::atomic_bool bEnabled;
     };
 
     struct Event final {

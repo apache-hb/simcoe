@@ -72,8 +72,11 @@ namespace simcoe::math {
     struct Vec2 {
         using Type = T;
 
-        union { T x; T width; };
-        union { T y; T height; };
+        union {
+            T fields[2];
+            struct { T x; T y; };
+            struct { T width; T height; };
+        };
 
         constexpr Vec2() : Vec2(T(0)) { }
         constexpr Vec2(T x, T y) : x(x), y(y) { }
@@ -136,8 +139,8 @@ namespace simcoe::math {
             return clamp(it, from(low), from(high));
         }
 
-        constexpr T *data() { return &x; } // TODO: this is UB
-        constexpr const T *data() const { return &x; }
+        constexpr T *data() { return fields; }
+        constexpr const T *data() const { return fields; }
 
         template<size_t I>
         constexpr decltype(auto) get() const noexcept {
@@ -186,6 +189,9 @@ namespace simcoe::math {
         constexpr Vec3 operator*=(const Vec3& it) { return *this = *this * it; }
         constexpr Vec3 operator/=(const Vec3& it) { return *this = *this / it; }
 
+        constexpr Vec3 operator-() const { return negate(); }
+        constexpr Vec3 operator+() const { return abs(); }
+
         template<typename O>
         constexpr Vec3<O> as() const { return Vec3<O>::from(O(x), O(y), O(z)); }
 
@@ -197,7 +203,11 @@ namespace simcoe::math {
 
         constexpr bool isUniform() const { return x == y && y == z; }
 
+        constexpr Vec3 radians() const { return from(x * kDegToRad<T>, y * kDegToRad<T>, z * kDegToRad<T>); }
+        constexpr Vec3 degrees() const { return from(x * kRadToDeg<T>, y * kRadToDeg<T>, z * kRadToDeg<T>); }
+
         constexpr Vec3 negate() const { return from(-x, -y, -z); }
+        constexpr Vec3 abs() const { return from(std::abs(x), std::abs(y), std::abs(z)); }
         constexpr T length() const { return std::sqrt(x * x + y * y + z * z); }
 
         constexpr Vec3 normal() const {
@@ -641,18 +651,16 @@ namespace simcoe::math {
             return from(r0, r1, r2, r3);
         }
 
-        static constexpr Mat4x4 ortho(T left, T right, T top, T bottom, T nearLimit, T farLimit) {
-            auto r0 = Row::from(2 / (right - left), 0, 0, 0);
-            auto r1 = Row::from(0, 2 / (top - bottom), 0, 0);
-            auto r2 = Row::from(0, 0, -2 / (farLimit - nearLimit), 0);
-            auto r3 = Row::from(
-                -(right + left) / (right - left),
-                -(top + bottom) / (top - bottom),
-                -(farLimit + nearLimit) / (farLimit - nearLimit),
-                1
-            );
+        static constexpr Mat4x4 orthographicRH(T width, T height, T nearLimit, T farLimit) {
+            T range = 1 / (nearLimit - farLimit);
 
-            return from(r0, r1, r2, r3);
+            Row r0 = { 2 / width, 0, 0, 0 };
+            Row r1 = { 0, 2 / height, 0, 0 };
+            Row r2 = { 0, 0, range, 0 };
+
+            Row r3 = { 0, 0, range * nearLimit, 1 };
+
+            return { r0, r1, r2, r3 };
         }
     };
 
@@ -708,3 +716,5 @@ namespace std {
     template<size_t I, typename T>
     struct tuple_element<I, simcoe::math::Vec4<T>> { using type = T; };
 }
+
+#include <DirectXMath.h>

@@ -315,14 +315,27 @@ tinyobj = subproject('tinyobj').get_variable('tinyobj')
 fs = import('fs')
 python3 = find_program('python3')
 
+shader_mode = '--default'
+
+vs_output = [ '@BASENAME@.vs.cso' ]
+ps_output = [ '@BASENAME@.ps.cso' ]
+
+if debug_render.allowed()
+    vs_output += [ '@BASENAME@.vs.pdb' ]
+    ps_output += [ '@BASENAME@.ps.pdb' ]
+    shader_mode = '--debug'
+endif
+
+cc_script = script_dir/'compile-hlsl.py'
+
 hlsl_vs = generator(python3,
-    output : '@BASENAME@.vs.cso',
-    arguments : [ script_dir/'compile-hlsl.py', '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'vs', '6_0' ]
+    output : vs_output,
+    arguments : [ cc_script, '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'vs', '6_0', shader_mode ]
 )
 
 hlsl_ps = generator(python3,
-    output : '@BASENAME@.ps.cso',
-    arguments : [ script_dir/'compile-hlsl.py', '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'ps', '6_0' ]
+    output : ps_output,
+    arguments : [ cc_script, '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'ps', '6_0', shader_mode ]
 )
 
 # hlsl_cs = generator(python3,

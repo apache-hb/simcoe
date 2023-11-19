@@ -15,7 +15,7 @@ void WorldUi::draw() {
     auto& world = game::GameService::getWorld();
 
     const auto& entities = world.entities;
-    const auto& objects = world.objects;
+    //const auto& objects = world.objects;
 
     ImGui::Text("World (%zu entities)", entities.getUsed());
 

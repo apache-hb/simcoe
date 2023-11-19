@@ -6,6 +6,8 @@
 #include "game/ecs/storage.h"
 #include "game/ecs/objects.h"
 
+#include <ranges>
+
 namespace game {
     size_t getUniqueId();
     TypeInfo makeNameInfo(World *pWorld, const std::string& name);
@@ -32,18 +34,27 @@ namespace game {
             Iterator(StorageIter iter, FilterFn filter) 
                 : iter(iter) 
                 , filter(filter)
-            { }
+            { 
+                LOG_INFO("creating iterator");
+                while (iter && !filter(*iter)) {
+                    ++iter;
+                }
+            }
 
             Iterator& operator++() { 
+                // increment until filter returns true
                 do {
                     ++iter;
+                    LOG_INFO("iterating");
                 } while (iter && !filter(*iter));
 
+                LOG_INFO("done iterating");
                 return *this; 
             }
 
             T *operator*() const { 
-                return static_cast<T*>(*iter); 
+                SM_ASSERTF(filter(*iter), "iterator tried to return invalid object");
+                return static_cast<T*>(*iter);
             }
 
             bool operator==(const Iterator& other) const { 
@@ -180,7 +191,7 @@ namespace game {
             auto filter = [](ObjectPtr pObject) {
                 IEntity *pEntity = static_cast<IEntity*>(pObject);
 
-                return (pEntity->template get<C>() && ...);
+                return (... && (pEntity->template get<C>() != nullptr));
             };
 
             return WorldStorage<IEntity>(&entities, filter);

@@ -111,6 +111,27 @@ struct GameInputClient final : public input::IClient {
 
     void onInput(const State& event) override {
         state = event;    
+
+        quitEventKey.update(state.buttons[Button::eKeyEscape]);
+        quitEventGamepad.update(state.buttons[Button::ePadBack]);
+
+        shootKeyboardEvent.update(state.buttons[Button::eKeySpace]);
+        shootGamepadEvent.update(state.buttons[Button::ePadButtonDown]);
+
+        moveUpEventKey.update(state.buttons[Button::eKeyW]);
+        moveDownEventKey.update(state.buttons[Button::eKeyS]);
+        moveLeftEventKey.update(state.buttons[Button::eKeyA]);
+        moveRightEventKey.update(state.buttons[Button::eKeyD]);
+
+        moveUpEventArrow.update(state.buttons[Button::eKeyUp]);
+        moveDownEventArrow.update(state.buttons[Button::eKeyDown]);
+        moveLeftEventArrow.update(state.buttons[Button::eKeyLeft]);
+        moveRightEventArrow.update(state.buttons[Button::eKeyRight]);
+
+        moveUpEventPad.update(state.buttons[Button::ePadDirectionUp]);
+        moveDownEventPad.update(state.buttons[Button::ePadDirectionDown]);
+        moveLeftEventPad.update(state.buttons[Button::ePadDirectionLeft]);
+        moveRightEventPad.update(state.buttons[Button::ePadDirectionRight]);
     }
 
     State state;
@@ -128,25 +149,58 @@ struct GameInputClient final : public input::IClient {
         }
     }
 
-    float getMoveStrafe() const {
+    bool isShootPressed() const {
+        return shootKeyboardEvent.isPressed()
+            || shootGamepadEvent.isPressed();
+    }
+
+    bool isQuitPressed() const {
+        return quitEventKey.isPressed()
+            || quitEventGamepad.isPressed();
+    }
+
+    bool consumeMoveUp() {
+        return moveUpEventKey.beginPress()
+            || moveUpEventArrow.beginPress()
+            || moveUpEventPad.beginPress();
+    }
+
+    bool consumeMoveDown() {
+        return moveDownEventKey.beginPress()
+            || moveDownEventArrow.beginPress()
+            || moveDownEventPad.beginPress();
+    }
+
+    bool consumeMoveLeft() {
+        return moveLeftEventKey.beginPress()
+            || moveLeftEventArrow.beginPress()
+            || moveLeftEventPad.beginPress();
+    }
+
+    bool consumeMoveRight() {
+        return moveRightEventKey.beginPress()
+            || moveRightEventArrow.beginPress()
+            || moveRightEventPad.beginPress();
+    }
+
+    float getMoveHorizontal() const {
         return getButtonAxis(Button::eKeyA, Button::eKeyD);
     }
 
-    float getMoveForward() const {
+    float getMoveVertical() const {
         return getButtonAxis(Button::eKeyS, Button::eKeyW);
     }
 
-    float getMoveVertical() const {
-        return getButtonAxis(Button::eKeyQ, Button::eKeyE);
-    }
+private:
+    Event shootKeyboardEvent;
+    Event shootGamepadEvent;
 
-    float getLookHorizontal() const {
-        return getButtonAxis(Button::eKeyLeft, Button::eKeyRight);
-    }
+    Event quitEventKey, quitEventGamepad;
 
-    float getLookVertical() const {
-        return getButtonAxis(Button::eKeyDown, Button::eKeyUp);
-    }
+    Event moveUpEventKey,    moveUpEventArrow,    moveUpEventPad;
+    Event moveDownEventKey,  moveDownEventArrow,  moveDownEventPad;
+    Event moveLeftEventKey,  moveLeftEventArrow,  moveLeftEventPad;
+    Event moveRightEventKey, moveRightEventArrow, moveRightEventPad;
 };
 
 
@@ -154,8 +208,40 @@ static GameInputClient gInputClient;
 static GameWindow gWindowCallbacks;
 
 struct PlayerEntity : public IEntity { using IEntity::IEntity; };
-struct AlienEntity : public IEntity { using IEntity::IEntity; };
+struct AlienShipEntity : public IEntity { using IEntity::IEntity; };
 struct CameraEntity : public IEntity { using IEntity::IEntity; };
+
+constexpr float2 kTileSize = { 1.4f, 1.2f };
+
+struct AlienShipBehaviour : public IComponent {
+    using IComponent::IComponent;
+
+    /**
+     * @param shipSpeed speed of the alien ship in tiles per second
+     * @param spawnDelay delay between alien spawns in seconds
+     * @param spawnGracePeriod grace period before the first alien spawn in seconds
+     */
+    AlienShipBehaviour(ComponentData data, float shipSpeed = 0.7f, float spawnDelay = 1.f, float spawnGracePeriod = 1.5f)
+        : IComponent(data)
+        , moveDelay(shipSpeed)
+        , spawnDelay(spawnDelay)
+        , lastSpawn(spawnGracePeriod)
+    { }
+
+    void onDebugDraw() override {
+        ImGui::Text("move delay: %f", moveDelay);
+        ImGui::Text("spawn delay: %f", spawnDelay);
+
+        ImGui::ProgressBar(lastMove / moveDelay, ImVec2(0.f, 0.f), "Until next move");
+        ImGui::ProgressBar(lastSpawn / spawnDelay, ImVec2(0.f, 0.f), "Until next spawn");
+    }
+
+    float moveDelay;
+    float lastMove = 0.f;
+
+    float spawnDelay;
+    float lastSpawn;
+};
 
 struct IAssetComp : public IComponent {
     IAssetComp(ComponentData data, fs::path path)
@@ -219,7 +305,7 @@ struct TransformComp : public IComponent {
 
     void onDebugDraw() override {
         float3 tp = position;
-        float3 tr = rotation;
+        float3 tr = rotation.degrees();
         float3 ts = scale;
 
         auto& queue = GameService::getWorkQueue();
@@ -231,10 +317,10 @@ struct TransformComp : public IComponent {
             });
         }
 
-        if (ImGui::DragFloat3("rotation", tr.data(), 0.1f)) {
+        if (ImGui::DragFloat3("rotation", tr.data(), 5.f)) {
             queue.add("update transform", [this, tr] {
                 mt::WriteLock lock(GameService::getWorldMutex());
-                rotation = tr;
+                rotation = tr.radians();
             });
         }
 
@@ -283,7 +369,7 @@ struct OrthoCameraComp : public IComponent {
 
     void onDebugDraw() override {
         float3 tp = position;
-        float3 tr = direction;
+        float3 tr = direction.degrees();
 
         auto& queue = GameService::getWorkQueue();
 
@@ -300,18 +386,13 @@ struct OrthoCameraComp : public IComponent {
         if (ImGui::DragFloat3("direction", tr.data(), 0.1f)) {
             queue.add("update camera", [this, tr] {
                 mt::WriteLock lock(GameService::getWorldMutex());
-                direction = tr;
+                direction = tr.radians();
             });
         }
     }
 
     float3 position;
     float3 direction;
-
-    float yaw = -90.f;
-    float pitch = 0.f;
-
-    float sensitivity = 1.f;
 };
 
 struct GpuOrthoCameraComp : public IComponent {
@@ -333,7 +414,7 @@ struct GpuOrthoCameraComp : public IComponent {
 };
 
 static PlayerEntity *gPlayer = nullptr;
-static AlienEntity *gAlien = nullptr;
+static AlienShipEntity *gAlien = nullptr;
 static CameraEntity *gCamera = nullptr;
 
 static void initEntities(game::World& world) {
@@ -354,16 +435,26 @@ static void initEntities(game::World& world) {
     gPlayer = world.entity<PlayerEntity>("player")
         .add<MeshComp>("ship.model")
         .add<TextureComp>("player.png")
-        .add<TransformComp>(0.f, 0.f, 1.f);
+        .add<TransformComp>(float3(0.f, 0.f, 20.4f), float3(-90.f, 0.f, 90.f).radians(), 0.7f);
 
-    gAlien = world.entity<AlienEntity>("alien")
+    gAlien = world.entity<AlienShipEntity>("alien")
+        .add<AlienShipBehaviour>(0.7f, 1.f, 1.5f)
         .add<MeshComp>("alien.model")
         .add<TextureComp>("alien.png")
-        .add<TransformComp>(0.f, 0.f, 1.f);
+        .add<TransformComp>(0.f, float3(-90.f, 90.f, 0.f).radians(), 0.7f);
 
+    // camera looks down on the world
     gCamera = world.entity<CameraEntity>("camera")
-        .add<OrthoCameraComp>(float3(0.f, 1.f, 0.f));
+        .add<OrthoCameraComp>(float3(14.f, -10.f, 10.6f), (kWorldForward * 90.f).radians());
+
+    world.entity<IEntity>("grid")
+        .add<MeshComp>("grid.model")
+        .add<TextureComp>("cross.png")
+        // scale is non-uniform to emulate original the vic20 display being non-square
+        .add<TransformComp>(float3(0.f, 1.f, 0.f), float3(-90.f, 90.f, 0.f).radians(), float3(0.7f, 0.6f, 0.7f)); 
 }
+
+constexpr float2 kWorldBounds = float2(30.f, 21.f);
 
 static void runSystems(game::World& world, SM_UNUSED float delta) {
     auto& workQueue = GameService::getWorkQueue();
@@ -371,6 +462,60 @@ static void runSystems(game::World& world, SM_UNUSED float delta) {
 
     mt::ReadLock lock(GameService::getWorldMutex());
     // LOG_INFO("=== update ===");
+
+    if (PlayerEntity *pPlayer = world.get<PlayerEntity>(gPlayer->getInstanceId())) {
+        TransformComp *pTransform = pPlayer->get<TransformComp>();
+
+        float3& pos = pTransform->position;
+
+        float mv = 0.f, mh = 0.f;
+
+        if (gInputClient.consumeMoveDown()) {
+            mv = -kTileSize.y;
+        } else if (gInputClient.consumeMoveUp()) {
+            mv = kTileSize.y;
+        }
+
+        if (gInputClient.consumeMoveLeft()) {
+            mh = -kTileSize.x;
+        } else if (gInputClient.consumeMoveRight()) {
+            mh = kTileSize.x;
+        }
+
+        // we clamp differently here to maintain the player origin offset
+        // so we line up with the grid
+        float3 np = pos + float3(mh, 0.f, mv);
+        if (-0.3f > np.x || kWorldBounds.x < np.x) {
+            np.x = pos.x;
+        }
+
+        if (-0.3f > np.z || kWorldBounds.y < np.z) {
+            np.z = pos.z;
+        }
+
+        pos = np;
+
+        float angle = std::atan2(mv, mh);
+
+        if (mv != 0.f || mh != 0.f)
+            pTransform->rotation.x = -angle; // = float3(0.f, -angle, 0.f);
+    }
+
+    for (IEntity *pEntity : world.allWith<AlienShipBehaviour, TransformComp>()) {
+        AlienShipBehaviour *pBehaviour = pEntity->get<AlienShipBehaviour>();
+        TransformComp *pTransform = pEntity->get<TransformComp>();
+
+        pBehaviour->lastMove += delta;
+        pBehaviour->lastSpawn += delta;
+
+        if (pBehaviour->lastMove >= pBehaviour->moveDelay) {
+            pTransform->position.x += kTileSize.x;
+        }
+
+        if (pTransform->position.x > kWorldBounds.x) {
+            pTransform->position.x = 0.f;
+        }
+    }
 
     // if (PlayerEntity *pPlayer = world.get<PlayerEntity>(gPlayer->getInstanceId())) {
     //     LOG_INFO("player: {} (delta {})", pPlayer->getName(), delta);
@@ -382,40 +527,11 @@ static void runSystems(game::World& world, SM_UNUSED float delta) {
 
     // LOG_INFO("=== render ===");
     
-    float strafe = gInputClient.getMoveStrafe();
-    float forward = gInputClient.getMoveForward();
-    float moveUD = gInputClient.getMoveVertical();
-
-    float lookLR = gInputClient.getLookHorizontal();
-    float lookUD = gInputClient.getLookVertical();
-
-    float cameraSpeed = 10.f;
-    float deltaCamera = delta * cameraSpeed;
-
     game_render::CommandBatch batch;
 
     if (CameraEntity *pCamera = world.get<CameraEntity>(gCamera->getInstanceId())) {
         OrthoCameraComp *pCameraComp = pCamera->get<OrthoCameraComp>();
         GpuOrthoCameraComp *pGpuCameraComp = pCamera->get<GpuOrthoCameraComp>();
-
-        pCameraComp->position += pCameraComp->direction * deltaCamera * strafe;
-        pCameraComp->position += float3::cross(pCameraComp->direction, kWorldUp).normal() * deltaCamera * forward;
-        pCameraComp->position += kWorldUp * deltaCamera * moveUD;
-
-        pCameraComp->yaw += lookLR * pCameraComp->sensitivity;
-        pCameraComp->pitch += lookUD * pCameraComp->sensitivity;
-
-        if (pCameraComp->pitch > 89.f) {
-            pCameraComp->pitch = 89.f;
-        } else if (pCameraComp->pitch < -89.f) {
-            pCameraComp->pitch = -89.f;
-        }
-
-        float3 direction;
-        direction.x = cosf(pCameraComp->yaw * math::kDegToRad<float>) * cosf(pCameraComp->pitch * math::kDegToRad<float>);
-        direction.y = sinf(pCameraComp->yaw * math::kDegToRad<float>) * cosf(pCameraComp->pitch * math::kDegToRad<float>);
-        direction.z = sinf(pCameraComp->pitch * math::kDegToRad<float>);
-        pCameraComp->direction = direction.normal();
 
         batch.add([pGpuCameraComp, pCameraComp](game_render::ScenePass *pScene, Context *pContext) {
             auto *pCommands = pContext->getDirectCommands();
@@ -426,15 +542,15 @@ static void runSystems(game::World& world, SM_UNUSED float delta) {
 
             float aspect = float(width) / float(height);
 
-            float4x4 view = float4x4::lookAtRH(pCameraComp->position, 0.f, kWorldUp);
-            float4x4 proj = float4x4::ortho(0.f, 20.f * aspect, 0.f, 20.f, 0.1f, 100.f);
+            float4x4 view = float4x4::lookToRH(pCameraComp->position, pCameraComp->direction, kWorldUp);
+            float4x4 proj = float4x4::orthographicRH(24.f * aspect, 24.f, 0.1f, 100.f);
 
             auto *pBuffer = pGpuCameraComp->pCameraUniform->getInner();
             auto *pHeap = pContext->getSrvHeap();
 
             game_render::Camera camera = {
-                .view = view,
-                .proj = proj
+                .view = view.transpose(),
+                .proj = proj.transpose()
             };
             pBuffer->update(&camera);
 

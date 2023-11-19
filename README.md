@@ -43,6 +43,11 @@ meson setup build --native-file data/config/meson/xxx-platform.ini
 * reorg folders to be less cumbersome
 * C++ modules might be nice to try out
 * using a pch at least would be good
+* need a custom asset packaging pipeline, meson is getting limiting
+    * keep it simple
+    * ideally we could generate ninja files as well
+
+* resizing the window causes d3d12 errors
 
 ## random bits
 
