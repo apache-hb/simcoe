@@ -31,30 +31,35 @@ namespace game {
     template<typename T>
     struct WorldStorage {
         struct Iterator {
-            Iterator(StorageIter iter, FilterFn filter) 
-                : iter(iter) 
-                , filter(filter)
+            Iterator(StorageIter inIter, FilterFn inFilter) 
+                : iter(inIter) 
+                , filter(inFilter)
             { 
-                LOG_INFO("creating iterator");
                 while (iter && !filter(*iter)) {
                     ++iter;
                 }
+
+                SM_ASSERTF(!iter || filter(*iter), "iterator tried to return invalid object in constructor");
             }
 
             Iterator& operator++() { 
                 // increment until filter returns true
                 do {
                     ++iter;
-                    LOG_INFO("iterating");
                 } while (iter && !filter(*iter));
-
-                LOG_INFO("done iterating");
+                
+                SM_ASSERTF(!iter || filter(*iter), "iterator tried to return invalid object");
+                
                 return *this; 
             }
 
             T *operator*() const { 
-                SM_ASSERTF(filter(*iter), "iterator tried to return invalid object");
-                return static_cast<T*>(*iter);
+                SM_ASSERTF(iter, "iterator is invalid");
+
+                auto i = *iter;
+                SM_ASSERTF(filter(i), "iterator tried to return invalid object");
+
+                return static_cast<T*>(i);
             }
 
             bool operator==(const Iterator& other) const { 
@@ -191,7 +196,7 @@ namespace game {
             auto filter = [](ObjectPtr pObject) {
                 IEntity *pEntity = static_cast<IEntity*>(pObject);
 
-                return (... && (pEntity->template get<C>() != nullptr));
+                return ((pEntity->template get<C>()) && ...);
             };
 
             return WorldStorage<IEntity>(&entities, filter);

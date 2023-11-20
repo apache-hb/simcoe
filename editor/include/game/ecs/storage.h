@@ -24,6 +24,8 @@ namespace game {
 
         ObjectPtr at(Index index) const { return objects[size_t(index)]; }
 
+        size_t getTypeId() const { return info.getId(); }
+
     private:
         TypeInfo info;
         simcoe::core::UniquePtr<ObjectPtr[]> objects;
@@ -38,6 +40,9 @@ namespace game {
 
         bool operator==(const StorageIter& other) const;
         operator bool() const { return index < pStorage->getSize(); }
+        bool valid() const { return index < pStorage->getSize(); }
+
+        size_t getIndex() const { return index; }
 
     private:
         ObjectStorage *pStorage = nullptr;

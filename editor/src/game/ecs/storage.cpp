@@ -13,7 +13,7 @@ ObjectStorage::ObjectStorage(TypeInfo info, size_t size)
 
 Index ObjectStorage::allocate() {
     Index index = alloc.alloc();
-    SM_ASSERTF(index != Index::eInvalid, "storage {} is full", info.getId());
+    SM_ASSERTF(index != Index::eInvalid, "storage {} is full", getTypeId());
     return index;
 }
 
@@ -23,13 +23,13 @@ void ObjectStorage::release(Index index) {
 }
 
 void ObjectStorage::insert(Index index, ObjectPtr pObject) {
-    SM_ASSERTF(isAllocated(index), "storage {} index {} is not allocated", info.getId(), size_t(index));
+    SM_ASSERTF(isAllocated(index), "storage {} index {} is not allocated", getTypeId(), size_t(index));
 
     objects[size_t(index)] = pObject;
 }
 
 ObjectPtr ObjectStorage::get(Index index) const {
-    SM_ASSERTF(isAllocated(index), "storage {} index {} is not allocated", info.getId(), size_t(index));
+    SM_ASSERTF(isAllocated(index), "storage {} index {} is not allocated", getTypeId(), size_t(index));
 
     return objects[size_t(index)];
 }
@@ -40,21 +40,27 @@ StorageIter ObjectStorage::end() { return StorageIter(this, alloc.getTotalBits()
 StorageIter::StorageIter(ObjectStorage *pStorage, size_t index)
     : pStorage(pStorage)
     , index(index)
-{ }
+{ 
+    while (*this && !pStorage->isAllocated(Index(index))) {
+        ++index;
+    }
+}
 
 StorageIter& StorageIter::operator++() {
     do {
         ++index;
-    } while (index < pStorage->getSize() && !pStorage->isAllocated(Index(index)));
+    } while (*this && !pStorage->isAllocated(Index(index)));
 
     return *this;
 }
 
 ObjectPtr StorageIter::operator*() const { 
+    SM_ASSERTF(pStorage->isAllocated(Index(index)), "storage {} index {} is not allocated", pStorage->getTypeId(), size_t(index));
+
     return pStorage->at(Index(index)); 
 }
 
 bool StorageIter::operator==(const StorageIter& other) const { 
-    SM_ASSERTF(pStorage == other.pStorage, "comparing iterators from different storages {} and {}", (void*)pStorage, (void*)other.pStorage);
+    SM_ASSERTF(pStorage == other.pStorage, "comparing iterators from different storages {} and {}", pStorage->getTypeId(), other.pStorage->getTypeId());
     return index == other.index; 
 }
