@@ -18,8 +18,9 @@ Index ObjectStorage::allocate() {
 }
 
 void ObjectStorage::release(Index index) {
+    SM_ASSERTF(isAllocated(index), "storage {} index {} is not allocated", getTypeId(), size_t(index));
+    
     alloc.release(index);
-    delete objects[size_t(index)];
 }
 
 void ObjectStorage::insert(Index index, ObjectPtr pObject) {

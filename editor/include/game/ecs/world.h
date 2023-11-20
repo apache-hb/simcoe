@@ -21,7 +21,10 @@ namespace game {
     using ObjectStorageMap = TypeInfoMap<ObjectStorage>;
 
     using EventFn = std::function<void(ObjectPtr)>;
+    using AttachEventFn = std::function<void(EntityPtr, ComponentPtr)>;
+
     using EventMap = std::unordered_multimap<TypeInfo, EventFn>;
+    using AttachEventMap = std::unordered_multimap<TypeInfo, AttachEventFn>;
 
     template<typename T>
     struct EntityBuilder;
@@ -113,7 +116,7 @@ namespace game {
         template<typename T, typename... A>
             requires std::derived_from<T, IComponent>
                   && std::constructible_from<T, ComponentData, A...>
-        T *component(IEntity *pEntity, A&&... args) {
+        T *component(A&&... args) {
             TypeInfo info = makeTypeInfo<T>(this);
 
             std::string name = "component";
@@ -122,14 +125,12 @@ namespace game {
             }
 
             ObjectData data = allocObject(info, name);
-            ComponentData componentData = { data, pEntity };
+            ComponentData componentData = { data };
             T *pComponent = new T(componentData, std::forward<A>(args)...);
             insertObject(pComponent);
 
             pComponent->onCreate();
             notifyCreate(pComponent);
-
-            pEntity->addComponent(pComponent);
 
             return pComponent;
         }
@@ -151,6 +152,18 @@ namespace game {
             }
 
             return nullptr;
+        }
+
+        void destroy(EntityPtr pEntity) {
+            auto info = pEntity->getTypeInfo();
+
+            notifyDestroy(pEntity);
+
+            entities.release(pEntity->getEntityId());
+            objects.at(info).release(pEntity->getInstanceId());
+
+            notifyDestroy(pEntity);
+            delete pEntity;
         }
 
         // events
@@ -175,6 +188,17 @@ namespace game {
 
             TypeInfo info = makeTypeInfo<T>(this);
             onDestroyEvents.emplace(info, fn);
+        }
+
+        template<typename T, typename F>
+        void onAttach(F&& func) {
+            AttachEventFn fn = [func](EntityPtr pEntity, ComponentPtr pComponent) {
+                T *pOuter = static_cast<T*>(pComponent);
+                func(pEntity, pOuter);
+            };
+
+            TypeInfo info = makeTypeInfo<T>(this);
+            onAttachEvents.emplace(info, fn);
         }
 
         // iteration
@@ -208,6 +232,16 @@ namespace game {
             auto expectedType = makeTypeInfo<T>();
 
             each(expectedType, std::forward<F>(func));
+        }
+
+        void notifyAttach(EntityPtr pEntity, ComponentPtr pComponent) {
+            auto info = pComponent->getTypeInfo();
+
+            auto [front, back] = onAttachEvents.equal_range(info);
+            for (auto it = front; it != back; ++it) {
+                auto& fn = it->second;
+                fn(pEntity, pComponent);
+            }
         }
 
     private:
@@ -274,6 +308,8 @@ namespace game {
 
         EventMap onCreateEvents;
         EventMap onDestroyEvents;
+
+        AttachEventMap onAttachEvents;
     };
 
     template<typename T>
@@ -287,7 +323,13 @@ namespace game {
                   && std::constructible_from<C, ComponentData, A...>
         EntityBuilder<T>& add(A&&... args) {
             World *pWorld = pEntity->getWorld();
-            pWorld->component<C>(pEntity, std::forward<A>(args)...);
+            C *pComp = pWorld->component<C>(std::forward<A>(args)...);
+            pEntity->addComponent(pComp);
+            return *this;
+        }
+
+        EntityBuilder<T>& add(ComponentPtr pComponent) {
+            pEntity->addComponent(pComponent);
             return *this;
         }
 

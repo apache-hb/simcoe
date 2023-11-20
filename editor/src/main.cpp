@@ -210,11 +210,13 @@ static GameWindow gWindowCallbacks;
 struct PlayerEntity : public IEntity { using IEntity::IEntity; };
 struct AlienShipEntity : public IEntity { using IEntity::IEntity; };
 struct CameraEntity : public IEntity { using IEntity::IEntity; };
+struct BulletEntity : public IEntity { using IEntity::IEntity; };
 
 constexpr float2 kTileSize = { 1.4f, 1.2f };
 
 struct AlienShipBehaviour : public IComponent {
     using IComponent::IComponent;
+    static constexpr const char *kTypeName = "mothership_behaviour";
 
     /**
      * @param shipSpeed speed of the alien ship in tiles per second
@@ -241,6 +243,73 @@ struct AlienShipBehaviour : public IComponent {
 
     float spawnDelay;
     float lastSpawn;
+};
+
+struct PlayerInputComp : public IComponent {
+    using IComponent::IComponent;
+    static constexpr const char *kTypeName = "player_input";
+
+    PlayerInputComp(ComponentData data)
+        : IComponent(data)
+    { }
+
+    bool isShootPressed() const { return gInputClient.isShootPressed(); }
+    bool isQuitPressed() const { return gInputClient.isQuitPressed(); }
+
+    bool consumeMoveUp() { return gInputClient.consumeMoveUp(); }
+    bool consumeMoveDown() { return gInputClient.consumeMoveDown(); }
+    bool consumeMoveLeft() { return gInputClient.consumeMoveLeft(); }
+    bool consumeMoveRight() { return gInputClient.consumeMoveRight(); }
+};
+
+struct ShootComp : public IComponent {
+    using IComponent::IComponent;
+    static constexpr const char *kTypeName = "shooting";
+
+    ShootComp(ComponentData data, float delay, float bulletSpeed = 5.f)
+        : IComponent(data)
+        , shootDelay(delay)
+        , bulletSpeed(bulletSpeed)
+    { }
+
+    void onDebugDraw() override {
+        ImGui::SliderFloat("shoot delay", &shootDelay, 0.f, 1.f, "%.2f");
+        ImGui::SliderFloat("bullet speed", &bulletSpeed, 0.f, 10.f, "%.2f");
+        ImGui::ProgressBar(lastShot / shootDelay, ImVec2(0.f, 0.f), "Until next shot");
+    }
+
+    float shootDelay = 0.3f;
+    float lastShot = 0.f;
+
+    float bulletSpeed = 5.f;
+};
+
+struct HealthComp : public IComponent {
+    using IComponent::IComponent;
+    static constexpr const char *kTypeName = "health";
+
+    HealthComp(ComponentData data, int current, int total)
+        : IComponent(data)
+        , currentHealth(current)
+        , maxHealth(total)
+    { }
+
+    int currentHealth;
+    int maxHealth;
+};
+
+struct ProjectileComp : public IComponent {
+    using IComponent::IComponent;
+    static constexpr const char *kTypeName = "projectile";
+
+    ProjectileComp(ComponentData data, float2 speed, TypeInfo parent)
+        : IComponent(data)
+        , speed(speed)
+        , parent(parent)
+    { }
+
+    float2 speed;
+    TypeInfo parent;
 };
 
 struct IAssetComp : public IComponent {
@@ -417,68 +486,97 @@ static PlayerEntity *gPlayer = nullptr;
 static AlienShipEntity *gAlien = nullptr;
 static CameraEntity *gCamera = nullptr;
 
+static MeshComp *gGridMesh = nullptr;
+static MeshComp *gAlienMesh = nullptr;
+static MeshComp *gBulletMesh = nullptr;
+static MeshComp *gPlayerMesh = nullptr;
+
+static TextureComp *gGridTexture = nullptr;
+static TextureComp *gAlienTexture = nullptr;
+static TextureComp *gBulletTexture = nullptr;
+static TextureComp *gPlayerTexture = nullptr;
+
 static void initEntities(game::World& world) {
     world.onCreate<TransformComp>([](TransformComp *pTransform) {
-        IEntity *pEntity = pTransform->getEntity();
-        World *pWorld = pEntity->getWorld();
+        World *pWorld = pTransform->getWorld();
 
-        pWorld->component<GpuTransformComp>(pEntity, pTransform);
+        auto *pGpu = pWorld->component<GpuTransformComp>(pTransform);
+
+        pTransform->associate(pGpu);
     });
 
     world.onCreate<OrthoCameraComp>([](OrthoCameraComp *pCamera) {
-        IEntity *pEntity = pCamera->getEntity();
-        World *pWorld = pEntity->getWorld();
+        World *pWorld = pCamera->getWorld();
 
-        pWorld->component<GpuOrthoCameraComp>(pEntity, pCamera);
+        auto *pGpu = pWorld->component<GpuOrthoCameraComp>(pCamera);
+        pCamera->associate(pGpu);
     });
 
+    gGridMesh = world.component<MeshComp>("grid.model");
+    gAlienMesh = world.component<MeshComp>("alien.model");
+    gBulletMesh = world.component<MeshComp>("bullet.model");
+    gPlayerMesh = world.component<MeshComp>("ship.model");
+
+    gGridTexture = world.component<TextureComp>("cross.png");
+    gAlienTexture = world.component<TextureComp>("alien.png");
+    gBulletTexture = world.component<TextureComp>("player.png");
+    gPlayerTexture = world.component<TextureComp>("player.png");
+
     gPlayer = world.entity<PlayerEntity>("player")
-        .add<MeshComp>("ship.model")
-        .add<TextureComp>("player.png")
-        .add<TransformComp>(float3(0.f, 0.f, 20.4f), float3(-90.f, 0.f, 90.f).radians(), 0.7f);
+        .add<PlayerInputComp>()
+        .add<ShootComp>(0.3f)
+        .add<HealthComp>(3, 5)
+        .add(gPlayerMesh).add(gPlayerTexture)
+        .add<TransformComp>(float3(0.f, 0.f, 20.4f), float3(-90.f, 0.f, 90.f).radians(), 0.5f);
 
     gAlien = world.entity<AlienShipEntity>("alien")
         .add<AlienShipBehaviour>(0.7f, 1.f, 1.5f)
-        .add<MeshComp>("alien.model")
-        .add<TextureComp>("alien.png")
-        .add<TransformComp>(0.f, float3(-90.f, 90.f, 0.f).radians(), 0.7f);
+        .add(gAlienMesh).add(gAlienTexture)
+        .add<TransformComp>(float3(0.f, 0.f, 21.6f), float3(-90.f, 90.f, 0.f).radians(), 0.6f);
 
-    // camera looks down on the world
     gCamera = world.entity<CameraEntity>("camera")
         .add<OrthoCameraComp>(float3(14.f, -10.f, 10.6f), (kWorldForward * 90.f).radians());
 
     world.entity<IEntity>("grid")
-        .add<MeshComp>("grid.model")
-        .add<TextureComp>("cross.png")
+        .add(gGridMesh).add(gGridTexture)
         // scale is non-uniform to emulate original the vic20 display being non-square
         .add<TransformComp>(float3(0.f, 1.f, 0.f), float3(-90.f, 90.f, 0.f).radians(), float3(0.7f, 0.6f, 0.7f)); 
 }
 
 constexpr float2 kWorldBounds = float2(30.f, 21.f);
 
-static void runSystems(game::World& world, SM_UNUSED float delta) {
+// use special bounds for the bullet to account for the edges
+static bool isBulletInBounds(float2 pos) {
+    return pos.x >= -0.5f && pos.x <= kWorldBounds.x
+        && pos.y >= -0.5f && pos.y <= kWorldBounds.y + 1.f;
+}
+
+static void runSystems(game::World& world, float delta) {
     auto& workQueue = GameService::getWorkQueue();
     for (size_t i = 0; i < 16 && workQueue.tryGetMessage(); i++) { }
 
-    mt::ReadLock lock(GameService::getWorldMutex());
+    mt::WriteLock lock(GameService::getWorldMutex());
     // LOG_INFO("=== update ===");
 
-    if (PlayerEntity *pPlayer = world.get<PlayerEntity>(gPlayer->getInstanceId())) {
-        TransformComp *pTransform = pPlayer->get<TransformComp>();
+    // do movement and shooting input
+    for (IEntity *pEntity : world.allWith<PlayerInputComp, ShootComp, TransformComp>()) {
+        PlayerInputComp *pInput = pEntity->get<PlayerInputComp>();
+        TransformComp *pTransform = pEntity->get<TransformComp>();
+        ShootComp *pShoot = pEntity->get<ShootComp>();
 
         float3& pos = pTransform->position;
 
         float mv = 0.f, mh = 0.f;
 
-        if (gInputClient.consumeMoveDown()) {
+        if (pInput->consumeMoveDown()) {
             mv = -kTileSize.y;
-        } else if (gInputClient.consumeMoveUp()) {
+        } else if (pInput->consumeMoveUp()) {
             mv = kTileSize.y;
         }
 
-        if (gInputClient.consumeMoveLeft()) {
+        if (pInput->consumeMoveLeft()) {
             mh = -kTileSize.x;
-        } else if (gInputClient.consumeMoveRight()) {
+        } else if (pInput->consumeMoveRight()) {
             mh = kTileSize.x;
         }
 
@@ -497,10 +595,50 @@ static void runSystems(game::World& world, SM_UNUSED float delta) {
 
         float angle = std::atan2(mv, mh);
 
-        if (mv != 0.f || mh != 0.f)
+        if (mv != 0.f || mh != 0.f) {
             pTransform->rotation.x = -angle; // = float3(0.f, -angle, 0.f);
+        }
+
+        pShoot->lastShot += delta;
+
+        if (pInput->isShootPressed()) {
+            if (pShoot->lastShot > pShoot->shootDelay) {
+                pShoot->lastShot = 0.f;
+
+                float playerAngle = -pTransform->rotation.x;
+
+                workQueue.add("bullet", [playerAngle, pTransform, pEntity, speed = pShoot->bulletSpeed] {
+                    float2 direction = float2(std::cos(playerAngle), std::sin(playerAngle));
+
+                    World *pWorld = pEntity->getWorld();
+
+                    pWorld->entity<BulletEntity>("bullet")
+                        .add(gBulletMesh).add(gBulletTexture)
+                        .add<TransformComp>(pTransform->position, pTransform->rotation, 0.2f)
+                        .add<ProjectileComp>(direction * speed, pEntity->getTypeInfo());
+                });
+            }
+        }
     }
 
+    // do bullet movement
+    for (IEntity *pEntity : world.allWith<ProjectileComp, TransformComp>()) {
+        ProjectileComp *pProjectile = pEntity->get<ProjectileComp>();
+        TransformComp *pTransform = pEntity->get<TransformComp>();
+
+        pTransform->position.x += pProjectile->speed.x * delta;
+        pTransform->position.z += pProjectile->speed.y * delta;
+
+        if (!isBulletInBounds(pTransform->position.xz())) {
+            workQueue.add("delete", [pEntity] { 
+                World *pWorld = pEntity->getWorld();
+                pWorld->destroy(pEntity);
+            });
+        }
+    }
+
+
+    // move the mothership
     for (IEntity *pEntity : world.allWith<AlienShipBehaviour, TransformComp>()) {
         AlienShipBehaviour *pBehaviour = pEntity->get<AlienShipBehaviour>();
         TransformComp *pTransform = pEntity->get<TransformComp>();
@@ -509,6 +647,7 @@ static void runSystems(game::World& world, SM_UNUSED float delta) {
         pBehaviour->lastSpawn += delta;
 
         if (pBehaviour->lastMove >= pBehaviour->moveDelay) {
+            pBehaviour->lastMove = 0.f;
             pTransform->position.x += kTileSize.x;
         }
 
@@ -517,21 +656,13 @@ static void runSystems(game::World& world, SM_UNUSED float delta) {
         }
     }
 
-    // if (PlayerEntity *pPlayer = world.get<PlayerEntity>(gPlayer->getInstanceId())) {
-    //     LOG_INFO("player: {} (delta {})", pPlayer->getName(), delta);
-    // }
-
-    // if (AlienEntity *pAlien = world.get<AlienEntity>(gAlien->getInstanceId())) {
-    //     LOG_INFO("alien: {} (delta {})", pAlien->getName(), delta);
-    // }
-
     // LOG_INFO("=== render ===");
     
     game_render::CommandBatch batch;
 
     if (CameraEntity *pCamera = world.get<CameraEntity>(gCamera->getInstanceId())) {
         OrthoCameraComp *pCameraComp = pCamera->get<OrthoCameraComp>();
-        GpuOrthoCameraComp *pGpuCameraComp = pCamera->get<GpuOrthoCameraComp>();
+        GpuOrthoCameraComp *pGpuCameraComp = pCameraComp->associated<GpuOrthoCameraComp>();
 
         batch.add([pGpuCameraComp, pCameraComp](game_render::ScenePass *pScene, Context *pContext) {
             auto *pCommands = pContext->getDirectCommands();
@@ -558,24 +689,24 @@ static void runSystems(game::World& world, SM_UNUSED float delta) {
         });
     }
 
-    for (IEntity *pEntity : world.allWith<GpuTransformComp, MeshComp>()) {
-        GpuTransformComp *pTransformComp = pEntity->get<GpuTransformComp>();
+    for (IEntity *pEntity : world.allWith<TransformComp, MeshComp>()) {
+        TransformComp *pTransformComp = pEntity->get<TransformComp>();
         MeshComp *pMeshComp = pEntity->get<MeshComp>();
         TextureComp *pTextureComp = pEntity->get<TextureComp>();
 
         batch.add([pMeshComp, pTransformComp, pTextureComp](game_render::ScenePass *pScene, Context *pContext) {
-            TransformComp *pTransform = pTransformComp->pTransform;
+            GpuTransformComp *pGpuTransformComp = pTransformComp->associated<GpuTransformComp>();
             auto *pCommands = pContext->getDirectCommands();
             auto *pMesh = pMeshComp->pMesh;
             pCommands->setVertexBuffer(pMesh->getVertexBuffer());
             pCommands->setIndexBuffer(pMesh->getIndexBuffer());
 
-            auto *pBuffer = pTransformComp->pModel->getInner();
+            auto *pBuffer = pGpuTransformComp->pModel->getInner();
             auto *pTexture = pTextureComp->pTexture->getInner();
             auto *pHeap = pContext->getSrvHeap();
 
             game_render::Model model = {
-                .model = float4x4::transform(pTransform->position, pTransform->rotation, pTransform->scale)
+                .model = float4x4::transform(pTransformComp->position, pTransformComp->rotation, pTransformComp->scale)
             };
             pBuffer->update(&model);
 

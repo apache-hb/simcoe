@@ -34,7 +34,7 @@ namespace game {
     // components
 
     struct ComponentData : ObjectData {
-        EntityPtr pEntity;
+        
     };
 
     struct IComponent : IObject {
@@ -42,15 +42,25 @@ namespace game {
 
         IComponent(ComponentData info) 
             : IObject(info)
-            , pEntity(info.pEntity) 
         { }
-
-        EntityPtr getEntity() const { return pEntity; }
 
         virtual void onCreate() { }
 
+        void associate(IComponent *pComponent) {
+            pAssociated = pComponent;
+        }
+
+        template<typename C>
+        C *associated() const {
+            auto expectedType = makeTypeInfo<C>(getWorld());
+            auto realType = pAssociated->getTypeInfo();
+            SM_ASSERTF(realType == expectedType, "component type mismatch");
+
+            return static_cast<C*>(pAssociated);
+        }
+
     private:
-        EntityPtr pEntity;
+        IComponent *pAssociated = nullptr;
     };
 
     // entities
@@ -89,6 +99,8 @@ namespace game {
         }
 
         const ComponentMap& getComponents() const { return components; }
+
+        Index getEntityId() const { return entityId; }
 
     private:
         Index entityId;
