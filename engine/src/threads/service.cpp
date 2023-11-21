@@ -474,9 +474,10 @@ threads::ThreadHandle *ThreadService::newWorkerThread() {
 }
 
 threads::ThreadHandle *ThreadService::newThreadInner(threads::ThreadType type, std::string name, threads::ThreadStart&& start) {
+    ScheduleMask mask = {};
     auto *pHandle = new threads::ThreadHandle({
         .type = type,
-        .mask = ScheduleMask({ }),
+        .mask = mask,
         .name = name,
         .start = std::move(start)
     });

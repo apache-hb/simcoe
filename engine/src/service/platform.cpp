@@ -326,7 +326,7 @@ void Window::showWindow() {
 // callbacks
 
 void Window::doResize(int width, int height) {
-    pCallbacks->onResize(WindowSize::from(width, height));
+    pCallbacks->onResize({ width, height });
 }
 
 void Window::doSizeChange(WPARAM wParam, int width, int height) {
@@ -371,7 +371,7 @@ HWND Window::getHandle() const {
 WindowSize Window::getSize() const {
     RECT rect;
     GetClientRect(hWindow, &rect);
-    return WindowSize::from(rect.right - rect.left, rect.bottom - rect.top);
+    return { rect.right - rect.left, rect.bottom - rect.top };
 }
 
 RECT Window::getWindowCoords() const {

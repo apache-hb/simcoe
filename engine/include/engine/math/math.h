@@ -1,20 +1,12 @@
 #pragma once
 
 #include <cmath>
-#include <numbers>
+
+#include "engine/math/consts.h"
 
 #include "engine/core/panic.h"
 
 namespace simcoe::math {
-    template<typename T>
-    constexpr T kPi = std::numbers::pi_v<T>;
-
-    template<typename T>
-    constexpr T kRadToDeg = T(180) / kPi<T>;
-
-    template<typename T>
-    constexpr T kDegToRad = kPi<T> / T(180);
-
     template<typename T>
     T clamp(T it, T low, T high) {
         if (it < low)
@@ -26,23 +18,6 @@ namespace simcoe::math {
         return it;
     }
 
-    template<typename T>
-    T wrapAngle(T it) {
-        if (it > std::numbers::pi_v<T>)
-            return it - std::numbers::pi_v<T> * T(2);
-
-        if (it < -std::numbers::pi_v<T>)
-            return it + std::numbers::pi_v<T> * T(2);
-
-        return it;
-    }
-
-    template<typename T>
-    T angleDelta(T lhs, T rhs) {
-        auto delta = lhs - rhs;
-        return wrapAngle(delta);
-    }
-
     /**
      * vector types are organized like so
      *
@@ -50,7 +25,6 @@ namespace simcoe::math {
      *    fields...
      *
      *    constructors
-     *    static `from` constructors
      *    comparison operators
      *    arithmetic operators
      *    in place arithmetic operators
@@ -59,14 +33,9 @@ namespace simcoe::math {
      * }
      */
 
-    template<typename T>
-    struct Vec2;
-
-    template<typename T>
-    struct Vec3;
-
-    template<typename T>
-    struct Vec4;
+    template<typename T> struct Vec2;
+    template<typename T> struct Vec3;
+    template<typename T> struct Vec4;
 
     template<typename T>
     struct Vec2 {
@@ -81,21 +50,18 @@ namespace simcoe::math {
         constexpr Vec2() : Vec2(T(0)) { }
         constexpr Vec2(T x, T y) : x(x), y(y) { }
         constexpr Vec2(T it) : Vec2(it, it) { }
+        constexpr Vec2(const T *pData) : Vec2(pData[0], pData[1]) { }
 
-        constexpr static Vec2 from(T x, T y) { return { x, y }; }
-        constexpr static Vec2 from(T it) { return from(it, it); }
-        constexpr static Vec2 from(const T *pData) { return from(pData[0], pData[1]); }
-
-        constexpr static Vec2 zero() { return from(T(0)); }
-        constexpr static Vec2 unit() { return from(T(1)); }
+        constexpr static Vec2 zero() { return Vec2(T(0)); }
+        constexpr static Vec2 unit() { return Vec2(T(1)); }
 
         constexpr bool operator==(const Vec2& other) const { return x == other.x && y == other.y; }
         constexpr bool operator!=(const Vec2& other) const { return x != other.x || y != other.y; }
 
-        constexpr Vec2 operator+(const Vec2& other) const { return from(x + other.x, y + other.y); }
-        constexpr Vec2 operator-(const Vec2 &other) const { return from(x - other.x, y - other.y); }
-        constexpr Vec2 operator*(const Vec2& other) const { return from(x * other.x, y * other.y); }
-        constexpr Vec2 operator/(const Vec2& other) const { return from(x / other.x, y / other.y); }
+        constexpr Vec2 operator+(const Vec2& other) const { return Vec2(x + other.x, y + other.y); }
+        constexpr Vec2 operator-(const Vec2 &other) const { return Vec2(x - other.x, y - other.y); }
+        constexpr Vec2 operator*(const Vec2& other) const { return Vec2(x * other.x, y * other.y); }
+        constexpr Vec2 operator/(const Vec2& other) const { return Vec2(x / other.x, y / other.y); }
 
         constexpr Vec2 operator+=(const Vec2& other) { return *this = *this + other; }
         constexpr Vec2 operator-=(const Vec2& other) { return *this = *this - other; }
@@ -103,40 +69,40 @@ namespace simcoe::math {
         constexpr Vec2 operator/=(const Vec2& other) { return *this = *this / other; }
 
         template<typename O>
-        constexpr Vec2<O> as() const { return Vec2<O>::from(O(x), O(y)); }
+        constexpr Vec2<O> as() const { return Vec2<O>(O(x), O(y)); }
 
         bool isinf() const { return std::isinf(x) || std::isinf(y); }
 
         constexpr bool isUniform() const { return x == y; }
 
-        constexpr Vec2 negate() const { return from(-x, -y); }
+        constexpr Vec2 negate() const { return Vec2(-x, -y); }
         constexpr T length() const { return std::sqrt(x * x + y * y); }
 
         constexpr Vec2 normal() const {
             auto len = length();
-            return from(x / len, y / len);
+            return Vec2(x / len, y / len);
         }
 
         template<typename O>
-        constexpr Vec2<O> floor() const { return Vec2<O>::from(O(std::floor(x)), O(std::floor(y))); }
+        constexpr Vec2<O> floor() const { return Vec2<O>(O(std::floor(x)), O(std::floor(y))); }
 
         template<typename O>
-        constexpr Vec2<O> ceil() const { return Vec2<O>::from(O(std::ceil(x)), O(std::ceil(y))); }
+        constexpr Vec2<O> ceil() const { return Vec2<O>(O(std::ceil(x)), O(std::ceil(y))); }
 
         constexpr Vec2 clamp(const Vec2 &low, const Vec2 &high) const {
-            return clamp(*this, low, high);
+            return clamp<Vec2>(*this, low, high);
         }
 
         constexpr Vec2 clamp(T low, T high) const {
-            return clamp(*this, low, high);
+            return clamp<Vec2>(*this, low, high);
         }
 
         static constexpr Vec2 clamp(const Vec2 &it, const Vec2 &low, const Vec2 &high) {
-            return from(math::clamp(it.x, low.x, high.x), math::clamp(it.y, low.y, high.y));
+            return { clamp<Vec2>(it.x, low.x, high.x), clamp<Vec2>(it.y, low.y, high.y) };
         }
 
         static constexpr Vec2 clamp(const Vec2 &it, T low, T high) {
-            return clamp(it, from(low), from(high));
+            return clamp<Vec2>(it, low, high);
         }
 
         constexpr T *data() { return fields; }
@@ -157,32 +123,30 @@ namespace simcoe::math {
     struct Vec3 {
         using Type = T;
 
-        T x;
-        T y;
-        T z;
+        union {
+            T fields[3];
+            struct { T x; T y; T z; };
+            struct { T r; T g; T b; };
+            struct { T roll; T pitch; T yaw; };
+        };
 
         constexpr Vec3() : Vec3(T(0)) { }
         constexpr Vec3(T x, T y, T z) : x(x), y(y), z(z) { }
         constexpr Vec3(T it) : Vec3(it, it, it){ }
         constexpr Vec3(const Vec2<T>& xy, T z) : Vec3(xy.x, xy.y, z) { }
         constexpr Vec3(T x, const Vec2<T>& yz) : Vec3(x, yz.x, yz.y) { }
+        constexpr Vec3(const T *pData) : Vec3(pData[0], pData[1], pData[2]) { }
 
-        static constexpr Vec3 from(T x, T y, T z) { return { x, y, z }; }
-        static constexpr Vec3 from(T it) { return from(it, it, it); }
-        static constexpr Vec3 from(T x, Vec2<T> yz) { return from(x, yz.x, yz.y); }
-        static constexpr Vec3 from(Vec2<T> xy, T z) { return from(xy.x, xy.y, z); }
-        static constexpr Vec3 from(const T *pData) { return from(pData[0], pData[1], pData[2]); }
-
-        static constexpr Vec3 zero() { return from(T(0)); }
-        static constexpr Vec3 unit() { return from(T(1)); }
+        static constexpr Vec3 zero() { return Vec3(T(0)); }
+        static constexpr Vec3 unit() { return Vec3(T(1)); }
 
         constexpr bool operator==(const Vec3& other) const { return x == other.x && y == other.y && z == other.z; }
         constexpr bool operator!=(const Vec3& it) const { return x != it.x || y != it.y || z != it.z; }
 
-        constexpr Vec3 operator+(const Vec3& it) const { return from(x + it.x, y + it.y, z + it.z); }
-        constexpr Vec3 operator-(const Vec3& it) const { return from(x - it.x, y - it.y, z - it.z); }
-        constexpr Vec3 operator*(const Vec3& it) const { return from(x * it.x, y * it.y, z * it.z); }
-        constexpr Vec3 operator/(const Vec3& it) const { return from(x / it.x, y / it.y, z / it.z); }
+        constexpr Vec3 operator+(const Vec3& it) const { return Vec3(x + it.x, y + it.y, z + it.z); }
+        constexpr Vec3 operator-(const Vec3& it) const { return Vec3(x - it.x, y - it.y, z - it.z); }
+        constexpr Vec3 operator*(const Vec3& it) const { return Vec3(x * it.x, y * it.y, z * it.z); }
+        constexpr Vec3 operator/(const Vec3& it) const { return Vec3(x / it.x, y / it.y, z / it.z); }
 
         constexpr Vec3 operator+=(const Vec3& it) { return *this = *this + it; }
         constexpr Vec3 operator-=(const Vec3& it) { return *this = *this - it; }
@@ -193,30 +157,30 @@ namespace simcoe::math {
         constexpr Vec3 operator+() const { return abs(); }
 
         template<typename O>
-        constexpr Vec3<O> as() const { return Vec3<O>::from(O(x), O(y), O(z)); }
+        constexpr Vec3<O> as() const { return Vec3<O>(O(x), O(y), O(z)); }
 
-        constexpr Vec2<T> xy() const { return Vec2<T>::from(x, y); }
-        constexpr Vec2<T> xz() const { return Vec2<T>::from(x, z); }
-        constexpr Vec2<T> yz() const { return Vec2<T>::from(y, z); }
+        constexpr Vec2<T> xy() const { return Vec2<T>(x, y); }
+        constexpr Vec2<T> xz() const { return Vec2<T>(x, z); }
+        constexpr Vec2<T> yz() const { return Vec2<T>(y, z); }
 
         bool isinf() const { return std::isinf(x) || std::isinf(y) || std::isinf(z); }
 
         constexpr bool isUniform() const { return x == y && y == z; }
 
-        constexpr Vec3 radians() const { return from(x * kDegToRad<T>, y * kDegToRad<T>, z * kDegToRad<T>); }
-        constexpr Vec3 degrees() const { return from(x * kRadToDeg<T>, y * kRadToDeg<T>, z * kRadToDeg<T>); }
+        constexpr Vec3 radians() const { return Vec3(x * kDegToRad<T>, y * kDegToRad<T>, z * kDegToRad<T>); }
+        constexpr Vec3 degrees() const { return Vec3(x * kRadToDeg<T>, y * kRadToDeg<T>, z * kRadToDeg<T>); }
 
-        constexpr Vec3 negate() const { return from(-x, -y, -z); }
-        constexpr Vec3 abs() const { return from(std::abs(x), std::abs(y), std::abs(z)); }
+        constexpr Vec3 negate() const { return Vec3(-x, -y, -z); }
+        constexpr Vec3 abs() const { return Vec3(std::abs(x), std::abs(y), std::abs(z)); }
         constexpr T length() const { return std::sqrt(x * x + y * y + z * z); }
 
         constexpr Vec3 normal() const {
             auto len = length();
-            return from(x / len, y / len, z / len);
+            return Vec3(x / len, y / len, z / len);
         }
 
         static constexpr Vec3 cross(const Vec3& lhs, const Vec3& rhs) {
-            return from(
+            return Vec3(
                 lhs.y * rhs.z - lhs.z * rhs.y,
                 lhs.z * rhs.x - lhs.x * rhs.z,
                 lhs.x * rhs.y - lhs.y * rhs.x
@@ -248,11 +212,11 @@ namespace simcoe::math {
             auto y3 = y1 * cosX - z2 * sinX;
             auto z3 = y1 * sinX + z2 * cosX;
 
-            return from(x2, y3, z3) + origin;
+            return Vec3(x2, y3, z3) + origin;
         }
 
-        constexpr T *data() { return &x; } // TODO: this is UB
-        constexpr const T *data() const { return &x; }
+        constexpr T *data() { return fields; }
+        constexpr const T *data() const { return fields; }
 
         template<size_t I>
         constexpr decltype(auto) get() const noexcept {
@@ -261,40 +225,34 @@ namespace simcoe::math {
             else if constexpr (I == 2) return z;
             else static_assert(I < 3, "index out of bounds");
         }
-
-    private:
-        static constexpr T Vec3::*components[] { &Vec3::x, &Vec3::y, &Vec3::z };
     };
 
     template<typename T>
     struct Vec4 {
         using Type = T;
 
-        T x;
-        T y;
-        T z;
-        T w;
+        union {
+            T fields[4];
+            struct { T x; T y; T z; T w; };
+            struct { T r; T g; T b; T a; };
+        };
 
         constexpr Vec4() : Vec4(T(0)) { }
         constexpr Vec4(T x, T y, T z, T w) : x(x), y(y), z(z), w(w) { }
         constexpr Vec4(T it) : Vec4(it, it, it, it) { }
+        constexpr Vec4(Vec3<T> xyz, T w) : Vec4(xyz.x, xyz.y, xyz.z, w) { }
+        constexpr Vec4(const T *pData) : Vec4(pData[0], pData[1], pData[2], pData[3]) { }
 
-        static constexpr Vec4 from(T x, T y, T z, T w) { return { x, y, z, w }; }
-        static constexpr Vec4 from(T it) { return from(it, it, it, it); }
-        static constexpr Vec4 from(const T *pData) { return from(pData[0], pData[1], pData[2], pData[3]); }
-
-        static constexpr Vec4 from(Vec3<T> o, T w) { return from(o.x, o.y, o.z, w); }
-
-        static constexpr Vec4 zero() { return from(T(0)); }
-        static constexpr Vec4 unit() { return from(T(1)); }
+        static constexpr Vec4 zero() { return Vec4(T(0)); }
+        static constexpr Vec4 unit() { return Vec4(T(1)); }
 
         constexpr bool operator==(const Vec4& other) const { return x == other.x && y == other.y && z == other.z && w == other.w; }
         constexpr bool operator!=(const Vec4& other) const { return x != other.x || y != other.y || z != other.z || w != other.w; }
 
-        constexpr Vec4 operator+(const Vec4& other) const { return from(x + other.x, y + other.y, z + other.z, w + other.w); }
-        constexpr Vec4 operator-(const Vec4& other) const { return from(x - other.x, y - other.y, z - other.z, w - other.w); }
-        constexpr Vec4 operator*(const Vec4& other) const { return from(x * other.x, y * other.y, z * other.z, w * other.w); }
-        constexpr Vec4 operator/(const Vec4& other) const { return from(x / other.x, y / other.y, z / other.z, w / other.w); }
+        constexpr Vec4 operator+(const Vec4& other) const { return Vec4(x + other.x, y + other.y, z + other.z, w + other.w); }
+        constexpr Vec4 operator-(const Vec4& other) const { return Vec4(x - other.x, y - other.y, z - other.z, w - other.w); }
+        constexpr Vec4 operator*(const Vec4& other) const { return Vec4(x * other.x, y * other.y, z * other.z, w * other.w); }
+        constexpr Vec4 operator/(const Vec4& other) const { return Vec4(x / other.x, y / other.y, z / other.z, w / other.w); }
 
         constexpr Vec4 operator+=(const Vec4& other) { return *this = *this + other; }
         constexpr Vec4 operator-=(const Vec4& other) { return *this = *this - other; }
@@ -302,29 +260,29 @@ namespace simcoe::math {
         constexpr Vec4 operator/=(const Vec4& other) { return *this = *this / other; }
 
         template<typename O>
-        constexpr Vec4<O> as() const { return Vec4<O>::from(O(x), O(y), O(z), O(w)); }
+        constexpr Vec4<O> as() const { return Vec4<O>(O(x), O(y), O(z), O(w)); }
 
-        constexpr Vec3<T> xyz() const { return Vec3<T>::from(x, y, z); }
+        constexpr Vec3<T> xyz() const { return Vec3<T>(x, y, z); }
 
         bool isinf() const { return std::isinf(x) || std::isinf(y) || std::isinf(z) || std::isinf(w); }
         constexpr bool isUniform() const { return x == y && y == z && z == w; }
 
         constexpr T length() const { return std::sqrt(x * x + y * y + z * z + w * w); }
-        constexpr Vec4 negate() const { return from(-x, -y, -z, -w); }
+        constexpr Vec4 negate() const { return Vec4(-x, -y, -z, -w); }
 
         constexpr Vec4 normal() const {
             auto len = length();
-            return from(x / len, y / len, z / len, w / len);
+            return Vec4(x / len, y / len, z / len, w / len);
         }
 
         constexpr const T& operator[](size_t index) const { return at(index); }
         constexpr T& operator[](size_t index) { return at(index); }
 
-        constexpr const T& at(size_t index) const { return this->*components[index];}
-        constexpr T& at(size_t index) { return this->*components[index]; }
+        constexpr const T& at(size_t index) const { return fields[index];}
+        constexpr T& at(size_t index) { return fields[index]; }
 
-        constexpr T *data() { return &x; } // TODO: this is UB
-        constexpr const T *data() const { return &x; }
+        constexpr T *data() { return fields; }
+        constexpr const T *data() const { return fields; }
 
         template<size_t I>
         constexpr decltype(auto) get() const noexcept {
@@ -334,81 +292,60 @@ namespace simcoe::math {
             else if constexpr (I == 3) return w;
             else static_assert(I < 4, "index out of bounds");
         }
-    private:
-        static constexpr T Vec4::*components[] { &Vec4::x, &Vec4::y, &Vec4::z, &Vec4::w };
     };
 
     template<typename T>
     struct Mat3x3 {
         using Type = T;
+        using RowType = Vec3<T>;
 
-        using Row = Vec3<T>;
-        Row rows[3];
+        RowType rows[3];
 
         constexpr Mat3x3() : Mat3x3(T(0)) { }
-        constexpr Mat3x3(T it) : Mat3x3(Row::from(it)) { }
-        constexpr Mat3x3(const Row& row) : Mat3x3(row, row, row) { }
-        constexpr Mat3x3(const Row& row0, const Row& row1, const Row& row2) : rows{ row0, row1, row2 } { }
-
-        static constexpr Mat3x3 from(const Row& row0, const Row& row1, const Row& row2) {
-            return { row0, row1, row2 };
-        }
-
-        static constexpr Mat3x3 from(T it) {
-            return from(Row::from(it), Row::from(it), Row::from(it));
-        }
+        constexpr Mat3x3(T it) : Mat3x3(RowType(it)) { }
+        constexpr Mat3x3(const RowType& row) : Mat3x3(row, row, row) { }
+        constexpr Mat3x3(const RowType& row0, const RowType& row1, const RowType& row2) : rows{ row0, row1, row2 } { }
 
         static constexpr Mat3x3 identity() {
-            auto row1 = Row::from(1, 0, 0);
-            auto row2 = Row::from(0, 1, 0);
-            auto row3 = Row::from(0, 0, 1);
-            return from(row1, row2, row3);
+            RowType row1 = { 1, 0, 0 };
+            RowType row2 = { 0, 1, 0 };
+            RowType row3 = { 0, 0, 1 };
+            return { row1, row2, row3 };
         }
     };
 
     template<typename T>
     struct Mat4x4 {
         using Type = T;
+        using RowType = Vec4<T>;
+        using Row3Type = Vec3<T>;
 
-        using Row = Vec4<T>;
-        using Row3 = Vec3<T>;
-        Row rows[4];
+        RowType rows[4];
 
         constexpr Mat4x4() : Mat4x4(T(0)) { }
-        constexpr Mat4x4(T it) : Mat4x4(Row::from(it)) { }
-        constexpr Mat4x4(const Row& row) : Mat4x4(row, row, row, row) { }
-        constexpr Mat4x4(const Row& row0, const Row& row1, const Row& row2, const Row& row3) : rows{ row0, row1, row2, row3 } { }
+        constexpr Mat4x4(T it) : Mat4x4(RowType(it)) { }
+        constexpr Mat4x4(const RowType& row) : Mat4x4(row, row, row, row) { }
+        constexpr Mat4x4(const RowType& row0, const RowType& row1, const RowType& row2, const RowType& row3) : rows{ row0, row1, row2, row3 } { }
+        constexpr Mat4x4(const T *pData) : Mat4x4(RowType(pData), RowType(pData + 4), RowType(pData + 8), RowType(pData + 12)) { }
 
-        constexpr static Mat4x4 from(const Row& row0, const Row& row1, const Row& row2, const Row& row3) {
-            return { row0, row1, row2, row3 };
+        constexpr RowType column(size_t column) const {
+            return { at(column, 0), at(column, 1), at(column, 2), at(column, 3) };
         }
 
-        constexpr static Mat4x4 from(T it) {
-            return from(Row::from(it), Row::from(it), Row::from(it), Row::from(it));
-        }
-
-        constexpr static Mat4x4 from(const T *pData) {
-            return from(Row::from(pData), Row::from(pData + 4), Row::from(pData + 8), Row::from(pData + 12));
-        }
-
-        constexpr Row column(size_t column) const {
-            return Row::from(at(column, 0), at(column, 1), at(column, 2), at(column, 3));
-        }
-
-        constexpr Row row(size_t row) const {
+        constexpr RowType row(size_t row) const {
             return at(row);
         }
 
-        constexpr const Row& at(size_t it) const { return rows[it]; }
-        constexpr Row& at(size_t it) { return rows[it]; }
+        constexpr const RowType& at(size_t it) const { return rows[it]; }
+        constexpr RowType& at(size_t it) { return rows[it]; }
 
-        constexpr const Row& operator[](size_t row) const { return rows[row];}
-        constexpr Row& operator[](size_t row) { return rows[row]; }
+        constexpr const RowType& operator[](size_t row) const { return rows[row];}
+        constexpr RowType& operator[](size_t row) { return rows[row]; }
 
         constexpr const T &at(size_t it, size_t col) const { return at(it).at(col); }
         constexpr T &at(size_t it, size_t col) { return at(it).at(col); }
 
-        constexpr Row mul(const Row& other) const {
+        constexpr RowType mul(const RowType& other) const {
             auto row0 = at(0);
             auto row1 = at(1);
             auto row2 = at(2);
@@ -419,7 +356,7 @@ namespace simcoe::math {
             auto z = row2.x * other.x + row2.y * other.y + row2.z * other.z + row2.w * other.w;
             auto w = row3.x * other.x + row3.y * other.y + row3.z * other.z + row3.w * other.w;
 
-            return Row::from(x, y, z, w);
+            return { x, y, z, w };
         }
 
         constexpr Mat4x4 mul(const Mat4x4& other) const {
@@ -433,44 +370,44 @@ namespace simcoe::math {
             auto other2 = other.at(2);
             auto other3 = other.at(3);
 
-            auto out0 = Row::from(
+            RowType out0 = {
                 (other0.x * row0.x) + (other1.x * row0.y) + (other2.x * row0.z) + (other3.x * row0.w),
                 (other0.y * row0.x) + (other1.y * row0.y) + (other2.y * row0.z) + (other3.y * row0.w),
                 (other0.z * row0.x) + (other1.z * row0.y) + (other2.z * row0.z) + (other3.z * row0.w),
                 (other0.w * row0.x) + (other1.w * row0.y) + (other2.w * row0.z) + (other3.w * row0.w)
-            );
+            };
 
-            auto out1 = Row::from(
+            RowType out1 = {
                 (other0.x * row1.x) + (other1.x * row1.y) + (other2.x * row1.z) + (other3.x * row1.w),
                 (other0.y * row1.x) + (other1.y * row1.y) + (other2.y * row1.z) + (other3.y * row1.w),
                 (other0.z * row1.x) + (other1.z * row1.y) + (other2.z * row1.z) + (other3.z * row1.w),
                 (other0.w * row1.x) + (other1.w * row1.y) + (other2.w * row1.z) + (other3.w * row1.w)
-            );
+            };
 
-            auto out2 = Row::from(
+            RowType out2 = {
                 (other0.x * row2.x) + (other1.x * row2.y) + (other2.x * row2.z) + (other3.x * row2.w),
                 (other0.y * row2.x) + (other1.y * row2.y) + (other2.y * row2.z) + (other3.y * row2.w),
                 (other0.z * row2.x) + (other1.z * row2.y) + (other2.z * row2.z) + (other3.z * row2.w),
                 (other0.w * row2.x) + (other1.w * row2.y) + (other2.w * row2.z) + (other3.w * row2.w)
-            );
+            };
 
-            auto out3 = Row::from(
+            RowType out3 = {
                 (other0.x * row3.x) + (other1.x * row3.y) + (other2.x * row3.z) + (other3.x * row3.w),
                 (other0.y * row3.x) + (other1.y * row3.y) + (other2.y * row3.z) + (other3.y * row3.w),
                 (other0.z * row3.x) + (other1.z * row3.y) + (other2.z * row3.z) + (other3.z * row3.w),
                 (other0.w * row3.x) + (other1.w * row3.y) + (other2.w * row3.z) + (other3.w * row3.w)
-            );
+            };
 
-            return Mat4x4::from(out0, out1, out2, out3);
+            return { out0, out1, out2, out3 };
         }
 
         constexpr Mat4x4 add(const Mat4x4& other) const {
-            return Mat4x4::from(
+            return {
                 at(0).add(other.at(0)),
                 at(1).add(other.at(1)),
                 at(2).add(other.at(2)),
                 at(3).add(other.at(3))
-            );
+            };
         }
 
         constexpr Mat4x4 operator*(const Mat4x4& other) const {
@@ -493,23 +430,23 @@ namespace simcoe::math {
         /// scale related functions
         ///
 
-        static constexpr Mat4x4 scale(const Row3& scale) {
+        static constexpr Mat4x4 scale(const Row3Type& scale) {
             return Mat4x4::scale(scale.x, scale.y, scale.z);
         }
 
         static constexpr Mat4x4 scale(T x, T y, T z) {
-            auto row0 = Row::from(x, 0, 0, 0);
-            auto row1 = Row::from(0, y, 0, 0);
-            auto row2 = Row::from(0, 0, z, 0);
-            auto row3 = Row::from(0, 0, 0, 1);
-            return Mat4x4::from(row0, row1, row2, row3);
+            RowType row0 = { x, 0, 0, 0 };
+            RowType row1 = { 0, y, 0, 0 };
+            RowType row2 = { 0, 0, z, 0 };
+            RowType row3 = { 0, 0, 0, 1 };
+            return { row0, row1, row2, row3 };
         }
 
-        constexpr Row3 getScale() const {
-            return Row3::from(at(0, 0), at(1, 1), at(2, 2));
+        constexpr Row3Type getScale() const {
+            return { at(0, 0), at(1, 1), at(2, 2) };
         }
 
-        constexpr void setScale(const Row3& scale) {
+        constexpr void setScale(const Row3Type& scale) {
             at(0, 0) = scale.x;
             at(1, 1) = scale.y;
             at(2, 2) = scale.z;
@@ -519,23 +456,23 @@ namespace simcoe::math {
         /// translation related functions
         ///
 
-        static constexpr Mat4x4 translation(const Row3& translation) {
+        static constexpr Mat4x4 translation(const Row3Type& translation) {
             return Mat4x4::translation(translation.x, translation.y, translation.z);
         }
 
         static constexpr Mat4x4 translation(T x, T y, T z) {
-            auto row0 = Row::from(1, 0, 0, x);
-            auto row1 = Row::from(0, 1, 0, y);
-            auto row2 = Row::from(0, 0, 1, z);
-            auto row3 = Row::from(0, 0, 0, 1);
-            return Mat4x4::from(row0, row1, row2, row3);
+            RowType row0 = { 1, 0, 0, x };
+            RowType row1 = { 0, 1, 0, y };
+            RowType row2 = { 0, 0, 1, z };
+            RowType row3 = { 0, 0, 0, 1 };
+            return { row0, row1, row2, row3 };
         }
 
-        constexpr Row3 getTranslation() const {
-            return Row3::from(at(0, 3), at(1, 3), at(2, 3));
+        constexpr Row3Type getTranslation() const {
+            return { at(0, 3), at(1, 3), at(2, 3) };
         }
 
-        constexpr void setTranslation(const Row3& translation) {
+        constexpr void setTranslation(const Row3Type& translation) {
             at(0, 3) = translation.x;
             at(1, 3) = translation.y;
             at(2, 3) = translation.z;
@@ -543,7 +480,7 @@ namespace simcoe::math {
 
         // rotation related functions
 
-        static constexpr Mat4x4 rotation(const Row3& rotation) {
+        static constexpr Mat4x4 rotation(const Row3Type& rotation) {
             auto& [pitch, yaw, roll] = rotation;
             const T cp = std::cos(pitch);
             const T sp = std::sin(pitch);
@@ -554,85 +491,85 @@ namespace simcoe::math {
             const T cr = std::cos(roll);
             const T sr = std::sin(roll);
 
-            auto r0 = Row::from(
+            RowType r0 = {
                 cr * cy + sr * sp * sy,
                 sr * cp,
                 sr * sp * cy - cr * sy,
                 0
-            );
+            };
 
-            auto r1 = Row::from(
+            RowType r1 = {
                 cr * sp * sy - sr * cy,
                 cr * cp,
                 sr * sy + cr * sp * cy,
                 0
-            );
+            };
 
-            auto r2 = Row::from(
+            RowType r2 = {
                 cp * sy,
                 -sp,
                 cp * cy,
                 0
-            );
+            };
 
-            auto r3 = Row::from(0, 0, 0, 1);
+            RowType r3 = { 0, 0, 0, 1 };
 
-            return from(r0, r1, r2, r3);
+            return { r0, r1, r2, r3 };
         }
 
         // full transform
-        static constexpr Mat4x4 transform(const Row3& translation, const Row3& rotation, const Row3& scale) {
+        static constexpr Mat4x4 transform(const Row3Type& translation, const Row3Type& rotation, const Row3Type& scale) {
             return Mat4x4::translation(translation) * Mat4x4::rotation(rotation) * Mat4x4::scale(scale);
         }
 
         constexpr Mat4x4 transpose() const {
-            auto r0 = Row::from(rows[0].x, rows[1].x, rows[2].x, rows[3].x);
-            auto r1 = Row::from(rows[0].y, rows[1].y, rows[2].y, rows[3].y);
-            auto r2 = Row::from(rows[0].z, rows[1].z, rows[2].z, rows[3].z);
-            auto r3 = Row::from(rows[0].w, rows[1].w, rows[2].w, rows[3].w);
-            return Mat4x4::from(r0, r1, r2, r3);
+            RowType r0 = { rows[0].x, rows[1].x, rows[2].x, rows[3].x };
+            RowType r1 = { rows[0].y, rows[1].y, rows[2].y, rows[3].y };
+            RowType r2 = { rows[0].z, rows[1].z, rows[2].z, rows[3].z };
+            RowType r3 = { rows[0].w, rows[1].w, rows[2].w, rows[3].w };
+            return { r0, r1, r2, r3 };
         }
 
         static constexpr Mat4x4 identity() {
-            auto row0 = Row::from(1, 0, 0, 0);
-            auto row1 = Row::from(0, 1, 0, 0);
-            auto row2 = Row::from(0, 0, 1, 0);
-            auto row3 = Row::from(0, 0, 0, 1);
-            return Mat4x4::from(row0, row1, row2, row3);
+            RowType row0 = { 1, 0, 0, 0 };
+            RowType row1 = { 0, 1, 0, 0 };
+            RowType row2 = { 0, 0, 1, 0 };
+            RowType row3 = { 0, 0, 0, 1 };
+            return { row0, row1, row2, row3 };
         }
 
         // camera related functions
 
-        static constexpr Mat4x4 lookToLH(const Row3& eye, const Row3& dir, const Row3& up) {
-            SM_ASSERT(eye != Row3::zero());
-            SM_ASSERT(up != Row3::zero());
+        static constexpr Mat4x4 lookToLH(const Row3Type& eye, const Row3Type& dir, const Row3Type& up) {
+            SM_ASSERT(eye != Row3Type::zero());
+            SM_ASSERT(up != Row3Type::zero());
 
             SM_ASSERT(!eye.isinf());
             SM_ASSERT(!up.isinf());
 
             auto r2 = dir.normal();
-            auto r0 = Row3::cross(up, r2).normal();
-            auto r1 = Row3::cross(r2, r0);
+            auto r0 = Row3Type::cross(up, r2).normal();
+            auto r1 = Row3Type::cross(r2, r0);
 
             auto negEye = eye.negate();
 
-            auto d0 = Row3::dot(r0, negEye);
-            auto d1 = Row3::dot(r1, negEye);
-            auto d2 = Row3::dot(r2, negEye);
+            auto d0 = Row3Type::dot(r0, negEye);
+            auto d1 = Row3Type::dot(r1, negEye);
+            auto d2 = Row3Type::dot(r2, negEye);
 
-            auto s0 = Row::from(r0, d0);
-            auto s1 = Row::from(r1, d1);
-            auto s2 = Row::from(r2, d2);
-            auto s3 = Row::from(0, 0, 0, 1);
+            RowType s0 = { r0, d0 };
+            RowType s1 = { r1, d1 };
+            RowType s2 = { r2, d2 };
+            RowType s3 = { 0, 0, 0, 1 };
 
-            return Mat4x4::from(s0, s1, s2, s3).transpose();
+            return Mat4x4(s0, s1, s2, s3).transpose();
         }
 
-        static constexpr Mat4x4 lookToRH(const Row3& eye, const Row3& dir, const Row3& up) {
+        static constexpr Mat4x4 lookToRH(const Row3Type& eye, const Row3Type& dir, const Row3Type& up) {
             return Mat4x4::lookToLH(eye, dir.negate(), up);
         }
 
-        static constexpr Mat4x4 lookAtRH(const Row3& eye, const Row3& focus, const Row3& up) {
+        static constexpr Mat4x4 lookAtRH(const Row3Type& eye, const Row3Type& focus, const Row3Type& up) {
             return Mat4x4::lookToLH(eye, eye - focus, up);
         }
 
@@ -644,21 +581,20 @@ namespace simcoe::math {
             auto width = height / aspect;
             auto range = farLimit / (nearLimit - farLimit);
 
-            auto r0 = Row::from(width, 0, 0, 0);
-            auto r1 = Row::from(0, height, 0, 0);
-            auto r2 = Row::from(0, 0, range, -1);
-            auto r3 = Row::from(0, 0, range * nearLimit, 0);
-            return from(r0, r1, r2, r3);
+            RowType r0 = { width, 0,      0,                 0 };
+            RowType r1 = { 0,     height, 0,                 0 };
+            RowType r2 = { 0,     0,      range,            -1 };
+            RowType r3 = { 0,     0,      range * nearLimit, 0 };
+            return { r0, r1, r2, r3 };
         }
 
         static constexpr Mat4x4 orthographicRH(T width, T height, T nearLimit, T farLimit) {
             T range = 1 / (nearLimit - farLimit);
 
-            Row r0 = { 2 / width, 0, 0, 0 };
-            Row r1 = { 0, 2 / height, 0, 0 };
-            Row r2 = { 0, 0, range, 0 };
-
-            Row r3 = { 0, 0, range * nearLimit, 1 };
+            RowType r0 = { 2 / width, 0,          0,                 0 };
+            RowType r1 = { 0,         2 / height, 0,                 0 };
+            RowType r2 = { 0,         0,          range,             0 };
+            RowType r3 = { 0,         0,          range * nearLimit, 1 };
 
             return { r0, r1, r2, r3 };
         }
@@ -716,5 +652,3 @@ namespace std {
     template<size_t I, typename T>
     struct tuple_element<I, simcoe::math::Vec4<T>> { using type = T; };
 }
-
-#include <DirectXMath.h>

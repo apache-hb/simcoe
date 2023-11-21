@@ -108,10 +108,6 @@ typedef struct tagTHREADNAME_INFO {
 namespace {
     constexpr DWORD kRenameThreadMagic = 0x406D1388;
 
-    using CloseThreadFn = decltype([](HANDLE hThread) { CloseHandle(hThread); });
-
-    using ThreadHandle = core::UniqueHandle<HANDLE, CloseThreadFn, nullptr>;
-
     void setThreadDebugName(std::string_view name) {
         auto wide = util::widen(name);
         if (HRESULT hr = SetThreadDescription(GetCurrentThread(), wide.c_str()); FAILED(hr)) {

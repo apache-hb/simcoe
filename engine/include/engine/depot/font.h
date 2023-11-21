@@ -19,6 +19,18 @@ namespace simcoe::depot {
         math::float4 colour = math::float4(1.f);
     };
 
+    struct Glyph {
+        CanvasPoint origin;
+        CanvasSize size;
+        CanvasPoint advance;
+    };
+
+    struct FontAtlas {
+        Image image;
+
+        std::unordered_map<char32_t, Glyph> glyphs;
+    };
+
     struct Font {
         SM_DEPRECATED("this is broken for some reason, use the filepath constructor for now")
         Font(std::shared_ptr<IFile> pFile);
@@ -31,7 +43,7 @@ namespace simcoe::depot {
 
         Image drawText(utf8::StaticText text, CanvasPoint start, CanvasSize size, float angle = 0.f);
         Image drawText(std::span<const TextSegment> segments, CanvasPoint start, CanvasSize size, float angle = 0.f);
-        Image drawText(std::span<char32_t> text, CanvasPoint start, CanvasSize size, float angle = 0.f);
+        FontAtlas buildAtlas(std::span<char32_t> text, CanvasSize size);
 
     private:
         FT_Face face;
