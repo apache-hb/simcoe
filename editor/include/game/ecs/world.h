@@ -92,7 +92,7 @@ namespace game {
 
         // creation
 
-        template<typename T, typename... A> 
+        template<typename T = IEntity, typename... A> 
             requires std::derived_from<T, IEntity> 
                   && std::constructible_from<T, EntityData, A...>
         EntityBuilder<T> entity(std::string name, A&&... args) {

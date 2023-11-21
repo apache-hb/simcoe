@@ -42,6 +42,9 @@ namespace {
         return 0;
     } catch (const core::Error& err) {
         LOG_ERROR("thread {:#06x} failed with engine error: {}", id, err.what());
+        for (const auto& frame : err.getStacktrace()) {
+            LOG_ERROR("{}", frame.symbol);
+        }
         return 99;
     } catch (const std::exception& err) {
         LOG_ERROR("thread {:#06x} failed with exception: {}", id, err.what());

@@ -76,12 +76,12 @@ void AudioService::destroyService() {
     gVoices.clear();
     gBuffers.clear();
 
-    pAudioRuntime->StopEngine();
-
     if (pAudioMasterVoice) {
         pAudioMasterVoice->DestroyVoice();
         pAudioMasterVoice = nullptr;
     }
+    
+    pAudioRuntime->StopEngine();
 
     if (pAudioRuntime) {
         ULONG refs = pAudioRuntime->Release();

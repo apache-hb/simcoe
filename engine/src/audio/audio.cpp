@@ -65,3 +65,9 @@ float VoiceHandle::getVolume() const {
 void VoiceHandle::setVolume(float volume) {
     XA_CHECK(pVoice->SetVolume(volume));
 }
+
+bool VoiceHandle::isPlaying() const {
+    XAUDIO2_VOICE_STATE state;
+    pVoice->GetState(&state);
+    return state.BuffersQueued > 0;
+}

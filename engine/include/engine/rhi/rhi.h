@@ -192,6 +192,8 @@ namespace simcoe::rhi {
     };
 
     enum struct ResourceState {
+        eInvalid,
+
         ePresent,
         eRenderTarget,
 
@@ -329,6 +331,8 @@ namespace simcoe::rhi {
         ~Device();
 
         ID3D12Device4 *getDevice() { return Object::get(); }
+
+        DWORD getCookie() const { return cookie; }
 
     private:
         Device(ID3D12Device4 *pDevice,

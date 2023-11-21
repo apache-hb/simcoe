@@ -6,6 +6,7 @@
 
 #include "game/render/hud.h"
 #include "game/render/scene.h"
+#include <random>
 
 namespace game {
     struct GameService final : simcoe::IStaticService<GameService> {
@@ -26,5 +27,7 @@ namespace game {
         static game::World& getWorld();
         static threads::WorkQueue& getWorkQueue();
         static mt::SharedMutex& getWorldMutex();
+
+        static std::mt19937_64 &getRng();
     };
 }

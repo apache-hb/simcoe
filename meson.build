@@ -447,8 +447,24 @@ src = [
     copy.process('data/images/store/logo480x480.png'),
     copy.process('data/images/store/splash.png'),
 
-    # audio
-    copy.process('data/audio/Rondo_Alla_Turka.ogg'),
+    # sfx
+    copy.process('data/audio/sounds/pew.ogg'),
+    copy.process('data/audio/sounds/alien_kill.ogg'),
+    copy.process('data/audio/sounds/damage_hit.ogg'),
+    copy.process('data/audio/sounds/game_over.ogg'),
+
+    copy.process('data/audio/sounds/egg_spawn.ogg'),
+    copy.process('data/audio/sounds/egg_grow_medium.ogg'),
+    copy.process('data/audio/sounds/egg_grow_large.ogg'),
+    copy.process('data/audio/sounds/egg_kill.ogg'),
+    copy.process('data/audio/sounds/egg_hatch.ogg'),
+
+    # music
+    copy.process('data/audio/sounds/swarm1.ogg'),
+    copy.process('data/audio/sounds/swarm2.ogg'),
+    copy.process('data/audio/sounds/swarm3.ogg'),
+    copy.process('data/audio/sounds/swarm4.ogg'),
+    copy.process('data/audio/sounds/swarm5.ogg'),
 
     # imgui config
     copy.process('data/config/imgui.ini')

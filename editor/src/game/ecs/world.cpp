@@ -21,7 +21,7 @@ TypeInfo game::makeNameInfo(World *pWorld, const std::string &name) {
 
 void IEntity::addComponent(IComponent *pComponent) {
     auto info = pComponent->getTypeInfo();
-    components.emplace(info, pComponent);
+    components.insert_or_assign(info, pComponent);
 
     auto *pWorld = getWorld();
     pWorld->notifyAttach(this, pComponent);

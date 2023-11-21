@@ -23,7 +23,7 @@ void WorldUi::draw() {
         for (auto *pEntity : world.all()) {
             const auto& name = pEntity->getName();
             auto info = pEntity->getTypeInfo();
-            if (ImGui::TreeNode((void*)info.getId(), "Entity: %s (typeid: %zu)", name.c_str(), info.getId())) {
+            if (ImGui::TreeNode((void*)pEntity, "Entity: %s (typeid: %zu)", name.c_str(), info.getId())) {
 
                 for (const auto& [id, pComponent] : pEntity->getComponents()) {
                     auto compInfo = pComponent->getTypeInfo();

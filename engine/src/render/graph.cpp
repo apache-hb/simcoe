@@ -117,9 +117,13 @@ void Graph::resizeDisplay(UINT width, UINT height) {
     if (width == createInfo.displayWidth && height == createInfo.displayHeight)
         return;
 
+    LOG_INFO("in lock");
     changeData(StateDep::eDepDisplaySize, [=] {
+        LOG_INFO("changing display size to: {}x{}", width, height);
         ctx->changeDisplaySize(width, height);
+        LOG_INFO("done change");
     });
+    LOG_INFO("done lock");
 }
 
 void Graph::resizeRender(UINT width, UINT height) {
@@ -198,7 +202,10 @@ void Graph::destroyIf(StateDep dep) {
     }
 
     for (IResourceHandle *pHandle : resources) {
-        if (pHandle->dependsOn(dep)) pHandle->destroy();
+        if (pHandle->dependsOn(dep)) {
+            setResourceState(pHandle->getResource(), rhi::ResourceState::eInvalid);
+            pHandle->destroy();
+        }
     }
 
     for (IGraphObject *pObject : objects) {
@@ -217,6 +224,11 @@ void Graph::executePass(ICommandPass *pPass) {
 
         if (currentState != requiredState) {
             barriers.push_back({ pResource, currentState, requiredState });
+
+            // TODO: setResourceState doesnt actually line up with real resource state
+            // currently if we set the state here we assume its submitted to the renderer
+            // and executed. but during a resize the command queue is flushed and the 
+            // state becomes out of sync. we need to track the state of the resource some other way.
             setResourceState(pResource, requiredState);
         }
     }

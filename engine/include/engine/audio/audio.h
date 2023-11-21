@@ -94,6 +94,8 @@ namespace simcoe::audio {
         float getVolume() const;
         void setVolume(float volume);
 
+        bool isPlaying() const;
+
         const char *getName() const { return name.c_str(); }
 
         const SoundFormat& getFormat() const { return format; }
@@ -110,3 +112,31 @@ namespace simcoe::audio {
 
     SoundBufferPtr loadVorbisOgg(std::shared_ptr<depot::IFile> file);
 }
+
+template<>
+struct std::less<simcoe::audio::SoundFormat> {
+    bool operator()(const simcoe::audio::SoundFormat& lhs, const simcoe::audio::SoundFormat& rhs) const {
+        // sort first by type, then by channels, then by samples per second
+        if (lhs.getFormatTag() != rhs.getFormatTag()) {
+            return lhs.getFormatTag() < rhs.getFormatTag();
+        }
+
+        if (lhs.getChannels() != rhs.getChannels()) {
+            return lhs.getChannels() < rhs.getChannels();
+        }
+
+        return lhs.getSamplesPerSecond() < rhs.getSamplesPerSecond();
+    }
+};
+
+template<>
+struct std::hash<simcoe::audio::SoundFormat> {
+    size_t operator()(const simcoe::audio::SoundFormat& format) const {
+        size_t hash = 0;
+        hash ^= std::hash<WORD>()(format.getFormatTag());
+        hash ^= std::hash<WORD>()(format.getChannels());
+        hash ^= std::hash<DWORD>()(format.getSamplesPerSecond());
+        hash ^= std::hash<WORD>()(format.getBitsPerSample());
+        return hash;
+    }
+};

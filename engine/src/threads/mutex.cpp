@@ -1,6 +1,7 @@
 #include "engine/threads/mutex.h"
 #include "engine/core/error.h"
 
+#include "engine/log/service.h"
 #include "engine/threads/service.h"
 
 using namespace simcoe;
@@ -16,8 +17,10 @@ BaseMutex::BaseMutex(SM_UNUSED std::string name)
 void BaseMutex::verifyOwner() {
 #if SM_DEBUG_THREADS
     auto tid = threads::getCurrentThreadId();
+    auto tname = threads::getThreadName(tid);
+    
     if (owner == tid) {
-        core::throwFatal("Mutex '{}' was already locked on this thread", name);
+        core::throwFatal("Mutex '{}' was already locked on thread {}", name, tname);
     }
     owner = tid;
 #endif
@@ -54,7 +57,9 @@ bool Mutex::try_lock() {
     verifyOwner();
 
     DEBUG_TRY({
-        return mutex.try_lock();
+        bool result = mutex.try_lock();
+        if (!result) resetOwner();
+        return result;
     })
     DEBUG_CATCH(const std::exception& err, {
         core::throwFatal("Failed to try lock mutex '{}': {}", getName(), err.what());

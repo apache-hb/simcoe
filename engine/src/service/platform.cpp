@@ -101,12 +101,16 @@ bool PlatformService::createService() {
             pWorkQueue->tryGetMessage();
 
             if (PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
-                GetMessage(&gMsg, NULL, 0, 0);
+                if (!GetMessage(&gMsg, NULL, 0, 0)) {
+                    break; // we got the quit message
+                }
 
                 TranslateMessage(&gMsg);
                 DispatchMessage(&gMsg);
             }
         }
+
+        gWindow->closeWindow();
     });
 
     return true;

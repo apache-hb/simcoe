@@ -28,7 +28,5 @@ namespace simcoe::input {
 
         DWORD dwIndex;
         size_t keyPressIndex = 0;
-
-        DWORD dwLastPacket = 0;
     };
 }

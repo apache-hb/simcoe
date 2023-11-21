@@ -64,6 +64,7 @@ SceneTargetHandle::SceneTargetHandle(Graph *ctx)
 }
 
 void SceneTargetHandle::create() {
+    LOG_INFO("creating scene target");
     const auto& createInfo = ctx->getCreateInfo();
 
     const rhi::TextureInfo textureCreateInfo = {
@@ -82,6 +83,7 @@ void SceneTargetHandle::create() {
 }
 
 void SceneTargetHandle::destroy() {
+    LOG_INFO("destroying scene target");
     ISingleSRVHandle::destroy(ctx);
     ISingleRTVHandle::destroy(ctx);
     ISingleResourceHandle::destroy();

@@ -30,7 +30,7 @@ namespace {
         // when new data is available
         // we also then need to be able to signal the admin process to exit
         // once we exit
-        ThreadService::enqueueMain("ryzenmonitor-admin-launch", [] {
+        PlatformService::enqueue("ryzenmonitor-admin-launch", [] {
             LOG_INFO("attempting to launch admin process");
             ShellExecute(
                 /* hwnd= */ nullptr,
@@ -44,7 +44,7 @@ namespace {
     }
 
     void restartAsAdmin() {
-        ThreadService::enqueueMain("ryzenmonitor-admin-restart", [] {
+        PlatformService::enqueue("ryzenmonitor-admin-restart", [] {
             LOG_INFO("attempting to restart as admin");
             ShellExecute(
                 /* hwnd= */ nullptr,
@@ -94,19 +94,48 @@ RyzenMonitorUi::RyzenMonitorUi()
     });
 }
 
+struct ChildWidget {
+    const char *name = nullptr;
+    void (RyzenMonitorUi::*draw)() = nullptr;
+};
+
 void RyzenMonitorUi::draw() {
+    static auto kChildren = std::to_array<ChildWidget>({
+        { "Bios", &RyzenMonitorUi::drawBiosInfo },
+        { "CPU", &RyzenMonitorUi::drawCpuInfo },
+        { "Package", &RyzenMonitorUi::drawPackageInfo },
+        { "SOC", &RyzenMonitorUi::drawSocInfo },
+    });
+
     ImGui::Text("Updates: %zu", updates);
 
-    if (ImGui::CollapsingHeader("BIOS", ImGuiTreeNodeFlags_DefaultOpen)) {
-        drawBiosInfo();
+    ImGuiChildFlags kChildFlags = ImGuiChildFlags_Border | ImGuiChildFlags_AutoResizeX;
+    ImGuiWindowFlags kWindowFlags = ImGuiWindowFlags_None;
+
+    ImVec2 kWidgetSize(0.f, 300.f);
+
+    float visible = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+    const auto& style = ImGui::GetStyle();
+
+    for (size_t i = 0; i < kChildren.size(); i++) {
+        const auto& child = kChildren[i];
+        ImGui::PushID(core::intCast<int>(i));
+
+        if (ImGui::BeginChild(child.name, kWidgetSize, kChildFlags, kWindowFlags)) {
+            ImGui::SeparatorText(child.name);
+            (this->*child.draw)();
+        }
+        ImGui::EndChild();
+
+        float last = ImGui::GetItemRectMax().x;
+        float next = last + style.ItemSpacing.x + kWidgetSize.x;
+        if (i + 1 < kChildren.size() && next < visible) {
+            ImGui::SameLine();
+        }
+
+        ImGui::PopID();
     }
 
-    if (ImGui::CollapsingHeader("CPU", ImGuiTreeNodeFlags_DefaultOpen)) {
-        drawCpuInfo();
-    }
-
-    drawPackageInfo();
-    drawSocInfo();
     drawCoreInfo();
 }
 
@@ -222,7 +251,7 @@ namespace {
 void RyzenMonitorUi::drawCoreInfoCurrentData() {
     float width = ImGui::GetWindowWidth();
     float cellWidth = 150.f;
-    size_t cols = size_t(width / cellWidth);
+    size_t cols = math::clamp<size_t>(size_t(width / cellWidth), 1, 16);
 
     ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_RowBg;
 
@@ -329,60 +358,57 @@ void RyzenMonitorUi::drawCpuInfo() {
 }
 
 void RyzenMonitorUi::drawPackageInfo() {
-    if (ImGui::CollapsingHeader("Package info")) {
-        ImGui::Text("Overclock mode: %s", amd::toString(packageData.mode).data());
-        ImGui::Text("Average Core Voltage: %.1f V", packageData.avgCoreVoltage);
-        ImGui::Text("Peak Core Voltage: %.1f V", packageData.peakCoreVoltage);
+    ImGui::Text("Overclock mode: %s", amd::toString(packageData.mode).data());
+    ImGui::Text("Average Core Voltage: %.1f V", packageData.avgCoreVoltage);
+    ImGui::Text("Peak Core Voltage: %.1f V", packageData.peakCoreVoltage);
 
-        ImGui::Text("Core Temperature: %.1f C", packageData.temperature);
+    ImGui::Text("Core Temperature: %.1f C", packageData.temperature);
 
-        ImGui::Text("Peak Speed: %.1f MHz", packageData.peakSpeed);
-        ImGui::Text("Fmax(CPU) Frequency: %.1f MHz", packageData.maxClock);
-        ImGui::Text("Fabric Clock Frequency: %.1f MHz", packageData.fabricClock);
+    ImGui::Text("Peak Speed: %.1f MHz", packageData.peakSpeed);
+    ImGui::Text("Fmax(CPU) Frequency: %.1f MHz", packageData.maxClock);
+    ImGui::Text("Fabric Clock Frequency: %.1f MHz", packageData.fabricClock);
 
-        ImGui::Text("cHCT Current Limit %.1f C", packageData.chctCurrentLimit);
+    ImGui::Text("cHCT Current Limit %.1f C", packageData.chctCurrentLimit);
 
-        float pptFractionCpu = packageData.pptCurrentValue / packageData.pptCurrentLimit;
-        ImGui::Text("PPT Current: %.1f W / %.1f W (%.1f %%)", packageData.pptCurrentValue, packageData.pptCurrentLimit, pptFractionCpu * 100.f);
-        ImGui::ProgressBar(pptFractionCpu, ImVec2(200.f, 0.f), "PPT Current");
+    float pptFractionCpu = packageData.pptCurrentValue / packageData.pptCurrentLimit;
+    ImGui::Text("PPT Current: %.1f W / %.1f W (%.1f %%)", packageData.pptCurrentValue, packageData.pptCurrentLimit, pptFractionCpu * 100.f);
+    ImGui::ProgressBar(pptFractionCpu, ImVec2(200.f, 0.f), "PPT Current");
 
-        float tdcFractionCpu = packageData.tdcCurrentValue / packageData.tdcCurrentLimit;
-        ImGui::Text("TDC Current: %.1f A / %.1f A (%.1f %%)", packageData.tdcCurrentValue, packageData.tdcCurrentLimit, tdcFractionCpu * 100.f);
-        ImGui::ProgressBar(tdcFractionCpu, ImVec2(200.f, 0.f), "TDC Current");
+    float tdcFractionCpu = packageData.tdcCurrentValue / packageData.tdcCurrentLimit;
+    ImGui::Text("TDC Current: %.1f A / %.1f A (%.1f %%)", packageData.tdcCurrentValue, packageData.tdcCurrentLimit, tdcFractionCpu * 100.f);
+    ImGui::ProgressBar(tdcFractionCpu, ImVec2(200.f, 0.f), "TDC Current");
 
-        float edcFractionCpu = packageData.edcCurrentValue / packageData.edcCurrentLimit;
-        ImGui::Text("EDC Current: %.1f A / %.1f A (%.1f %%)", packageData.edcCurrentValue, packageData.edcCurrentLimit, edcFractionCpu * 100.f);
-        ImGui::ProgressBar(edcFractionCpu, ImVec2(200.f, 0.f), "EDC Current");
-    }
+    float edcFractionCpu = packageData.edcCurrentValue / packageData.edcCurrentLimit;
+    ImGui::Text("EDC Current: %.1f A / %.1f A (%.1f %%)", packageData.edcCurrentValue, packageData.edcCurrentLimit, edcFractionCpu * 100.f);
+    ImGui::ProgressBar(edcFractionCpu, ImVec2(200.f, 0.f), "EDC Current");
+    
 }
 
 void RyzenMonitorUi::drawSocInfo() {
-    if (ImGui::CollapsingHeader("SOC info")) {
-        ImGui::Text("Voltage: %.1f A", socData.voltage);
+    ImGui::Text("Voltage: %.1f A", socData.voltage);
 
-        if (socData.edcCurrentValue == -1 || socData.edcCurrentLimit == -1) {
-            ImGui::Text("EDC (SOC) Current: N/A");
-        } else {
-            float edcFraction = socData.edcCurrentValue / socData.edcCurrentLimit;
-            ImGui::Text("EDC (SOC) Current: %.1f A / %.1f A (%.1f %%)", socData.edcCurrentValue, socData.edcCurrentLimit, edcFraction * 100.f);
-            ImGui::ProgressBar(edcFraction, ImVec2(200.f, 0.f), "EDC (SOC) Current");
-        }
-
-        if (socData.tdcCurrentValue == -1 || socData.tdcCurrentLimit == -1) {
-            ImGui::Text("TDC (SOC) Current: N/A");
-        } else {
-            float tdcFraction = socData.tdcCurrentValue / socData.tdcCurrentLimit;
-            ImGui::Text("TDC (SOC) Current: %.1f A / %.1f A (%.1f %%)", socData.tdcCurrentValue, socData.tdcCurrentLimit, tdcFraction * 100.f);
-            ImGui::ProgressBar(tdcFraction, ImVec2(200.f, 0.f), "TDC (SOC) Current");
-        }
-
-        ImGui::Text("VDDCR(VDD) Power: %.1f W", socData.vddcrVddCurrent);
-        ImGui::Text("VDDCR(SOC) Power: %.1f W", socData.vddcrSocCurrent);
+    if (socData.edcCurrentValue == -1 || socData.edcCurrentLimit == -1) {
+        ImGui::Text("EDC (SOC) Current: N/A");
+    } else {
+        float edcFraction = socData.edcCurrentValue / socData.edcCurrentLimit;
+        ImGui::Text("EDC (SOC) Current: %.1f A / %.1f A (%.1f %%)", socData.edcCurrentValue, socData.edcCurrentLimit, edcFraction * 100.f);
+        ImGui::ProgressBar(edcFraction, ImVec2(200.f, 0.f), "EDC (SOC) Current");
     }
+
+    if (socData.tdcCurrentValue == -1 || socData.tdcCurrentLimit == -1) {
+        ImGui::Text("TDC (SOC) Current: N/A");
+    } else {
+        float tdcFraction = socData.tdcCurrentValue / socData.tdcCurrentLimit;
+        ImGui::Text("TDC (SOC) Current: %.1f A / %.1f A (%.1f %%)", socData.tdcCurrentValue, socData.tdcCurrentLimit, tdcFraction * 100.f);
+        ImGui::ProgressBar(tdcFraction, ImVec2(200.f, 0.f), "TDC (SOC) Current");
+    }
+
+    ImGui::Text("VDDCR(VDD) Power: %.1f W", socData.vddcrVddCurrent);
+    ImGui::Text("VDDCR(SOC) Power: %.1f W", socData.vddcrSocCurrent);
 }
 
 void RyzenMonitorUi::drawCoreInfo() {
-    if (ImGui::CollapsingHeader("Core info")) {
+    if (ImGui::CollapsingHeader("Core info", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::PushItemWidth(100.f);
         ImGui::Combo("Hover mode", (int*)&hoverMode, kHoverNames.data(), core::intCast<int>(kHoverNames.size()));
         ImGui::SameLine();

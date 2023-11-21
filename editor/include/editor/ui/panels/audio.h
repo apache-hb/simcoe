@@ -8,22 +8,6 @@
 #include "imfiles/imfilebrowser.h"
 #include <unordered_set>
 
-template<>
-struct std::less<simcoe::audio::SoundFormat> {
-    bool operator()(const simcoe::audio::SoundFormat& lhs, const simcoe::audio::SoundFormat& rhs) const {
-        // sort first by type, then by channels, then by samples per second
-        if (lhs.getFormatTag() != rhs.getFormatTag()) {
-            return lhs.getFormatTag() < rhs.getFormatTag();
-        }
-
-        if (lhs.getChannels() != rhs.getChannels()) {
-            return lhs.getChannels() < rhs.getChannels();
-        }
-
-        return lhs.getSamplesPerSecond() < rhs.getSamplesPerSecond();
-    }
-};
-
 namespace editor::ui {
     namespace audio = simcoe::audio;
     

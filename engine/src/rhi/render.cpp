@@ -38,6 +38,7 @@ static D3D12_GPU_DESCRIPTOR_HANDLE deviceHandle(DeviceHeapOffset handle) {
 
 static D3D12_RESOURCE_STATES getResourceState(ResourceState state) {
     switch (state) {
+    case ResourceState::eInvalid: return D3D12_RESOURCE_STATE_COMMON;
     case ResourceState::ePresent: return D3D12_RESOURCE_STATE_PRESENT;
     case ResourceState::eRenderTarget: return D3D12_RESOURCE_STATE_RENDER_TARGET;
     case ResourceState::eTextureRead: return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
@@ -78,6 +79,7 @@ DXGI_FORMAT simcoe::rhi::getTypeFormat(TypeFormat fmt) {
 
 std::string_view simcoe::rhi::toString(ResourceState state) {
     switch (state) {
+    case ResourceState::eInvalid: return "invalid";
     case ResourceState::ePresent: return "present";
     case ResourceState::eRenderTarget: return "render-target";
     case ResourceState::eTextureRead: return "texture-read";

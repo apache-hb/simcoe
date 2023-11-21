@@ -60,6 +60,12 @@ namespace game::ui {
         std::string text;
     };
 
+    struct FontAtlas {
+        std::unordered_map<char32_t, BoxBounds> glyphs;
+        
+        ResourceWrapper<editor::graph::TextureHandle> texture;
+    };
+
     // core ui class
     // generates draw lists
     struct Context {

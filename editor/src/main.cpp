@@ -59,6 +59,7 @@
 
 // game
 #include "game/ecs/world.h"
+#include <random>
 
 using namespace simcoe;
 using namespace simcoe::math;
@@ -207,110 +208,9 @@ private:
 static GameInputClient gInputClient;
 static GameWindow gWindowCallbacks;
 
-struct PlayerEntity : public IEntity { using IEntity::IEntity; };
-struct AlienShipEntity : public IEntity { using IEntity::IEntity; };
 struct CameraEntity : public IEntity { using IEntity::IEntity; };
-struct BulletEntity : public IEntity { using IEntity::IEntity; };
 
-constexpr float2 kTileSize = { 1.4f, 1.2f };
-
-struct AlienShipBehaviour : public IComponent {
-    using IComponent::IComponent;
-    static constexpr const char *kTypeName = "mothership_behaviour";
-
-    /**
-     * @param shipSpeed speed of the alien ship in tiles per second
-     * @param spawnDelay delay between alien spawns in seconds
-     * @param spawnGracePeriod grace period before the first alien spawn in seconds
-     */
-    AlienShipBehaviour(ComponentData data, float shipSpeed = 0.7f, float spawnDelay = 1.f, float spawnGracePeriod = 1.5f)
-        : IComponent(data)
-        , moveDelay(shipSpeed)
-        , spawnDelay(spawnDelay)
-        , lastSpawn(spawnGracePeriod)
-    { }
-
-    void onDebugDraw() override {
-        ImGui::Text("move delay: %f", moveDelay);
-        ImGui::Text("spawn delay: %f", spawnDelay);
-
-        ImGui::ProgressBar(lastMove / moveDelay, ImVec2(0.f, 0.f), "Until next move");
-        ImGui::ProgressBar(lastSpawn / spawnDelay, ImVec2(0.f, 0.f), "Until next spawn");
-    }
-
-    float moveDelay;
-    float lastMove = 0.f;
-
-    float spawnDelay;
-    float lastSpawn;
-};
-
-struct PlayerInputComp : public IComponent {
-    using IComponent::IComponent;
-    static constexpr const char *kTypeName = "player_input";
-
-    PlayerInputComp(ComponentData data)
-        : IComponent(data)
-    { }
-
-    bool isShootPressed() const { return gInputClient.isShootPressed(); }
-    bool isQuitPressed() const { return gInputClient.isQuitPressed(); }
-
-    bool consumeMoveUp() { return gInputClient.consumeMoveUp(); }
-    bool consumeMoveDown() { return gInputClient.consumeMoveDown(); }
-    bool consumeMoveLeft() { return gInputClient.consumeMoveLeft(); }
-    bool consumeMoveRight() { return gInputClient.consumeMoveRight(); }
-};
-
-struct ShootComp : public IComponent {
-    using IComponent::IComponent;
-    static constexpr const char *kTypeName = "shooting";
-
-    ShootComp(ComponentData data, float delay, float bulletSpeed = 5.f)
-        : IComponent(data)
-        , shootDelay(delay)
-        , bulletSpeed(bulletSpeed)
-    { }
-
-    void onDebugDraw() override {
-        ImGui::SliderFloat("shoot delay", &shootDelay, 0.f, 1.f, "%.2f");
-        ImGui::SliderFloat("bullet speed", &bulletSpeed, 0.f, 10.f, "%.2f");
-        ImGui::ProgressBar(lastShot / shootDelay, ImVec2(0.f, 0.f), "Until next shot");
-    }
-
-    float shootDelay = 0.3f;
-    float lastShot = 0.f;
-
-    float bulletSpeed = 5.f;
-};
-
-struct HealthComp : public IComponent {
-    using IComponent::IComponent;
-    static constexpr const char *kTypeName = "health";
-
-    HealthComp(ComponentData data, int current, int total)
-        : IComponent(data)
-        , currentHealth(current)
-        , maxHealth(total)
-    { }
-
-    int currentHealth;
-    int maxHealth;
-};
-
-struct ProjectileComp : public IComponent {
-    using IComponent::IComponent;
-    static constexpr const char *kTypeName = "projectile";
-
-    ProjectileComp(ComponentData data, float2 speed, TypeInfo parent)
-        : IComponent(data)
-        , speed(speed)
-        , parent(parent)
-    { }
-
-    float2 speed;
-    TypeInfo parent;
-};
+// asset types
 
 struct IAssetComp : public IComponent {
     IAssetComp(ComponentData data, fs::path path)
@@ -357,6 +257,227 @@ struct TextureComp : public IAssetComp {
     }
 
     ResourceWrapper<graph::TextureHandle> *pTexture = nullptr;
+};
+
+static std::unordered_multimap<audio::SoundFormat, audio::VoiceHandlePtr> gVoices = {};
+
+struct AudioComp : public IAssetComp {
+    using IAssetComp::IAssetComp;
+    static constexpr const char *kTypeName = "audio";
+
+    AudioComp(ComponentData data, fs::path path, float volume = 1.f)
+        : IAssetComp(data, path)
+        , volume(volume)
+    { }
+
+    void onCreate() override {
+        auto file = DepotService::openFile(path);
+        pSoundBuffer = AudioService::loadVorbisOgg(file);
+    }
+
+    void onDebugDraw() override {
+        ImGui::Text("audio: %s", path.string().c_str());
+        ImGui::SliderFloat("volume", &volume, 0.f, 1.f, "%.2f");
+    }
+
+    void playSound() {
+        auto [front, back] = gVoices.equal_range(pSoundBuffer->getFormat());
+        for (auto it = front; it != back; it++) {
+            auto *pVoice = it->second.get();
+            if (!pVoice->isPlaying()) {
+                pVoice->setVolume(volume);
+                pVoice->submit(pSoundBuffer);
+                return;
+            }
+        }
+
+        auto pVoice = AudioService::createVoice("effect", pSoundBuffer->getFormat());
+        pVoice->setVolume(volume);
+        pVoice->submit(pSoundBuffer);
+        gVoices.emplace(pSoundBuffer->getFormat(), pVoice);
+    }
+
+    audio::SoundBufferPtr pSoundBuffer = nullptr;
+    float volume;
+};
+
+// assets
+
+static MeshComp *gGridMesh = nullptr;
+static MeshComp *gAlienMesh = nullptr;
+static MeshComp *gBulletMesh = nullptr;
+static MeshComp *gPlayerMesh = nullptr;
+
+static MeshComp *gEggSmallMesh = nullptr;
+static MeshComp *gEggMediumMesh = nullptr;
+static MeshComp *gEggLargeMesh = nullptr;
+
+static TextureComp *gGridTexture = nullptr;
+static TextureComp *gAlienTexture = nullptr;
+static TextureComp *gBulletTexture = nullptr;
+static TextureComp *gPlayerTexture = nullptr;
+
+static AudioComp *gShootSound = nullptr;
+static AudioComp *gAlienDeathSound = nullptr;
+static AudioComp *gPlayerHitSound = nullptr;
+static AudioComp *gPlayerDeathSound = nullptr;
+
+static AudioComp *gEggSpawnSound = nullptr;
+static AudioComp *gEggGrowMediumSound = nullptr;
+static AudioComp *gEggGrowLargeSound = nullptr;
+static AudioComp *gEggDeathSound = nullptr;
+static AudioComp *gEggHatchSound = nullptr;
+
+// behaviours
+
+struct AlienShipBehaviour : public IComponent {
+    using IComponent::IComponent;
+    static constexpr const char *kTypeName = "mothership_behaviour";
+
+    /**
+     * @param shipSpeed speed of the alien ship in tiles per second
+     * @param spawnDelay delay between alien spawns in seconds
+     * @param spawnGracePeriod grace period before the first alien spawn in seconds
+     */
+    AlienShipBehaviour(ComponentData data, float shipSpeed = 0.7f, float spawnDelay = 1.f, float spawnGracePeriod = 1.5f)
+        : IComponent(data)
+        , moveDelay(shipSpeed)
+        , spawnDelay(spawnDelay)
+        , lastSpawn(spawnGracePeriod)
+    { }
+
+    void onDebugDraw() override {
+        ImGui::Text("move delay: %f", moveDelay);
+        ImGui::Text("spawn delay: %f", spawnDelay);
+
+        ImGui::ProgressBar(lastMove / moveDelay, ImVec2(0.f, 0.f), "Until next move");
+        ImGui::ProgressBar(lastSpawn / spawnDelay, ImVec2(0.f, 0.f), "Until next spawn");
+    }
+
+    float moveDelay;
+    float lastMove = 0.f;
+
+    float spawnDelay;
+    float lastSpawn;
+};
+
+enum EggState { eEggSmall, eEggMedium, eEggLarge };
+
+struct EggBehaviour : public IComponent {
+    EggBehaviour(ComponentData data, float timeToGrowMedium, float timeToGrowLarge, float timeToHatch)
+        : IComponent(data)
+        , timeToGrowMedium(timeToGrowMedium)
+        , timeToGrowLarge(timeToGrowLarge)
+        , timeToHatch(timeToHatch)
+    { }
+
+    EggState state = eEggSmall;
+
+    float timeToGrowMedium;
+    float timeToGrowLarge;
+    float timeToHatch;
+
+    float currentTimeAlive = 0.f;
+};
+
+struct SwarmBehaviour : public IComponent {
+    SwarmBehaviour(ComponentData data, float2 direction, float timeToMove)
+        : IComponent(data)
+        , direction(direction)
+        , timeToMove(timeToMove)
+    { }
+
+    float2 direction;
+
+    float timeToMove;
+    float lastMove = 0.f;
+};
+
+struct PlayerInputComp : public IComponent {
+    using IComponent::IComponent;
+    static constexpr const char *kTypeName = "player_input";
+
+    PlayerInputComp(ComponentData data)
+        : IComponent(data)
+    { }
+
+    bool isShootPressed() const { return gInputClient.isShootPressed(); }
+    bool isQuitPressed() const { return gInputClient.isQuitPressed(); }
+
+    bool consumeMoveUp() { return gInputClient.consumeMoveUp(); }
+    bool consumeMoveDown() { return gInputClient.consumeMoveDown(); }
+    bool consumeMoveLeft() { return gInputClient.consumeMoveLeft(); }
+    bool consumeMoveRight() { return gInputClient.consumeMoveRight(); }
+};
+
+struct HealthComp : public IComponent {
+    using IComponent::IComponent;
+    static constexpr const char *kTypeName = "health";
+
+    HealthComp(ComponentData data, int current, int total, AudioComp *pHitSound, AudioComp *pDeathSound)
+        : IComponent(data)
+        , currentHealth(current)
+        , maxHealth(total)
+        , pHitSound(pHitSound)
+        , pDeathSound(pDeathSound)
+    { }
+
+    void takeHit() {
+        if (currentHealth > 0) {
+            currentHealth--;
+
+            if (pHitSound) pHitSound->playSound();
+        }
+
+        if (currentHealth <= 0) {
+            if (pDeathSound) pDeathSound->playSound();
+        }
+    }
+
+    bool isAlive() const { return currentHealth > 0; }
+
+    int currentHealth;
+    int maxHealth;
+
+    AudioComp *pHitSound = nullptr;
+    AudioComp *pDeathSound = nullptr;
+};
+
+struct ProjectileComp : public IComponent {
+    using IComponent::IComponent;
+    static constexpr const char *kTypeName = "projectile";
+
+    ProjectileComp(ComponentData data, float2 speed)
+        : IComponent(data)
+        , speed(speed)
+    { }
+
+    float2 speed;
+};
+
+struct ShootComp : public IComponent {
+    using IComponent::IComponent;
+    static constexpr const char *kTypeName = "shooting";
+
+    ShootComp(ComponentData data, float delay, float bulletSpeed, AudioComp *pSound)
+        : IComponent(data)
+        , shootDelay(delay)
+        , bulletSpeed(bulletSpeed)
+        , pSound(pSound)
+    { }
+
+    void onDebugDraw() override {
+        ImGui::SliderFloat("shoot delay", &shootDelay, 0.f, 1.f, "%.2f");
+        ImGui::SliderFloat("bullet speed", &bulletSpeed, 0.f, 10.f, "%.2f");
+        ImGui::ProgressBar(lastShot / shootDelay, ImVec2(0.f, 0.f), "Until next shot");
+    }
+
+    float shootDelay = 0.3f;
+    float lastShot = 0.f;
+
+    float bulletSpeed = 5.f;
+
+    AudioComp *pSound = nullptr;
 };
 
 // model transform
@@ -482,26 +603,105 @@ struct GpuOrthoCameraComp : public IComponent {
     ResourceWrapper<game_render::CameraUniform> *pCameraUniform = nullptr;
 };
 
-static PlayerEntity *gPlayer = nullptr;
-static AlienShipEntity *gAlien = nullptr;
 static CameraEntity *gCamera = nullptr;
+static IEntity *gPlayerEntity = nullptr;
 
-static MeshComp *gGridMesh = nullptr;
-static MeshComp *gAlienMesh = nullptr;
-static MeshComp *gBulletMesh = nullptr;
-static MeshComp *gPlayerMesh = nullptr;
+static AudioComp *gSwarmNoise1 = nullptr;
+static AudioComp *gSwarmNoise2 = nullptr;
+static AudioComp *gSwarmNoise3 = nullptr;
+static AudioComp *gSwarmNoise4 = nullptr;
+static AudioComp *gSwarmNoise5 = nullptr;
 
-static TextureComp *gGridTexture = nullptr;
-static TextureComp *gAlienTexture = nullptr;
-static TextureComp *gBulletTexture = nullptr;
-static TextureComp *gPlayerTexture = nullptr;
+static std::array<AudioComp*, 5> gSwarmNoiseArr;
+int gCurrentNoiseIndex = -1;
+int gLowestNoiseIndex = 0;
+
+static void initNoise() {
+    gSwarmNoiseArr[0] = gSwarmNoise1;
+    gSwarmNoiseArr[1] = gSwarmNoise2;
+    gSwarmNoiseArr[2] = gSwarmNoise3;
+    gSwarmNoiseArr[3] = gSwarmNoise4;
+    gSwarmNoiseArr[4] = gSwarmNoise5;
+}
+
+static audio::VoiceHandlePtr gSwarmVoice = nullptr;
+
+static void setNewNoise(int index, bool updateLowest = false) {
+    if (gCurrentNoiseIndex == index) return;
+
+    if (updateLowest) gLowestNoiseIndex = index;
+
+    int clamped = std::clamp<int>(index, gLowestNoiseIndex, 4);
+
+    if (gCurrentNoiseIndex == clamped) return;
+    gCurrentNoiseIndex = clamped;
+
+    auto *pNoise = gSwarmNoiseArr[gCurrentNoiseIndex];
+
+    gSwarmVoice->reset();
+    gSwarmVoice->submit(pNoise->pSoundBuffer);
+    gSwarmVoice->resume();
+}
+
+float gElapsed = 0.f;
+size_t gPlayerHealth = 0;
+size_t gCurrentAliveEggs = 0;
+size_t gCurrentAliveSwarm = 0;
+
+static void updatePlayingMusic(float delta) {
+    if (gPlayerHealth == 0) {
+        gSwarmVoice->pause();
+        return;
+    }
+
+    int chosenNoise = gCurrentNoiseIndex;
+    bool bNewLowest = false;
+
+    gElapsed += delta;
+
+    // ramp volume up to .45 over 3 seconds and play the first noise
+
+    // the final 3 tracks are controlled by player health and enemy count
+    if (gPlayerHealth == 1) {
+        chosenNoise = 4;
+        bNewLowest = true;
+    } 
+    // if theres more than 4 eggs alive move to track 3
+    else if (gCurrentAliveEggs > 4 || gCurrentAliveSwarm > 3) {
+        chosenNoise = 3;
+    } else if (3.f > gElapsed) {
+        float volume = std::clamp(gElapsed / 3.f, 0.f, 0.45f);
+        gSwarmVoice->setVolume(volume);
+        chosenNoise = 0;
+        bNewLowest = true;
+    } else if (9.f > gElapsed) {
+        // after the next 6 seconds move to the new baseline track
+        bNewLowest = true;
+        chosenNoise = 1;
+
+        // over the next 6 seconds ramp up to full volume
+        float volume = std::clamp((gElapsed - 3.f) / 6.f, 0.45f, 1.f);
+        gSwarmVoice->setVolume(volume);
+    } else if (30.f > gElapsed) {
+        bNewLowest = true;
+    } 
+
+    setNewNoise(chosenNoise, bNewLowest);
+}
+
+enum CurrentScene {
+    eGameScene,
+    eScoreScene,
+    eMenuScene
+};
+
+CurrentScene gScene = eMenuScene;
 
 static void initEntities(game::World& world) {
     world.onCreate<TransformComp>([](TransformComp *pTransform) {
         World *pWorld = pTransform->getWorld();
 
         auto *pGpu = pWorld->component<GpuTransformComp>(pTransform);
-
         pTransform->associate(pGpu);
     });
 
@@ -517,32 +717,60 @@ static void initEntities(game::World& world) {
     gBulletMesh = world.component<MeshComp>("bullet.model");
     gPlayerMesh = world.component<MeshComp>("ship.model");
 
+    gEggSmallMesh = world.component<MeshComp>("egg-small.model");
+    gEggMediumMesh = world.component<MeshComp>("egg-medium.model");
+    gEggLargeMesh = world.component<MeshComp>("egg-large.model");
+
     gGridTexture = world.component<TextureComp>("cross.png");
     gAlienTexture = world.component<TextureComp>("alien.png");
     gBulletTexture = world.component<TextureComp>("player.png");
     gPlayerTexture = world.component<TextureComp>("player.png");
 
-    gPlayer = world.entity<PlayerEntity>("player")
+    gShootSound = world.component<AudioComp>("pew.ogg", 0.6f);
+    gAlienDeathSound = world.component<AudioComp>("alien_kill.ogg", 0.4f);
+    gPlayerHitSound = world.component<AudioComp>("damage_hit.ogg");
+    gPlayerDeathSound = world.component<AudioComp>("game_over.ogg");
+
+    gEggSpawnSound = world.component<AudioComp>("egg_spawn.ogg", 0.3f);
+    gEggGrowMediumSound = world.component<AudioComp>("egg_grow_medium.ogg", 0.6f);
+    gEggGrowLargeSound = world.component<AudioComp>("egg_grow_large.ogg");
+    gEggDeathSound = world.component<AudioComp>("egg_kill.ogg", 0.7f);
+    gEggHatchSound = world.component<AudioComp>("egg_hatch.ogg", 0.7f);
+
+    gSwarmNoise1 = world.component<AudioComp>("swarm1.ogg", 0.3f);
+    gSwarmNoise2 = world.component<AudioComp>("swarm2.ogg", 0.4f);
+    gSwarmNoise3 = world.component<AudioComp>("swarm3.ogg", 0.6f);
+    gSwarmNoise4 = world.component<AudioComp>("swarm4.ogg", 0.7f);
+    gSwarmNoise5 = world.component<AudioComp>("swarm5.ogg", 0.9f);
+
+    gSwarmVoice = AudioService::createVoice("swarm", gSwarmNoise5->pSoundBuffer->getFormat());
+
+    initNoise();
+
+    gPlayerHealth = 3;
+
+    gPlayerEntity = world.entity("player")
         .add<PlayerInputComp>()
-        .add<ShootComp>(0.3f)
-        .add<HealthComp>(3, 5)
+        .add<ShootComp>(0.3f, 9.f, gShootSound)
+        .add<HealthComp>(3, 5, gPlayerHitSound, gPlayerDeathSound)
         .add(gPlayerMesh).add(gPlayerTexture)
         .add<TransformComp>(float3(0.f, 0.f, 20.4f), float3(-90.f, 0.f, 90.f).radians(), 0.5f);
 
-    gAlien = world.entity<AlienShipEntity>("alien")
-        .add<AlienShipBehaviour>(0.7f, 1.f, 1.5f)
+    world.entity("alien")
+        .add<AlienShipBehaviour>(0.7f, 1.5f, 1.5f)
         .add(gAlienMesh).add(gAlienTexture)
         .add<TransformComp>(float3(0.f, 0.f, 21.6f), float3(-90.f, 90.f, 0.f).radians(), 0.6f);
 
     gCamera = world.entity<CameraEntity>("camera")
         .add<OrthoCameraComp>(float3(14.f, -10.f, 10.6f), (kWorldForward * 90.f).radians());
 
-    world.entity<IEntity>("grid")
+    world.entity("grid")
         .add(gGridMesh).add(gGridTexture)
         // scale is non-uniform to emulate original the vic20 display being non-square
         .add<TransformComp>(float3(0.f, 1.f, 0.f), float3(-90.f, 90.f, 0.f).radians(), float3(0.7f, 0.6f, 0.7f)); 
 }
 
+constexpr float2 kTileSize = { 1.4f, 1.2f };
 constexpr float2 kWorldBounds = float2(30.f, 21.f);
 
 // use special bounds for the bullet to account for the edges
@@ -551,12 +779,61 @@ static bool isBulletInBounds(float2 pos) {
         && pos.y >= -0.5f && pos.y <= kWorldBounds.y + 1.f;
 }
 
-static void runSystems(game::World& world, float delta) {
-    auto& workQueue = GameService::getWorkQueue();
-    for (size_t i = 0; i < 16 && workQueue.tryGetMessage(); i++) { }
+static float nudgeToGrid(float z) {
+    // round to the nearest kTileSize.y
 
-    mt::WriteLock lock(GameService::getWorldMutex());
-    // LOG_INFO("=== update ===");
+    float zp = std::round(z / kTileSize.y) * kTileSize.y;
+
+    return zp;
+}
+
+static constexpr auto kMovementPatterns = std::to_array<float2>({
+    float2(-1, 0), float2(1, 0), float2(0, 1),
+    float2(-1, 1), float2(1, 1), float2(0, 1),
+    float2(-1, 1), float2(1, 1), float2(0, 1)
+});
+
+std::uniform_real_distribution<float> gEggSpawnDist(0.f, 20.f);
+std::uniform_int_distribution<size_t> gMovementPatternDist(0, kMovementPatterns.size() - 1);
+
+static float2 getSwarmMovement() {
+    size_t idx = gMovementPatternDist(GameService::getRng());
+    return kMovementPatterns[idx];
+}
+
+static float distance(float2 a, float2 b) {
+    float2 d = a - b;
+    return std::sqrt(d.x * d.x + d.y * d.y);
+}
+
+static IEntity *getBulletHit(game::World& world, float2 position) {
+    for (IEntity *pEntity : world.allWith<TransformComp>()) {
+        // bullets cant hit themselves
+        if (pEntity->get<ProjectileComp>()) continue;
+
+        if (pEntity->get<SwarmBehaviour>() || pEntity->get<EggBehaviour>()) {
+            TransformComp *pTransform = pEntity->get<TransformComp>();
+            if (distance(pTransform->position.xz(), position) < 0.7f) {
+                return pEntity;
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+static IEntity *getAlienHit(float2 position) {
+    TransformComp *pTransform = gPlayerEntity->get<TransformComp>();
+
+    if (distance(pTransform->position.xz(), position) < 0.3f) {
+        return gPlayerEntity;
+    }
+
+    return nullptr;
+}
+
+static void runGameSystems(game::World& world, float delta) {
+    auto& workQueue = GameService::getWorkQueue();
 
     // do movement and shooting input
     for (IEntity *pEntity : world.allWith<PlayerInputComp, ShootComp, TransformComp>()) {
@@ -607,15 +884,17 @@ static void runSystems(game::World& world, float delta) {
 
                 float playerAngle = -pTransform->rotation.x;
 
+                pShoot->pSound->playSound();
+
                 workQueue.add("bullet", [playerAngle, pTransform, pEntity, speed = pShoot->bulletSpeed] {
                     float2 direction = float2(std::cos(playerAngle), std::sin(playerAngle));
 
                     World *pWorld = pEntity->getWorld();
 
-                    pWorld->entity<BulletEntity>("bullet")
+                    pWorld->entity("bullet")
                         .add(gBulletMesh).add(gBulletTexture)
                         .add<TransformComp>(pTransform->position, pTransform->rotation, 0.2f)
-                        .add<ProjectileComp>(direction * speed, pEntity->getTypeInfo());
+                        .add<ProjectileComp>(direction * speed);
                 });
             }
         }
@@ -637,7 +916,6 @@ static void runSystems(game::World& world, float delta) {
         }
     }
 
-
     // move the mothership
     for (IEntity *pEntity : world.allWith<AlienShipBehaviour, TransformComp>()) {
         AlienShipBehaviour *pBehaviour = pEntity->get<AlienShipBehaviour>();
@@ -654,10 +932,141 @@ static void runSystems(game::World& world, float delta) {
         if (pTransform->position.x > kWorldBounds.x) {
             pTransform->position.x = 0.f;
         }
+
+        if (pBehaviour->lastSpawn > pBehaviour->spawnDelay) {
+            pBehaviour->lastSpawn = 0.f;
+
+            float x = pTransform->position.x;
+            float height = nudgeToGrid(gEggSpawnDist(GameService::getRng()));
+
+            float3 pos = { x, 0.f, height };
+
+            gEggSpawnSound->playSound();
+
+            workQueue.add("egg", [pEntity, pTransform, pos] {
+                World *pWorld = pEntity->getWorld();
+
+                gCurrentAliveEggs += 1;
+                pWorld->entity("egg")
+                    .add<HealthComp>(1, 1, nullptr, gEggDeathSound)
+                    .add<TransformComp>(pos, pTransform->rotation, 0.6f)
+                    .add(gEggSmallMesh).add(gAlienTexture)
+                    .add<EggBehaviour>(1.f, 3.f, 4.5f);
+            });
+        }
     }
 
-    // LOG_INFO("=== render ===");
-    
+    // hatch eggs
+    for (IEntity *pEntity : world.allWith<EggBehaviour, TransformComp>()) {
+        EggBehaviour *pBehaviour = pEntity->get<EggBehaviour>();
+        TransformComp *pTransform = pEntity->get<TransformComp>();
+
+        pBehaviour->currentTimeAlive += delta;
+        if (pBehaviour->currentTimeAlive >= pBehaviour->timeToHatch) {
+            gEggHatchSound->playSound();
+
+            workQueue.add("hatch", [pEntity, pTransform] {
+                World *pWorld = pEntity->getWorld();
+
+                gCurrentAliveSwarm += 1;
+                pWorld->entity("swarmer")
+                    .add<SwarmBehaviour>(getSwarmMovement(), 0.3f)
+                    .add<HealthComp>(1, 1, nullptr, gAlienDeathSound)
+                    .add(pTransform).add(gAlienTexture).add(gAlienMesh);
+
+                pWorld->destroy(pEntity);
+            });
+        } else if (pBehaviour->currentTimeAlive >= pBehaviour->timeToGrowLarge) {
+            if (pBehaviour->state != eEggLarge) {
+                pEntity->addComponent(gEggLargeMesh);
+                pBehaviour->state = eEggLarge;
+                gEggGrowLargeSound->playSound();
+            }
+        } else if (pBehaviour->currentTimeAlive >= pBehaviour->timeToGrowMedium) {
+            if (pBehaviour->state != eEggMedium) {
+                pEntity->addComponent(gEggMediumMesh);
+                pBehaviour->state = eEggMedium;
+                gEggGrowMediumSound->playSound();
+            }
+        }
+    }
+
+    // move swarmers
+    for (IEntity *pEntity : world.allWith<SwarmBehaviour, TransformComp>()) {
+        SwarmBehaviour *pBehaviour = pEntity->get<SwarmBehaviour>();
+        TransformComp *pTransform = pEntity->get<TransformComp>();
+
+        pBehaviour->lastMove += delta;
+        if (pBehaviour->lastMove < pBehaviour->timeToMove) continue;
+
+        pBehaviour->lastMove = 0.f;
+
+        bool bAtSideEdge = pTransform->position.x <= 0.f || pTransform->position.x >= kWorldBounds.x - 0.7f;
+        bool bAtTopOrBottomEdge = pTransform->position.z <= 1.f || pTransform->position.z >= kWorldBounds.y;
+
+        if (bAtSideEdge) {
+            pBehaviour->direction.x *= -1.f;
+        }
+
+        if (bAtTopOrBottomEdge) {
+            pBehaviour->direction.y *= -1.f;
+        }
+
+        pTransform->position.x += pBehaviour->direction.x * kTileSize.x;
+        pTransform->position.z += pBehaviour->direction.y * kTileSize.y;
+    }
+
+    // check for bullet hits
+    for (IEntity *pEntity : world.allWith<ProjectileComp, TransformComp>()) {
+        TransformComp *pTransform = pEntity->get<TransformComp>();
+        float2 pos = pTransform->position.xz();
+
+        if (IEntity *pHit = getBulletHit(world, pos)) {
+            if (HealthComp *pHealth = pHit->get<HealthComp>()) {
+                pHealth->takeHit();
+            }
+
+            if (EggBehaviour *pEgg = pHit->get<EggBehaviour>()) {
+                gCurrentAliveEggs -= 1;
+            } else {
+                gCurrentAliveSwarm -= 1;
+            }
+
+            workQueue.add("delete", [pEntity] { 
+                World *pWorld = pEntity->getWorld();
+                pWorld->destroy(pEntity);
+            });
+        }
+    }
+
+    // did a swarmer hit the player
+    for (IEntity *pEntity : world.allWith<SwarmBehaviour, TransformComp>()) {
+        TransformComp *pTransform = pEntity->get<TransformComp>();
+
+        if (IEntity *pHit = getAlienHit(pTransform->position.xz())) {
+            if (HealthComp *pHealth = pHit->get<HealthComp>()) {
+                pHealth->takeHit();
+            }
+
+            workQueue.add("delete", [pEntity] { 
+                World *pWorld = pEntity->getWorld();
+                pWorld->destroy(pEntity);
+            });
+        }
+    }
+
+    // if anything is dead remove it
+    for (IEntity *pEntity : world.allWith<HealthComp>()) {
+        HealthComp *pHealth = pEntity->get<HealthComp>();
+
+        if (!pHealth->isAlive()) {
+            workQueue.add("delete", [pEntity] { 
+                World *pWorld = pEntity->getWorld();
+                pWorld->destroy(pEntity);
+            });
+        }
+    }
+
     game_render::CommandBatch batch;
 
     if (CameraEntity *pCamera = world.get<CameraEntity>(gCamera->getInstanceId())) {
@@ -674,7 +1083,7 @@ static void runSystems(game::World& world, float delta) {
             float aspect = float(width) / float(height);
 
             float4x4 view = float4x4::lookToRH(pCameraComp->position, pCameraComp->direction, kWorldUp);
-            float4x4 proj = float4x4::orthographicRH(24.f * aspect, 24.f, 0.1f, 100.f);
+            float4x4 proj = float4x4::orthographicRH(26.f * aspect, 26.f, 0.1f, 100.f);
 
             auto *pBuffer = pGpuCameraComp->pCameraUniform->getInner();
             auto *pHeap = pContext->getSrvHeap();
@@ -719,6 +1128,37 @@ static void runSystems(game::World& world, float delta) {
 
     GameService::getScene()
         ->update(std::move(batch));
+}
+
+static void runMenuSystems(game::World& world, float delta) {
+
+}
+
+static void runScoreSystems(game::World& world, float delta) {
+
+}
+
+static void runSystems(game::World& world, float delta) {
+    auto& workQueue = GameService::getWorkQueue();
+    for (size_t i = 0; i < 16 && workQueue.tryGetMessage(); i++) { }
+
+    mt::WriteLock lock(GameService::getWorldMutex());
+    // LOG_INFO("=== update ===");
+
+    switch (gScene) {
+    case eGameScene: 
+        updatePlayingMusic(delta);
+        runGameSystems(world, delta);
+        break;
+    case eMenuScene:
+        runMenuSystems(world, delta);
+        break;
+    case eScoreScene:
+        runScoreSystems(world, delta);
+        break;
+    }
+
+    // LOG_INFO("=== render ===");
 }
 
 ///

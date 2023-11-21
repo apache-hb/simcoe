@@ -14,6 +14,7 @@ namespace game_render = game::render;
 namespace config = simcoe::config;
 
 config::ConfigValue<float> cfgTargetWorldTickRate("game/world", "target_tps", "target world ticks per second (0 = unlimited)", 30.f);
+config::ConfigValue<size_t> cfgWorkSeed("game/world", "random_seed", "random seed for world work", 12345);
 
 namespace {
     game_render::HudPass *pHudPass = nullptr;
@@ -23,10 +24,13 @@ namespace {
 
     threads::WorkQueue *pWorkQueue = nullptr;
     mt::SharedMutex *pWorldMutex = nullptr;
+
+    std::mt19937_64 *pRng = nullptr;
 }
 
 bool GameService::createService() {
     pWorld = new game::World();
+    pRng = new std::mt19937_64(cfgWorkSeed.getCurrentValue());
     pWorkQueue = new threads::WorkQueue(64);
     pWorldMutex = new mt::SharedMutex("game");
     return true;
@@ -59,4 +63,8 @@ threads::WorkQueue& GameService::getWorkQueue() {
 
 mt::SharedMutex& GameService::getWorldMutex() {
     return *pWorldMutex;
+}
+
+std::mt19937_64 &GameService::getRng() {
+    return *pRng;
 }

@@ -46,6 +46,7 @@ namespace simcoe {
         ~Window();
 
         void showWindow();
+        void closeWindow();
 
         HWND getHandle() const;
         WindowSize getSize() const;
@@ -60,8 +61,6 @@ namespace simcoe {
         static LRESULT CALLBACK callback(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     private:
-        void closeWindow();
-
         void doResize(int width, int height);
         void doSizeChange(WPARAM wParam, int width, int height);
 

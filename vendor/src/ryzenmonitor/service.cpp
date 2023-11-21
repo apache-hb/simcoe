@@ -53,8 +53,12 @@ namespace {
 
         int cpuInfo[4];
 
+        // TODO: extract cpuid to a util function
+#if defined(_MSC_VER) && !defined(__clang__)
         __cpuid(cpuInfo, 0);
-
+#else
+        __cpuid(0, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
+#endif
         // the vendor string is stored in a weird pattern
         memcpy(vendor.data(), &cpuInfo[1], sizeof(uint32_t));
         memcpy(vendor.data() + sizeof(uint32_t), &cpuInfo[3], sizeof(uint32_t));
@@ -112,7 +116,12 @@ namespace {
 
     bool isProcessorSupported(InfoSink& sink) {
         int cpuInfo[4];
+
+#if defined(_MSC_VER) && !defined(__clang__)
         __cpuid(cpuInfo, 0x80000001);
+#else
+        __cpuid(0x80000001, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
+#endif
 
         unsigned id = cpuInfo[0];
         PackageType type = PackageType(cpuInfo[1] >> 28);
