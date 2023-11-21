@@ -52,18 +52,29 @@ namespace game::ui {
         std::vector<IWidget*> children;
     };
 
+    struct FontAtlas final : editor::graph::ITextureHandle, ISingleSRVHandle {
+        FontAtlas(Graph *ctx, const fs::path& path, size_t pt, std::span<char32_t> chars);
+
+        void create() override;
+        void destroy() override;
+
+        BoxBounds getBounds(char32_t glyph) const;
+
+    private:
+        std::unordered_map<char32_t, BoxBounds> glyphs; // glyph to uv coord bounds
+
+        depot::Font font;
+        depot::Image bitmap;
+    };
+
     struct TextWidget : IWidget {
         TextWidget(std::string text);
 
         void draw(Context *pContext, const DrawInfo& info) const override;
 
         std::string text;
-    };
 
-    struct FontAtlas {
-        std::unordered_map<char32_t, BoxBounds> glyphs;
-        
-        ResourceWrapper<editor::graph::TextureHandle> texture;
+        FontAtlas *pAtlas;
     };
 
     // core ui class

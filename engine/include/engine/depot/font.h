@@ -31,6 +31,7 @@ namespace simcoe::depot {
 
         Image drawText(utf8::StaticText text, CanvasPoint start, CanvasSize size, float angle = 0.f);
         Image drawText(std::span<const TextSegment> segments, CanvasPoint start, CanvasSize size, float angle = 0.f);
+        Image drawText(std::span<char32_t> text, CanvasPoint start, CanvasSize size, float angle = 0.f);
 
     private:
         FT_Face face;

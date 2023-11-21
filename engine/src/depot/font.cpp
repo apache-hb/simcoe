@@ -196,3 +196,22 @@ Image Font::drawText(std::span<const TextSegment> segments, CanvasPoint origin, 
 
     return render.image;
 }
+
+Image Font::drawText(std::span<char32_t> text, CanvasPoint start, CanvasSize size, float angle = 0.f) {
+    FontRender render(face, start, size, angle, pt);
+
+    for (char32_t codepoint : text) {
+        if (codepoint == '\n') {
+            render.newline();
+            continue;
+        }
+
+        render.setTransform();
+
+        render.draw(codepoint, kBlack);
+
+        render.advance();
+    }
+
+    return render.image;
+}
