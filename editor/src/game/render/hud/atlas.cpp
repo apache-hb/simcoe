@@ -62,7 +62,7 @@ FontAtlasHandle::FontAtlasHandle(Graph *pGraph, std::span<FontAtlasInfo> fonts)
                 .h = h + 2
             };
 
-            LOG_INFO("glyph `{}`: size=({},{})", char(rune), w + 2, h + 2);
+            LOG_INFO("glyph `{} {:#x}`: size=({},{})", char(rune), int32_t(rune), w + 2, h + 2);
 
             pRects[index++] = rect;
         }

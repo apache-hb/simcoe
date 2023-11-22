@@ -8,6 +8,8 @@
 
 #include "engine/math/math.h"
 
+#include <hb.h>
+
 #include <span>
 
 namespace simcoe::depot {
@@ -49,10 +51,65 @@ namespace simcoe::depot {
         CanvasSize getGlyphSize(char32_t codepoint) const;
         void drawGlyph(char32_t codepoint, CanvasPoint start, Image& image);
 
+        FT_Face getFace() const { return face; }
+
     private:
         FT_Face face;
 
         int pt;
         int dpi;
+    };
+
+    struct ShapedGlyph {
+        hb_codepoint_t codepoint;
+        hb_position_t xAdvance;
+        hb_position_t yAdvance;
+        hb_position_t xOffset;
+        hb_position_t yOffset;
+    };
+
+    struct ShapedTextIterator {
+        ShapedTextIterator(unsigned int index, hb_glyph_info_t *pGlyphInfo, hb_glyph_position_t *pGlyphPos);
+
+        bool operator==(const ShapedTextIterator& other) const;
+        bool operator!=(const ShapedTextIterator& other) const;
+
+        ShapedGlyph operator*() const;
+        ShapedTextIterator& operator++();
+
+    private:
+        unsigned int index;
+        hb_glyph_info_t *pGlyphInfo;
+        hb_glyph_position_t *pGlyphPos;
+    };
+
+    struct ShapedText {
+        SM_NOCOPY(ShapedText)
+
+        ShapedText(hb_buffer_t *pBuffer);
+        ~ShapedText();
+
+        ShapedTextIterator begin() const;
+        ShapedTextIterator end() const;
+
+    private:
+        hb_buffer_t *pBuffer;
+
+        unsigned int numGlyphs;
+        hb_glyph_info_t *pGlyphInfo;
+        hb_glyph_position_t *pGlyphPos;
+    };
+
+    struct Text {
+        SM_NOCOPY(Text)
+
+        Text(Font *pFreeTypeFont);
+        ~Text();
+
+        ShapedText shape(utf8::StaticText text);
+
+    private:
+        hb_font_t *pFont;
+        hb_face_t *pFace;
     };
 }

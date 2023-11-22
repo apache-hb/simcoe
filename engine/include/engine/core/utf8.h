@@ -15,7 +15,6 @@ namespace simcoe::utf8 {
         TextIterator(const char8_t *pText, size_t offset);
 
         bool operator==(const TextIterator& other) const;
-
         bool operator!=(const TextIterator& other) const;
 
         TextIterator& operator++();
@@ -33,6 +32,7 @@ namespace simcoe::utf8 {
 
         StaticText(const char8_t *pText, size_t size);
 
+        const char8_t *data() const;
         size_t size() const;
 
         TextIterator begin() const;

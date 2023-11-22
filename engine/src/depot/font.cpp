@@ -6,7 +6,6 @@
 
 #include "engine/math/math.h"
 
-#include <hb.h>
 #include <hb-ft.h>
 
 #include "stb/stb_rectpack.h"
@@ -22,14 +21,14 @@ namespace {
 
     constexpr math::float4 kBlack = math::float4(1.f, 1.f, 1.f, 1.f);
 
-    void bltGlyph(Image& image, FT_String *pName, FT_Bitmap *pBitmap, FT_UInt x, FT_UInt y, math::float4 colour) {
-        auto writePixel = [&](size_t x, size_t y, std::byte value) {
+    void bltGlyph(Image& image, char32_t codepoint, FT_String *pName, FT_Bitmap *pBitmap, FT_UInt x, FT_UInt y, math::float4 colour) {
+        auto writePixel = [&](size_t x, size_t y, std::byte value, math::float4 col = math::float4(1.f)) {
             size_t index = (y * image.size.width + x) * 4;
             if (index + 3 > image.data.size()) return;
 
-            image.data[index + 0] = std::byte(255 * colour.x);
-            image.data[index + 1] = std::byte(255 * colour.y);
-            image.data[index + 2] = std::byte(255 * colour.z);
+            image.data[index + 0] = std::byte(255 * col.r);
+            image.data[index + 1] = std::byte(255 * col.g);
+            image.data[index + 2] = std::byte(255 * col.b);
             image.data[index + 3] = value;
         };
 
@@ -39,7 +38,7 @@ namespace {
                     FT_UInt index = row * pBitmap->pitch + col;
                     FT_Byte alpha = pBitmap->buffer[index];
 
-                    writePixel(x + col, y + row, std::byte(alpha));
+                    writePixel(x + col, y + row, std::byte(alpha), colour);
                 }
             }
         } else if (pBitmap->pixel_mode == FT_PIXEL_MODE_MONO) {
@@ -48,11 +47,18 @@ namespace {
                     FT_UInt index = row * pBitmap->pitch + col / 8;
                     FT_Byte alpha = (pBitmap->buffer[index] & (0x80 >> (col % 8))) ? 255 : 0;
 
-                    writePixel(x + col, y + row, std::byte(alpha));
+                    writePixel(x + col, y + row, std::byte(alpha), colour);
                 }
             }
         } else {
-            LOG_ASSERT("unsupported pixel mode `{}` (mode={})", pName, pBitmap->pixel_mode);
+            // fill the glyph with magenta
+            for (FT_UInt row = 0; row < pBitmap->rows; row++) {
+                for (FT_UInt col = 0; col < pBitmap->width; col++) {
+                    writePixel(x + col, y + row, std::byte(255), math::float4(1.f, 0.f, 1.f, 1.f));
+                }
+            }
+
+            LOG_WARN("unsupported pixel mode `{:#x}` `{}` (mode={})", int32_t(codepoint), pName, pBitmap->pixel_mode);
         }
     }
 
@@ -107,7 +113,7 @@ namespace {
             }
 
             FT_Bitmap *bitmap = &slot->bitmap;
-            bltGlyph(image, face->family_name, bitmap, slot->bitmap_left, core::intCast<FT_UInt>(size.height) - slot->bitmap_top, colour);
+            bltGlyph(image, codepoint, face->family_name, bitmap, slot->bitmap_left, core::intCast<FT_UInt>(size.height) - slot->bitmap_top, colour);
         }
 
         void advance() {
@@ -271,12 +277,87 @@ void Font::drawGlyph(char32_t codepoint, CanvasPoint start, Image& image) {
 
     if (FT_Error error = FT_Load_Char(face, codepoint, FT_LOAD_RENDER)) {
         if (const char *pError = FT_Error_String(error)) {
-            LOG_ASSERT("failed to load glyph (codepoint={}, fterr={})", uint32_t(codepoint), pError);
+            LOG_WARN("failed to load glyph (codepoint={}, fterr={})", uint32_t(codepoint), pError);
         } else { 
-            LOG_ASSERT("failed to load glyph (codepoint={}, fterr={:#x})", uint32_t(codepoint), error);
+            LOG_WARN("failed to load glyph (codepoint={}, fterr={:#x})", uint32_t(codepoint), error);
         }
+
+        return;
     }
 
     FT_Bitmap *bitmap = &face->glyph->bitmap;
-    bltGlyph(image, face->family_name, bitmap, core::intCast<FT_UInt>(start.x), core::intCast<FT_UInt>(start.y), kBlack);
+    bltGlyph(image, codepoint, face->family_name, bitmap, core::intCast<FT_UInt>(start.x), core::intCast<FT_UInt>(start.y), kBlack);
+}
+
+// harfbuzz
+
+ShapedTextIterator::ShapedTextIterator(unsigned int index, hb_glyph_info_t *pGlyphInfo, hb_glyph_position_t *pGlyphPos)
+    : index(index)
+    , pGlyphInfo(pGlyphInfo)
+    , pGlyphPos(pGlyphPos)
+{ }
+
+bool ShapedTextIterator::operator==(const ShapedTextIterator& other) const {
+    return index == other.index;
+}
+
+bool ShapedTextIterator::operator!=(const ShapedTextIterator& other) const {
+    return index != other.index;
+}
+
+ShapedGlyph ShapedTextIterator::operator*() const {
+    return {
+        .codepoint = pGlyphInfo[index].codepoint,
+        .xAdvance = pGlyphPos[index].x_advance,
+        .yAdvance = pGlyphPos[index].y_advance,
+        .xOffset = pGlyphPos[index].x_offset,
+        .yOffset = pGlyphPos[index].y_offset
+    };
+}
+
+ShapedTextIterator& ShapedTextIterator::operator++() {
+    index++;
+    return *this;
+}
+
+ShapedText::ShapedText(hb_buffer_t *pBuffer) : pBuffer(pBuffer) { 
+    pGlyphInfo = hb_buffer_get_glyph_infos(pBuffer, &numGlyphs);
+    pGlyphPos = hb_buffer_get_glyph_positions(pBuffer, &numGlyphs);
+}
+
+ShapedText::~ShapedText() {
+    hb_buffer_destroy(pBuffer);
+}
+
+ShapedTextIterator ShapedText::begin() const {
+    return { 0, pGlyphInfo, pGlyphPos };
+}
+
+ShapedTextIterator ShapedText::end() const {
+    return { numGlyphs, pGlyphInfo, pGlyphPos };
+}
+
+Text::Text(Font *pFreeTypeFont) {
+    hb_font_t *pNewFont = hb_ft_font_create_referenced(pFreeTypeFont->getFace());
+    hb_face_t *pNewFace = hb_font_get_face(pNewFont);
+
+    hb_ft_font_set_funcs(pNewFont);
+    hb_face_set_upem(pNewFace, 64);
+
+    pFont = pNewFont;
+    pFace = pNewFace;
+}
+
+Text::~Text() {
+    hb_font_destroy(pFont);
+}
+
+ShapedText Text::shape(utf8::StaticText text) {
+    hb_buffer_t *pBuffer = hb_buffer_create();
+    hb_buffer_add_utf8(pBuffer, (const char*)text.data(), int(text.size()), 0, int(text.size()));
+    hb_buffer_guess_segment_properties(pBuffer);
+
+    hb_shape(pFont, pBuffer, nullptr, 0);
+
+    return ShapedText(pBuffer);
 }

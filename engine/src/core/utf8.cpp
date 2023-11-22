@@ -140,9 +140,8 @@ StaticText::StaticText(const char8_t *pText, size_t size)
     , sizeInBytes(size)
 { }
 
-size_t StaticText::size() const {
-    return sizeInBytes;
-}
+const char8_t *StaticText::data() const { return pText; }
+size_t StaticText::size() const { return sizeInBytes; }
 
 TextIterator StaticText::begin() const {
     return TextIterator(pText, 0);
