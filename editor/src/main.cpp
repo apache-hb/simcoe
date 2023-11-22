@@ -206,6 +206,7 @@ private:
     Event moveRightEventKey, moveRightEventArrow, moveRightEventPad;
 };
 
+std::atomic_int32_t gScore = 0;
 
 static GameInputClient gInputClient;
 static GameWindow gWindowCallbacks;
@@ -697,7 +698,7 @@ enum CurrentScene {
     eMenuScene
 };
 
-CurrentScene gScene = eMenuScene;
+CurrentScene gScene = eGameScene;
 
 static void initEntities(game::World& world) {
     world.onCreate<TransformComp>([](TransformComp *pTransform) {
@@ -834,8 +835,60 @@ static IEntity *getAlienHit(float2 position) {
     return nullptr;
 }
 
+float totalTime = 0.f;
+float scoreTicker = 0.f;
+
+bool bScore10Seconds = false;
+bool bScore30Seconds = false;
+bool bScore60Seconds = false;
+
+game_ui::TextWidget gScoreText = { u8"Score: " };
+game_ui::TextWidget gScoreBoard = { u8"00000000" };
+game_ui::TextWidget gTimeText = { u8"Time: " };
+game_ui::TextWidget gTimeBoard = { u8"" };
+game_ui::TextWidget gHealthText = { u8"Health: " };
+game_ui::TextWidget gHealthBoard = { u8"" };
+
+static char gScoreBuffer[64] = { 0 };
+static char gTimeBuffer[64] = { 0 };
+
 static void runGameSystems(game::World& world, float delta) {
     auto& workQueue = GameService::getWorkQueue();
+
+    // update the score, always has a base of 10 and 8 zeros
+    snprintf(gScoreBuffer, 32, "%010d", gScore.load());
+    gScoreBoard.text = (const char8_t*)gScoreBuffer;
+
+    // update time, show minutes, seconds, and milliseconds
+    int minutes = (int)totalTime / 60;
+    int seconds = (int)totalTime % 60;
+    int milliseconds = (int)(totalTime * 1000) % 1000;
+
+    snprintf(gTimeBuffer, 32, "%02dm:%02ds:%02d", minutes, seconds, milliseconds);
+    gTimeBoard.text = (const char8_t*)gTimeBuffer;
+
+    scoreTicker += delta;
+    totalTime += delta;
+    if (scoreTicker > 1.f) {
+        scoreTicker = 0.f;
+        if (bScore60Seconds) {
+            gScore += 50;
+        } else if (bScore30Seconds) {
+            gScore += 25;
+        } else if (bScore10Seconds) {
+            gScore += 10;
+        }
+
+        gScore += 10;
+    }
+
+    if (totalTime > 60.f) {
+        bScore60Seconds = true;
+    } else if (totalTime > 30.f) {
+        bScore30Seconds = true;
+    } else if (totalTime > 10.f) {
+        bScore10Seconds = true;
+    }
 
     // do movement and shooting input
     for (IEntity *pEntity : world.allWith<PlayerInputComp, ShootComp, TransformComp>()) {
@@ -1030,8 +1083,10 @@ static void runGameSystems(game::World& world, float delta) {
 
             if (EggBehaviour *pEgg = pHit->get<EggBehaviour>()) {
                 gCurrentAliveEggs -= 1;
+                gScore += (pEgg->state * 50);
             } else {
                 gCurrentAliveSwarm -= 1;
+                gScore += 250;
             }
 
             workQueue.add("delete", [pEntity] { 
@@ -1188,9 +1243,81 @@ static void commonMain() {
     auto *pHud = GameService::getHud();
 
     layout.atlas = pHud->pFontAtlas->getInner()->getAtlas();
-    layout.shaper = pHud->pFontAtlas->getInner()->getTextShaper(0);
+    layout.shapers.emplace_back(pHud->pFontAtlas->getInner()->getTextShaper(0));
+
+    gScoreText.align.h = game_ui::AlignH::eLeft;
+    gScoreText.align.v = game_ui::AlignV::eTop;
+    gScoreBoard.align.h = game_ui::AlignH::eLeft;
+    gScoreBoard.align.v = game_ui::AlignV::eTop;
 
     game_ui::TextWidget text = { u8"Hello world" };
+    game_ui::TextWidget text2 = { u8"" SM_XB_LOGO SM_XB_VIEW SM_XB_MENU };
+
+    game_ui::HStackWidget hstack;
+    game_ui::HStackWidget scoreboard;
+
+    scoreboard.add(&gScoreText);
+    scoreboard.add(&gScoreBoard);
+
+    hstack.add(&scoreboard);
+    hstack.add(&text);
+    hstack.add(&text2);
+
+    auto handle = editor_ui::addGlobalHandle("ui", [&layout, &text, &text2, &hstack] {
+        const char *kVerticalAlign[] = { "top", "center", "bottom" };
+        const char *kHorizontalAlign[] = { "left", "center", "right" };
+
+        {
+            static char buffer[256] = { 0 };
+            if (ImGui::InputText("text", buffer, 256)) {
+                text.text = (char8_t*)buffer;
+            }
+
+            int halign = (int)text.align.h;
+            int valign = (int)text.align.v;
+
+            ImGui::Combo("vertical align##text", &valign, kVerticalAlign, 3);
+            ImGui::Combo("horizontal align##text", &halign, kHorizontalAlign, 3);
+
+            text.align = {
+                .v = (game_ui::AlignV)valign,
+                .h = (game_ui::AlignH)halign
+            };
+        }
+        ImGui::SeparatorText("text2");
+
+        {
+            static char buffer[256] = { 0 };
+            if (ImGui::InputText("text2", buffer, 256)) {
+                text2.text = (char8_t*)buffer;
+            }
+
+            int halign = (int)text2.align.h;
+            int valign = (int)text2.align.v;
+
+            ImGui::Combo("vertical align##text2", &valign, kVerticalAlign, 3);
+            ImGui::Combo("horizontal align##text2", &halign, kHorizontalAlign, 3);
+
+            text2.align = {
+                .v = (game_ui::AlignV)valign,
+                .h = (game_ui::AlignH)halign
+            };
+        }
+        ImGui::SeparatorText("hstack");
+        
+        {
+            int halign = (int)hstack.align.h;
+            int valign = (int)hstack.align.v;
+
+            ImGui::Combo("vertical align##hstack", &valign, kVerticalAlign, 3);
+            ImGui::Combo("horizontal align##hstack", &halign, kHorizontalAlign, 3);
+
+            hstack.align = {
+                .v = (game_ui::AlignV)valign,
+                .h = (game_ui::AlignH)halign
+            };
+        }
+    });
 
     initEntities(world);
 
@@ -1200,7 +1327,7 @@ static void commonMain() {
     while (bRunning) {
         ThreadService::pollMain();
 
-        layout.begin(&text);
+        layout.begin(&hstack);
 
         pHud->update(layout);
 

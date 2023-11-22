@@ -10,8 +10,8 @@ namespace game_ui = game::ui;
 
 using Layout = game_ui::Context;
 
-void TextWidget::draw(Context *pContext, const DrawInfo& info) const {
-    TextDrawInfo drawInfo = { text, align, scale };
+BoxBounds TextWidget::draw(Context *pContext, const DrawInfo& info) const {
+    TextDrawInfo drawInfo = { text, align, scale, shaper };
     BoxBounds box = pContext->text(info.bounds, info.colour, drawInfo);
     if (bDrawBox) {
         float border = 2.f;
@@ -29,6 +29,64 @@ void TextWidget::draw(Context *pContext, const DrawInfo& info) const {
         pContext->box(left, { 255, 0, 0, 255 });
         pContext->box(right, { 255, 0, 0, 255 });
     }
+
+    return box;
+}
+
+BoxBounds HStackWidget::draw(Context *pContext, const DrawInfo& info) const {
+    // aligns elements horizontally
+
+    BoxBounds bounds = info.bounds;
+    if (bounds.max == 0.f) {
+        bounds.max = pContext->screen.max;
+    }
+
+    // calculate the width of each element
+    float width = (bounds.max.x - bounds.min.x) / float(children.size());
+
+    // the current position of the cursor
+    float2 cursor = bounds.min;
+
+    DrawInfo inner = info;
+
+    for (auto *pChild : children) {
+        inner.bounds.min = cursor;
+        inner.bounds.max = cursor + float2(width, bounds.max.y - bounds.min.y);
+
+        BoxBounds childBounds = pChild->draw(pContext, inner);
+
+        cursor.x += childBounds.max.x - childBounds.min.x;
+    }
+
+    return bounds;
+}
+
+BoxBounds VStackWidget::draw(Context *pContext, const DrawInfo& info) const {
+    // aligns elements vertically
+
+    BoxBounds bounds = info.bounds;
+    if (bounds.max == 0.f) {
+        bounds.max = pContext->screen.max;
+    }
+
+    // calculate the height of each element
+    float height = (bounds.max.y - bounds.min.y) / float(children.size());
+
+    // the current position of the cursor
+    float2 cursor = bounds.min;
+
+    DrawInfo inner = info;
+
+    for (auto *pChild : children) {
+        inner.bounds.min = cursor;
+        inner.bounds.max = cursor + float2(bounds.max.x - bounds.min.x, height);
+
+        BoxBounds childBounds = pChild->draw(pContext, inner);
+
+        cursor.y += childBounds.max.y - childBounds.min.y;
+    }
+
+    return bounds;
 }
 
 Layout::Context(BoxBounds screenBounds)
@@ -74,7 +132,7 @@ BoxBounds Layout::text(const BoxBounds& inBounds, uint8x4 colour, const TextDraw
         bounds.max = screen.max;
     }
 
-    auto iter = shaper.shape(info.text);
+    auto iter = shapers[info.shaper].shape(info.text);
 
     // the bounds of the text relative to @bounds
     float2 textMin = 0.f;
@@ -112,6 +170,10 @@ BoxBounds Layout::text(const BoxBounds& inBounds, uint8x4 colour, const TextDraw
         }
 
         auto [texBounds, size] = atlas.at(codepoint);
+
+        if (fxa == 0.f) {
+            fxa = float(size.x) * info.scale;
+        }
 
         float2 glyphSize = size.as<float>() * info.scale;
         float2 glyphStart = cursor + float2(fxo, fyo);
@@ -165,7 +227,7 @@ BoxBounds Layout::text(const BoxBounds& inBounds, uint8x4 colour, const TextDraw
         offset.y -= (bounds.max.y - bounds.min.y) / 2.f - (textMax.y - textMin.y) / 2.f;
         break;
     case AlignV::eBottom:
-        offset.y -= bounds.max.y - textMax.y;
+        offset.y -= bounds.max.y - textMax.y - (textMax.y - textMin.y);
         break;
     default: SM_NEVER("invalid align");
     }
@@ -176,9 +238,10 @@ BoxBounds Layout::text(const BoxBounds& inBounds, uint8x4 colour, const TextDraw
     case AlignH::eCenter:
         offset.x += (bounds.max.x - bounds.min.x) / 2.f - (textMax.x - textMin.x) / 2.f;
         break;
-    case AlignH::eRight:
-        offset.x += bounds.max.x - textMax.x;
+    case AlignH::eRight: {
+        offset.x += (bounds.max.x - bounds.min.x) - (textMax.x - textMin.x);
         break;
+    }
     default: SM_NEVER("invalid align");
     }
 

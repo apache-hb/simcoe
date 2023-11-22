@@ -55,39 +55,59 @@ namespace game::ui {
     struct IWidget {
         virtual ~IWidget() = default;
 
-        virtual void draw(Context *pContext, const DrawInfo& info) const = 0;
+        virtual BoxBounds draw(Context *pContext, const DrawInfo& info) const = 0;
 
         float2 minsize;
         float2 maxsize; // set to 0,0 for no max size
 
         Align align;
-
-        std::vector<IWidget*> children;
     };
 
     struct TextDrawInfo {
         utf8::StaticText text;
         Align align;
         float scale = 1.f;
+        size_t shaper = 0;
     };
 
-    struct TextWidget : IWidget {
+    struct TextWidget final : IWidget {
         TextWidget(utf8::StaticText text)
             : text(text)
         { }
 
-        template<typename... A>
-        void setText(utf8::StaticText msg, A&&... args) {
-            text = fmt::format(msg, std::forward<A>(args)...);
-        }
-
-        void draw(Context *pContext, const DrawInfo& info) const override;
+        BoxBounds draw(Context *pContext, const DrawInfo& info) const override;
 
         float scale = 3.f;
         bool bDrawBox = true;
+        size_t shaper = 0;
 
-    private:
         utf8::StaticText text;
+    };
+
+    struct ButtonWidget final : IWidget {
+        ButtonWidget(IWidget *pWidget)
+            : pWidget(pWidget)
+        { }
+
+        BoxBounds draw(Context *pContext, const DrawInfo& info) const override;
+
+        IWidget *pWidget;
+    };
+
+    struct HStackWidget final : IWidget {
+        BoxBounds draw(Context *pContext, const DrawInfo& info) const override;
+
+        void add(IWidget *pWidget) { children.push_back(pWidget); }
+
+        std::vector<IWidget*> children;
+    };
+
+    struct VStackWidget final : IWidget {
+        BoxBounds draw(Context *pContext, const DrawInfo& info) const override;
+
+        void add(IWidget *pWidget) { children.push_back(pWidget); }
+
+        std::vector<IWidget*> children;
     };
 
     // core ui class
@@ -104,15 +124,13 @@ namespace game::ui {
 
         float4x4 getMatrix() const;
 
-    private:
         BoxBounds screen; // the complete bounds of the screen (draws at display resolution)
         BoxBounds user; // the bounds of the user interface
 
-    public:
         std::vector<UiVertex> vertices;
         std::vector<UiIndex> indices;
 
         FontAtlasLookup atlas;
-        depot::Text shaper;
+        std::vector<depot::Text> shapers;
     };
 }

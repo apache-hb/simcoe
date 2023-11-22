@@ -63,11 +63,11 @@ HudPass::HudPass(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget)
 
     pMatrix = pGraph->addResource<ModelUniform>("hud.matrix");
 
-    utf8::StaticText alnum = u8"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    utf8::StaticText alnum = u8" :!.,/abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     utf8::StaticText symbols = u8"" SM_XB_LOGO SM_XB_VIEW SM_XB_MENU;
 
     FontAtlasInfo text = {
-        .path = "C:/Windows/Fonts/comic.ttf",
+        .path = "C:/Windows/Fonts/8514oem.fon",
         .pt = 32,
         .glyphs = std::vector<char32_t>(alnum.begin(), alnum.end())
     };
