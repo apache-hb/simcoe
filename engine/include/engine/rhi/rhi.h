@@ -271,6 +271,11 @@ namespace simcoe::rhi {
         eCompute
     };
 
+    enum struct HeapType {
+        eUpload,
+        eDefault
+    };
+
     struct TextureMapInfo {
         HostHeapOffset handle;
         TextureBuffer *pTexture;
@@ -307,8 +312,8 @@ namespace simcoe::rhi {
 
         // buffer creation
 
-        VertexBuffer *createVertexBuffer(size_t length, size_t stride);
-        IndexBuffer *createIndexBuffer(size_t length, TypeFormat fmt);
+        VertexBuffer *createVertexBuffer(size_t length, size_t stride, HeapType type = HeapType::eDefault);
+        IndexBuffer *createIndexBuffer(size_t length, TypeFormat fmt, HeapType type = HeapType::eDefault);
         DepthBuffer *createDepthStencil(const TextureInfo& createInfo);
         UniformBuffer *createUniformBuffer(size_t length);
 
@@ -574,6 +579,8 @@ namespace simcoe::rhi {
 
     struct DeviceResource : Object<ID3D12Resource> {
         ID3D12Resource *getResource() { return Object::get(); }
+
+        void write(const void *pData, size_t length);
 
     protected:
         DeviceResource(ID3D12Resource *pResource)

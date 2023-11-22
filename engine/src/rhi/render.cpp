@@ -654,14 +654,14 @@ PipelineState *Device::createGraphicsPipeline(const GraphicsPipelineInfo& create
     std::vector<D3D12_STATIC_SAMPLER_DESC> samplerDescs;
     for (const auto& sampler : createInfo.samplers) {
         D3D12_STATIC_SAMPLER_DESC desc = {
-            .Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR,
+            .Filter = D3D12_FILTER_MIN_MAG_MIP_POINT,
             .AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER,
             .AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER,
             .AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER,
             .MipLODBias = 0,
             .MaxAnisotropy = 0,
             .ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER,
-            .BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
+            .BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK,
             .MinLOD = 0,
             .MaxLOD = D3D12_FLOAT32_MAX,
             .ShaderRegister = UINT(sampler.reg),
@@ -869,11 +869,19 @@ Fence *Device::createFence() {
     return Fence::create(pFence, hEvent);
 }
 
-VertexBuffer *Device::createVertexBuffer(size_t length, size_t stride) {
+static D3D12_HEAP_TYPE getHeapType(HeapType type) {
+    switch (type) {
+    case HeapType::eDefault: return D3D12_HEAP_TYPE_DEFAULT;
+    case HeapType::eUpload: return D3D12_HEAP_TYPE_UPLOAD;
+    default: core::throwFatal("invalid heap type {}", int(type));
+    }
+}
+
+VertexBuffer *Device::createVertexBuffer(size_t length, size_t stride, HeapType type) {
     size_t size = length * stride;
     ID3D12Resource *pResource = nullptr;
 
-    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(getHeapType(type));
     D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size);
 
     HR_CHECK(get()->CreateCommittedResource(
@@ -891,12 +899,12 @@ VertexBuffer *Device::createVertexBuffer(size_t length, size_t stride) {
     return VertexBuffer::create(pResource, view);
 }
 
-IndexBuffer *Device::createIndexBuffer(size_t length, TypeFormat fmt) {
+IndexBuffer *Device::createIndexBuffer(size_t length, TypeFormat fmt, HeapType type) {
     ID3D12Resource *pResource = nullptr;
 
     size_t size = length * getByteSize(fmt);
 
-    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    D3D12_HEAP_PROPERTIES heap = CD3DX12_HEAP_PROPERTIES(getHeapType(type));
     D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(size);
 
     HR_CHECK(get()->CreateCommittedResource(
@@ -1345,6 +1353,15 @@ PipelineState *PipelineState::create(ID3D12RootSignature *pRootSignature, ID3D12
 PipelineState::~PipelineState() {
     pRootSignature->Release();
     pState->Release();
+}
+
+void DeviceResource::write(const void *pData, size_t length) {
+    auto *pResource = getResource();
+
+    void *pMapped = nullptr;
+    HR_CHECK(pResource->Map(0, nullptr, &pMapped));
+    memcpy(pMapped, pData, length);
+    pResource->Unmap(0, nullptr);
 }
 
 // render target

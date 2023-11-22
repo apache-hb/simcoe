@@ -43,7 +43,7 @@ namespace simcoe::depot {
 
         Font(Font&& other) noexcept;
 
-        void setFontSize(int pt, int dpi);
+        void setFontSize(int pt, int hdpi, int vdpi);
 
         Image drawText(utf8::StaticText text, CanvasPoint start, CanvasSize size, float angle = 0.f);
         Image drawText(std::span<const TextSegment> segments, CanvasPoint start, CanvasSize size, float angle = 0.f);
@@ -57,7 +57,6 @@ namespace simcoe::depot {
         FT_Face face;
 
         int pt;
-        int dpi;
     };
 
     struct ShapedGlyph {
@@ -69,6 +68,7 @@ namespace simcoe::depot {
     };
 
     struct ShapedTextIterator {
+        ShapedTextIterator(const ShapedTextIterator& other) = default;
         ShapedTextIterator(unsigned int index, hb_glyph_info_t *pGlyphInfo, hb_glyph_position_t *pGlyphPos);
 
         bool operator==(const ShapedTextIterator& other) const;
@@ -86,8 +86,18 @@ namespace simcoe::depot {
     struct ShapedText {
         SM_NOCOPY(ShapedText)
 
+        ShapedText() 
+            : pBuffer(nullptr)
+            , numGlyphs(0)
+            , pGlyphInfo(nullptr)
+            , pGlyphPos(nullptr) 
+        { }
+
         ShapedText(hb_buffer_t *pBuffer);
         ~ShapedText();
+
+        ShapedText(ShapedText&& other) noexcept;
+        ShapedText& operator=(ShapedText&& other) noexcept;
 
         ShapedTextIterator begin() const;
         ShapedTextIterator end() const;
@@ -102,6 +112,26 @@ namespace simcoe::depot {
 
     struct Text {
         SM_NOCOPY(Text)
+
+        Text() : pFont(nullptr), pFace(nullptr) { }
+
+        Text(Text&& other) noexcept 
+            : pFont(other.pFont)
+            , pFace(other.pFace) 
+        {
+            other.pFont = nullptr;
+            other.pFace = nullptr;
+        }
+
+        Text& operator=(Text&& other) noexcept {
+            pFont = other.pFont;
+            pFace = other.pFace;
+
+            other.pFont = nullptr;
+            other.pFace = nullptr;
+
+            return *this;
+        }
 
         Text(Font *pFreeTypeFont);
         ~Text();

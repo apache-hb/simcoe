@@ -16,10 +16,15 @@ UiIndexBufferHandle::UiIndexBufferHandle(Graph *pGraph, size_t size)
 
 void UiIndexBufferHandle::write(const std::vector<UiIndex>& indices) {
     data = indices;
+
+    if (auto *pBuffer = asResource()) {
+        pBuffer->write(data.data(), data.size() * sizeof(UiIndex));
+    }
 }
 
 void UiIndexBufferHandle::create() {
-    auto *pBuffer = ctx->createIndexBuffer(size, rhi::TypeFormat::eUint16);
+    auto *pDevice = ctx->getDevice();
+    auto *pBuffer = pDevice->createIndexBuffer(size, rhi::TypeFormat::eUint16, rhi::HeapType::eUpload);
     setResource(pBuffer);
     setCurrentState(rhi::ResourceState::eIndexBuffer);
 }
@@ -32,13 +37,18 @@ UiVertexBufferHandle::UiVertexBufferHandle(Graph *pGraph, size_t size)
 { }
 
 void UiVertexBufferHandle::create() {
-    auto *pBuffer = ctx->createVertexBuffer(size, sizeof(UiVertex));
+    auto *pDevice = ctx->getDevice();
+    auto *pBuffer = pDevice->createVertexBuffer(size, sizeof(UiVertex), rhi::HeapType::eUpload);
     setResource(pBuffer);
     setCurrentState(rhi::ResourceState::eVertexBuffer);
 }
 
 void UiVertexBufferHandle::write(const std::vector<UiVertex>& vertices) {
     data = vertices;
+
+    if (auto *pBuffer = asResource()) {
+        pBuffer->write(data.data(), data.size() * sizeof(UiVertex));
+    }
 }
 
 // render pass
@@ -57,7 +67,8 @@ HudPass::HudPass(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget)
     utf8::StaticText symbols = u8"" SM_XB_LOGO SM_XB_VIEW SM_XB_MENU;
 
     FontAtlasInfo text = {
-        .path = "C:/Windows/Fonts/8514oem.fon",
+        .path = "C:/Windows/Fonts/comic.ttf",
+        .pt = 32,
         .glyphs = std::vector<char32_t>(alnum.begin(), alnum.end())
     };
 
@@ -89,7 +100,7 @@ void HudPass::create() {
         },
 
         .textureInputs = {
-            { "text", rhi::InputVisibility::ePixel, 0, true }
+            { "atlas", rhi::InputVisibility::ePixel, 0, true }
         },
 
         .uniformInputs = {
@@ -105,6 +116,14 @@ void HudPass::create() {
 
     pPipeline = ctx->createGraphicsPipeline(info);
     pPipeline->setName("pso.hud");
+
+    const auto& createInfo = ctx->getCreateInfo();
+
+    float4x4 p = float4x4::orthographicRH(float(createInfo.renderWidth), float(createInfo.renderHeight), 0.0f, 1.0f);
+
+    Model model = { p };
+
+    pMatrix->getInner()->update(&model);
 }
 
 void HudPass::destroy() {
@@ -112,5 +131,26 @@ void HudPass::destroy() {
 }
 
 void HudPass::execute() {
+    if (bDirty && lock.try_lock()) {
+        pVertexBuffer->getInner()->write(vertices);
+        pIndexBuffer->getInner()->write(indices);
+        bDirty = false;
+        lock.unlock();
+    }
+    
+    ctx->setGraphicsPipeline(pPipeline);
+    ctx->setGraphicsShaderInput(pPipeline->getTextureInput("atlas"), pFontAtlas->getInner()->getSrvIndex());
+    ctx->setGraphicsShaderInput(pPipeline->getUniformInput("matrix"), pMatrix->getInner()->getSrvIndex());
 
+    ctx->setVertexBuffer(pVertexBuffer->getInner()->asResource());
+    ctx->setIndexBuffer(pIndexBuffer->getInner()->asResource());
+
+    ctx->drawIndexed(indices.size());
+}
+
+void HudPass::update(const ui::Context& layout) {
+    std::lock_guard guard(lock);
+    vertices = layout.vertices;
+    indices = layout.indices;
+    bDirty = true;
 }

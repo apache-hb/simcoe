@@ -19,24 +19,24 @@ namespace {
         return GetDpiForWindow(createInfo.hWindow);
     }
 
-    depot::Font loadFont(const RenderCreateInfo& createInfo, const fs::path& name) {
+    depot::Font loadFont(const RenderCreateInfo& createInfo, int pt, const fs::path& name) {
         depot::Font font = { DepotService::formatPath(name) };
         UINT dpi = getWindowDpi(createInfo);
-        font.setFontSize(32, dpi);
+        font.setFontSize(pt, dpi, dpi);
         return font;
     }
 }
 
 // font atlas handle
 
-FontAtlasHandle::FontAtlasHandle(Graph *pGraph, std::span<FontAtlasInfo> fonts)
+FontAtlasHandle::FontAtlasHandle(Graph *pGraph, std::span<FontAtlasInfo> fontInfos)
     : ISingleResourceHandle(pGraph, "font.atlas")
 { 
     constexpr auto kAtlasWidth = 512;
     constexpr auto kAtlasHeight = 512;
 
     size_t totalNodes = 0;
-    for (auto& [path, pt, runes] : fonts) {
+    for (auto& [path, pt, runes] : fontInfos) {
         totalNodes += runes.size();
     }
 
@@ -46,14 +46,13 @@ FontAtlasHandle::FontAtlasHandle(Graph *pGraph, std::span<FontAtlasInfo> fonts)
 
     stbrp_init_target(&stb, kAtlasWidth, kAtlasHeight, pNodes, int(totalNodes));
 
-    std::vector<depot::Font> fontHandles;
-    fontHandles.reserve(fonts.size());
+    fonts.reserve(fontInfos.size());
 
     // first we get the size of each glyph
     // and pack the rects to the atlas
     size_t index = 0;
-    for (auto& [path, pt, runes] : fonts) {
-        depot::Font font = loadFont(ctx->getCreateInfo(), path);
+    for (auto& [path, pt, runes] : fontInfos) {
+        depot::Font font = loadFont(ctx->getCreateInfo(), int(pt), path);
         for (char32_t rune : runes) {
             auto [w, h] = font.getGlyphSize(rune).as<int>();
             stbrp_rect rect = { 
@@ -62,12 +61,10 @@ FontAtlasHandle::FontAtlasHandle(Graph *pGraph, std::span<FontAtlasInfo> fonts)
                 .h = h + 2
             };
 
-            LOG_INFO("glyph `{} {:#x}`: size=({},{})", char(rune), int32_t(rune), w + 2, h + 2);
-
             pRects[index++] = rect;
         }
 
-        fontHandles.push_back(std::move(font));
+        fonts.push_back(std::move(font));
     }
 
     int all_packed = stbrp_pack_rects(&stb, pRects, int(totalNodes));
@@ -84,8 +81,8 @@ FontAtlasHandle::FontAtlasHandle(Graph *pGraph, std::span<FontAtlasInfo> fonts)
 
     size_t runeIndex = 0;
     size_t fontIndex = 0;
-    for (auto& [path, pt, runes] : fonts) {
-        depot::Font& font = fontHandles[fontIndex++];
+    for (auto& [path, pt, runes] : fontInfos) {
+        depot::Font& font = fonts[fontIndex++];
         for (char32_t rune : runes) {
             stbrp_rect rect = pRects[runeIndex++];
 
@@ -105,11 +102,17 @@ FontAtlasHandle::FontAtlasHandle(Graph *pGraph, std::span<FontAtlasInfo> fonts)
             float u1 = float(rect.x + rect.w) / float(kAtlasWidth);
             float v1 = float(rect.y + rect.h) / float(kAtlasHeight);
 
-            glyphs[rune] = { { u0, v0 }, { u1, v1 } };
+            glyphs[rune] = { 
+                .uvBounds = { { u0, v0 }, { u1, v1 } },
+                .size = glyphSize.as<uint32_t>() - 1
+            };
 
             LOG_DEBUG("glyph `{}`: rect=({},{},{},{}) bounds=({},{},{},{})", char(rune), rect.x, rect.y, rect.w, rect.h, u0, v0, u1, v1);
         }
     }
+
+    // make top left pure white
+    std::fill(bitmap.data.data(), bitmap.data.data() + 16, std::byte(0xFF));
 }
 
 void FontAtlasHandle::create() {
@@ -143,13 +146,8 @@ void FontAtlasHandle::destroy() {
     ISingleResourceHandle::destroy();
 }
 
-game_ui::BoxBounds FontAtlasHandle::getGlyph(char32_t codepoint) const {
-    if (auto it = glyphs.find(codepoint); it != glyphs.end()) {
-        return it->second;
-    }
-
-    LOG_WARN("glyph `{}` not found in font atlas", int32_t(codepoint));
-    return { };
+depot::Text FontAtlasHandle::getTextShaper(size_t idx) {
+    return { &fonts[idx] };
 }
 
 constexpr auto kTableFlags = ImGuiTableFlags_BordersV
@@ -175,7 +173,8 @@ void FontAtlasHandle::draw() {
                 ImGui::Text("%c", codepoint);
 
                 ImGui::TableNextColumn();
-                ImGui::Text("min: %f, %f\nmax: %f, %f", glyph.min.x, glyph.min.y, glyph.max.x, glyph.max.y);
+                auto bounds = glyph.uvBounds;
+                ImGui::Text("min: %f, %f\nmax: %f, %f", bounds.min.x, bounds.min.y, bounds.max.x, bounds.max.y);
             }
 
             ImGui::EndTable();

@@ -51,22 +51,23 @@ namespace game::render {
         void create() override;
         void destroy() override;
 
-        ui::BoxBounds getGlyph(char32_t codepoint) const;
-
         void draw();
 
         editor::ui::GlobalHandle debug = editor::ui::addGlobalHandle("font atlas", [this] {
             draw();
         });
 
+        depot::Text getTextShaper(size_t idx);
+
+        const ui::FontAtlasLookup& getAtlas() const { return glyphs; }
+
     private:
+        std::vector<depot::Font> fonts;
+
         depot::Image bitmap;
 
-        depot::CanvasPoint start = { 0, 0 };
-        depot::CanvasSize size = { 1920, 1080 };
-
         // map of codepoint -> uv bounds
-        std::unordered_map<char32_t, ui::BoxBounds> glyphs;
+        ui::FontAtlasLookup glyphs;
     };
 
     struct HudPass final : IRenderPass {
@@ -77,10 +78,18 @@ namespace game::render {
 
         void execute() override;
 
+        void update(const ui::Context& layout);
+
     private:
+        mt::Mutex lock{"hud"};
+        std::atomic_bool bDirty = true;
+        std::vector<ui::UiVertex> vertices;
+        std::vector<ui::UiIndex> indices;
+
         ResourceWrapper<UiVertexBufferHandle> *pVertexBuffer;
         ResourceWrapper<UiIndexBufferHandle> *pIndexBuffer;
 
+    public:
         ResourceWrapper<FontAtlasHandle> *pFontAtlas;
         ResourceWrapper<ModelUniform> *pMatrix;
 

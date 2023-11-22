@@ -198,20 +198,18 @@ Font::~Font() {
 Font::Font(Font&& other) noexcept
     : face(other.face)
     , pt(other.pt)
-    , dpi(other.dpi)
 {
     other.face = nullptr;
 }
 
-void Font::setFontSize(int newPt, int newDpi) {
-    if (pt == newPt && dpi == newDpi)
+void Font::setFontSize(int newPt, int hdpi, int vdpi) {
+    if (pt == newPt)
         return;
 
     pt = newPt;
-    dpi = newDpi;
 
-    LOG_INFO("setting font `{}` size to {}pt (dpi={})", face->family_name, pt, dpi);
-    if (FT_Error error = FT_Set_Char_Size(face, pt * 64, 0, dpi, 0)) {
+    LOG_INFO("setting font `{}` size to {}pt (dpi={}x{})", face->family_name, pt, hdpi, vdpi);
+    if (FT_Error error = FT_Set_Char_Size(face, 0, pt * 64, hdpi, vdpi)) {
         if (const char *pError = FT_Error_String(error)) {
             LOG_WARN("failed to set font size `{}` (fterr={})", face->family_name, pError);
         } else {
@@ -308,10 +306,10 @@ bool ShapedTextIterator::operator!=(const ShapedTextIterator& other) const {
 ShapedGlyph ShapedTextIterator::operator*() const {
     return {
         .codepoint = pGlyphInfo[index].codepoint,
-        .xAdvance = pGlyphPos[index].x_advance,
-        .yAdvance = pGlyphPos[index].y_advance,
-        .xOffset = pGlyphPos[index].x_offset,
-        .yOffset = pGlyphPos[index].y_offset
+        .xAdvance = pGlyphPos[index].x_advance >> 6,
+        .yAdvance = pGlyphPos[index].y_advance >> 6,
+        .xOffset = pGlyphPos[index].x_offset >> 6,
+        .yOffset = pGlyphPos[index].y_offset >> 6
     };
 }
 
@@ -321,12 +319,43 @@ ShapedTextIterator& ShapedTextIterator::operator++() {
 }
 
 ShapedText::ShapedText(hb_buffer_t *pBuffer) : pBuffer(pBuffer) { 
-    pGlyphInfo = hb_buffer_get_glyph_infos(pBuffer, &numGlyphs);
-    pGlyphPos = hb_buffer_get_glyph_positions(pBuffer, &numGlyphs);
+    numGlyphs = hb_buffer_get_length(pBuffer);
+    pGlyphInfo = hb_buffer_get_glyph_infos(pBuffer, nullptr);
+    pGlyphPos = hb_buffer_get_glyph_positions(pBuffer, nullptr);
+}
+
+ShapedText::ShapedText(ShapedText&& other) noexcept
+    : pBuffer(other.pBuffer)
+    , numGlyphs(other.numGlyphs)
+    , pGlyphInfo(other.pGlyphInfo)
+    , pGlyphPos(other.pGlyphPos)
+{
+    other.pBuffer = nullptr;
+    other.numGlyphs = 0;
+    other.pGlyphInfo = nullptr;
+    other.pGlyphPos = nullptr;
+}
+
+ShapedText& ShapedText::operator=(ShapedText&& other) noexcept {
+    if (this != &other) {
+        if (pBuffer) hb_buffer_destroy(pBuffer);
+
+        pBuffer = other.pBuffer;
+        numGlyphs = other.numGlyphs;
+        pGlyphInfo = other.pGlyphInfo;
+        pGlyphPos = other.pGlyphPos;
+
+        other.pBuffer = nullptr;
+        other.numGlyphs = 0;
+        other.pGlyphInfo = nullptr;
+        other.pGlyphPos = nullptr;
+    }
+
+    return *this;
 }
 
 ShapedText::~ShapedText() {
-    hb_buffer_destroy(pBuffer);
+    if (pBuffer) hb_buffer_destroy(pBuffer);
 }
 
 ShapedTextIterator ShapedText::begin() const {
@@ -346,16 +375,25 @@ Text::Text(Font *pFreeTypeFont) {
 
     pFont = pNewFont;
     pFace = pNewFace;
+
+    int x, y;
+    hb_font_get_scale(pFont, &x, &y);
+
+    LOG_INFO("scale: {}x{}", x, y);
 }
 
 Text::~Text() {
-    hb_font_destroy(pFont);
+    if (pFont) hb_font_destroy(pFont);
 }
 
 ShapedText Text::shape(utf8::StaticText text) {
     hb_buffer_t *pBuffer = hb_buffer_create();
     hb_buffer_add_utf8(pBuffer, (const char*)text.data(), int(text.size()), 0, int(text.size()));
-    hb_buffer_guess_segment_properties(pBuffer);
+    
+    hb_buffer_set_direction(pBuffer, HB_DIRECTION_LTR);
+    hb_buffer_set_script(pBuffer, HB_SCRIPT_LATIN);
+    hb_buffer_set_language(pBuffer, hb_language_from_string("en", -1));
+    //hb_buffer_guess_segment_properties(pBuffer);
 
     hb_shape(pFont, pBuffer, nullptr, 0);
 

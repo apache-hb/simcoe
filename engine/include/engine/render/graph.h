@@ -63,6 +63,8 @@ namespace simcoe::render {
             delete pResource;
         }
 
+        T *asResource() const { return pResource; }
+
         rhi::DeviceResource* getResource() const final override { return pResource; }
 
     protected:

@@ -21,6 +21,13 @@ namespace game::ui {
         float2 max;
     };
 
+    struct FontGlyph {
+        BoxBounds uvBounds;
+        uint2 size;
+    };
+
+    using FontAtlasLookup = std::unordered_map<char32_t, FontGlyph>;
+
     struct UiVertex {
         float2 position;
         float2 uv;
@@ -58,36 +65,40 @@ namespace game::ui {
         std::vector<IWidget*> children;
     };
 
+    struct TextDrawInfo {
+        utf8::StaticText text;
+        Align align;
+    };
+
     struct TextWidget : IWidget {
-        TextWidget(utf8::StaticText text);
+        TextWidget(utf8::StaticText text)
+            : text(text)
+        { }
 
         template<typename... A>
-        void setTextUtf8(utf8::StaticText msg, A&&... args) {
+        void setText(utf8::StaticText msg, A&&... args) {
             text = fmt::format(msg, std::forward<A>(args)...);
         }
 
         void draw(Context *pContext, const DrawInfo& info) const override;
 
-        utf8::StaticText text;
-    };
+        bool bDrawBox = true;
 
-    struct TextDrawInfo {
+    private:
         utf8::StaticText text;
-        size_t size;
-        Align align;
     };
 
     // core ui class
     // generates draw lists
     struct Context {
-        Context(BoxBounds screen, size_t dpi);
+        Context(BoxBounds screen);
 
-        void begin();
+        void begin(IWidget *pWidget);
 
         void box(const BoxBounds& bounds, uint8x4 colour);
-        void text(const BoxBounds& bounds, uint8x4 colour, const TextDrawInfo& info);
 
-        depot::Font *getFont(size_t size);
+        /// @returns the bounds of the text
+        BoxBounds text(const BoxBounds& bounds, uint8x4 colour, const TextDrawInfo& info);
 
         float4x4 getMatrix() const;
 
@@ -95,13 +106,11 @@ namespace game::ui {
         BoxBounds screen; // the complete bounds of the screen (draws at display resolution)
         BoxBounds user; // the bounds of the user interface
 
-        size_t dpi;
-
     public:
         std::vector<UiVertex> vertices;
         std::vector<UiIndex> indices;
 
-        // map of size -> font, we only use one font currently
-        std::unordered_map<size_t, depot::Font> fonts;
+        FontAtlasLookup atlas;
+        depot::Text shaper;
     };
 }

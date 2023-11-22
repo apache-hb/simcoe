@@ -70,6 +70,7 @@ using namespace editor;
 
 namespace game_render = game::render;
 namespace editor_ui = editor::ui;
+namespace game_ui = game::ui;
 
 using microsoft::GdkService;
 using amd::RyzenMonitorSerivce;
@@ -1174,7 +1175,22 @@ static void commonMain() {
     RenderService::start();
     InputService::addClient(&gInputClient);
 
+    auto *pGraph = RenderService::getGraph();
+    const auto& createInfo = pGraph->getCreateInfo();
+
+    game_ui::BoxBounds bounds = {
+        .min = 0.f,
+        .max = float2(float(createInfo.renderWidth), float(createInfo.renderHeight))
+    };
+
+    game_ui::Context layout{bounds};
     game::World& world = GameService::getWorld();
+    auto *pHud = GameService::getHud();
+
+    layout.atlas = pHud->pFontAtlas->getInner()->getAtlas();
+    layout.shaper = pHud->pFontAtlas->getInner()->getTextShaper(0);
+
+    game_ui::TextWidget text = { u8"Hello world" };
 
     initEntities(world);
 
@@ -1183,6 +1199,10 @@ static void commonMain() {
 
     while (bRunning) {
         ThreadService::pollMain();
+
+        layout.begin(&text);
+
+        pHud->update(layout);
 
         float delta = clock.now() - last;
         last = clock.now();
