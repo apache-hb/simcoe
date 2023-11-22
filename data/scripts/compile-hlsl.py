@@ -32,9 +32,6 @@ for target in targets.split(','):
         args += [ '-O3' ]
     args += [ file ]
 
-    print(' '.join(args))
-
     result = run(args)
     if result.returncode != 0:
-        print(f'Error compiling {target} shader')
         exit(result.returncode)

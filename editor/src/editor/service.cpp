@@ -96,9 +96,6 @@ struct EditorUi final : eg::IGuiPass {
 
     PassAttachment<ISRVHandle> *pSceneSource = nullptr;
 
-    ResourceWrapper<eg::TextHandle> *pTextHandle = nullptr;
-    PassAttachment<eg::TextHandle> *pTextAttachment = nullptr;
-
     struct ImageData {
         std::string name;
         ResourceWrapper<eg::TextureHandle> *pHandle = nullptr;
@@ -173,9 +170,6 @@ struct EditorUi final : eg::IGuiPass {
         : IGuiPass(pGraph, pRenderTarget)
         , pSceneSource(addAttachment(pSceneSource, rhi::ResourceState::eTextureRead))
     {
-        pTextHandle = pGraph->addResource<eg::TextHandle>("SwarmFace-Regular");
-        pTextAttachment = addAttachment(pTextHandle, rhi::ResourceState::eTextureRead);
-
         addImage("meme.jpg");
 
         ImPlot::CreateContext();
@@ -202,6 +196,12 @@ struct EditorUi final : eg::IGuiPass {
         } else {
             totalHeight = availWidth / aspect;
         }
+
+        // move the image to the center of the window
+        float x = (ImGui::GetWindowWidth() - totalWidth) / 2.f;
+        float y = (ImGui::GetWindowHeight() - totalHeight) / 2.f;
+
+        ImGui::SetCursorPos({ x, y });
 
         ImGui::Image((ImTextureID)offset, { totalWidth, totalHeight });
     }

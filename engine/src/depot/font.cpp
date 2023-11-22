@@ -22,9 +22,7 @@ namespace {
 
     constexpr math::float4 kBlack = math::float4(1.f, 1.f, 1.f, 1.f);
 
-    void bltGlyph(Image& image, FT_Bitmap *pBitmap, FT_UInt x, FT_UInt y, math::float4 colour) {
-        SM_ASSERTF(pBitmap->pixel_mode == FT_PIXEL_MODE_GRAY, "unsupported pixel mode (mode={})", pBitmap->pixel_mode);
-
+    void bltGlyph(Image& image, FT_String *pName, FT_Bitmap *pBitmap, FT_UInt x, FT_UInt y, math::float4 colour) {
         auto writePixel = [&](size_t x, size_t y, std::byte value) {
             size_t index = (y * image.size.width + x) * 4;
             if (index + 3 > image.data.size()) return;
@@ -35,13 +33,26 @@ namespace {
             image.data[index + 3] = value;
         };
 
-        for (FT_UInt row = 0; row < pBitmap->rows; row++) {
-            for (FT_UInt col = 0; col < pBitmap->width; col++) {
-                FT_UInt index = row * pBitmap->pitch + col;
-                FT_Byte alpha = pBitmap->buffer[index];
+        if (pBitmap->pixel_mode == FT_PIXEL_MODE_GRAY) {
+            for (FT_UInt row = 0; row < pBitmap->rows; row++) {
+                for (FT_UInt col = 0; col < pBitmap->width; col++) {
+                    FT_UInt index = row * pBitmap->pitch + col;
+                    FT_Byte alpha = pBitmap->buffer[index];
 
-                writePixel(x + col, y + row, std::byte(alpha));
+                    writePixel(x + col, y + row, std::byte(alpha));
+                }
             }
+        } else if (pBitmap->pixel_mode == FT_PIXEL_MODE_MONO) {
+            for (FT_UInt row = 0; row < pBitmap->rows; row++) {
+                for (FT_UInt col = 0; col < pBitmap->width; col++) {
+                    FT_UInt index = row * pBitmap->pitch + col / 8;
+                    FT_Byte alpha = (pBitmap->buffer[index] & (0x80 >> (col % 8))) ? 255 : 0;
+
+                    writePixel(x + col, y + row, std::byte(alpha));
+                }
+            }
+        } else {
+            LOG_ASSERT("unsupported pixel mode `{}` (mode={})", pName, pBitmap->pixel_mode);
         }
     }
 
@@ -96,7 +107,7 @@ namespace {
             }
 
             FT_Bitmap *bitmap = &slot->bitmap;
-            bltGlyph(image, bitmap, slot->bitmap_left, core::intCast<FT_UInt>(size.height) - slot->bitmap_top, colour);
+            bltGlyph(image, face->family_name, bitmap, slot->bitmap_left, core::intCast<FT_UInt>(size.height) - slot->bitmap_top, colour);
         }
 
         void advance() {
@@ -135,7 +146,11 @@ Font::Font(std::shared_ptr<IFile> pFile) {
     }
 
     if (FT_Error error = FT_Select_Charmap(face, FT_ENCODING_UNICODE)) {
-        LOG_ASSERT("failed to select unicode charmap (fterr={})", FT_Error_String(error));
+        if (const char *pError = FT_Error_String(error)) {
+            LOG_WARN("failed to select unicode charmap (fterr={})", pError);
+        } else {
+            LOG_WARN("failed to select unicode charmap (fterr={:#x})", error);
+        }
     }
 }
 
@@ -147,13 +162,39 @@ Font::Font(const fs::path& path) {
         LOG_ASSERT("failed to load font face from `{}` (fterr={})", path.string(), pError == nullptr ? "unknown" : pError);
     }
 
+    LOG_DEBUG("{} available font sizes for `{}`:", face->num_fixed_sizes, face->family_name);
+    for (int i = 0; i < face->num_fixed_sizes; i++) {
+        FT_Bitmap_Size size = face->available_sizes[i];
+        LOG_DEBUG("  {}pt ({}x{})", size.height >> 6, size.width, size.height);
+    }
+
+    LOG_DEBUG("{} available font charmaps for `{}`:", face->num_charmaps, face->family_name);
+    for (int i = 0; i < face->num_charmaps; i++) {
+        FT_CharMap charmap = face->charmaps[i];
+        char encoding[5] = { 0 };
+        memcpy(encoding, &charmap->encoding, 4);
+        LOG_DEBUG("  {} {}.{}", encoding, charmap->platform_id, charmap->encoding_id);
+    }
+
     if (FT_Error error = FT_Select_Charmap(face, FT_ENCODING_UNICODE)) {
-        LOG_ASSERT("failed to select unicode charmap (fterr={})", FT_Error_String(error));
+        if (const char *pError = FT_Error_String(error)) {
+            LOG_WARN("failed to select unicode charmap `{}` (fterr={})", face->family_name, pError);
+        } else {
+            LOG_WARN("failed to select unicode charmap `{}` (fterr={:#x})", face->family_name, error);
+        }
     }
 }
 
 Font::~Font() {
     FT_Done_Face(face);
+}
+
+Font::Font(Font&& other) noexcept
+    : face(other.face)
+    , pt(other.pt)
+    , dpi(other.dpi)
+{
+    other.face = nullptr;
 }
 
 void Font::setFontSize(int newPt, int newDpi) {
@@ -163,9 +204,13 @@ void Font::setFontSize(int newPt, int newDpi) {
     pt = newPt;
     dpi = newDpi;
 
-    LOG_INFO("setting font size to {}pt (dpi={})", pt, dpi);
+    LOG_INFO("setting font `{}` size to {}pt (dpi={})", face->family_name, pt, dpi);
     if (FT_Error error = FT_Set_Char_Size(face, pt * 64, 0, dpi, 0)) {
-        LOG_ASSERT("failed to set font size (fterr={})", FT_Error_String(error));
+        if (const char *pError = FT_Error_String(error)) {
+            LOG_WARN("failed to set font size `{}` (fterr={})", face->family_name, pError);
+        } else {
+            LOG_WARN("failed to set font size `{}` (fterr={:#x})", face->family_name, error);
+        }
     }
 }
 
@@ -207,4 +252,31 @@ Image Font::drawText(std::span<const TextSegment> segments, CanvasPoint origin, 
     }
 
     return render.image;
+}
+
+CanvasSize Font::getGlyphSize(char32_t glyph) const {
+    if (FT_Error error = FT_Load_Char(face, glyph, FT_LOAD_DEFAULT)) {
+        const char *pError = FT_Error_String(error);
+        LOG_ASSERT("failed to load glyph (codepoint={}, fterr={})", uint32_t(glyph), pError == nullptr ? "unknown" : pError);
+    }
+
+    return {
+        core::intCast<FT_UInt>(face->glyph->metrics.width >> 6),
+        core::intCast<FT_UInt>(face->glyph->metrics.height >> 6)
+    };
+}
+
+void Font::drawGlyph(char32_t codepoint, CanvasPoint start, Image& image) {
+    FT_Set_Transform(face, nullptr, nullptr);
+
+    if (FT_Error error = FT_Load_Char(face, codepoint, FT_LOAD_RENDER)) {
+        if (const char *pError = FT_Error_String(error)) {
+            LOG_ASSERT("failed to load glyph (codepoint={}, fterr={})", uint32_t(codepoint), pError);
+        } else { 
+            LOG_ASSERT("failed to load glyph (codepoint={}, fterr={:#x})", uint32_t(codepoint), error);
+        }
+    }
+
+    FT_Bitmap *bitmap = &face->glyph->bitmap;
+    bltGlyph(image, face->family_name, bitmap, core::intCast<FT_UInt>(start.x), core::intCast<FT_UInt>(start.y), kBlack);
 }

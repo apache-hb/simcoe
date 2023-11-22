@@ -25,6 +25,9 @@ namespace simcoe {
         static std::shared_ptr<depot::IFile> openFile(const fs::path& path);
         static fs::path getAssetPath(const fs::path& path);
 
+        // replace $vfs with the vfs root
+        static fs::path formatPath(const fs::path& path);
+
         // global files
         static std::shared_ptr<depot::IFile> openExternalFile(const fs::path& path);
 

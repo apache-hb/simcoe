@@ -1,8 +1,17 @@
 #pragma once
 
+#include <cstdlib>
+#include <iterator>
+
 namespace simcoe::utf8 {
     // utf8 codepoint iterator, doesnt handle invalid utf8, surrogates, etc
     struct TextIterator {
+        using difference_type = ptrdiff_t;
+        using reference = char32_t;
+        using value_type = char32_t;
+        using pointer = const char32_t*;
+        using iterator_category = std::forward_iterator_tag;
+
         TextIterator(const char8_t *pText, size_t offset);
 
         bool operator==(const TextIterator& other) const;
@@ -27,7 +36,6 @@ namespace simcoe::utf8 {
         size_t size() const;
 
         TextIterator begin() const;
-
         TextIterator end() const;
 
     private:

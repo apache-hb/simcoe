@@ -31,17 +31,23 @@ namespace simcoe::depot {
     };
 
     struct Font {
+        SM_NOCOPY(Font)
+
         SM_DEPRECATED("this is broken for some reason, use the filepath constructor for now")
         Font(std::shared_ptr<IFile> pFile);
 
         Font(const fs::path& path);
-
         ~Font();
+
+        Font(Font&& other) noexcept;
 
         void setFontSize(int pt, int dpi);
 
         Image drawText(utf8::StaticText text, CanvasPoint start, CanvasSize size, float angle = 0.f);
         Image drawText(std::span<const TextSegment> segments, CanvasPoint start, CanvasSize size, float angle = 0.f);
+
+        CanvasSize getGlyphSize(char32_t codepoint) const;
+        void drawGlyph(char32_t codepoint, CanvasPoint start, Image& image);
 
     private:
         FT_Face face;

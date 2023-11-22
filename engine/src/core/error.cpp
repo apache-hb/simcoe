@@ -19,4 +19,6 @@ Error::Error(bool bFatal, std::string msg) noexcept
     : bFatal(bFatal)
     , message(std::move(msg))
     , stacktrace(getBacktrace())
-{ }
+{ 
+    if (bFatal) __debugbreak();
+}

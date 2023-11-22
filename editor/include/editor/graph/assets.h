@@ -93,34 +93,4 @@ namespace editor::graph {
         // image data
         depot::Image image;
     };
-
-    struct TextHandle final : ITextureHandle, ISingleSRVHandle {
-        TextHandle(Graph *ctx, std::string_view ttf);
-
-        void setFontSize(size_t pt);
-
-        void draw();
-        void upload();
-
-        void create() override;
-        void destroy() override;
-
-    private:
-        std::string_view ttf;
-
-        depot::Font font;
-        depot::Image bitmap;
-
-        std::vector<depot::TextSegment> segments = {
-            { u8"SWARM ", math::float4(1.f, 1.f, 1.f, 1.f) },
-            { u8"\uE001 \uE002 \uE003", math::float4(0.f, 1.f, 0.f, 1.f) },
-            { u8"\nSWARM ", math::float4(1.f, 1.f, 1.f, 1.f) },
-            { u8"\uE001 \uE002 \uE003", math::float4(0.f, 1.f, 0.f, 1.f) },
-            { u8"\nSWARM ", math::float4(1.f, 1.f, 1.f, 1.f) },
-            { u8"\uE001 \uE002 \uE003", math::float4(0.f, 1.f, 0.f, 1.f) }
-        };
-
-        depot::CanvasPoint start = { 0, 0 };
-        depot::CanvasSize size = { 1920, 1080 };
-    };
 }

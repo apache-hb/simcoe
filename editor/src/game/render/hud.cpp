@@ -53,9 +53,28 @@ HudPass::HudPass(Graph *pGraph, ResourceWrapper<IRTVHandle> *pRenderTarget)
 
     pMatrix = pGraph->addResource<ModelUniform>("hud.matrix");
 
+    utf8::StaticText alnum = u8"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    utf8::StaticText symbols = u8"" SM_XB_LOGO SM_XB_VIEW SM_XB_MENU;
+
+    FontAtlasInfo text = {
+        .path = "C:/Windows/Fonts/8514oem.fon",
+        .glyphs = std::vector<char32_t>(alnum.begin(), alnum.end())
+    };
+
+    FontAtlasInfo icons = {
+        .path = "$vfs/swarm.ttf",
+        .pt = 16,
+        .glyphs = std::vector<char32_t>(symbols.begin(), symbols.end())
+    };
+
+    std::vector<FontAtlasInfo> fonts = { text, icons };
+
+    pFontAtlas = pGraph->addResource<FontAtlasHandle>(fonts);
+
     addAttachment(pMatrix, rhi::ResourceState::eUniform);
     addAttachment(pVertexBuffer, rhi::ResourceState::eVertexBuffer);
     addAttachment(pIndexBuffer, rhi::ResourceState::eIndexBuffer);
+    addAttachment(pFontAtlas, rhi::ResourceState::eTextureRead);
 }
 
 void HudPass::create() {

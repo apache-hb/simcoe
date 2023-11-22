@@ -59,12 +59,16 @@ namespace game::ui {
     };
 
     struct TextWidget : IWidget {
-        TextWidget(std::string text);
+        TextWidget(utf8::StaticText text);
+
+        template<typename... A>
+        void setTextUtf8(utf8::StaticText msg, A&&... args) {
+            text = fmt::format(msg, std::forward<A>(args)...);
+        }
 
         void draw(Context *pContext, const DrawInfo& info) const override;
 
-        std::string text;
-        depot::Font *pFont;
+        utf8::StaticText text;
     };
 
     struct TextDrawInfo {

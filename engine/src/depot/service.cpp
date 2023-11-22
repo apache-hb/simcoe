@@ -112,7 +112,7 @@ namespace {
     mt::SharedMutex gMutex{"vfs"};
     HandleMap gHandles;
 
-    std::string formatPath(std::string_view plainPath) {
+    std::string formatVfsPath(std::string_view plainPath) {
         // replace $cwd with current working directory
         // replace $exe with executable directory
 
@@ -148,7 +148,7 @@ HandleMap& DepotService::getHandles() { return gHandles; }
 // service api
 
 bool DepotService::createService() {
-    vfsPath = formatPath(cfgVfsRoot.getCurrentValue());
+    vfsPath = formatVfsPath(cfgVfsRoot.getCurrentValue());
     LOG_INFO("depot vfs path: {}", vfsPath);
 
     constexpr DWORD dwFilter = FILE_NOTIFY_CHANGE_FILE_NAME
@@ -231,6 +231,27 @@ std::shared_ptr<depot::IFile> DepotService::openFile(const fs::path& path) {
 
 fs::path DepotService::getAssetPath(const fs::path& path) {
     return vfsPath / path;
+}
+
+fs::path DepotService::formatPath(const fs::path &plainPath) {
+    std::string path = plainPath.string();
+
+    // replace all file separators with native ones
+    for (char& c : path) {
+        if (c == '/' || c == '\\') {
+            c = fs::path::preferred_separator;
+        }
+    }
+
+    if (size_t cwdPos = path.find("$cwd"); cwdPos != std::string::npos) {
+        path.replace(cwdPos, 4, fs::current_path().string());
+    } else if (size_t exePos = path.find("$exe"); exePos != std::string::npos) {
+        path.replace(exePos, 4, PlatformService::getExeDirectory().string());
+    } else if (size_t vfsPos = path.find("$vfs"); vfsPos != std::string::npos) {
+        path.replace(vfsPos, 4, vfsPath);
+    }
+
+    return path;
 }
 
 std::shared_ptr<depot::IFile> DepotService::openExternalFile(const fs::path& path) {

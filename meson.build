@@ -323,8 +323,8 @@ if debug_render.allowed()
     shader_mode = '--debug'
 endif
 
-hlsl_compile_script = find_program(files(script_dir/'compile-hlsl.py'), native : true)
-copy_asset_script = find_program(files(script_dir/'copy-asset.py'), native : true)
+hlsl_compile_script = find_program('compile-hlsl.py', dirs : [ script_dir ], native : true)
+copy_asset_script = find_program('copy-asset.py', dirs : [ script_dir ], native : true)
 
 hlsl_vs = generator(hlsl_compile_script,
     output : vs_output,
@@ -391,6 +391,7 @@ src = [
 
     # game ui
     'editor/src/game/render/hud/layout.cpp',
+    'editor/src/game/render/hud/atlas.cpp',
 
     # shaders
     hlsl_vs.process('data/shaders/blit.hlsl'),
@@ -405,7 +406,7 @@ src = [
     #hlsl_cs.process('data/shaders/mipmap.hlsl'),
 
     # fonts
-    copy.process('data/fonts/SwarmFace-Regular.ttf'),
+    copy.process('data/fonts/swarm.ttf'),
 
     # textures
     copy.process('data/images/assets/default.png'),

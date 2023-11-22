@@ -61,3 +61,4 @@ meson setup build --cross-file data/config/meson/base.ini --cross-file data/conf
 * figure out why meson+windows+shared libraries are broken by default
 * use https://github.com/microsoft/detours to stop the windows thread pool from spinning up
 * patch all of our deps to properly handle clang-cl on windows, right now everything hates it in various ways
+* modify meson to make `meson.version().version_compare` track across nodes
