@@ -119,7 +119,11 @@ void HudPass::create() {
 
     const auto& createInfo = ctx->getCreateInfo();
 
-    float4x4 p = float4x4::orthographicRH(float(createInfo.renderWidth), float(createInfo.renderHeight), 0.0f, 1.0f);
+    float4x4 p = float4x4::orthographicRH(
+        0.f, float(createInfo.renderWidth),
+        0.f, -float(createInfo.renderHeight),
+        0.0f, 1.0f
+    );
 
     Model model = { p };
 

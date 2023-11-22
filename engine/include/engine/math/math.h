@@ -608,6 +608,26 @@ namespace simcoe::math {
 
             return { r0, r1, r2, r3 };
         }
+
+        static constexpr Mat4x4 orthographicRH(T left, T right, T top, T bottom, T nearLimit, T farLimit) {
+            T range = 1 / (nearLimit - farLimit);
+
+            T rWidth = 1.f / (right - left);
+            T rHeight = 1.f / (top - bottom);
+
+            RowType r0 = { rWidth + rWidth, 0.f, 0.f, 0.f };
+            RowType r1 = { 0.f, rHeight + rHeight, 0.f, 0.f };
+            RowType r2 = { 0.f, 0.f, range, 0.f };
+
+            RowType r3 = {
+                -(left + right) * rWidth,
+                -(top + bottom) * rHeight,
+                range * nearLimit,
+                1.f
+            };
+
+            return { r0, r1, r2, r3 };
+        }
     };
 
     using int2 = Vec2<int>;

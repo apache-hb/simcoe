@@ -11,7 +11,7 @@ namespace game_ui = game::ui;
 using Layout = game_ui::Context;
 
 void TextWidget::draw(Context *pContext, const DrawInfo& info) const {
-    TextDrawInfo drawInfo = { text, align };
+    TextDrawInfo drawInfo = { text, align, scale };
     BoxBounds box = pContext->text(info.bounds, info.colour, drawInfo);
     if (bDrawBox) {
         float border = 2.f;
@@ -99,10 +99,10 @@ BoxBounds Layout::text(const BoxBounds& inBounds, uint8x4 colour, const TextDraw
         const auto glyph = *gbegin;
         const auto codepoint = *tbegin;
 
-        float fxo = float(glyph.xOffset);
-        float fyo = float(glyph.yOffset);
-        float fxa = float(glyph.xAdvance);
-        float fya = float(glyph.yAdvance);
+        float fxo = float(glyph.xOffset) * info.scale;
+        float fyo = float(glyph.yOffset) * info.scale;
+        float fxa = float(glyph.xAdvance) * info.scale;
+        float fya = float(glyph.yAdvance) * info.scale;
 
         // cant render this glyph
         if (!atlas.contains(codepoint)) {
@@ -113,11 +113,14 @@ BoxBounds Layout::text(const BoxBounds& inBounds, uint8x4 colour, const TextDraw
 
         auto [texBounds, size] = atlas.at(codepoint);
 
-        float2 glyphSize = size.as<float>();
+        float2 glyphSize = size.as<float>() * info.scale;
         float2 glyphStart = cursor + float2(fxo, fyo);
 
         // harfbuzz gives us the glyph position relative to the baseline
         // but our uv coords are relative to the top left of the glyph
+
+        float2 glyphTopLeft = glyphStart - float2(0.f, glyphSize.y);
+        float2 glyphBottomRight = glyphStart + float2(glyphSize.x, 0.f);
 
         // create the quad for this glyph
         UiVertex newVertices[4] = {
@@ -141,8 +144,8 @@ BoxBounds Layout::text(const BoxBounds& inBounds, uint8x4 colour, const TextDraw
         index += 4;
 
         // track the bounds of the text
-        textMin = math::min(textMin, glyphStart);
-        textMax = math::max(textMax, glyphStart + glyphSize);
+        textMin = math::min(textMin, glyphTopLeft);
+        textMax = math::max(textMax, glyphBottomRight);
 
         // add the quad and indices to the draw list
         vertices.insert(vertices.end(), std::begin(newVertices), std::end(newVertices));
@@ -153,57 +156,36 @@ BoxBounds Layout::text(const BoxBounds& inBounds, uint8x4 colour, const TextDraw
         cursor.y += fya;
     }
 
-    float2 offset = bounds.min - textMin;
-
-#if 0
-    // handle alignment
-    switch (info.align.h) {
-    case AlignH::eLeft: break;
-    case AlignH::eCenter: {
-        // move the text to the horizontal center of the bounds
-        float textCenter = (textMax.x - textMin.x) / 2.f;
-        float boundsCenter = (bounds.max.x - bounds.min.x) / 2.f;
-
-        offset.x += boundsCenter - textCenter;
-        break;
-    }
-    case AlignH::eRight: {
-        // move the text to the right of the bounds
-        float textWidth = textMax.x - textMin.x;
-        float boundsWidth = bounds.max.x - bounds.min.x;
-
-        offset.x += boundsWidth - textWidth;
-        break;
-    }
-    default: SM_NEVER("invalid AlignH");
-    }
+    float2 offset = bounds.min + textMin;
 
     switch (info.align.v) {
-    case AlignV::eTop: break;
-    case AlignV::eMiddle: {
-        // move the text to the vertical center of the bounds
-        float textCenter = (textMax.y - textMin.y) / 2.f;
-        float boundsCenter = (bounds.max.y - bounds.min.y) / 2.f;
-
-        offset.y += boundsCenter - textCenter;
+    case AlignV::eTop:
         break;
-    }
-    case AlignV::eBottom: {
-        // move the text to the bottom of the bounds
-        float textHeight = textMax.y - textMin.y;
-        float boundsHeight = bounds.max.y - bounds.min.y;
-
-        offset.y += boundsHeight - textHeight;
+    case AlignV::eMiddle:
+        offset.y -= (bounds.max.y - bounds.min.y) / 2.f - (textMax.y - textMin.y) / 2.f;
         break;
+    case AlignV::eBottom:
+        offset.y -= bounds.max.y - textMax.y;
+        break;
+    default: SM_NEVER("invalid align");
     }
-    default: SM_NEVER("invalid AlignV");
+
+    switch (info.align.h) {
+    case AlignH::eLeft:
+        break;
+    case AlignH::eCenter:
+        offset.x += (bounds.max.x - bounds.min.x) / 2.f - (textMax.x - textMin.x) / 2.f;
+        break;
+    case AlignH::eRight:
+        offset.x += bounds.max.x - textMax.x;
+        break;
+    default: SM_NEVER("invalid align");
     }
-#endif
 
     // move the text to the correct position
     for (size_t i = firstVertexIndex; i < vertices.size(); i++) {
         vertices[i].position += offset;
     }
 
-    return { textMin + offset, textMax + offset };
+    return { offset - textMin, textMax + offset };
 }

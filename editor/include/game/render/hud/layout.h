@@ -68,6 +68,7 @@ namespace game::ui {
     struct TextDrawInfo {
         utf8::StaticText text;
         Align align;
+        float scale = 1.f;
     };
 
     struct TextWidget : IWidget {
@@ -82,6 +83,7 @@ namespace game::ui {
 
         void draw(Context *pContext, const DrawInfo& info) const override;
 
+        float scale = 3.f;
         bool bDrawBox = true;
 
     private:
