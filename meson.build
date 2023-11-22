@@ -120,7 +120,7 @@ cfg_header = configure_file(output : 'sm-config.h', configuration : cdata)
 args = [
     '/wd4324', # disable warning C4324: structure was padded due to alignment specifier
                # we want this because of UNIFORM_BUFFER
-    '-D_HAS_EXCEPTIONS=0' # we want the stl to not use exceptions, easier to debug that way
+    '-D_HAS_EXCEPTIONS=0' # we dont want the stl to use exceptions, easier to debug that way
 ]
 
 src = [
@@ -310,13 +310,10 @@ imgui = declare_dependency(
 ###
 
 tinyobj = subproject('tinyobj').get_variable('tinyobj')
-# fastgltf = subproject('fastgltf').get_variable('fastgltf')
 
 fs = import('fs')
-python3 = find_program('python3')
 
 shader_mode = '--default'
-
 vs_output = [ '@BASENAME@.vs.cso' ]
 ps_output = [ '@BASENAME@.ps.cso' ]
 
@@ -326,26 +323,27 @@ if debug_render.allowed()
     shader_mode = '--debug'
 endif
 
-cc_script = script_dir/'compile-hlsl.py'
+hlsl_compile_script = find_program(files(script_dir/'compile-hlsl.py'), native : true)
+copy_asset_script = find_program(files(script_dir/'copy-asset.py'), native : true)
 
-hlsl_vs = generator(python3,
+hlsl_vs = generator(hlsl_compile_script,
     output : vs_output,
-    arguments : [ cc_script, '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'vs', '6_0', shader_mode ]
+    arguments : [ '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'vs', '6_0', shader_mode ]
 )
 
-hlsl_ps = generator(python3,
+hlsl_ps = generator(hlsl_compile_script,
     output : ps_output,
-    arguments : [ cc_script, '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'ps', '6_0', shader_mode ]
+    arguments : [ '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'ps', '6_0', shader_mode ]
 )
 
-# hlsl_cs = generator(python3,
+# hlsl_cs = generator(hlsl_compile_script,
 #     output : '@BASENAME@.cs.cso',
-#     arguments : [ script_dir/'compile-hlsl.py', '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'cs', '6_0' ]
+#     arguments : [ '@INPUT@', '@BUILD_DIR@/@BASENAME@', 'cs', '6_0' ]
 # )
 
-copy = generator(python3,
+copy = generator(copy_asset_script,
     output : '@PLAINNAME@',
-    arguments : [ script_dir/'copy-asset.py', '@INPUT@', '@OUTPUT@' ]
+    arguments : [ '@INPUT@', '@OUTPUT@' ]
 )
 
 # TODO: really need a depot config soon
@@ -390,6 +388,9 @@ src = [
     # game rendering
     'editor/src/game/render/hud.cpp',
     'editor/src/game/render/scene.cpp',
+
+    # game ui
+    'editor/src/game/render/hud/layout.cpp',
 
     # shaders
     hlsl_vs.process('data/shaders/blit.hlsl'),

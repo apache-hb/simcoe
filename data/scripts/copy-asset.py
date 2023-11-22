@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # usage: copy-asset.py <file> <output>
 # <file> is the input file
 # <output> is the output file

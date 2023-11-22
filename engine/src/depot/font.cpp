@@ -9,15 +9,13 @@
 #include <hb.h>
 #include <hb-ft.h>
 
+#include "stb/stb_rectpack.h"
+
 using namespace simcoe;
 using namespace simcoe::depot;
 using namespace simcoe::math;
 
 namespace {
-    void blah() {
-        
-    }
-    
     constexpr float getAngle(float deg) {
         return (deg / 360.f) * 2.f * math::kPi<float>;
     }
@@ -48,12 +46,20 @@ namespace {
     }
 
     struct FontRender {
-        FontRender(FT_Face face, depot::CanvasPoint origin, depot::CanvasSize size, float deg, int pt)
+        FontRender(FT_Face face, depot::CanvasPoint origin, depot::CanvasSize inSize, float deg, int pt)
             : face(face)
             , slot(face->glyph)
             , origin(origin)
-            , size(size)
+            , size(inSize)
         {
+            // TODO: figure this out a bit better
+            if (size == size_t(0)) {
+                size = {
+                    core::intCast<FT_UInt>(face->size->metrics.max_advance >> 6),
+                    core::intCast<FT_UInt>(face->size->metrics.height >> 6)
+                };
+            }
+
             setMatrixAngle(deg);
             setPen(pt);
 
@@ -201,8 +207,4 @@ Image Font::drawText(std::span<const TextSegment> segments, CanvasPoint origin, 
     }
 
     return render.image;
-}
-
-FontAtlas Font::buildAtlas(std::span<char32_t> text, CanvasPoint size) {
-    SM_ASSERTF(false, "not implemented");
 }

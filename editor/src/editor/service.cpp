@@ -37,6 +37,8 @@ namespace eg = editor::graph;
 namespace sr = simcoe::render;
 namespace gr = game::render;
 
+namespace editor_ui = editor::ui;
+
 // window mode
 static constexpr auto kWindowModeNames = std::to_array({ "Windowed", "Borderless", "Fullscreen" });
 
@@ -121,7 +123,7 @@ struct EditorUi final : eg::IGuiPass {
         LOG_WARN("failed to load image: {}", err.what());
     }
 
-    ui::GlobalHandle imageHandle = ui::addGlobalHandle("Images", [this] {
+    editor_ui::GlobalHandle imageHandle = editor_ui::addGlobalHandle("Images", [this] {
         // draw a grid of images
         float windowWidth = ImGui::GetWindowWidth();
         float cellWidth = 250.f;
@@ -204,7 +206,7 @@ struct EditorUi final : eg::IGuiPass {
         ImGui::Image((ImTextureID)offset, { totalWidth, totalHeight });
     }
 
-    ui::GlobalHandle sceneHandle = ui::addGlobalHandle("Scene", [this] { sceneDebug(); });
+    editor_ui::GlobalHandle sceneHandle = editor_ui::addGlobalHandle("Scene", [this] { sceneDebug(); });
 
     void create() override {
         IGuiPass::create();
@@ -256,7 +258,7 @@ struct EditorUi final : eg::IGuiPass {
         if (bShowImGuiDemo) ImGui::ShowDemoWindow(&bShowImGuiDemo);
         if (bShowImPlotDemo) ImPlot::ShowDemoWindow(&bShowImPlotDemo);
 
-        ui::enumGlobalHandles([](auto *pHandle) {
+        editor_ui::enumGlobalHandles([](auto *pHandle) {
             bool bEnabled = pHandle->isEnabled();
             if (!bEnabled) return;
 
@@ -346,7 +348,7 @@ struct EditorUi final : eg::IGuiPass {
             }
 
             if (ImGui::BeginMenu("Windows")) {
-                ui::enumGlobalHandles([](auto *pHandle) {
+                editor_ui::enumGlobalHandles([](auto *pHandle) {
                     bool bEnabled = pHandle->isEnabled();
                     if (ImGui::MenuItem(pHandle->getName(), nullptr, &bEnabled)) {
                         pHandle->setEnabled(bEnabled);

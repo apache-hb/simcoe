@@ -11,12 +11,15 @@ cbuffer Camera : register(b0) {
 Texture2D gTexture : register(t0);
 SamplerState gSampler : register(s0);
 
-float4 perspective(float2 pos) {
+float4 project(float2 pos) {
     return mul(projection, float4(pos, 0.f, 1.f));
 }
 
-Input vsMain(float2 position : POSITION, float2 uv : TEXCOORD0, float4 colour : COLOUR) {
-    Input result = { perspective(position), uv, colour };
+Input vsMain(float2 position : POSITION, float2 uv : TEXCOORD, float4 colour : COLOUR) {
+    Input result;
+    result.position = project(position);
+    result.uv = uv;
+    result.colour = colour;
     return result;
 }
 

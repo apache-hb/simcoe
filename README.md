@@ -3,7 +3,7 @@
 ## building
 
 ```sh
-meson setup build --native-file data/config/meson/xxx-platform.ini
+meson setup build --cross-file data/config/meson/base.ini --cross-file data/config/meson/xxx-platform.ini
 ```
 
 ## todos
@@ -20,7 +20,7 @@ meson setup build --native-file data/config/meson/xxx-platform.ini
 * prevent xinput from polling and failing every frame
 * windows isnt alerting to missing dlls for some reason
 
-* display splashscreen while loading
+* display splashscreen while loading without the help of msstore bootstrapper
 
 * move imgui onto its own thread
 * get imgui viewports working (will require talking between the imgui thread and main thread)
@@ -48,6 +48,7 @@ meson setup build --native-file data/config/meson/xxx-platform.ini
     * ideally we could generate ninja files as well
 
 * resizing the window causes d3d12 errors
+* use a font atlas for rendering UI
 
 ## random bits
 

@@ -171,6 +171,8 @@ namespace simcoe::rhi {
     enum struct TypeFormat {
         eNone,
 
+        eUint8x4,
+
         eUint16,
         eUint32,
 

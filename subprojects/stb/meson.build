@@ -1,6 +1,6 @@
 project('stb', 'c')
 
-src = [ 'src/stb_image.c', 'src/stb_truetype.c' ]
+src = [ 'src/stb_image.c', 'src/stb_truetype.c', 'src/stb_rectpack.c' ]
 
 libstb = library('stb', src,
     include_directories : [ 'include' ],

@@ -69,6 +69,7 @@ using namespace game;
 using namespace editor;
 
 namespace game_render = game::render;
+namespace editor_ui = editor::ui;
 
 using microsoft::GdkService;
 using amd::RyzenMonitorSerivce;
@@ -1191,7 +1192,7 @@ static void commonMain() {
 }
 
 static int serviceWrapper() try {
-    LoggingService::addSink(EditorService::addDebugService<ui::LoggingUi>());
+    LoggingService::addSink(EditorService::addDebugService<editor_ui::LoggingUi>());
 
     auto engineServices = std::to_array({
         PlatformService::service(),

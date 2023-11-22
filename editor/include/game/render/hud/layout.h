@@ -1,8 +1,19 @@
 #pragma once
 
-#include "game/render/hud.h"
+#include "engine/math/math.h"
+
+#include "engine/depot/font.h"
+
+#include <vector>
 
 namespace game::ui {
+    namespace depot = simcoe::depot;
+    namespace utf8 = simcoe::utf8;
+    using namespace simcoe::math;
+
+    using uint8x4 = Vec4<uint8_t>;
+    using UiIndex = uint16_t;
+
     struct Context;
 
     struct BoxBounds {
@@ -13,7 +24,7 @@ namespace game::ui {
     struct UiVertex {
         float2 position;
         float2 uv;
-        uint32_t colour;
+        uint8x4 colour;
     };
 
     enum struct AlignV {
@@ -29,14 +40,9 @@ namespace game::ui {
         AlignH h = AlignH::eCenter;
     };
 
-    struct DrawData {
-        std::vector<UiVertex> vertices;
-        std::vector<uint16_t> indices;
-    };
-
     struct DrawInfo {
         BoxBounds bounds;
-        uint32_t colour;
+        uint8x4 colour;
     };
 
     struct IWidget {
@@ -52,45 +58,46 @@ namespace game::ui {
         std::vector<IWidget*> children;
     };
 
-    struct FontAtlas final : editor::graph::ITextureHandle, ISingleSRVHandle {
-        FontAtlas(Graph *ctx, const fs::path& path, size_t pt, std::span<char32_t> chars);
-
-        void create() override;
-        void destroy() override;
-
-        BoxBounds getBounds(char32_t glyph) const;
-
-    private:
-        std::unordered_map<char32_t, BoxBounds> glyphs; // glyph to uv coord bounds
-
-        depot::Font font;
-        depot::Image bitmap;
-    };
-
     struct TextWidget : IWidget {
         TextWidget(std::string text);
 
         void draw(Context *pContext, const DrawInfo& info) const override;
 
         std::string text;
+        depot::Font *pFont;
+    };
 
-        FontAtlas *pAtlas;
+    struct TextDrawInfo {
+        utf8::StaticText text;
+        size_t size;
+        Align align;
     };
 
     // core ui class
     // generates draw lists
     struct Context {
-        Context(BoxBounds screen);
+        Context(BoxBounds screen, size_t dpi);
 
-        const DrawData& getDrawData();
+        void begin();
 
-        void box(const BoxBounds& bounds, uint32_t colour);
-        void letter(const BoxBounds& bounds, uint32_t colour, char32_t letter);
+        void box(const BoxBounds& bounds, uint8x4 colour);
+        void text(const BoxBounds& bounds, uint8x4 colour, const TextDrawInfo& info);
+
+        depot::Font *getFont(size_t size);
+
+        float4x4 getMatrix() const;
 
     private:
         BoxBounds screen; // the complete bounds of the screen (draws at display resolution)
         BoxBounds user; // the bounds of the user interface
 
-        DrawData data;
+        size_t dpi;
+
+    public:
+        std::vector<UiVertex> vertices;
+        std::vector<UiIndex> indices;
+
+        // map of size -> font, we only use one font currently
+        std::unordered_map<size_t, depot::Font> fonts;
     };
 }

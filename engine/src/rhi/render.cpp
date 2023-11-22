@@ -72,6 +72,8 @@ DXGI_FORMAT simcoe::rhi::getTypeFormat(TypeFormat fmt) {
     case TypeFormat::eFloat3: return DXGI_FORMAT_R32G32B32_FLOAT;
     case TypeFormat::eFloat4: return DXGI_FORMAT_R32G32B32A32_FLOAT;
 
+    case TypeFormat::eUint8x4: return DXGI_FORMAT_R8G8B8A8_UINT;
+
     case TypeFormat::eRGBA8: return DXGI_FORMAT_R8G8B8A8_UNORM;
     default: core::throwFatal("invalid type format {}", int(fmt));
     }
