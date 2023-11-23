@@ -106,8 +106,6 @@ FontAtlasHandle::FontAtlasHandle(Graph *pGraph, std::span<FontAtlasInfo> fontInf
                 .uvBounds = { { u0, v0 }, { u1, v1 } },
                 .size = glyphSize.as<uint32_t>() - 1
             };
-
-            LOG_DEBUG("glyph `{}`: rect=({},{},{},{}) bounds=({},{},{},{})", char(rune), rect.x, rect.y, rect.w, rect.h, u0, v0, u1, v1);
         }
     }
 

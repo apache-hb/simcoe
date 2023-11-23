@@ -49,7 +49,7 @@ namespace simcoe::depot {
         Image drawText(std::span<const TextSegment> segments, CanvasPoint start, CanvasSize size, float angle = 0.f);
 
         CanvasSize getGlyphSize(char32_t codepoint) const;
-        void drawGlyph(char32_t codepoint, CanvasPoint start, Image& image);
+        void drawGlyph(char32_t codepoint, CanvasPoint start, Image& image, const math::float4& colour = math::float4(1.f));
 
         FT_Face getFace() const { return face; }
 

@@ -22,14 +22,14 @@ namespace {
     constexpr math::float4 kBlack = math::float4(1.f, 1.f, 1.f, 1.f);
 
     void bltGlyph(Image& image, char32_t codepoint, FT_String *pName, FT_Bitmap *pBitmap, FT_UInt x, FT_UInt y, math::float4 colour) {
-        auto writePixel = [&](size_t x, size_t y, std::byte value, math::float4 col = math::float4(1.f)) {
+        auto writePixel = [&](size_t x, size_t y, uint8_t value, math::float4 col) {
             size_t index = (y * image.size.width + x) * 4;
             if (index + 3 > image.data.size()) return;
 
-            image.data[index + 0] = std::byte(255 * col.r);
-            image.data[index + 1] = std::byte(255 * col.g);
-            image.data[index + 2] = std::byte(255 * col.b);
-            image.data[index + 3] = value;
+            image.data[index + 0] = std::byte(value * col.r);
+            image.data[index + 1] = std::byte(value * col.g);
+            image.data[index + 2] = std::byte(value * col.b);
+            image.data[index + 3] = std::byte(value * col.a);
         };
 
         if (pBitmap->pixel_mode == FT_PIXEL_MODE_GRAY) {
@@ -38,7 +38,7 @@ namespace {
                     FT_UInt index = row * pBitmap->pitch + col;
                     FT_Byte alpha = pBitmap->buffer[index];
 
-                    writePixel(x + col, y + row, std::byte(alpha), colour);
+                    writePixel(x + col, y + row, uint8_t(alpha), colour);
                 }
             }
         } else if (pBitmap->pixel_mode == FT_PIXEL_MODE_MONO) {
@@ -47,14 +47,14 @@ namespace {
                     FT_UInt index = row * pBitmap->pitch + col / 8;
                     FT_Byte alpha = (pBitmap->buffer[index] & (0x80 >> (col % 8))) ? 255 : 0;
 
-                    writePixel(x + col, y + row, std::byte(alpha), colour);
+                    writePixel(x + col, y + row, uint8_t(alpha), colour);
                 }
             }
         } else {
             // fill the glyph with magenta
             for (FT_UInt row = 0; row < pBitmap->rows; row++) {
                 for (FT_UInt col = 0; col < pBitmap->width; col++) {
-                    writePixel(x + col, y + row, std::byte(255), math::float4(1.f, 0.f, 1.f, 1.f));
+                    writePixel(x + col, y + row, uint8_t(255), math::float4(1.f, 0.f, 1.f, 1.f));
                 }
             }
 
@@ -270,7 +270,7 @@ CanvasSize Font::getGlyphSize(char32_t glyph) const {
     };
 }
 
-void Font::drawGlyph(char32_t codepoint, CanvasPoint start, Image& image) {
+void Font::drawGlyph(char32_t codepoint, CanvasPoint start, Image& image, const math::float4& colour) {
     FT_Set_Transform(face, nullptr, nullptr);
 
     if (FT_Error error = FT_Load_Char(face, codepoint, FT_LOAD_RENDER)) {
@@ -284,7 +284,7 @@ void Font::drawGlyph(char32_t codepoint, CanvasPoint start, Image& image) {
     }
 
     FT_Bitmap *bitmap = &face->glyph->bitmap;
-    bltGlyph(image, codepoint, face->family_name, bitmap, core::intCast<FT_UInt>(start.x), core::intCast<FT_UInt>(start.y), kBlack);
+    bltGlyph(image, codepoint, face->family_name, bitmap, core::intCast<FT_UInt>(start.x), core::intCast<FT_UInt>(start.y), colour);
 }
 
 // harfbuzz

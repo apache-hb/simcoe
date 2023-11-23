@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS 1
+
 // core
 #include "editor/graph/mesh.h"
 #include "engine/core/mt.h"
@@ -417,10 +419,11 @@ struct HealthComp : public IComponent {
     using IComponent::IComponent;
     static constexpr const char *kTypeName = "health";
 
-    HealthComp(ComponentData data, int current, int total, AudioComp *pHitSound, AudioComp *pDeathSound)
+    HealthComp(ComponentData data, int current, int total, AudioComp *pHitSound, AudioComp *pDeathSound, bool bIsPlayer = false)
         : IComponent(data)
         , currentHealth(current)
         , maxHealth(total)
+        , bIsPlayer(bIsPlayer)
         , pHitSound(pHitSound)
         , pDeathSound(pDeathSound)
     { }
@@ -441,6 +444,8 @@ struct HealthComp : public IComponent {
 
     int currentHealth;
     int maxHealth;
+
+    bool bIsPlayer = false;
 
     AudioComp *pHitSound = nullptr;
     AudioComp *pDeathSound = nullptr;
@@ -755,7 +760,7 @@ static void initEntities(game::World& world) {
     gPlayerEntity = world.entity("player")
         .add<PlayerInputComp>()
         .add<ShootComp>(0.3f, 9.f, gShootSound)
-        .add<HealthComp>(3, 5, gPlayerHitSound, gPlayerDeathSound)
+        .add<HealthComp>(3, 5, gPlayerHitSound, gPlayerDeathSound, true)
         .add(gPlayerMesh).add(gPlayerTexture)
         .add<TransformComp>(float3(0.f, 0.f, 20.4f), float3(-90.f, 0.f, 90.f).radians(), 0.5f);
 
@@ -851,6 +856,33 @@ game_ui::TextWidget gHealthBoard = { u8"" };
 
 static char gScoreBuffer[64] = { 0 };
 static char gTimeBuffer[64] = { 0 };
+static char gHealthBuffer[64] = { 0 };
+
+static void drawPlayerHealth() {
+    // draw SM_PLAYER_ICON for each health point
+    snprintf(gHealthBuffer, 32, "%s", "");
+
+    // draw an icon for each missing health point
+    for (size_t i = gPlayerHealth; i < 3; i++) {
+        strcat(gHealthBuffer, "X");
+    }
+    // draw icon for each health point
+    for (size_t i = 0; i < gPlayerHealth; i++) {
+        strcat(gHealthBuffer, "+");
+    }
+    gHealthBoard.text = (const char8_t*)gHealthBuffer;
+}
+
+float timeDead = 0.f;
+float deadx = 0.f;
+
+float squareWave(float time, float frequency) {
+    if (std::sin(time * frequency * 2 * math::kPi<float>) > 0.f) {
+        return 1.f;
+    } else {
+        return -1.f;
+    }
+}
 
 static void runGameSystems(game::World& world, float delta) {
     auto& workQueue = GameService::getWorkQueue();
@@ -866,6 +898,8 @@ static void runGameSystems(game::World& world, float delta) {
 
     snprintf(gTimeBuffer, 32, "%02dm:%02ds:%02d", minutes, seconds, milliseconds);
     gTimeBoard.text = (const char8_t*)gTimeBuffer;
+
+    drawPlayerHealth();
 
     scoreTicker += delta;
     totalTime += delta;
@@ -895,6 +929,25 @@ static void runGameSystems(game::World& world, float delta) {
         PlayerInputComp *pInput = pEntity->get<PlayerInputComp>();
         TransformComp *pTransform = pEntity->get<TransformComp>();
         ShootComp *pShoot = pEntity->get<ShootComp>();
+
+        if (gPlayerHealth == 0) {
+            timeDead += delta;
+            // move back and forth in a square wave pattern for 3 seconds when dead
+
+            if (timeDead < 3.f) {
+                float x = squareWave(timeDead, 4.f) * 0.2f;
+                pTransform->position.x = deadx + x;
+
+                // spin the player
+                pTransform->rotation.z += squareWave(timeDead, 2.f) * 90.f * math::kDegToRad<float>;
+
+                // scale to 0 over 3 seconds (initial scale is 0.6 for reasons)
+                pTransform->scale = 0.6f * (1.f - (timeDead / 3.f));
+            } else {
+                gScene = eScoreScene;
+            }
+            break;
+        }
 
         float3& pos = pTransform->position;
 
@@ -1056,15 +1109,16 @@ static void runGameSystems(game::World& world, float delta) {
 
         pBehaviour->lastMove = 0.f;
 
-        bool bAtSideEdge = pTransform->position.x <= 0.f || pTransform->position.x >= kWorldBounds.x - 0.7f;
-        bool bAtTopOrBottomEdge = pTransform->position.z <= 1.f || pTransform->position.z >= kWorldBounds.y;
-
-        if (bAtSideEdge) {
-            pBehaviour->direction.x *= -1.f;
+        if (pTransform->position.x <= 1.f) {
+            pBehaviour->direction.x = 1.f;
+        } else if (pTransform->position.x >= kWorldBounds.x - 1.f) {
+            pBehaviour->direction.x = -1.f;
         }
 
-        if (bAtTopOrBottomEdge) {
-            pBehaviour->direction.y *= -1.f;
+        if (pTransform->position.z <= 1.f) {
+            pBehaviour->direction.y = 1.f;
+        } else if (pTransform->position.z >= kWorldBounds.y - 1.f) {
+            pBehaviour->direction.y = -1.f;
         }
 
         pTransform->position.x += pBehaviour->direction.x * kTileSize.x;
@@ -1103,6 +1157,13 @@ static void runGameSystems(game::World& world, float delta) {
         if (IEntity *pHit = getAlienHit(pTransform->position.xz())) {
             if (HealthComp *pHealth = pHit->get<HealthComp>()) {
                 pHealth->takeHit();
+                gPlayerHealth = pHealth->currentHealth;
+
+                if (!pHealth->isAlive()) {
+                    gPlayerHealth = 0;
+                    deadx = pTransform->position.x;
+                    updatePlayingMusic(0.f);
+                }
             }
 
             workQueue.add("delete", [pEntity] { 
@@ -1116,7 +1177,7 @@ static void runGameSystems(game::World& world, float delta) {
     for (IEntity *pEntity : world.allWith<HealthComp>()) {
         HealthComp *pHealth = pEntity->get<HealthComp>();
 
-        if (!pHealth->isAlive()) {
+        if (!pHealth->isAlive() && !pHealth->bIsPlayer) {
             workQueue.add("delete", [pEntity] { 
                 World *pWorld = pEntity->getWorld();
                 pWorld->destroy(pEntity);
@@ -1192,7 +1253,8 @@ static void runMenuSystems(game::World& world, float delta) {
 }
 
 static void runScoreSystems(game::World& world, float delta) {
-
+    GameService::getScene()
+        ->update({ });
 }
 
 static void runSystems(game::World& world, float delta) {
@@ -1245,79 +1307,39 @@ static void commonMain() {
     layout.atlas = pHud->pFontAtlas->getInner()->getAtlas();
     layout.shapers.emplace_back(pHud->pFontAtlas->getInner()->getTextShaper(0));
 
+    // score
+
     gScoreText.align.h = game_ui::AlignH::eLeft;
     gScoreText.align.v = game_ui::AlignV::eTop;
     gScoreBoard.align.h = game_ui::AlignH::eLeft;
     gScoreBoard.align.v = game_ui::AlignV::eTop;
 
-    game_ui::TextWidget text = { u8"Hello world" };
-    game_ui::TextWidget text2 = { u8"" SM_XB_LOGO SM_XB_VIEW SM_XB_MENU };
+    gScoreText.padding.x = 25.f;
 
-    game_ui::HStackWidget hstack;
     game_ui::HStackWidget scoreboard;
-
     scoreboard.add(&gScoreText);
     scoreboard.add(&gScoreBoard);
 
-    hstack.add(&scoreboard);
-    hstack.add(&text);
-    hstack.add(&text2);
+    // health
 
-    auto handle = editor_ui::addGlobalHandle("ui", [&layout, &text, &text2, &hstack] {
-        const char *kVerticalAlign[] = { "top", "center", "bottom" };
-        const char *kHorizontalAlign[] = { "left", "center", "right" };
+    gHealthText.align.h = game_ui::AlignH::eRight;
+    gHealthText.align.v = game_ui::AlignV::eBottom;
+    gHealthBoard.align.h = game_ui::AlignH::eRight;
+    gHealthBoard.align.v = game_ui::AlignV::eBottom;
 
-        {
-            static char buffer[256] = { 0 };
-            if (ImGui::InputText("text", buffer, 256)) {
-                text.text = (char8_t*)buffer;
-            }
+    gHealthBoard.scale = 4.f;
 
-            int halign = (int)text.align.h;
-            int valign = (int)text.align.v;
+    // yellow
+    gHealthBoard.colour = game_ui::uint8x4(0xff, 0xff, 0x00, 0xff);
+    gHealthText.colour = game_ui::uint8x4(0xff, 0xff, 0x00, 0xff);
 
-            ImGui::Combo("vertical align##text", &valign, kVerticalAlign, 3);
-            ImGui::Combo("horizontal align##text", &halign, kHorizontalAlign, 3);
+    game_ui::HStackWidget healthboard;
+    healthboard.add(&gHealthText);
+    healthboard.add(&gHealthBoard);
 
-            text.align = {
-                .v = (game_ui::AlignV)valign,
-                .h = (game_ui::AlignH)halign
-            };
-        }
-        ImGui::SeparatorText("text2");
-
-        {
-            static char buffer[256] = { 0 };
-            if (ImGui::InputText("text2", buffer, 256)) {
-                text2.text = (char8_t*)buffer;
-            }
-
-            int halign = (int)text2.align.h;
-            int valign = (int)text2.align.v;
-
-            ImGui::Combo("vertical align##text2", &valign, kVerticalAlign, 3);
-            ImGui::Combo("horizontal align##text2", &halign, kHorizontalAlign, 3);
-
-            text2.align = {
-                .v = (game_ui::AlignV)valign,
-                .h = (game_ui::AlignH)halign
-            };
-        }
-        ImGui::SeparatorText("hstack");
-        
-        {
-            int halign = (int)hstack.align.h;
-            int valign = (int)hstack.align.v;
-
-            ImGui::Combo("vertical align##hstack", &valign, kVerticalAlign, 3);
-            ImGui::Combo("horizontal align##hstack", &halign, kHorizontalAlign, 3);
-
-            hstack.align = {
-                .v = (game_ui::AlignV)valign,
-                .h = (game_ui::AlignH)halign
-            };
-        }
-    });
+    game_ui::HStackWidget gameui;
+    gameui.add(&scoreboard);
+    gameui.add(&healthboard);
 
     initEntities(world);
 
@@ -1327,7 +1349,7 @@ static void commonMain() {
     while (bRunning) {
         ThreadService::pollMain();
 
-        layout.begin(&hstack);
+        layout.begin(&gameui);
 
         pHud->update(layout);
 

@@ -11,8 +11,8 @@ namespace game_ui = game::ui;
 using Layout = game_ui::Context;
 
 BoxBounds TextWidget::draw(Context *pContext, const DrawInfo& info) const {
-    TextDrawInfo drawInfo = { text, align, scale, shaper };
-    BoxBounds box = pContext->text(info.bounds, info.colour, drawInfo);
+    TextDrawInfo drawInfo = { text, align, scale, shaper, padding };
+    BoxBounds box = pContext->text(info.bounds, colour, drawInfo);
     if (bDrawBox) {
         float border = 2.f;
         float2 min = box.min - border;
@@ -222,24 +222,26 @@ BoxBounds Layout::text(const BoxBounds& inBounds, uint8x4 colour, const TextDraw
 
     switch (info.align.v) {
     case AlignV::eTop:
+        offset.y -= info.padding.y;
         break;
     case AlignV::eMiddle:
         offset.y -= (bounds.max.y - bounds.min.y) / 2.f - (textMax.y - textMin.y) / 2.f;
         break;
     case AlignV::eBottom:
-        offset.y -= bounds.max.y - textMax.y - (textMax.y - textMin.y);
+        offset.y -= bounds.max.y - textMax.y - (textMax.y - textMin.y) - info.padding.y;
         break;
     default: SM_NEVER("invalid align");
     }
 
     switch (info.align.h) {
     case AlignH::eLeft:
+        offset.x += info.padding.x;
         break;
     case AlignH::eCenter:
         offset.x += (bounds.max.x - bounds.min.x) / 2.f - (textMax.x - textMin.x) / 2.f;
         break;
     case AlignH::eRight: {
-        offset.x += (bounds.max.x - bounds.min.x) - (textMax.x - textMin.x);
+        offset.x += (bounds.max.x - bounds.min.x) - (textMax.x - textMin.x) - info.padding.x;
         break;
     }
     default: SM_NEVER("invalid align");
@@ -250,5 +252,8 @@ BoxBounds Layout::text(const BoxBounds& inBounds, uint8x4 colour, const TextDraw
         vertices[i].position += offset;
     }
 
-    return { offset - textMin, textMax + offset };
+    return {
+        offset - textMin, 
+        textMax + offset
+    };
 }

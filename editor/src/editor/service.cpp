@@ -201,6 +201,9 @@ struct EditorUi final : eg::IGuiPass {
         float x = (ImGui::GetWindowWidth() - totalWidth) / 2.f;
         float y = (ImGui::GetWindowHeight() - totalHeight) / 2.f;
 
+        // nudge it down a bit
+        y += 16.f;
+
         ImGui::SetCursorPos({ x, y });
 
         ImGui::Image((ImTextureID)offset, { totalWidth, totalHeight });

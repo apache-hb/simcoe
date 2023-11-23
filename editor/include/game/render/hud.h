@@ -12,6 +12,9 @@
 #define SM_XB_VIEW "\uE002"
 #define SM_XB_MENU "\uE003"
 
+#define SM_PLAYER_ICON "\uE004"
+#define SM_NAME_UNDERLINE "\uE005"
+
 namespace game::render {
     struct UiVertexBufferHandle final : ISingleResourceHandle<rhi::VertexBuffer> {
         using Super = ISingleResourceHandle<rhi::VertexBuffer>;

@@ -50,6 +50,7 @@ namespace game::ui {
     struct DrawInfo {
         BoxBounds bounds;
         uint8x4 colour;
+        float2 padding;
     };
 
     struct IWidget {
@@ -57,8 +58,8 @@ namespace game::ui {
 
         virtual BoxBounds draw(Context *pContext, const DrawInfo& info) const = 0;
 
-        float2 minsize;
-        float2 maxsize; // set to 0,0 for no max size
+        // outer padding
+        float2 padding = 4.f;
 
         Align align;
     };
@@ -68,6 +69,7 @@ namespace game::ui {
         Align align;
         float scale = 1.f;
         size_t shaper = 0;
+        float2 padding;
     };
 
     struct TextWidget final : IWidget {
@@ -80,6 +82,7 @@ namespace game::ui {
         float scale = 3.f;
         bool bDrawBox = true;
         size_t shaper = 0;
+        uint8x4 colour = { 255, 255, 255, 255 };
 
         utf8::StaticText text;
     };
