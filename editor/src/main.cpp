@@ -1324,10 +1324,11 @@ static void commonMain() {
 
     gHealthText.align.h = game_ui::AlignH::eRight;
     gHealthText.align.v = game_ui::AlignV::eBottom;
-    gHealthBoard.align.h = game_ui::AlignH::eRight;
+    gHealthBoard.align.h = game_ui::AlignH::eCenter;
     gHealthBoard.align.v = game_ui::AlignV::eBottom;
 
-    gHealthBoard.scale = 4.f;
+    gHealthBoard.scale = 3.f;
+    gHealthBoard.padding.x = 25.f;
 
     // yellow
     gHealthBoard.colour = game_ui::uint8x4(0xff, 0xff, 0x00, 0xff);

@@ -80,7 +80,7 @@ namespace game::ui {
         BoxBounds draw(Context *pContext, const DrawInfo& info) const override;
 
         float scale = 3.f;
-        bool bDrawBox = true;
+        bool bDrawBox = false;
         size_t shaper = 0;
         uint8x4 colour = { 255, 255, 255, 255 };
 
