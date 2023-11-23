@@ -550,8 +550,9 @@ bool EditorService::createService() {
     auto *pHudPass = pGraph->addPass<gr::HudPass>(pSceneTarget->as<IRTVHandle>());
     GameService::setup(pHudPass, pScenePass);
 
-    pGraph->addPass<EditorUi>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
+    //pGraph->addPass<EditorUi>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
 
+    pGraph->addPass<eg::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
     pGraph->addPass<eg::PresentPass>(pBackBuffers);
 
     return true;
