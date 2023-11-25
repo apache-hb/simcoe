@@ -1,3 +1,4 @@
+#include <queue>
 #define _CRT_SECURE_NO_WARNINGS 1
 
 // core
@@ -858,6 +859,30 @@ static char gScoreBuffer[64] = { 0 };
 static char gTimeBuffer[64] = { 0 };
 static char gHealthBuffer[64] = { 0 };
 
+std::string randomName() {
+    // random 4 letter name
+    std::string name;
+    for (size_t i = 0; i < 4; i++) {
+        name += (char)('A' + (rand() % 26));
+    }
+
+    return name;
+}
+
+struct Score {
+    std::string name;
+    int32_t score;
+};
+
+template<>
+struct std::less<Score> {
+    bool operator()(const Score& a, const Score& b) const {
+        return a.score < b.score;
+    }
+};
+
+std::priority_queue<Score> scores;
+
 static void drawPlayerHealth() {
     // draw SM_PLAYER_ICON for each health point
     snprintf(gHealthBuffer, 32, "%s", "");
@@ -1163,6 +1188,7 @@ static void runGameSystems(game::World& world, float delta) {
                     gPlayerHealth = 0;
                     deadx = pTransform->position.x;
                     updatePlayingMusic(0.f);
+                    scores.push({ randomName(), gScore });
                 }
             }
 
@@ -1341,6 +1367,15 @@ static void commonMain() {
     game_ui::HStackWidget gameui;
     gameui.add(&scoreboard);
     gameui.add(&healthboard);
+
+    game_ui::VStackWidget scores;
+    scores.align.h = game_ui::AlignH::eCenter;
+    scores.align.v = game_ui::AlignV::eMiddle;
+
+    game_ui::TextWidget title = { u8"Game Over" };
+    title.scale = 3.f;
+
+    scores.add(&title);
 
     initEntities(world);
 
