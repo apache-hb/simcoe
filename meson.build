@@ -348,6 +348,7 @@ copy = generator(copy_asset_script,
 
 # TODO: really need a depot config soon
 fs.copyfile('data/config/MicrosoftGame.Config')
+fs.copyfile('config.toml')
 
 src = [
     'editor/src/main.cpp',

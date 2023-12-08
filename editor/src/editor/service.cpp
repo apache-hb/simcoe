@@ -540,7 +540,7 @@ struct EditorUi final : eg::IGuiPass {
 
 bool EditorService::createService() {
     auto *pGraph = RenderService::getGraph();
-    
+
     auto *pBackBuffers = pGraph->addResource<eg::SwapChainHandle>();
     auto *pSceneTarget = pGraph->addResource<eg::SceneTargetHandle>();
     auto *pDepthTarget = pGraph->addResource<eg::DepthTargetHandle>();
@@ -550,9 +550,9 @@ bool EditorService::createService() {
     auto *pHudPass = pGraph->addPass<gr::HudPass>(pSceneTarget->as<IRTVHandle>());
     GameService::setup(pHudPass, pScenePass);
 
-    //pGraph->addPass<EditorUi>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
+    pGraph->addPass<EditorUi>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
 
-    pGraph->addPass<eg::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
+    //pGraph->addPass<eg::PostPass>(pBackBuffers->as<IRTVHandle>(), pSceneTarget->as<ISRVHandle>());
     pGraph->addPass<eg::PresentPass>(pBackBuffers);
 
     return true;

@@ -48,14 +48,13 @@ meson setup build --cross-file data/config/meson/base.ini --cross-file data/conf
     * ideally we could generate ninja files as well
 
 * resizing the window causes d3d12 errors
-* use a font atlas for rendering UI
 
 ## random bits
 
 * join the windows desktop application program and get a cert
 
 * get std::formatter support into toml++
-* nag mesonbuild to support pulling a specific git commit 
+* nag mesonbuild to support pulling a specific git commit
 * have a look at how the ryzenmonitor sdk+driver works internally
 * upstream libpng meson changes
 * figure out why meson+windows+shared libraries are broken by default

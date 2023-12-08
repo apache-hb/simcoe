@@ -116,7 +116,7 @@ struct GameInputClient final : public input::IClient {
     using IClient::IClient;
 
     void onInput(const State& event) override {
-        state = event;    
+        state = event;
 
         quitEventKey.update(state.buttons[Button::eKeyEscape]);
         quitEventGamepad.update(state.buttons[Button::ePadBack]);
@@ -227,7 +227,7 @@ struct IAssetComp : public IComponent {
     fs::path path;
 };
 
-struct MeshComp : public IAssetComp { 
+struct MeshComp : public IAssetComp {
     using IAssetComp::IAssetComp;
     static constexpr const char *kTypeName = "obj_mesh";
 
@@ -491,7 +491,7 @@ struct ShootComp : public IComponent {
 
 // model transform
 
-struct TransformComp : public IComponent { 
+struct TransformComp : public IComponent {
     using IComponent::IComponent;
     static constexpr const char *kTypeName = "transform";
 
@@ -674,7 +674,7 @@ static void updatePlayingMusic(float delta) {
     if (gPlayerHealth == 1) {
         chosenNoise = 4;
         bNewLowest = true;
-    } 
+    }
     // if theres more than 4 eggs alive move to track 3
     else if (gCurrentAliveEggs > 4 || gCurrentAliveSwarm > 3) {
         chosenNoise = 3;
@@ -693,7 +693,7 @@ static void updatePlayingMusic(float delta) {
         gSwarmVoice->setVolume(volume);
     } else if (30.f > gElapsed) {
         bNewLowest = true;
-    } 
+    }
 
     setNewNoise(chosenNoise, bNewLowest);
 }
@@ -705,6 +705,36 @@ enum CurrentScene {
 };
 
 CurrentScene gScene = eGameScene;
+
+static void initGameEntities(game::World& world) {
+    gPlayerHealth = 3;
+
+    gPlayerEntity = world.entity("player")
+        .add<PlayerInputComp>()
+        .add<ShootComp>(0.3f, 9.f, gShootSound)
+        .add<HealthComp>(3, 5, gPlayerHitSound, gPlayerDeathSound, true)
+        .add(gPlayerMesh).add(gPlayerTexture)
+        .add<TransformComp>(float3(0.f, 0.f, 20.4f), float3(-90.f, 0.f, 90.f).radians(), 0.5f);
+
+    world.entity("alien")
+        .add<AlienShipBehaviour>(0.7f, 1.5f, 1.5f)
+        .add(gAlienMesh).add(gAlienTexture)
+        .add<TransformComp>(float3(0.f, 0.f, 21.6f), float3(-90.f, 90.f, 0.f).radians(), 0.6f);
+}
+
+static void destroyAliens(game::World& world) {
+    for (IEntity *pEntity : world.allWith<AlienShipBehaviour>()) {
+        world.destroy(pEntity);
+    }
+
+    for (IEntity *pEntity : world.allWith<SwarmBehaviour>()) {
+        world.destroy(pEntity);
+    }
+
+    for (IEntity *pEntity : world.allWith<EggBehaviour>()) {
+        world.destroy(pEntity);
+    }
+}
 
 static void initEntities(game::World& world) {
     world.onCreate<TransformComp>([](TransformComp *pTransform) {
@@ -719,6 +749,10 @@ static void initEntities(game::World& world) {
 
         auto *pGpu = pWorld->component<GpuOrthoCameraComp>(pCamera);
         pCamera->associate(pGpu);
+    });
+
+    world.onDestroy<TransformComp>([](TransformComp *pTransform) {
+        pTransform->associate(nullptr);
     });
 
     gGridMesh = world.component<MeshComp>("grid.model");
@@ -756,19 +790,7 @@ static void initEntities(game::World& world) {
 
     initNoise();
 
-    gPlayerHealth = 3;
-
-    gPlayerEntity = world.entity("player")
-        .add<PlayerInputComp>()
-        .add<ShootComp>(0.3f, 9.f, gShootSound)
-        .add<HealthComp>(3, 5, gPlayerHitSound, gPlayerDeathSound, true)
-        .add(gPlayerMesh).add(gPlayerTexture)
-        .add<TransformComp>(float3(0.f, 0.f, 20.4f), float3(-90.f, 0.f, 90.f).radians(), 0.5f);
-
-    world.entity("alien")
-        .add<AlienShipBehaviour>(0.7f, 1.5f, 1.5f)
-        .add(gAlienMesh).add(gAlienTexture)
-        .add<TransformComp>(float3(0.f, 0.f, 21.6f), float3(-90.f, 90.f, 0.f).radians(), 0.6f);
+    initGameEntities(world);
 
     gCamera = world.entity<CameraEntity>("camera")
         .add<OrthoCameraComp>(float3(14.f, -10.f, 10.6f), (kWorldForward * 90.f).radians());
@@ -776,7 +798,7 @@ static void initEntities(game::World& world) {
     world.entity("grid")
         .add(gGridMesh).add(gGridTexture)
         // scale is non-uniform to emulate original the vic20 display being non-square
-        .add<TransformComp>(float3(0.f, 1.f, 0.f), float3(-90.f, 90.f, 0.f).radians(), float3(0.7f, 0.6f, 0.7f)); 
+        .add<TransformComp>(float3(0.f, 1.f, 0.f), float3(-90.f, 90.f, 0.f).radians(), float3(0.7f, 0.6f, 0.7f));
 }
 
 constexpr float2 kTileSize = { 1.4f, 1.2f };
@@ -956,6 +978,8 @@ static void runGameSystems(game::World& world, float delta) {
         ShootComp *pShoot = pEntity->get<ShootComp>();
 
         if (gPlayerHealth == 0) {
+            destroyAliens(world);
+
             timeDead += delta;
             // move back and forth in a square wave pattern for 3 seconds when dead
 
@@ -1042,7 +1066,7 @@ static void runGameSystems(game::World& world, float delta) {
         pTransform->position.z += pProjectile->speed.y * delta;
 
         if (!isBulletInBounds(pTransform->position.xz())) {
-            workQueue.add("delete", [pEntity] { 
+            workQueue.add("delete", [pEntity] {
                 World *pWorld = pEntity->getWorld();
                 pWorld->destroy(pEntity);
             });
@@ -1168,7 +1192,7 @@ static void runGameSystems(game::World& world, float delta) {
                 gScore += 250;
             }
 
-            workQueue.add("delete", [pEntity] { 
+            workQueue.add("delete", [pEntity] {
                 World *pWorld = pEntity->getWorld();
                 pWorld->destroy(pEntity);
             });
@@ -1192,7 +1216,7 @@ static void runGameSystems(game::World& world, float delta) {
                 }
             }
 
-            workQueue.add("delete", [pEntity] { 
+            workQueue.add("delete", [pEntity] {
                 World *pWorld = pEntity->getWorld();
                 pWorld->destroy(pEntity);
             });
@@ -1204,7 +1228,7 @@ static void runGameSystems(game::World& world, float delta) {
         HealthComp *pHealth = pEntity->get<HealthComp>();
 
         if (!pHealth->isAlive() && !pHealth->bIsPlayer) {
-            workQueue.add("delete", [pEntity] { 
+            workQueue.add("delete", [pEntity] {
                 World *pWorld = pEntity->getWorld();
                 pWorld->destroy(pEntity);
             });
@@ -1279,6 +1303,40 @@ static void runMenuSystems(game::World& world, float delta) {
 }
 
 static void runScoreSystems(game::World& world, float delta) {
+    auto& workQueue = GameService::getWorkQueue();
+
+    for (IEntity *ent : world.allWith<PlayerInputComp>()) {
+        PlayerInputComp *comp = ent->get<PlayerInputComp>();
+        if (comp->isShootPressed()) {
+            world.destroy(gPlayerEntity);
+            gPlayerEntity = nullptr;
+
+            initGameEntities(world);
+
+            workQueue.add("reset", [] {
+                gScene = eGameScene;
+                gPlayerHealth = 3;
+                totalTime = 0.f;
+                scoreTicker = 0.f;
+                bScore10Seconds = false;
+                bScore30Seconds = false;
+                bScore60Seconds = false;
+                gScore = 0;
+                gCurrentAliveEggs = 0;
+                gCurrentAliveSwarm = 0;
+                timeDead = 0.f;
+                deadx = 0.f;
+                gCurrentNoiseIndex = -1;
+                gLowestNoiseIndex = 0;
+                gSwarmVoice->reset();
+                gSwarmVoice->resume();
+                initNoise();
+                scores = std::priority_queue<Score>();
+            });
+
+            break;
+        }
+    }
     GameService::getScene()
         ->update({ });
 }
@@ -1291,7 +1349,7 @@ static void runSystems(game::World& world, float delta) {
     // LOG_INFO("=== update ===");
 
     switch (gScene) {
-    case eGameScene: 
+    case eGameScene:
         updatePlayingMusic(delta);
         runGameSystems(world, delta);
         break;
@@ -1375,7 +1433,10 @@ static void commonMain() {
     game_ui::TextWidget title = { u8"Game Over" };
     title.scale = 3.f;
 
+    game_ui::TextWidget retry = { u8"Press space to retry" };
+
     scores.add(&title);
+    scores.add(&retry);
 
     initEntities(world);
 
@@ -1385,7 +1446,17 @@ static void commonMain() {
     while (bRunning) {
         ThreadService::pollMain();
 
-        layout.begin(&gameui);
+        switch (gScene) {
+        case eGameScene:
+            layout.begin(&gameui);
+            break;
+        case eScoreScene:
+            layout.begin(&scores);
+            break;
+
+        default:
+            break;
+        }
 
         pHud->update(layout);
 

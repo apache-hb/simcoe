@@ -2,7 +2,10 @@
   <Chunk Id="1000" Marker="Launch">
     <FileGroup DestinationPath="." SourcePath="." Include="MicrosoftGame.Config" />
     <FileGroup DestinationPath="." SourcePath="." Include="editor.exe" />
+    <FileGroup DestinationPath="." SourcePath="." Include="config.toml" />
     <FileGroup DestinationPath=".\editor.exe.p" SourcePath=".\editor.exe.p" Include="*.cso" />
+    <FileGroup DestinationPath=".\editor.exe.p" SourcePath=".\editor.exe.p" Include="*.ttf" />
+    <FileGroup DestinationPath=".\editor.exe.p" SourcePath=".\editor.exe.p" Include="*.ogg" />
     <FileGroup DestinationPath=".\editor.exe.p" SourcePath=".\editor.exe.p" Include="*.png" />
     <FileGroup DestinationPath=".\editor.exe.p" SourcePath=".\editor.exe.p" Include="*.model" />
     <FileGroup DestinationPath=".\editor.exe.p" SourcePath=".\editor.exe.p" Include="imgui.ini" />

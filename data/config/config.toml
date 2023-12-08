@@ -18,7 +18,7 @@ wait_interval = 100
 
     [depot.vfs]
     mode = 'read'
-    root = '$exe/editor.exe.p'
+    root = '$cwd/editor.exe.p'
 
 [game]
 entity_limit = 4096
